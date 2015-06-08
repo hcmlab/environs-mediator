@@ -1,1 +1,17 @@
 .DS_Store
+xcshareddata
+*.conf
+*.db
+*.data
+*.log
+*.user
+*.java
+*.sdf
+*.suo
+Debug
+Release
+ipch
+x64
+*.devmap
+xcuserdata
+

@@ -27,6 +27,7 @@ domerge=0
 doprepare=0
 data=
 dscan=0
+getLatestMerger=0
 syncBeforeMerge=1
 
 # Parse branch
@@ -49,9 +50,14 @@ if [[ $# > 0 ]]; then
     [[ "$1" == "1" ]] && dscan=1
     
     if [[ $# > 1 ]]; then
-    	[[ "$2" == "1" ]] && dryrun=1
-	
-	    [[ $# > 2 ]] && data=$3  
+		syncBeforeMerge=$2
+		
+		if [[ $# > 2 ]]; then
+		    dryrun=$3
+		    if [[ $# > 3 ]]; then
+				data=$4
+		    fi
+		fi	 
     fi
       
 fi
@@ -125,7 +131,7 @@ echo Collected:$# $data $dryrun $dscan
 echo -e "\nStashing current working state of ${data}..."
 git stash -u
 
-if [[ "$syncBeforeMerge" != "0" ]]; then
+if [[ "$getLatestMerger" != "0" ]]; then
 	echo -e "\nUpdating develop branch to the latest HEAD revision ...\n"
 
 	echo -e "\nFetching origin ..."
@@ -146,7 +152,7 @@ echo -e "\nget merger tools..."
 execheck "cp '${MERGE_HELPER_TOOLS_REPO}'/* '${SCRIPTPATH}'/."
 chmod ogu+x "${SCRIPTPATH}"/*
 
-if [[ "$syncBeforeMerge" != "0" ]]; then
+if [[ "$getLatestMerger" != "0" ]]; then
 	echo -e "\nSwitching back to branch $data ..."
 	execheck "git checkout ${data}"
 	
@@ -166,7 +172,7 @@ echo -e
 echo -n "Invoking merge ..."
 echo -e
 
-"${DEST}"/git-update.sh $data $dscan $dryrun
+"${DEST}"/git-update.sh $data $dscan $syncBeforeMerge $dryrun
 [[ $? != 0 ]] && echo "Error." && exit 1
 
 git status >status.log

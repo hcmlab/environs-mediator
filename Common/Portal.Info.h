@@ -1,0 +1,67 @@
+/**
+ * Portal information
+ * ------------------------------------------------------------------
+ * Copyright (c) Chi-Tai Dang
+ *
+ * @author	Chi-Tai Dang
+ * @version	1.0
+ * @remarks
+ *
+ * This file is part of the Environs framework developed at the
+ * Lab for Human Centered Multimedia of the University of Augsburg.
+ * http://hcm-lab.de/environs
+ *
+ * Environ is free software; you can redistribute it and/or modify
+ * it under the terms of the Eclipse Public License v1.0.
+ * A copy of the license may be obtained at:
+ * http://www.eclipse.org/org/documents/epl-v10.html
+ * --------------------------------------------------------------------
+ */
+#pragma once
+#ifndef INCLUDE_HCM_ENVIRONS_PORTALINFO_H
+#define INCLUDE_HCM_ENVIRONS_PORTALINFO_H
+
+
+/* Namespace: environs -> */
+namespace environs
+{
+	/**
+	*	A PortalInfo object serves as container for portal information.
+    *   Environs makes use of such objects to get/set portal details.
+	*
+	*	@author		Chi-Tai Dang, dang@hcm-lab.de, University of Augsburg
+	*	@version	1.0
+	*	@remarks	current size is (4 + 4 + 4 + 4 + 4) = 20 bytes
+	* ****************************************************************************************
+	*/
+	typedef struct _PortalInfo
+	{
+		unsigned int deviceID;
+		int portalID;
+		int flags;
+
+		int centerX;
+		int centerY;
+		int width;
+		int height;
+		float orientation;
+	}
+	PortalInfo;
+
+	typedef struct _PortalInfos
+	{
+		int portalID;
+		int flags;
+
+		int centerX;
+		int centerY;
+		int width;
+		int height;
+		float orientation;
+	}
+	PortalInfos;
+
+} /* namepace Environs */
+
+
+#endif // INCLUDE_HCM_ENVIRONS_PORTALINFO_H

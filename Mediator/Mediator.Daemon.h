@@ -1,0 +1,260 @@
+/**
+ * Mediator Server main class
+ * ------------------------------------------------------------------
+ * Copyright (c) Chi-Tai Dang
+ *
+ * @author	Chi-Tai Dang
+ * @version	1.0
+ * @remarks
+ *
+ * This file is part of the Environs framework developed at the
+ * Lab for Human Centered Multimedia of the University of Augsburg.
+ * http://hcm-lab.de/environs
+ *
+ * Environ is free software; you can redistribute it and/or modify
+ * it under the terms of the Eclipse Public License v1.0.
+ * A copy of the license may be obtained at:
+ * http://www.eclipse.org/org/documents/epl-v10.html
+ * --------------------------------------------------------------------
+ */
+#pragma once
+#ifndef ENVIRONS_MEDIATOR_H
+#define ENVIRONS_MEDIATOR_H
+
+#include "Mediator.h"
+using namespace environs;
+
+#include <vector>
+#include <map>
+#include <string>
+#include <ctime>
+using namespace std;
+
+#ifdef WIN32
+// -> Windows specific includes
+#include <WinSock2.h>
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#endif
+
+#define ENABLE_LIST_CLEANER	
+
+#define CONFFILE						"mediator.conf"
+#define DATAFILE						"mediator.data"
+#define DEVMAPFILE						"mediator.devmap"
+#define LOGFILE							"mediator.log"
+#define USERSDBFILE						"users.db"
+
+
+// Default configuration
+
+typedef struct _ValuePack
+{
+	string			value;
+	unsigned int	size;
+	int				timestamp;
+} ValuePack;
+
+
+typedef struct _projectApps
+{
+	unsigned int								id;
+	std::map<std::string, ApplicationDevices*>	apps;
+
+    map<long long, ThreadInstance *>            notifyTargets;
+}
+ProjectApps;
+
+
+typedef struct _AppsList
+{
+	map<string, map<string, ValuePack*>*> apps;
+}
+AppsList;
+
+
+typedef struct _DeviceMapping
+{
+	unsigned int	deviceID;
+
+	char			authToken [ MAX_NAMEPROPERTY + 1 ];
+}
+DeviceMapping;
+
+
+class MediatorDaemon : public environs::Mediator
+{
+public:
+	MediatorDaemon ( );
+	~MediatorDaemon ( );
+	
+	bool									InitMediator ( );
+	void									PrintSmallHelp ( );
+	void									PrintHelp ( );
+
+	bool									OpenLog ( );
+	bool									CloseLog ( );
+
+	void									InitDefaultConfig ( );
+	bool									LoadConfig ( );
+	bool									LoadProjectValues ( );
+	bool									LoadUserDBEnc ( );
+	bool									LoadUserDB ( );
+	bool									LoadKeys ( );
+	void									ReleaseKeys ( );
+	bool									SaveConfig ( );
+	bool									SaveProjectValues ( );
+	bool									SaveUserDB ( );
+	bool									AddUser ( const char * userName, const char * pass );
+	
+	bool									LoadDeviceMappingsEnc ();
+	bool									LoadDeviceMappings ();
+	bool									SaveDeviceMappings ();
+
+	bool									CreateThreads ( );
+	void									Run ( );
+
+	void									Dispose ( );
+	bool									ReleaseThreads ( );
+	
+	void									ReleaseDevices ( );
+	void									ReleaseDeviceMappings ( );
+	void									ReleaseClient ( ThreadInstance * client );
+
+	void									BuildBroadcastMessage ( );
+	
+private:
+	bool									allocated;
+	pthread_mutex_t							thread_mutex;
+	pthread_cond_t							thread_condition;
+
+	vector<unsigned short>					ports;
+	vector<MediatorThreadInstance *>		listeners;
+
+	pthread_mutex_t							acceptClientsMutex;
+	vector<ThreadInstance *>				acceptClients;
+
+	ApplicationDevices *					GetApplicationDevices ( const char * projectName, const char * appName );
+	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
+	DeviceInstance *						GetDeviceInstance ( unsigned int deviceID, DeviceInstance * devices );
+
+	ThreadInstance						*	GetSessionClient ( long long sessionID );
+
+    map<long long, ThreadInstance *>        notifyTargets;
+    void                                    UpdateNotifyTargets ( ThreadInstance * client, int filterMode );
+
+	unsigned int							CollectDevicesCount ( DeviceInstance * sourceDevice, int filterMode );
+
+	pthread_mutex_t							projectsMutex;
+	map<string, AppsList * >				projects;
+
+	bool									reqAuth;
+	pthread_mutex_t							usersDBMutex;
+	map<string, string>						usersDB;
+
+	map<string, DeviceMapping *>			deviceMappings;
+
+	char									inputBuffer [BUFFERSIZE];
+	char	*								input;
+		
+	unsigned int							sessionCounter;
+	map<long long, ThreadInstance *>        sessions;
+
+	unsigned int							spareID;
+	map<unsigned int, ThreadInstance *>		spareClients;
+
+	char								*	privKey;
+	unsigned int							privKeySize;
+    unsigned int                            encPadding;
+    AESContext                              aesCtx;
+    char                                    aesKey [ 32 ];
+	
+	DeviceInstance **						GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, 
+													unsigned int ** pDevicesAvailable, ApplicationDevices ** appDevices );
+	
+	unsigned int							projectCounter;
+	map<unsigned int, string>				projectIDs;
+
+	unsigned int							appsCounter;
+	map<unsigned int, string>				appIDs;
+
+	std::map<std::string, ProjectApps * >	projectsList;
+	
+	void									RemoveDevice ( unsigned int ip, char * msg );
+	void									RemoveDevice ( DeviceInstance * device, bool useLock = true );
+	void									RemoveDevice ( unsigned int deviceID, const char * projectName, const char * appName );
+
+    unsigned int                            bannAfterTries;
+	pthread_mutex_t							bannedIPsMutex;
+    std::map<unsigned int, std::time_t>		bannedIPs;
+    std::map<unsigned int, unsigned int>	bannedIPConnects;
+
+    bool									IsIpBanned ( unsigned int ip );
+    void									BannIP ( unsigned int ip );
+	void									BannIPRemove ( unsigned int ip );
+
+	int										ScanForParameters ( char * buffer, unsigned int maxLen, const char * delim, char ** params, int maxParams );
+
+	bool									addToProject ( map<string, ValuePack*> * values, const char * key, const char * value, unsigned int valueSize );
+	bool									addToProject ( const char * project, const char * app, const char * key, const char * value );
+	bool									sendDatabase ( int sock, struct sockaddr * addr );
+	
+	int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true );
+	bool									SendPushNotification ( map<string, ValuePack*> * values, int clientID, const char * value );
+	bool									HTTPPostRequest ( string domain, string path, string key, string jsonData );
+
+	void *									BroadcastThread ( );
+
+	static void *							AcceptorStarter ( void *arg );
+	void *									Acceptor ( void *arg );
+
+	static void *							MediatorUdpThreadStarter ( void *arg );
+	void *									MediatorUdpThread ( void *arg );
+
+	static void *							ClientThreadStarter ( void *arg );
+	void *									ClientThread ( void *arg );
+
+	bool									HandleRequest ( char * buffer, ThreadInstance * client );
+	bool									UpdateDeviceRegistry ( DeviceInstance * device, unsigned int ip, char * msg );
+
+	int										HandleRegistration ( unsigned int &deviceID, ThreadInstance * client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+
+	bool									HandleDeviceRegistration ( ThreadInstance * client, unsigned int ip, char * msg );
+	bool									SecureChannelAuth ( ThreadInstance * client );
+//	bool									SecureChannel ( ThreadInstance * client );
+	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, ThreadInstance * orgClient, char * msg, unsigned int msgLen );
+	//void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, unsigned int deviceID );
+	bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
+	bool									NotifySTUNTRegRequest ( ThreadInstance * client );
+
+	void									HandleCLSGenHelp ( ThreadInstance * client );
+	void									HandleCertSign ( ThreadInstance * client, char * msg );
+	
+    bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
+	bool									HandleSTUNRequest ( ThreadInstance * destClient, unsigned int sourceID, const char * projName, const char * appName, unsigned int IP, unsigned int Port );
+
+	bool									HandleQueryDevices ( ThreadInstance * client, char * msg );
+	bool									HandleShortMessage ( ThreadInstance * client, char * msg );
+
+	unsigned int							notify;
+	unsigned int							notifyDeviceID;
+	char								*	notifyProjectName;
+	char								*	notifyAppName;
+
+	void									NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, unsigned int deviceID );
+	static void 						*	NotifyClientsStarter ( void * daemon );
+	void									NotifyClients ( unsigned int notify );
+	
+	pthread_cond_t							hWatchdogEvent;
+
+	long									checkLast;
+	static void 						*	WatchdogThreadStarter ( void * daemon );
+	void									WatchdogThread ();
+
+};
+
+
+#endif	// ENVIRONS_CMOBILECLIENT_H

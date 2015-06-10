@@ -4,7 +4,8 @@
 *  Created on: 01.05.2015
 *      Author: Chi-Tai Dang, dang@hcm-lab.de
 
-The Mediator service is an optional service for Environs application environments that help spanning application environments across network boundaries. The Mediator service is designed as command line application or and accepts keyboard commands through the command line. However, the service may also run as background daemon.
+The Mediator service is an optional service for Environs application environments that help spanning application environments across network boundaries.<br>
+The Mediator service is designed as command line application and accepts keyboard commands through the command line. However, the service may also run as background daemon.
 
 
 
@@ -15,20 +16,19 @@ The Mediator service is an optional service for Environs application environment
 * build the binaries yourself
 
 ### OSX/Linux
-
--------------
-> cd [Mediator](Mediator)
-
-> ./[build.sh](Mediator/build.sh)
+```
+> cd Mediator
+> ./build.sh
+```
 
 The build script performs a make clean && make. The resulting binaries are then called [Mediator.OSX](Mediator/Mediator.OSX) / Mediator.Linux.
 
 ### Windows
 
 -------------
-* open Visual Studio 2010 solution [Mediator/Mediator.sln](Mediator/Mediator.sln)
+* open the Visual Studio 2010 solution [Mediator/Mediator.sln](Mediator/Mediator.sln)
 
-* Build either debug or release
+* Build either debug or release version.
 
 
 
@@ -39,7 +39,7 @@ The build script performs a make clean && make. The resulting binaries are then 
 ### /[Common](Common)
 
 -----------
-* Header files and tools that are used by all platforms
+* Header files and tools that are commonly used by all platforms.
 
 
 ### /[Mediator](Mediator)

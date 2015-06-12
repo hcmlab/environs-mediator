@@ -563,10 +563,10 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_getUseStream
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    setUseNativeDecoder
+ * Method:    setUseNativeDecoder1
  * Signature: (Z)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_setUseNativeDecoder
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_setUseNativeDecoder1
   (JNIEnv *, jclass, jboolean);
 
 /*

@@ -2,7 +2,9 @@
 /* Events, Types, Messages for hcm_environs Types */
 
 /**
- * Types - This class defines integer values which identifies status values, events, message types and so on delivered by the environment.
+ * Types - This class defines integer values which are used as constant
+ * for status values, events, message types and so on
+ * delivered by the environment.
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -114,7 +116,7 @@ public class TypesResolver extends hcm.environs.Types
 				return "MSG_NOTIFY_CLASS";
 		} /// -> switch
 
-		if ( constToResolve == ( 'H' ) )
+		if ( constToResolve == ( 0 ) )
 			return "MSG_TYPE_HELO";
 
 
@@ -223,7 +225,7 @@ public class TypesResolver extends hcm.environs.Types
 				return "DATA_STREAM_INIT";
 		} /// -> switch
 
-		if ( constToResolve == ( 'I' ) )
+		if ( constToResolve == ( 1 ) )
 			return "MSG_TYPE_IMAGE";
 
 
@@ -241,7 +243,7 @@ public class TypesResolver extends hcm.environs.Types
 			case ( DATA_STREAM_IMAGE_DATA | 4 ):
 				return "DATA_STREAM_IMAGE_PNG";
 		} /// -> switch
-		if ( constToResolve == ( 'S' ) )
+		if ( constToResolve == ( 2 ) )
 			return "MSG_TYPE_STREAM";
 
 
@@ -259,7 +261,7 @@ public class TypesResolver extends hcm.environs.Types
 			case ( DATA_STREAM | DATA_STREAM_H264 | 8 ):
 				return "DATA_STREAM_H264_NALUS";
 		} /// -> switch
-		if ( constToResolve == ( 'F' ) )
+		if ( constToResolve == ( 3 ) )
 			return "MSG_TYPE_FILE";
 		// File types
 
@@ -277,7 +279,7 @@ public class TypesResolver extends hcm.environs.Types
 			case ( NATIVE_FILE_TYPE | 0xF ):
 				return "NATIVE_FILE_TYPE_ACK";
 		} /// -> switch
-		if ( constToResolve == ( 'M' ) )
+		if ( constToResolve == ( 4 ) )
 			return "MSG_TYPE_MESSAGE";
 
 
@@ -341,7 +343,7 @@ public class TypesResolver extends hcm.environs.Types
 				return "PORTAL_INFO_FLAG_SIZE";
 		} /// -> switch
 
-		if ( constToResolve == ( 'P' ) )
+		if ( constToResolve == ( 5 ) )
 			return "MSG_TYPE_PORTAL";
 		if ( constToResolve == ( 0x400 ) )
 			return "MSG_PORTAL_ERROR";
@@ -358,38 +360,72 @@ public class TypesResolver extends hcm.environs.Types
 
 
 		switch ( constToResolve ) {
-			case ( NOTIFY_PORTAL | 1 ):
+			case ( 0 ):
+				return "MSG_PORTAL_REQUEST_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID ):
 				return "MSG_PORTAL_REQUEST";
-			case ( NOTIFY_PORTAL | 2 ):
+			case ( 1 ):
+				return "MSG_PORTAL_PROVIDE_STREAM_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID ):
 				return "MSG_PORTAL_PROVIDE_STREAM";
-			case ( NOTIFY_PORTAL | 3 ):
+			case ( 2 ):
+				return "MSG_PORTAL_PROVIDE_IMAGES_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID ):
 				return "MSG_PORTAL_PROVIDE_IMAGES";
-			case ( MSG_PORTAL_ERROR | MSG_PORTAL_REQUEST ):
+			case ( 3 ):
+				return "MSG_PORTAL_REQUEST_FAIL_ID";
+			case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID ):
 				return "MSG_PORTAL_REQUEST_FAIL";
-			case ( NOTIFY_PORTAL | 5 ):
+			case ( 4 ):
+				return "MSG_PORTAL_STOP_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID ):
 				return "MSG_PORTAL_STOP";
-			case ( NOTIFY_PORTAL | 6 ):
+			case ( 5 ):
+				return "MSG_PORTAL_STOP_ACK_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID ):
 				return "MSG_PORTAL_STOP_ACK";
-			case ( MSG_PORTAL_ERROR | MSG_PORTAL_STOP ):
+			case ( 6 ):
+				return "MSG_PORTAL_STOP_FAIL_ID";
+			case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID ):
 				return "MSG_PORTAL_STOP_FAIL";
-			case ( NOTIFY_PORTAL | 8 ):
+			case ( 7 ):
+				return "MSG_PORTAL_START_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_START_ID ):
 				return "MSG_PORTAL_START";
-			case ( NOTIFY_PORTAL | 9 ):
+			case ( 8 ):
+				return "MSG_PORTAL_START_ACK_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID ):
 				return "MSG_PORTAL_START_ACK";
-			case ( MSG_PORTAL_ERROR | MSG_PORTAL_START ):
+			case ( 9 ):
+				return "MSG_PORTAL_START_FAIL_ID";
+			case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID ):
 				return "MSG_PORTAL_START_FAIL";
-			case ( NOTIFY_PORTAL | 0xB ):
+			case ( 10 ):
+				return "MSG_PORTAL_PAUSE_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID ):
 				return "MSG_PORTAL_PAUSE";
-			case ( NOTIFY_PORTAL | 0xC ):
+			case ( 11 ):
+				return "MSG_PORTAL_PAUSE_ACK_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID ):
 				return "MSG_PORTAL_PAUSE_ACK";
-			case ( MSG_PORTAL_ERROR | MSG_PORTAL_PAUSE ):
+			case ( 12 ):
+				return "MSG_PORTAL_PAUSE_FAIL_ID";
+			case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID ):
 				return "MSG_PORTAL_PAUSE_FAIL";
-			case ( NOTIFY_PORTAL | 0x10 ):
+			case ( 13 ):
+				return "MSG_PORTAL_BUFFER_FULL_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID ):
 				return "MSG_PORTAL_BUFFER_FULL";
-			case ( NOTIFY_PORTAL | 0x11 ):
+			case ( 14 ):
+				return "MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID ):
 				return "MSG_PORTAL_BUFFER_AVAIL_AGAIN";
-			case ( NOTIFY_PORTAL | 0x14 ):
+			case ( 15 ):
+				return "MSG_PORTAL_IFRAME_REQUEST_ID";
+			case ( NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID ):
 				return "MSG_PORTAL_IFRAME_REQUEST";
+			case ( 15 + 1 ):
+				return "MSG_PORTAL_MAX_COUNT";
 		} /// -> switch
 
 
@@ -420,12 +456,12 @@ public class TypesResolver extends hcm.environs.Types
 				return "NOTIFY_PORTAL_STREAM_RECEIVER_STARTED";
 		} /// -> switch
 
-		if ( constToResolve == ( 'O' ) )
+		if ( constToResolve == ( 6 ) )
 			return "MSG_TYPE_OPTIONS";
 
 
 		switch ( constToResolve ) {
-			case ( 'R' ):
+			case ( 7 ):
 				return "MSG_TYPE_OPTIONS_RESPONSE";
 			case ( 0xF00 ):
 				return "MSG_OPTION_TYPE";
@@ -548,8 +584,10 @@ public class TypesResolver extends hcm.environs.Types
 				return "INPUTSOURCE_COMMAND_FOLLOWUP";
 		} /// -> switch
 
-		if ( constToResolve == ( 'E' ) )
+		if ( constToResolve == ( 8 ) )
 			return "MSG_TYPE_ENVIRONS";
+		if ( constToResolve == ( MSG_TYPE_ENVIRONS + 1 ) )
+			return "MSG_TYPE_MAX_COUNT";
 
 
 		switch ( constToResolve ) {
@@ -601,6 +639,10 @@ public class TypesResolver extends hcm.environs.Types
 				return "NOTIFY_SOCKET_LISTEN_FAILED";
 			case ( NOTIFY_SOCKET | 9 ):
 				return "NOTIFY_SOCKET_FAILED";
+			case ( NOTIFY_TYPE_ENVIRONS | 0x480 ):
+				return "NOTIFY_SETTINGS";
+			case ( NOTIFY_SETTINGS | 0x1 ):
+				return "NOTIFY_SETTINGS_CHANGED";
 			case ( NOTIFY_TYPE_ENVIRONS | 0x800 ):
 				return "NOTIFY_PAIRING";
 			case ( NOTIFY_PAIRING | 1 ):
@@ -658,20 +700,6 @@ public class TypesResolver extends hcm.environs.Types
 				return "NOTIFY_NETWORK";
 			case ( NOTIFY_NETWORK | 0x1 ):
 				return "NOTIFY_NETWORK_CHANGED";
-		} /// -> switch
-
-
-		switch ( constToResolve ) {
-			case ( 0 ):
-				return "ENVIRONS_RENDERCALLBACK_TYPE_DECODER_DECIDE";
-			case ( 10 ):
-				return "ENVIRONS_RENDERCALLBACK_TYPE_INIT";
-			case ( 11 ):
-				return "ENVIRONS_RENDERCALLBACK_TYPE_IMAGE";
-			case ( 31 ):
-				return "ENVIRONS_RENDERCALLBACK_TYPE_DECODER";
-			case ( 41 ):
-				return "ENVIRONS_RENDERCALLBACK_TYPE_BGRA";
 		} /// -> switch
 
 
@@ -763,6 +791,14 @@ public class TypesResolver extends hcm.environs.Types
 
 		switch ( constToResolve ) {
 			case ( 0 ):
+				return "CALL_SYNC";
+			case ( 1 ):
+				return "CALL_ASYNC";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0 ):
 				return "DECODER_AVCONTEXT_TYPE_PIXELS";
 			case ( 1 ):
 				return "DECODER_AVCONTEXT_TYPE_AVPACK";
@@ -775,9 +811,15 @@ public class TypesResolver extends hcm.environs.Types
 
 		switch ( constToResolve ) {
 			case ( 0 ):
-				return "CALL_SYNC";
-			case ( 1 ):
-				return "CALL_ASYNC";
+				return "RENDER_CALLBACK_TYPE_ALL";
+			case ( 0x10 ):
+				return "RENDER_CALLBACK_TYPE_INIT";
+			case ( 0x20 ):
+				return "RENDER_CALLBACK_TYPE_AVCONTEXT";
+			case ( 0x40 ):
+				return "RENDER_CALLBACK_TYPE_DECODER";
+			case ( 0x80 ):
+				return "RENDER_CALLBACK_TYPE_IMAGE";
 		} /// -> switch
 
 

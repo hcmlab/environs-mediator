@@ -53,7 +53,7 @@ namespace environs
             avContextType ( DECODER_AVCONTEXT_TYPE_PIXELS ), avContextSubType ( DECODER_AVCONTEXT_SUBTYPE_RGB ), avContextSize ( 0 )
 		{};
 
-		virtual ~IPortalDecoder () {};
+		virtual ~IPortalDecoder () { ReleaseAVContext (); };
 
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
 		int										Init ( unsigned int deviceID ) {
@@ -74,7 +74,7 @@ namespace environs
 		virtual bool							SetRenderSurface ( void * penv, void * newSurface, int width, int height ) = 0;
 
         virtual void							ReleaseRenderSurface ( bool useLock ) = 0;
-        virtual ptRenderCallback				GetRenderCallback ( ) { return 0; };
+		virtual ptRenderCallback				GetRenderCallback ( int &callbackType ) { return 0; };
 
 		/**
 		* Decode a frame.
@@ -87,7 +87,16 @@ namespace environs
 		virtual int								Perform ( int type, char * payload, int payloadSize ) = 0;
     
         virtual int								AllocateResources ( ) = 0;
-        virtual int								ReleaseResources ( ) = 0;
+		virtual int								ReleaseResources () = 0;
+
+		virtual int								ReleaseAVContext () 
+		{
+			if ( avContext ) {
+				if ( avContextType == DECODER_AVCONTEXT_TYPE_AVPACK ) free ( avContext );
+				avContext = 0;
+			}
+			return 1;
+		};
     
     
         unsigned int                            width;

@@ -66,8 +66,8 @@ namespace environs
 			LIBEXPORT EBOOL CallConv		getPortalTCP ();
 			LIBEXPORT void CallConv			setPortalTCP ( EBOOL enable );
 
-			LIBEXPORT EBOOL CallConv		getUseNativeDecoder ();
-			LIBEXPORT void CallConv			setUseNativeDecoder ( EBOOL enable );
+			LIBEXPORT EBOOL CallConv		getUseNativeDecoder1 ();
+			LIBEXPORT void CallConv			setUseNativeDecoder1 ( EBOOL enable );
 
 			LIBEXPORT EBOOL CallConv		getUseHardwareEncoder ();
 			LIBEXPORT void CallConv			setUseHardwareEncoder1 ( EBOOL enable );

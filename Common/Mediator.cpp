@@ -75,7 +75,7 @@ Mediator::Mediator ( )
 
 Mediator::~Mediator ( )
 {
-	CLog ( "Destructor" );
+	CVerb ( "Destructor" );
 
 	Dispose ();
 
@@ -338,7 +338,7 @@ void Mediator::ReleaseMediator ( MediatorInstance * med )
 	if ( pthread_valid ( thrd ) ) {
 		pthread_reset ( inst->threadID );
 
-		CLog ( "ReleaseMediator: waiting for mediator listener thread to be termianted." );
+		CVerb ( "ReleaseMediator: waiting for mediator listener thread to be termianted." );
 
         /// EXC_BAD_ACCESS
 		s = pthread_join ( thrd, NULL );

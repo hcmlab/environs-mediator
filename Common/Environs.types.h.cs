@@ -2,7 +2,9 @@
 /* Events, Types, Messages for hcm_environs Types */
 
 /**
- * Types - This class defines integer values which identifies status values, events, message types and so on delivered by the environment.
+ * Types - This class defines integer values which are used as constant
+ * for status values, events, message types and so on
+ * delivered by the environment.
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -173,7 +175,7 @@ namespace hcm.environs
 		public const int MEDIATOR_DEVICE_CLASS_AVAILABLE                   =	(0);
 		public const int MEDIATOR_DEVICE_CLASS_NEARBY                      =	(1);
 		public const int MEDIATOR_DEVICE_CLASS_MEDIATOR                    =	(2);
-			
+		
 		/*
 		 * Native payload type class is determined by the upper byte of payload
 		 * Native payload type class is determined by the upper byte of payload
@@ -188,7 +190,7 @@ namespace hcm.environs
 		 * Type: unsigned short 0xFFFF
 		 */
 		/** Class: Helo type */
-		public const char MSG_TYPE_HELO                                     =	('H');
+		public const int MSG_TYPE_HELO                                     =	(0);
 		// Handshake states
 		public const int MSG_HANDSHAKE                                     =	(0x100);
 			
@@ -256,7 +258,7 @@ namespace hcm.environs
 		public const int DATA_STREAM_INIT                                  =	(1);
 		
 		/** Class: Image type */
-		public const char MSG_TYPE_IMAGE                                    =	('I');
+		public const int MSG_TYPE_IMAGE                                    =	(1);
 		public const int DATA_STREAM_IFRAME                                =	(0x40);
 		
 		public const int DATA_STREAM_IMAGE                                 =	(0x10);
@@ -265,7 +267,7 @@ namespace hcm.environs
 		public const int DATA_STREAM_IMAGE_JPEG                            =	(DATA_STREAM_IMAGE_DATA | 2);
 		public const int DATA_STREAM_IMAGE_PNG                             =	(DATA_STREAM_IMAGE_DATA | 4);
 		
-		public const char MSG_TYPE_STREAM                                   =	('S');
+		public const int MSG_TYPE_STREAM                                   =	(2);
 		public const int DATA_STREAM_H264                                  =	(0x20);
 		// Initialization protocol version 1 packet with width and height
 		public const int DATA_STREAM_H264_INIT                             =	(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT);
@@ -277,7 +279,7 @@ namespace hcm.environs
 		 * Native file types to app
 		 * Native file types to app
 		 */
-		public const char MSG_TYPE_FILE                                     =	('F');
+		public const int MSG_TYPE_FILE                                     =	(3);
 		/** Class: File type */
 		// File types
 		public const int NATIVE_FILE_TYPE                                  =	(0x400);
@@ -286,7 +288,7 @@ namespace hcm.environs
 		public const int NATIVE_FILE_TYPE_CHUNKED                          =	(NATIVE_FILE_TYPE | 6);
 		public const int NATIVE_FILE_TYPE_ACK                              =	(NATIVE_FILE_TYPE | 0xF);
 		
-		public const char MSG_TYPE_MESSAGE                                  =	('M');
+		public const int MSG_TYPE_MESSAGE                                  =	(4);
 		public const int MESSAGE_FROM_APP                                  =	(0x800);
 		public const int MESSAGE_APP_STRING                                =	(MESSAGE_FROM_APP | 1);
 		
@@ -375,32 +377,51 @@ namespace hcm.environs
 			
 		
 		/** Class: Portal messages and notifications */
-		public const char MSG_TYPE_PORTAL                                   =	('P');
+		public const int MSG_TYPE_PORTAL                                   =	(5);
 		public const int MSG_PORTAL_ERROR                                  =	(0x400);
 		public const int PORTAL_DIR_INCOMING                               =	(0x200);
 		public const int PORTAL_DIR_OUTGOING                               =	(0x100);
 		public const int NOTIFY_PORTAL                                     =	(0x800);
-			
+		
+		
 	// Portal message subtypes
-		public const int MSG_PORTAL_REQUEST                                =	(NOTIFY_PORTAL | 1);
-		public const int MSG_PORTAL_PROVIDE_STREAM                         =	(NOTIFY_PORTAL | 2);
-		public const int MSG_PORTAL_PROVIDE_IMAGES                         =	(NOTIFY_PORTAL | 3);
-		public const int MSG_PORTAL_REQUEST_FAIL                           =	(MSG_PORTAL_ERROR | MSG_PORTAL_REQUEST);
+		public const int MSG_PORTAL_REQUEST_ID                             =	(0);
+		public const int MSG_PORTAL_REQUEST                                =	(NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID);
+		public const int MSG_PORTAL_PROVIDE_STREAM_ID                      =	(1);
+		public const int MSG_PORTAL_PROVIDE_STREAM                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID);
+		public const int MSG_PORTAL_PROVIDE_IMAGES_ID                      =	(2);
+		public const int MSG_PORTAL_PROVIDE_IMAGES                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID);
+		public const int MSG_PORTAL_REQUEST_FAIL_ID                        =	(3);
+		public const int MSG_PORTAL_REQUEST_FAIL                           =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID);
 			
-		public const int MSG_PORTAL_STOP                                   =	(NOTIFY_PORTAL | 5);
-		public const int MSG_PORTAL_STOP_ACK                               =	(NOTIFY_PORTAL | 6);
-		public const int MSG_PORTAL_STOP_FAIL                              =	(MSG_PORTAL_ERROR | MSG_PORTAL_STOP);
-		public const int MSG_PORTAL_START                                  =	(NOTIFY_PORTAL | 8);
-		public const int MSG_PORTAL_START_ACK                              =	(NOTIFY_PORTAL | 9);
-		public const int MSG_PORTAL_START_FAIL                             =	(MSG_PORTAL_ERROR | MSG_PORTAL_START);
-		public const int MSG_PORTAL_PAUSE                                  =	(NOTIFY_PORTAL | 0xB);
-		public const int MSG_PORTAL_PAUSE_ACK                              =	(NOTIFY_PORTAL | 0xC);
-		public const int MSG_PORTAL_PAUSE_FAIL                             =	(MSG_PORTAL_ERROR | MSG_PORTAL_PAUSE);
+		public const int MSG_PORTAL_STOP_ID                                =	(4);
+		public const int MSG_PORTAL_STOP                                   =	(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID);
+		public const int MSG_PORTAL_STOP_ACK_ID                            =	(5);
+		public const int MSG_PORTAL_STOP_ACK                               =	(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID);
+		public const int MSG_PORTAL_STOP_FAIL_ID                           =	(6);
+		public const int MSG_PORTAL_STOP_FAIL                              =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID);
+		public const int MSG_PORTAL_START_ID                               =	(7);
+		public const int MSG_PORTAL_START                                  =	(NOTIFY_PORTAL 	| MSG_PORTAL_START_ID);
+		public const int MSG_PORTAL_START_ACK_ID                           =	(8);
+		public const int MSG_PORTAL_START_ACK                              =	(NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID);
+		public const int MSG_PORTAL_START_FAIL_ID                          =	(9);
+		public const int MSG_PORTAL_START_FAIL                             =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID);
+		public const int MSG_PORTAL_PAUSE_ID                               =	(10);
+		public const int MSG_PORTAL_PAUSE                                  =	(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID);
+		public const int MSG_PORTAL_PAUSE_ACK_ID                           =	(11);
+		public const int MSG_PORTAL_PAUSE_ACK                              =	(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID);
+		public const int MSG_PORTAL_PAUSE_FAIL_ID                          =	(12);
+		public const int MSG_PORTAL_PAUSE_FAIL                             =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID);
 		
 		
-		public const int MSG_PORTAL_BUFFER_FULL                            =	(NOTIFY_PORTAL | 0x10);
-		public const int MSG_PORTAL_BUFFER_AVAIL_AGAIN                     =	(NOTIFY_PORTAL | 0x11);
-		public const int MSG_PORTAL_IFRAME_REQUEST                         =	(NOTIFY_PORTAL | 0x14);
+		public const int MSG_PORTAL_BUFFER_FULL_ID                         =	(13);
+		public const int MSG_PORTAL_BUFFER_FULL                            =	(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID);
+		public const int MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  =	(14);
+		public const int MSG_PORTAL_BUFFER_AVAIL_AGAIN                     =	(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID);
+		public const int MSG_PORTAL_IFRAME_REQUEST_ID                      =	(15);
+		public const int MSG_PORTAL_IFRAME_REQUEST                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID);
+		
+		public const int MSG_PORTAL_MAX_COUNT                              =	(15 + 1);
 		
 		
 		public const int NOTIFY_TYPE_PORTAL                                =	((MSG_TYPE_PORTAL << 16));
@@ -425,8 +446,8 @@ namespace hcm.environs
 		 * Environs options set/get messages
 		 */
 		/** Class: Options type */
-		public const char MSG_TYPE_OPTIONS                                  =	('O');
-		public const char MSG_TYPE_OPTIONS_RESPONSE                         =	('R');
+		public const int MSG_TYPE_OPTIONS                                  =	(6);
+		public const int MSG_TYPE_OPTIONS_RESPONSE                         =	(7);
 		public const int MSG_OPTION_TYPE                                   =	(0xF00);
 		public const int MSG_OPTION_SET                                    =	(0x100);
 		public const int MSG_OPTION_GET                                    =	(0x200);
@@ -525,7 +546,9 @@ namespace hcm.environs
 		 * Environs Start notifications
 		 */
 		/** Class: Environs type */
-		public const char MSG_TYPE_ENVIRONS                                 =	('E');
+		public const int MSG_TYPE_ENVIRONS                                 =	(8);
+		public const int MSG_TYPE_MAX_COUNT                                =	(MSG_TYPE_ENVIRONS + 1);
+		
 		public const int NOTIFY_TYPE_ENVIRONS                              =	((MSG_TYPE_ENVIRONS << 16));
 		public const int NOTIFY_START                                      =	(NOTIFY_TYPE_ENVIRONS | 0x100);
 		public const int NOTIFY_START_IN_PROGRESS                          =	(NOTIFY_START | 1);
@@ -562,6 +585,13 @@ namespace hcm.environs
 		public const int NOTIFY_SOCKET_BIND_FAILED                         =	(NOTIFY_SOCKET | 7);
 		public const int NOTIFY_SOCKET_LISTEN_FAILED                       =	(NOTIFY_SOCKET | 8);
 		public const int NOTIFY_SOCKET_FAILED                              =	(NOTIFY_SOCKET | 9);
+		
+		/**
+		 * Environs socket notifications
+		 * Environs socket notifications
+		 */
+		public const int NOTIFY_SETTINGS                                   =	(NOTIFY_TYPE_ENVIRONS | 0x480);
+		public const int NOTIFY_SETTINGS_CHANGED                           =	(NOTIFY_SETTINGS | 0x1);
 			
 		/**
 		 * Environs device paring notifications
@@ -619,13 +649,6 @@ namespace hcm.environs
 		public const String META_MSG_IDENT                                    =	("~META~:");
 		/** Ignore: for Resolver */
 		public const String META_MSG_NAME_ID                                  =	(" NAME ");
-		
-		
-		public const int ENVIRONS_RENDERCALLBACK_TYPE_DECODER_DECIDE       =	(0);
-		public const int ENVIRONS_RENDERCALLBACK_TYPE_INIT                 =	(10);
-		public const int ENVIRONS_RENDERCALLBACK_TYPE_IMAGE                =	(11);
-		public const int ENVIRONS_RENDERCALLBACK_TYPE_DECODER              =	(31);
-		public const int ENVIRONS_RENDERCALLBACK_TYPE_BGRA                 =	(41);
 		
 		/**
 		 * Device types. Obsolete. Should not be used anymore.
@@ -845,6 +868,16 @@ namespace hcm.environs
 		
 		
 		/**
+		 * Environs call flags
+		 * Environs call flags
+		 * Type: int
+		 * Type: int
+		 */
+		public const int CALL_SYNC                                         =	(0);
+		public const int CALL_ASYNC                                        =	(1);
+		
+		
+		/**
 		 * Environs AVCONTEXT_TYPES
 		 * Environs AVCONTEXT_TYPES
 		 * Type: int
@@ -857,13 +890,20 @@ namespace hcm.environs
 		
 		
 		/**
-		 * Environs call flags
-		 * Environs call flags
+		 * Environs RENDER_CALLBACK_TYPES
+		 * Environs RENDER_CALLBACK_TYPES
 		 * Type: int
 		 * Type: int
 		 */
-		public const int CALL_SYNC                                         =	(0);
-		public const int CALL_ASYNC                                        =	(1);
+		public const int RENDER_CALLBACK_TYPE_ALL                          =	(0);
+		/** Call back with received ByteBuffer */
+		public const int RENDER_CALLBACK_TYPE_INIT                         =	(0x10);
+		/** Call back with EnvironsAVContext */
+		public const int RENDER_CALLBACK_TYPE_AVCONTEXT                    =	(0x20);
+		/** Call back with IPortalDecoder */
+		public const int RENDER_CALLBACK_TYPE_DECODER                      =	(0x40);
+		/** Call back with received ByteBuffer */
+		public const int RENDER_CALLBACK_TYPE_IMAGE                        =	(0x80);
 		
 		
 		/**
@@ -877,6 +917,26 @@ namespace hcm.environs
 		public const int DECODER_AVCONTEXT_SUBTYPE_ABGR                    =	(2);
 		public const int DECODER_AVCONTEXT_SUBTYPE_RGBA                    =	(3);
 		
+
+
+		public static readonly string 	[] 	MSG_PORTAL_Descriptions = {
+			"Portal requested",
+			"Stream portal provided",
+			"Image portal provided",
+			"Portal request failed",
+			"Portal stop",
+			"Portal stop ack",
+			"Portal stop failed",
+			"Portal start",
+			"Portal start ack",
+			"Portal start failed",
+			"Portal pause",
+			"Portal pause ack",
+			"Portal pause failed",
+			"Portal buffer full",
+			"Portal buffer available again",
+			"Portal i-frame requested",
+		};
 
 
 	} /// -> class Types

@@ -2,6 +2,7 @@
 
 ---------------------------
 
+* Updated: Common to 0.6.0
 * Reimported repository for 0.6.0 release
 
 

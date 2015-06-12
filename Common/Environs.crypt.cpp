@@ -220,7 +220,7 @@ namespace environs
             CErr ( "PreparePrivateKey: Called with NULL argument" ); return false;
         }
         
-        CLog ( "PreparePrivateKey" );
+        CVerb ( "PreparePrivateKey" );
         
         bool ret = false;
         

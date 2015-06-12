@@ -312,7 +312,7 @@ namespace environs
 			return;
 		}
 
-		CLogArg ( "DisposeThread: Waiting for %s ...", threadName );
+		CLogArg ( "Waiting for %s ...", threadName );
 
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
 

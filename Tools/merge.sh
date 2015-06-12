@@ -116,6 +116,14 @@ cd "${MERGE_HELPER_ROOT_REPO}"
  
 DEST="${MERGE_HELPER_ROOT_REPO}/../${MERGER_WORKDIR}"
 
+if [[ -e "3rd/download.sh" ]]; then
+    tmpSD="${SCRIPTDIR}"
+    SCRIPTDIR="${MERGE_HELPER_ROOT_REPO}/3rd"
+
+    eval "3rd/download.sh 3"
+
+    SCRIPTDIR="${tmpSD}"
+fi
 
 echo -e
 echo -e "Make sure that NDEBUG flag is set."
@@ -180,6 +188,15 @@ echo -e "\nCheck status.log for details."
 
 echo -e "\nCleaning merge environment ..."
 rm -rf "${DEST}" >/dev/null 2>/dev/null
+
+if [[ -e "3rd/download.sh" ]]; then
+    tmpSD="${SCRIPTDIR}"
+    SCRIPTDIR="${MERGE_HELPER_ROOT_REPO}/3rd"
+
+    eval "3rd/download.sh 4"
+
+    SCRIPTDIR="${tmpSD}"
+fi
 
 echo -e
 echo "Merge successfull"

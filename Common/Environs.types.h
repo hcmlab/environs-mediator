@@ -2,7 +2,9 @@
 /* Header for hcm_environs Types */
 
 /**
- * Types - This class defines integer values which identifies status values, events, message types and so on delivered by the environment.
+ * Types - This class defines integer values which are used as constant
+ * for status values, events, message types and so on
+ * delivered by the environment.
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -160,7 +162,7 @@ namespace environs {
 #define	MEDIATOR_DEVICE_CLASS_AVAILABLE                   		(0)
 #define	MEDIATOR_DEVICE_CLASS_NEARBY                      		(1)
 #define	MEDIATOR_DEVICE_CLASS_MEDIATOR                    		(2)
-	
+
 /*
  * Native payload type class is determined by the upper byte of payload
  */
@@ -172,7 +174,7 @@ namespace environs {
  * Type: unsigned short 0xFFFF
  */
 /** Class: Helo type */
-#define	MSG_TYPE_HELO                                     		('H')
+#define	MSG_TYPE_HELO                                     		(0)
 // Handshake states
 #define	MSG_HANDSHAKE                                     		(0x100)
 	
@@ -240,7 +242,7 @@ namespace environs {
 #define	DATA_STREAM_INIT                                  		(1)
 
 /** Class: Image type */
-#define	MSG_TYPE_IMAGE                                    		('I')
+#define	MSG_TYPE_IMAGE                                    		(1)
 #define	DATA_STREAM_IFRAME                                		(0x40)
 
 #define	DATA_STREAM_IMAGE                                 		(0x10)
@@ -249,7 +251,7 @@ namespace environs {
 #define	DATA_STREAM_IMAGE_JPEG                            		(DATA_STREAM_IMAGE_DATA | 2)
 #define	DATA_STREAM_IMAGE_PNG                             		(DATA_STREAM_IMAGE_DATA | 4)
 
-#define	MSG_TYPE_STREAM                                   		('S')
+#define	MSG_TYPE_STREAM                                   		(2)
 #define	DATA_STREAM_H264                                  		(0x20)
 // Initialization protocol version 1 packet with width and height
 #define	DATA_STREAM_H264_INIT                             		(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT)
@@ -260,7 +262,7 @@ namespace environs {
 /*
  * Native file types to app
  */
-#define	MSG_TYPE_FILE                                     		('F')
+#define	MSG_TYPE_FILE                                     		(3)
 /** Class: File type */
 // File types
 #define	NATIVE_FILE_TYPE                                  		(0x400)
@@ -269,7 +271,7 @@ namespace environs {
 #define	NATIVE_FILE_TYPE_CHUNKED                          		(NATIVE_FILE_TYPE | 6)
 #define	NATIVE_FILE_TYPE_ACK                              		(NATIVE_FILE_TYPE | 0xF)
 
-#define	MSG_TYPE_MESSAGE                                  		('M')
+#define	MSG_TYPE_MESSAGE                                  		(4)
 #define	MESSAGE_FROM_APP                                  		(0x800)
 #define	MESSAGE_APP_STRING                                		(MESSAGE_FROM_APP | 1)
 
@@ -360,32 +362,51 @@ namespace environs {
 	
 
 /** Class: Portal messages and notifications */
-#define	MSG_TYPE_PORTAL                                   		('P')
+#define	MSG_TYPE_PORTAL                                   		(5)
 #define	MSG_PORTAL_ERROR                                  		(0x400)
 #define	PORTAL_DIR_INCOMING                               		(0x200)
 #define	PORTAL_DIR_OUTGOING                               		(0x100)
 #define	NOTIFY_PORTAL                                     		(0x800)
-	
+
+
 // Portal message subtypes
-#define	MSG_PORTAL_REQUEST                                		(NOTIFY_PORTAL | 1)
-#define	MSG_PORTAL_PROVIDE_STREAM                         		(NOTIFY_PORTAL | 2)
-#define	MSG_PORTAL_PROVIDE_IMAGES                         		(NOTIFY_PORTAL | 3)
-#define	MSG_PORTAL_REQUEST_FAIL                           		(MSG_PORTAL_ERROR | MSG_PORTAL_REQUEST)
+#define	MSG_PORTAL_REQUEST_ID                             		(0)
+#define	MSG_PORTAL_REQUEST                                		(NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID)
+#define	MSG_PORTAL_PROVIDE_STREAM_ID                      		(1)
+#define	MSG_PORTAL_PROVIDE_STREAM                         		(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID)
+#define	MSG_PORTAL_PROVIDE_IMAGES_ID                      		(2)
+#define	MSG_PORTAL_PROVIDE_IMAGES                         		(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID)
+#define	MSG_PORTAL_REQUEST_FAIL_ID                        		(3)
+#define	MSG_PORTAL_REQUEST_FAIL                           		(MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID)
 	
-#define	MSG_PORTAL_STOP                                   		(NOTIFY_PORTAL | 5)
-#define	MSG_PORTAL_STOP_ACK                               		(NOTIFY_PORTAL | 6)
-#define	MSG_PORTAL_STOP_FAIL                              		(MSG_PORTAL_ERROR | MSG_PORTAL_STOP)
-#define	MSG_PORTAL_START                                  		(NOTIFY_PORTAL | 8)
-#define	MSG_PORTAL_START_ACK                              		(NOTIFY_PORTAL | 9)
-#define	MSG_PORTAL_START_FAIL                             		(MSG_PORTAL_ERROR | MSG_PORTAL_START)
-#define	MSG_PORTAL_PAUSE                                  		(NOTIFY_PORTAL | 0xB)
-#define	MSG_PORTAL_PAUSE_ACK                              		(NOTIFY_PORTAL | 0xC)
-#define	MSG_PORTAL_PAUSE_FAIL                             		(MSG_PORTAL_ERROR | MSG_PORTAL_PAUSE)
+#define	MSG_PORTAL_STOP_ID                                		(4)
+#define	MSG_PORTAL_STOP                                   		(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID)
+#define	MSG_PORTAL_STOP_ACK_ID                            		(5)
+#define	MSG_PORTAL_STOP_ACK                               		(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID)
+#define	MSG_PORTAL_STOP_FAIL_ID                           		(6)
+#define	MSG_PORTAL_STOP_FAIL                              		(MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID)
+#define	MSG_PORTAL_START_ID                               		(7)
+#define	MSG_PORTAL_START                                  		(NOTIFY_PORTAL 	| MSG_PORTAL_START_ID)
+#define	MSG_PORTAL_START_ACK_ID                           		(8)
+#define	MSG_PORTAL_START_ACK                              		(NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID)
+#define	MSG_PORTAL_START_FAIL_ID                          		(9)
+#define	MSG_PORTAL_START_FAIL                             		(MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID)
+#define	MSG_PORTAL_PAUSE_ID                               		(10)
+#define	MSG_PORTAL_PAUSE                                  		(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID)
+#define	MSG_PORTAL_PAUSE_ACK_ID                           		(11)
+#define	MSG_PORTAL_PAUSE_ACK                              		(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID)
+#define	MSG_PORTAL_PAUSE_FAIL_ID                          		(12)
+#define	MSG_PORTAL_PAUSE_FAIL                             		(MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID)
 
 
-#define	MSG_PORTAL_BUFFER_FULL                            		(NOTIFY_PORTAL | 0x10)
-#define	MSG_PORTAL_BUFFER_AVAIL_AGAIN                     		(NOTIFY_PORTAL | 0x11)
-#define	MSG_PORTAL_IFRAME_REQUEST                         		(NOTIFY_PORTAL | 0x14)
+#define	MSG_PORTAL_BUFFER_FULL_ID                         		(13)
+#define	MSG_PORTAL_BUFFER_FULL                            		(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID)
+#define	MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  		(14)
+#define	MSG_PORTAL_BUFFER_AVAIL_AGAIN                     		(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID)
+#define	MSG_PORTAL_IFRAME_REQUEST_ID                      		(15)
+#define	MSG_PORTAL_IFRAME_REQUEST                         		(NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID)
+
+#define	MSG_PORTAL_MAX_COUNT                              		(15 + 1)
 
 
 #define	NOTIFY_TYPE_PORTAL                                		((MSG_TYPE_PORTAL << 16))
@@ -409,8 +430,8 @@ namespace environs {
  * Environs options set/get messages
  */
 /** Class: Options type */
-#define	MSG_TYPE_OPTIONS                                  		('O')
-#define	MSG_TYPE_OPTIONS_RESPONSE                         		('R')
+#define	MSG_TYPE_OPTIONS                                  		(6)
+#define	MSG_TYPE_OPTIONS_RESPONSE                         		(7)
 #define	MSG_OPTION_TYPE                                   		(0xF00)
 #define	MSG_OPTION_SET                                    		(0x100)
 #define	MSG_OPTION_GET                                    		(0x200)
@@ -501,7 +522,9 @@ namespace environs {
  * Environs Start notifications
  */
 /** Class: Environs type */
-#define	MSG_TYPE_ENVIRONS                                 		('E')
+#define	MSG_TYPE_ENVIRONS                                 		(8)
+#define	MSG_TYPE_MAX_COUNT                                		(MSG_TYPE_ENVIRONS + 1)
+
 #define	NOTIFY_TYPE_ENVIRONS                              		((MSG_TYPE_ENVIRONS << 16))
 #define	NOTIFY_START                                      		(NOTIFY_TYPE_ENVIRONS | 0x100)
 #define	NOTIFY_START_IN_PROGRESS                          		(NOTIFY_START | 1)
@@ -536,6 +559,12 @@ namespace environs {
 #define	NOTIFY_SOCKET_BIND_FAILED                         		(NOTIFY_SOCKET | 7)
 #define	NOTIFY_SOCKET_LISTEN_FAILED                       		(NOTIFY_SOCKET | 8)
 #define	NOTIFY_SOCKET_FAILED                              		(NOTIFY_SOCKET | 9)
+
+/**
+ * Environs socket notifications
+ */
+#define	NOTIFY_SETTINGS                                   		(NOTIFY_TYPE_ENVIRONS | 0x480)
+#define	NOTIFY_SETTINGS_CHANGED                           		(NOTIFY_SETTINGS | 0x1)
 	
 /**
  * Environs device paring notifications
@@ -589,13 +618,6 @@ namespace environs {
 #define	META_MSG_IDENT                                    		("~META~:")
 /** Ignore: for Resolver */
 #define	META_MSG_NAME_ID                                  		(" NAME ")
-
-
-#define	ENVIRONS_RENDERCALLBACK_TYPE_DECODER_DECIDE       		(0)
-#define	ENVIRONS_RENDERCALLBACK_TYPE_INIT                 		(10)
-#define	ENVIRONS_RENDERCALLBACK_TYPE_IMAGE                		(11)
-#define	ENVIRONS_RENDERCALLBACK_TYPE_DECODER              		(31)
-#define	ENVIRONS_RENDERCALLBACK_TYPE_BGRA                 		(41)
 
 /**
  * Device types. Obsolete. Should not be used anymore.
@@ -814,6 +836,14 @@ namespace environs {
 
 
 /**
+ * Environs call flags
+ * Type: int
+ */
+#define	CALL_SYNC                                         		(0)
+#define	CALL_ASYNC                                        		(1)
+
+
+/**
  * Environs AVCONTEXT_TYPES
  * Type: int
  */
@@ -824,11 +854,18 @@ namespace environs {
 
 
 /**
- * Environs call flags
+ * Environs RENDER_CALLBACK_TYPES
  * Type: int
  */
-#define	CALL_SYNC                                         		(0)
-#define	CALL_ASYNC                                        		(1)
+#define	RENDER_CALLBACK_TYPE_ALL                          		(0)
+/** Call back with received ByteBuffer */
+#define	RENDER_CALLBACK_TYPE_INIT                         		(0x10)
+/** Call back with EnvironsAVContext */
+#define	RENDER_CALLBACK_TYPE_AVCONTEXT                    		(0x20)
+/** Call back with IPortalDecoder */
+#define	RENDER_CALLBACK_TYPE_DECODER                      		(0x40)
+/** Call back with received ByteBuffer */
+#define	RENDER_CALLBACK_TYPE_IMAGE                        		(0x80)
 
 
 /**
@@ -839,6 +876,30 @@ namespace environs {
 #define	DECODER_AVCONTEXT_SUBTYPE_BGRA                    		(1)
 #define	DECODER_AVCONTEXT_SUBTYPE_ABGR                    		(2)
 #define	DECODER_AVCONTEXT_SUBTYPE_RGBA                    		(3)
+
+
+
+
+
+	static const char *	MSG_PORTAL_Descriptions 	[] = {
+		"Portal requested",
+		"Stream portal provided",
+		"Image portal provided",
+		"Portal request failed",
+		"Portal stop",
+		"Portal stop ack",
+		"Portal stop failed",
+		"Portal start",
+		"Portal start ack",
+		"Portal start failed",
+		"Portal pause",
+		"Portal pause ack",
+		"Portal pause failed",
+		"Portal buffer full",
+		"Portal buffer available again",
+		"Portal i-frame requested",
+	};
+
 
 
 

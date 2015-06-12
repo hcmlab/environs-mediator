@@ -51,15 +51,11 @@ typedef HMODULE ( *pLocateLoadModule )( COBSTR module, unsigned int deviceID );
     #define	LIBEXTENSION						".dylib"
 #else
 	#define	LIBNAME_EXT_DIR						"libs"
-   /* #ifdef ANDROID
-    #else
-        #define	LIBNAME_EXT_DIR						"lib"
-    #endif*/
 
     #ifdef _WIN32
-        #define	LIBEXTENSION						".dll"
+        #define	LIBEXTENSION					".dll"
     #else
-        #define	LIBEXTENSION						".so"
+        #define	LIBEXTENSION					".so"
     #endif
 
 #ifdef _WIN32

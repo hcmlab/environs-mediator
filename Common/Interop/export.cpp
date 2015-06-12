@@ -18,6 +18,7 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
+
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG
 //#define DEBUGVERB
@@ -30,53 +31,13 @@
 #include "Interop/stat.h"
 #include "Interfaces/Interface.Exports.h"
 #include "Environs.h"
-
 using namespace environs;
-
 
 #ifdef WINDOWS_PHONE
 #include "winbase.h"
 #endif
 
 #define CLASS_NAME	"Export"
-
-//#ifdef __APPLE__
-//    #define	LIBNAME_EXT_DIR							""
-//#else
-//    #ifdef ANDROID
-//        #define	LIBNAME_EXT_DIR						"libs"
-//    #else
-//        #define	LIBNAME_EXT_DIR						"lib"
-//    #endif
-//
-//#ifdef _WIN32
-//#pragma warning( push )
-//#pragma warning( disable: 4996 )
-//
-////#define STRING2(x) #x
-////#define STRING(x) STRING2(x) 
-////#pragma message( "TS:" STRING(_MSC_FULL_VER) )
-////#pragma message( "TS:" STRING(_MSC_VER) )
-////WARNING () 
-///// _MSC_VER = 1600 v100
-///// _MSC_VER = 1800 v120 v120_xp
-//
-//#if (_MSC_VER <= 1600)
-//#define TSDIR	"v100"
-//#else
-//	#if (_MSC_VER <= 1700)
-//		#define TSDIR	"v110"
-//	#else
-//		#if (_MSC_VER <= 1800)
-//			#define TSDIR	"v120"
-//		#else
-//			#define TSDIR	""
-//		#endif
-//	#endif
-//#endif
-//#endif
-//
-//#endif
 
 
 HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
@@ -89,30 +50,41 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 		CErrArgID ( "LocateLoadModule: [%ws] not available in search path. No working directory available.", module );
 	}
 #else
-    
+
+	char absPath [1024];
+
+	sprintf ( absPath, "%s" LIBEXTENSION, module );
+	
 	HMODULE hModLib = dlopen ( module, RTLD_LAZY );
 	if ( !hModLib )
 	{
-		char absPath [1024];
+		CVerbVerbArgID ( "LocateLoadModule: [%s] not found in system search path.", absPath );
 
 		do
 		{
+			sprintf ( absPath, "%s" LIBEXTENSION, module );
+
+			hModLib = dlopen ( absPath, RTLD_LAZY );
+			if ( hModLib )
+				break;
+			CVerbVerbArgID ( "LocateLoadModule: [%s] not found in system search path.", absPath );
+
 #ifdef _WIN32
-			sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s", module );
+			sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
 
 			hModLib = dlopen ( absPath, RTLD_LAZY );
 			if ( hModLib )
 				break;
 			CVerbVerbArgID ( "LocateLoadModule: [%s] not found in toolset search path.", absPath );
 #endif
-			sprintf ( absPath, LIBNAME_EXT_DIR "/%s", module );
+			sprintf ( absPath, LIBNAME_EXT_DIR "/%s" LIBEXTENSION, module );
 
 			hModLib = dlopen ( absPath, RTLD_LAZY );
 			if ( hModLib )
 				break;
 
             if ( !environs::environs.workDir ) {
-				CVerbArgID ( "LocateLoadModule: [%s] not available in search path. No working directory available.", module );
+				CVerbArgID ( "LocateLoadModule: [%s" LIBEXTENSION "] not available in search path. No working directory available.", module );
 				return 0;
 			}
 			CVerbArgID ( "LocateLoadModule: [%s] not found in search path.", absPath );
@@ -122,7 +94,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 #endif
 
 #ifdef _WIN32
-			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s", environs::environs.workDir, module );
+			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, environs::environs.workDir, module );
 
 			CVerbArgID ( "LocateLoadModule: Trying [%s].", absPath );
 
@@ -132,7 +104,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 			CVerbVerbArgID ( "LocateLoadModule: [%s] not found in toolset working directory path.", absPath );
 #endif
 
-			sprintf ( absPath, "%s%s", environs::environs.workDir, module );
+			sprintf ( absPath, "%s%s" LIBEXTENSION, environs::environs.workDir, module );
 
 			CVerbArgID ( "LocateLoadModule: Trying [%s].", absPath );
 
@@ -146,7 +118,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 			CVerbArgID ( "LocateLoadModule: [%s]", dlerror ( ) );
 #endif
 
-			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/%s", environs::environs.workDir, module );
+			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/%s" LIBEXTENSION, environs::environs.workDir, module );
 
 			CVerbArgID ( "LocateLoadModule: Trying [%s].", absPath );
 

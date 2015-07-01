@@ -22,6 +22,7 @@
 #ifndef NDEBUG
 //#define DEBUGVERB
 //#define DEBUGVERBVerb
+#define ENABLE_MEDIATOR_UPDATE_OUTPUT_VERBOSE
 #endif
 
 #include "Mediator.h"
@@ -833,7 +834,6 @@ unsigned int Mediator::GetLocalSN ( )
 }
 
 
-//#define ENABLE_MEDIATOR_UPDATE_OUTPUT_VERBOSE
 
 DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
 {

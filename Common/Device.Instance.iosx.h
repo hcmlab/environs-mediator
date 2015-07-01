@@ -87,7 +87,7 @@ using namespace environs;
 - (bool) Update:(DeviceInfo *) device;
 
 /** Used internally **/
-- (void) SetDirectContact:(int)status;
+- (bool) SetDirectContact:(int)status;
 
 + (NSString *) DeviceTypeString:(DeviceInfo *) info;
 

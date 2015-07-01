@@ -28,7 +28,7 @@
 #import <CoreLocation/CoreLocation.h>
 
 #import "Environs.Observer.h"
-#include "Portal.Info.h"
+#include "Portal.Info.Base.h"
 #include "Device.Instance.h"
 
 
@@ -728,7 +728,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * 						Applications should store them in order to address the correct portal within Environs.
  * @return portalInfo A PortalInfo object containing the details about the portal. If the call fails, the value is null.
  */
-+ (environs::PortalInfo *) getPortalInfo:(int)portalID;
++ (environs::PortalInfoBase *) getPortalInfo:(int)portalID;
 
 
 /**
@@ -738,7 +738,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * 			The deviceID and portalID members of the PortalInfo object must have valid values.
  * @return success
  */
-+ (bool) setPortalInfo:(environs::PortalInfo *)info;
++ (bool) setPortalInfo:(environs::PortalInfoBase *)info;
 
 
 /**

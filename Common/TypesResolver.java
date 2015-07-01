@@ -201,6 +201,8 @@ public class TypesResolver extends hcm.environs.Types
 					return "NOTIFY_CONNECTION_PROGRESS";
 				case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS ):
 					return "NOTIFY_CONNECTION_ESTABLISHED";
+				case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS_ACK ):
+					return "NOTIFY_CONNECTION_ESTABLISHED_ACK";
 				case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_DISCONNECTED ):
 					return "NOTIFY_CONNECTION_CLOSED";
 				case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SHORT_MESSAGE ):
@@ -300,15 +302,21 @@ public class TypesResolver extends hcm.environs.Types
 
 //			if ( constToResolve == ( 3 ) )
 //				return "MAX_PORTAL_STREAMS_A_DEVICE";
-
-//			if ( constToResolve == ( 0 ) )
-//				return "PORTAL_TYPE_ANY";
 //				case ( 3 ):
 //					return "MAX_PORTAL_CONTEXTS";
 //				case ( 3 ):
 //					return "MAX_PORTAL_OVERLAYS";
 //				case ( 5 ):
 //					return "MAX_PORTAL_GENERATOR_SLOTS";
+
+
+			switch ( constToResolve ) {
+				case ( 30000 ):
+					return "MAX_PORTAL_REQUEST_WAIT_TIME_MS";
+			} /// -> switch
+
+//			if ( constToResolve == ( 0 ) )
+//				return "PORTAL_TYPE_ANY";
 
 
 			switch ( constToResolve ) {
@@ -854,6 +862,12 @@ public class TypesResolver extends hcm.environs.Types
 //					return "DEVICE_INFO_ATTR_BROADCAST_FOUND";
 //				case ( 0x4000 ):
 //					return "DEVICE_INFO_ATTR_DIRECT_CONTACT";
+
+
+			switch ( constToResolve ) {
+				case ( 0x10000 ):
+					return "DEVICE_INFO_ATTR_PORTAL_CREATED";
+			} /// -> switch
 //				case ( 0 ):
 //					return "APP_STATUS_ACTIVE";
 //				case ( 1 ):

@@ -1,5 +1,5 @@
 /**
- * Portal info object
+ * Base Portal Information
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -18,17 +18,15 @@
  * --------------------------------------------------------------------
  */
 #pragma once
-#ifndef INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
-#define INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
+#ifndef INCLUDE_HCM_ENVIRONS_PORTALINFO_BASE_H
+#define INCLUDE_HCM_ENVIRONS_PORTALINFO_BASE_H
 
-#include "Portal.Info.Base.h"
-#import "Environs.iosx.imp.h"
 
 /* Namespace: environs -> */
 namespace environs
 {
 	/**
-	*	A PortalInfo object serves as container for portal information.
+	*	A PortalInfoBase object serves as container for raw portal information.
     *   Environs makes use of such objects to get/set portal details.
 	*
 	*	@author		Chi-Tai Dang, dang@hcm-lab.de, University of Augsburg
@@ -36,32 +34,20 @@ namespace environs
 	*	@remarks	current size is (4 + 4 + 4 + 4 + 4) = 20 bytes
 	* ****************************************************************************************
 	*/
-	class PortalInfo
+	typedef struct _PortalInfoBase
 	{
-        public:
-		PortalInfoBase  base;
-        
-        PortalInfo ( );
-        
-#ifdef __APPLE__
-        id  portal;
-#endif
-        
-        virtual void NotifyObservers(int notification);
-        
-        virtual void SetSize(int width, int height);
-        
-        virtual void SetOrientation(float angle);
-        
-        virtual void SetLocation(int centerX, int centerY);
-        virtual void SetLocation(int centerX, int centerY, float angle);
-        
-        virtual void Set(int centerX, int centerY, float angle, int width, int height);
-        
-        virtual bool Update(int notification, PortalInfoBase * info);
-	};
+		int portalID;
+		int flags;
+
+		int centerX;
+		int centerY;
+		int width;
+		int height;
+		float orientation;
+	}
+	PortalInfoBase;
 
 } /* namepace Environs */
 
 
-#endif // INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
+#endif // INCLUDE_HCM_ENVIRONS_PORTALINFO_BASE_H

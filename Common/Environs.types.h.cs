@@ -54,7 +54,7 @@ namespace hcm.environs
 		public const int STATUS_DISPOSING                                  =	(1);
 		/** Environs is initializing. */
 		public const int STATUS_INITIALIZING                               =	(2);
-		/** Environs is initialized. Usually after a call to Environs.init() */
+		/** Environs is initialized. Usually after a call to Environs.Init() */
 		public const int STATUS_INITIALIZED                                =	(3);
 		/** Environs is stopped. Usually after a call to Environs.Stop() */
 		public const int STATUS_STOPPED                                    =	(4);
@@ -78,7 +78,7 @@ namespace hcm.environs
 			Disposing           	=	STATUS_DISPOSING,
 			/** Environs is initializing. */
 			Initializing        	=	STATUS_INITIALIZING,
-			/** Environs is initialized. Usually after a call to Environs.init() */
+			/** Environs is initialized. Usually after a call to Environs.Init() */
 			Initialized         	=	STATUS_INITIALIZED,
 			/** Environs is stopped. Usually after a call to Environs.Stop() */
 			Stopped             	=	STATUS_STOPPED,
@@ -250,6 +250,7 @@ namespace hcm.environs
 		public const int NOTIFY_CONNECTION_PROGRESS                        =	(NOTIFY_TYPE_CONNECTION | 0xD);
 			
 		public const int NOTIFY_CONNECTION_ESTABLISHED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS);
+		public const int NOTIFY_CONNECTION_ESTABLISHED_ACK                 =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS_ACK);
 		public const int NOTIFY_CONNECTION_CLOSED                          =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_DISCONNECTED);
 			
 		public const int NOTIFY_SHORT_MESSAGE                              =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SHORT_MESSAGE);
@@ -329,6 +330,8 @@ namespace hcm.environs
 		public const int MAX_PORTAL_CONTEXTS                               =	(3);
 		public const int MAX_PORTAL_OVERLAYS                               =	(3);
 		public const int MAX_PORTAL_GENERATOR_SLOTS                        =	(5);
+		public const int MAX_PORTAL_REQUEST_WAIT_TIME_MS                   =	(30000);
+		
 		
 		
 		/** Class: Portal type */
@@ -777,9 +780,9 @@ namespace hcm.environs
 			Decoder             	=	4,
 			/** A Tracker that analyzes raw images for objects, touches, etc. */
 			Tracker             	=	5,
-			/** A InputRecognizer is called back and provided a list of the current touch state in order to perform gesture recognition. */
+			/** A InputRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
 			InputRecognizer     	=	10,
-			/** A TouchRecognizer is called back and provided a list of the current touch state in order to perform gesture recognition. */
+			/** A TouchRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
 			OrientationRecognizer          	=	11,
 		}
 
@@ -899,6 +902,8 @@ namespace hcm.environs
 		public const int DEVICE_INFO_ATTR_UNAVAILABLE                      =	(0x1000);
 		public const int DEVICE_INFO_ATTR_BROADCAST_FOUND                  =	(0x2000);
 		public const int DEVICE_INFO_ATTR_DIRECT_CONTACT                   =	(0x4000);
+		
+		public const int DEVICE_INFO_ATTR_PORTAL_CREATED                   =	(0x10000);
 			
 		
 		public const int APP_STATUS_ACTIVE                                 =	(0);

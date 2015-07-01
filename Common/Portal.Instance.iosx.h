@@ -21,10 +21,12 @@
 #ifndef INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_IOSX_H
 #define INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_IOSX_H
 
-#import "Environs.observer.h"
 #include "Environs.iosx.imp.h"
 #include "Environs.types.h"
-#include "Portal.Info.h"
+#include "Portal.Info.Base.h"
+
+#import "Environs.observer.h"
+#import "Portal.Info.h"
 using namespace environs;
 
 
@@ -48,10 +50,12 @@ using namespace environs;
     int                     portalID;
     bool                    disposed;
     id                      device;
+    PortalInfo              info;
     
     int                     status;
     bool                    established;
     bool                    initiator;
+    bool                    disposeOngoing;
     
     bool                    outgoing;
     PortalType::PortalType  portalType;    
@@ -63,10 +67,12 @@ using namespace environs;
 
 - (void) Dispose;
 + (void) Dispose:(int) portalID;
++ (void) KillZombies;
 
 - (void) AddObserver:(id<PortalObserver>) observer;
 - (void) RemoveObserver:(id<PortalObserver>) observer;
 - (int) GetObserverCount;
+- (id) GetObserver;
 
 - (void) NotifyObservers:(int) notification;
 
@@ -78,10 +84,11 @@ using namespace environs;
 - (bool) SetRenderSurface:(id)surface;
 - (bool) ReleaseRenderSurface;
 
-- (PortalInfo *) GetPortalInfo;
-- (bool) SetPortalInfo:(PortalInfo *) info;
++ (PortalInfoBase *) GetPortalInfo:(int) portalID;
++ (bool) SetPortalInfo:(PortalInfoBase *) infoBase;
 
 + (void) Update:(int) deviceID Project:(const char *) projectName App:(const char *) appName Notfy:(int) notification PortalID:(int) portalID;
++ (void) UpdateOptions:(int) notification PortalID:(int) portalID Context:(void *)context;
 + (bool) PresentPortalToObservers:(PortalInstance *) portal;
 
 @end

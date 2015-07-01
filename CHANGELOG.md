@@ -2,6 +2,7 @@
 
 ---------------------------
 
+* Fixed: Disconnects from Mediator due to inactivity of devices.
 * Updated: to 0.7.0 (Preparing release)
 
 

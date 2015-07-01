@@ -6027,7 +6027,7 @@ void MediatorDaemon::WatchdogThread ()
 					
 	int						sock;
 	ThreadInstance		*	client			= 0;
-	const unsigned int		checkDuration	= 1000 * 60 * 2;
+	const unsigned int		checkDuration	= 1000 * 60 * 2; // 2 min. (in ms)
 
     
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)

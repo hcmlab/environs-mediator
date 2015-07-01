@@ -44,15 +44,15 @@ namespace environs {
 #define	STATUS_DISPOSING                                  		(1)
 /** Environs is initializing. */
 #define	STATUS_INITIALIZING                               		(2)
-/** Environs is initialized. Usually after a call to Environs.init() */
+/** Environs is initialized. Usually after a call to Environs.Init() */
 #define	STATUS_INITIALIZED                                		(3)
-/** Environs is stopped. Usually after a call to Environs.stop() */
+/** Environs is stopped. Usually after a call to Environs.Stop() */
 #define	STATUS_STOPPED                                    		(4)
-/** Environs is about to stop. Thread are being shut down and allocated resources are being released. */
+/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
 #define	STATUS_STOPPING                                   		(5)
-/** Environs is about to start. Thread are being started and resources are being allocated. */
+/** Environs is about to Start. Thread are being started and resources are being allocated. */
 #define	STATUS_STARTING                                   		(6)
-/** Environs is started. Usually after a call to Environs.start() */
+/** Environs is started. Usually after a call to Environs.Start() */
 #define	STATUS_STARTED                                    		(7)
 /** Environs is in connected state and connected to at least one device. */
 #define	STATUS_CONNECTED                                  		(8)
@@ -68,15 +68,15 @@ namespace environs {
 			Disposing           	=	STATUS_DISPOSING,
 			/** Environs is initializing. */
 			Initializing        	=	STATUS_INITIALIZING,
-			/** Environs is initialized. Usually after a call to Environs.init() */
+			/** Environs is initialized. Usually after a call to Environs.Init() */
 			Initialized         	=	STATUS_INITIALIZED,
-			/** Environs is stopped. Usually after a call to Environs.stop() */
+			/** Environs is stopped. Usually after a call to Environs.Stop() */
 			Stopped             	=	STATUS_STOPPED,
-			/** Environs is about to stop. Thread are being shut down and allocated resources are being released. */
+			/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
 			Stopping            	=	STATUS_STOPPING,
-			/** Environs is about to start. Thread are being started and resources are being allocated. */
+			/** Environs is about to Start. Thread are being started and resources are being allocated. */
 			Starting            	=	STATUS_STARTING,
-			/** Environs is started. Usually after a call to Environs.start() */
+			/** Environs is started. Usually after a call to Environs.Start() */
 			Started             	=	STATUS_STARTED,
 			/** Environs is in connected state and connected to at least one device. */
 			Connected           	=	STATUS_CONNECTED,
@@ -234,6 +234,7 @@ namespace environs {
 #define	NOTIFY_CONNECTION_PROGRESS                        		(NOTIFY_TYPE_CONNECTION | 0xD)
 	
 #define	NOTIFY_CONNECTION_ESTABLISHED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS)
+#define	NOTIFY_CONNECTION_ESTABLISHED_ACK                 		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS_ACK)
 #define	NOTIFY_CONNECTION_CLOSED                          		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_DISCONNECTED)
 	
 #define	NOTIFY_SHORT_MESSAGE                              		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SHORT_MESSAGE)
@@ -312,6 +313,8 @@ namespace environs {
 #define	MAX_PORTAL_CONTEXTS                               		(3)
 #define	MAX_PORTAL_OVERLAYS                               		(3)
 #define	MAX_PORTAL_GENERATOR_SLOTS                        		(5)
+#define	MAX_PORTAL_REQUEST_WAIT_TIME_MS                   		(30000)
+
 
 
 /** Class: Portal type */
@@ -608,7 +611,7 @@ namespace environs {
 #define	DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          		(2)
 
 /**
- * Environs mediator broadcast message start bytes
+ * Environs mediator broadcast message Start bytes
  */
 #define	MEDIATOR_BROADCAST_DEVICETYPE_START               		(11)
 #define	MEDIATOR_BROADCAST_DEVICEID_START                 		(12)
@@ -618,7 +621,7 @@ namespace environs {
 #define	MEDIATOR_BROADCAST_SPARE_ID_LEN                   		(28)
 
 /**
- * Environs DeviceInstance struct start bytes
+ * Environs DeviceInstance struct Start bytes
  */
 #define	DEVICEINFO_DEVICEID_START                         		(0)
 #define	DEVICEINFO_IP_START                               		(4)
@@ -735,9 +738,9 @@ namespace environs {
 			Decoder             	=	4,
 			/** A Tracker that analyzes raw images for objects, touches, etc. */
 			Tracker             	=	5,
-			/** A InputRecognizer is called back and provided a list of the current touch state in order to perform gesture recognition. */
+			/** A InputRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
 			InputRecognizer     	=	10,
-			/** A TouchRecognizer is called back and provided a list of the current touch state in order to perform gesture recognition. */
+			/** A TouchRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
 			OrientationRecognizer          	=	11,
 		};
 	};
@@ -859,6 +862,8 @@ namespace environs {
 #define	DEVICE_INFO_ATTR_UNAVAILABLE                      		(0x1000)
 #define	DEVICE_INFO_ATTR_BROADCAST_FOUND                  		(0x2000)
 #define	DEVICE_INFO_ATTR_DIRECT_CONTACT                   		(0x4000)
+
+#define	DEVICE_INFO_ATTR_PORTAL_CREATED                   		(0x10000)
 	
 
 #define	APP_STATUS_ACTIVE                                 		(0)
@@ -985,12 +990,12 @@ namespace environs {
 		"Stream portal provided",
 		"Image portal provided",
 		"Portal request failed",
-		"Portal stop",
-		"Portal stop ack",
-		"Portal stop failed",
-		"Portal start",
-		"Portal start ack",
-		"Portal start failed",
+		"Portal Stop",
+		"Portal Stop ack",
+		"Portal Stop failed",
+		"Portal Start",
+		"Portal Start ack",
+		"Portal Start failed",
 		"Portal pause",
 		"Portal pause ack",
 		"Portal pause failed",

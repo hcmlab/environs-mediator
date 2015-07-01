@@ -60,10 +60,14 @@
 #define INCLUDE_HCM_ENVIRONS_NATIVE_COMMON_H
 
 
+#ifdef DISPLAYDEVICE
+#define MAX_PORTAL_INSTANCES				30
+#else
+#define MAX_PORTAL_INSTANCES				10
+#endif
 
 #define ENVIRONS_USER_PASSWORD_LENGTH		64
 #define ENVIRONS_MAX_KEYSIZE				4096
-
 
 #ifdef __APPLE__
 #define ENVIRONS_PRIVATE_KEYNAME			"env.4321a.bin"
@@ -72,10 +76,10 @@
 #define ENVIRONS_PRIVATE_KEYNAME			"env.4321.bin"
 #define ENVIRONS_PUBLIC_CERTNAME			"env.1234.bin"
 #endif
-
-#define MAX_PORTAL_CONTEXTS					3
-#define MAX_PORTAL_STREAMS_A_DEVICE			3
-#define MAX_PORTAL_OVERLAYS					3
+//
+//#define MAX_PORTAL_CONTEXTS					3
+//#define MAX_PORTAL_STREAMS_A_DEVICE			3
+//#define MAX_PORTAL_OVERLAYS					3
 
 #define ENVIRONS_MEDIATOR_MAX_TRYS          10
 
@@ -160,10 +164,16 @@ namespace environs {
 
 #define		Zero(mem)							memset(&mem,0,sizeof(mem))
 #define		GetPortalID(p)						(p & 0xFF)
+#define		GetPortalDeviceID(p)				((p >> 24) & 0xFF)
+#define		IsInvalidPortalDeviceID(p)			(p < 0 || p >= MAX_PORTAL_INSTANCES )
+#define		IsInvalidPortalID(p)				(p < 0 || p >= MAX_PORTAL_STREAMS_A_DEVICE )
 #define		PortalID()							(portalID & 0xFF)
 #define		IsPortalGenerator()					(portalID & PORTAL_DIR_OUTGOING)
+#define		IsPortalIDGenerator(p)				(p & PORTAL_DIR_OUTGOING)
 #define		IsPortalReceiver()					(portalID & PORTAL_DIR_INCOMING)
+#define		IsPortalIDReceiver()				(p & PORTAL_DIR_INCOMING)
 #define		ClearPortalDir()					(portalID &= ~(PORTAL_DIR_INCOMING | PORTAL_DIR_OUTGOING))
+#define		ClearPortalDeviceID(p)				(p & 0xFFFFFF)
 
 #define		ClearBit(val,mask)					(val &= ~mask)
 #define		AddBit(val,mask)					(val |= mask)
@@ -180,7 +190,7 @@ namespace environs {
 #define 	REC_BUF_SIZE						256000
 #define 	REC_BUF_SIZE_MAX					2000000
 #define		UDP_MAX_SIZE						66000
-#define		DATA_BUFFER_COUNT					10
+#define		DATA_BUFFER_COUNT					5
 #define		DATA_BUFFER_SIZE					1000000
 #define		STREAM_BUFFER_SIZE_MIN				100000
 #define		TCP_MSG_PROTOCOL_VERSION			2

@@ -20,29 +20,16 @@
  */
 #include "Environs.platforms.h"
 
+#import <Environs.iosx.imp.h>
+
 #if ( defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX) )
-
-#ifdef ENVIRONS_IOS
-    //******** iOS *************
-    #import <UIKit/UIKit.h>
-    #import <CoreMotion/CoreMotion.h>
-    #import <Environs.ios.h>
-
-#else
-    //******** OSX *************
-    #import <Environs.osx.h>
-    #import <Cocoa/Cocoa.h>
-
-    #define     UIView          NSView
-    #define     UIAlertView     NSAlertView
-
-#endif
 
 #import <Foundation/Foundation.h>
 #import <CoreLocation/CoreLocation.h>
 
-#import "Environs.Listener.h"
+#import "Environs.Observer.h"
 #include "Portal.Info.h"
+#include "Device.Instance.h"
 
 
 bool createAppID ( char * buffer, unsigned int bufSize );
@@ -122,56 +109,31 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  Set the render surface of type UIView as the target to render the portal to. The width and height of the UIView is defined as the size of a fullscreen view.
  The portal is determined through the deviceID and portalID.
  @param deviceID
- @param portalID
+ @param portalDeviceID
  @param newSurface
  @returns success
  */
-+ (bool) setRenderSurface:(int)deviceID withPortal:(int)portalID withSurface:(UIView *)newSurface;
-+ (bool) setRenderSurface:(int)deviceID Project:(const char *) projectName App:(const char *) appName withPortal:(int)portalID withSurface:(UIView *)newSurface;
++ (bool) setRenderSurface:(int)portalID withSurface:(UIView *)newSurface;
 
 /**
  Set the render surface of type UIView as the target to render the portal to. The UIView has a defined width and size.
  The portal is determined through the deviceID and portalID.
- @param deviceID
  @param portalID
  @param newSurface
  @param width
  @param height
  @returns success
  */
-+ (bool) setRenderSurface:(int)deviceID withPortal:(int)portalID withSurface:(UIView *)newSurface withWidth:(int) width withHeight:(int) height;
++ (bool) setRenderSurface:(int)portalID withSurface:(UIView *)newSurface withWidth:(int) width withHeight:(int) height;
 
-/**
- Set the render surface of type UIView as the target to render the portal to.
- The portal is determined through the deviceID, projectName, appName, and portalID.
- @param deviceID
- @param projectName
- @param appName
- @param portalID
- @param newSurface
- @param width
- @param height
- @returns success
- */
-+ (bool) setRenderSurface:(int)deviceID Project:(const char *) projectName App:(const char *) appName withPortal:(int)portalID withSurface:(UIView *)newSurface withWidth:(int) width withHeight:(int) height;
 
 /**
  Release the render surface determined through the deviceID and portalID.
- @param deviceID
  @param portalID
  @returns success
  */
-+ (bool) releaseRenderSurface:(int)deviceID withPortal:(int)portalID;
++ (bool) releaseRenderSurface:(int)portalDeviceID;
 
-/**
- Release the render surface determined through the deviceID, projectName, appName, and portalID.
- @param deviceID
- @param projectName
- @param appName
- @param portalID
- @returns success
- */
-+ (bool) releaseRenderSurface:(int)deviceID Project:(const char *) projectName App:(const char *) appName withPortal:(int)portalID;
 
 + (void) setDebug:(int)value;
 
@@ -302,11 +264,11 @@ bool createAppID ( char * buffer, unsigned int bufSize );
 + (void) destroy;
 
 /**
- * Set the listener for communication with Environs and devices within the environment.
+ * Add an observer for communication with Environs and devices within the environment.
  *
- * @param environsListener Your implementation of EnvironsListener.
+ * @param observer Your implementation of EnvironsObserver.
  */
-+ (void) setListener:(id<EnvironsListener>) environsListener;
++ (void) AddObserver:(id<EnvironsObserver>) observer;
 
 /**
  * Set the ports that the local instance of Environs shall use for listening on connections.
@@ -430,16 +392,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
 + (bool) requestPortalStream:(int) deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withType:(int) typeID;
 
 /**
- * Start streaming of portal to this device.
- *
- * @param 	deviceID
- * @param 	portalID	An application specific id (e.g. used for distinguishing front facing or back facing camera)
- * @return 	success
- */
-+ (bool) startPortalStream:(int) deviceID doAsync:(int)async withPortal:(int) portalID;
-
-/**
- * Start streaming of portal to this device.
+ * Provide streaming of portal to this device.
  *
  * @param 	deviceID
  * @param 	projectName	Project name of the application environment
@@ -447,55 +400,36 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param 	portalID	An application specific id (e.g. used for distinguishing front facing or back facing camera)
  * @return 	success
  */
-+ (bool) startPortalStream:(int) deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withPortal:(int) portalID;
++ (bool) providePortalStream:(int) deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async type:(int) portalType;
+
+/**
+ * Start streaming of portal to this device.
+ *
+ * @param 	portalID	An application specific id (e.g. used for distinguishing front facing or back facing camera)
+ * @return 	success
+ */
++ (bool) startPortalStream:(int)async withPortal:(int) portalID;
 
 /**
  * Stop streaming of portal from this device.
  *
- * @param deviceID
  * @param portalID		This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
  * 					It is provided within the notification listener as sourceIdent.&nbsp;
  * 					Applications should store them in order to address the correct portal within Environs.
  * @return success
  */
-+ (bool) stopPortalStream:(int) deviceID doAsync:(int)async withPortal:(int) portalID;
-
-/**
- * Stop streaming of portal from this device.
- *
- * @param   deviceID
- * @param 	projectName	Project name of the application environment
- * @param 	appName		Application name of the application environment
- * @param   portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
- *                      It is provided within the notification listener as sourceIdent.&nbsp;
- *                      Applications should store them in order to address the correct portal within Environs.
- * @return success
- */
-+ (bool) stopPortalStream:(int) deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withPortal:(int) portalID;
++ (bool) stopPortalStream:(int)async withPortal:(int) portalID;
 
 /**
  * Pause streaming of portal to this device.
  *
- * @param 	deviceID
  * @param 	portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
  * 						It is provided within the notification listener as sourceIdent.&nbsp;
  * 						Applications should store them in order to address the correct portal within Environs.
  * @return success
  */
-+ (bool) pausePortalStream:(int) deviceID doAsync:(int)async withPortal:(int) portalID;
++ (bool) pausePortalStream:(int)async withPortal:(int) portalID;
 
-/**
- * Pause streaming of portal to this device.
- *
- * @param 	deviceID
- * @param 	projectName	Project name of the application environment
- * @param 	appName		Application name of the application environment
- * @param 	portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
- * 						It is provided within the notification listener as sourceIdent.&nbsp;
- * 						Applications should store them in order to address the correct portal within Environs.
- * @return success
- */
-+ (bool) pausePortalStream:(int) deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withPortal:(int) portalID;
 
 + (unsigned int) getIPAddress;
 + (unsigned int) getSubnetMask;
@@ -640,7 +574,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param deviceID
  * @return DeviceScreen
  */
-+ (char *) getDeviceScreenSizes:(int)deviceID;
++ (char *) getDeviceDisplayProps:(int)deviceID;
 
 /**
  * Query a DeviceScreen object of the device with the deviceID.&nbsp;
@@ -651,7 +585,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param appName		Application name of the application environment
  * @return DeviceScreen
  */
-+ (char *) getDeviceScreenSizes:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (char *) getDeviceDisplayProps:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
 
 /**
  * Query an array of DeviceInfo objects of available devices within the environment (including those of the Mediator)
@@ -725,6 +659,16 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  */
 + (int) getDevicesFromMediatorCount;
 
+
+/**
+ * Query a DeviceInfo object for the active portal identified by the portalID.
+ *
+ * @param portalID      The portalID that identifies an active portal.
+ * @return DeviceInfo-object    IMPORTANT!!! On NON-ANDROID -> the requestor has to free the memory!!!
+ */
++ (environs::DeviceInfoHeaderedPackage *) getDeviceForPortal:(int) portalID;
+
+
 /**
  * Get the status, whether the device (id) has direct physical contact, such as lying on the surface
  *
@@ -747,9 +691,10 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * Get the status, whether the device (id) has established an active portal
  *
  * @param		deviceID
+ * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
  * @return		true = yes, false = no
  */
-+ (bool) getPortalEnabled:(int)deviceID;
++ (bool) getPortalEnabled:(int)deviceID type:(int)portalType;
 
 /**
  * Get the status, whether the device (id) has established an active portal
@@ -757,34 +702,34 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param deviceID
  * @param projectName	Project name of the application environment
  * @param appName		Application name of the application environment
+ * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
  * @return		true = yes, false = no
  */
-+ (bool) getPortalEnabled:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (bool) getPortalEnabled:(int)deviceID Project:(const char *) projectName App:(const char *) appName type:(int)portalType;
+
+
+/**
+ * Get the portalID of the first active portal
+ *
+ * @param 	deviceID    The device id of the target device.
+ * @param 	projectName	Project name of the application environment
+ * @param 	appName		Application name of the application environment
+ * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
+ * @return	portalID 	The portal ID.
+ */
++ (int) getPortalId:(int)deviceID Project:(const char *) projectName App:(const char *) appName type:(int)portalType;
 
 
 /**
  * Get details about portal associated with the deviceID.
  *
- * @param deviceID  	The deviceID
  * @param portalID		This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
  * 						It is provided within the notification listener as sourceIdent.&nbsp;
  * 						Applications should store them in order to address the correct portal within Environs.
  * @return portalInfo A PortalInfo object containing the details about the portal. If the call fails, the value is null.
  */
-+ (environs::PortalInfo *) getPortalInfo:(int)deviceID withID:(int)portalID;
++ (environs::PortalInfo *) getPortalInfo:(int)portalID;
 
-/**
- * Get details about portal associated with the deviceID.
- *
- * @param deviceID  	The deviceID
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @param portalID		This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
- * 						It is provided within the notification listener as sourceIdent.&nbsp;
- * 						Applications should store them in order to address the correct portal within Environs.
- * @return portalInfo A PortalInfo object containing the details about the portal. If the call fails, the value is null.
- */
-+ (environs::PortalInfo *) getPortalInfo:(int)deviceID Project:(const char *) projectName App:(const char *) appName withID:(int)portalID;
 
 /**
  * Set details for the portal associated with the deviceID.
@@ -795,16 +740,6 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  */
 + (bool) setPortalInfo:(environs::PortalInfo *)info;
 
-/**
- * Set details for the portal associated with the deviceID.
- *
- * @param   A PortalInfo object (that may have been queried by a former call to GetPortalInfo()).&nbsp;
- * 			The deviceID and portalID members of the PortalInfo object must have valid values.
- * @param 	projectName	Project name of the application environment
- * @param 	appName		Application name of the application environment
- * @return success
- */
-+ (bool) setPortalInfo:(environs::PortalInfo *)info Project:(const char *) projectName App:(const char *) appName;
 
 /**
  * Set the device id that is assigned to the instance of Environs.

@@ -1,6 +1,5 @@
 /**
- * Environs AV context for data exchange 
- * between native and platform layer
+ * Environs Portal WorkerStages
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -18,31 +17,31 @@
  * http://www.eclipse.org/org/documents/epl-v10.html
  * --------------------------------------------------------------------
  */
-#ifndef INCLUDE_HCM_ENVIRONS_AVCONTEXT_DECLS
-#define	INCLUDE_HCM_ENVIRONS_AVCONTEXT_DECLS
+#ifndef INCLUDE_HCM_ENVIRONS_PORTAL_WORKERSTAGES
+#define	INCLUDE_HCM_ENVIRONS_PORTAL_WORKERSTAGES
 
+#include "Interfaces/IPortal.Encoder.h"
+#include "Interfaces/IPortal.Renderer.h"
 
 namespace environs {
 	/**
-	*	Environs AV context for data exchange 
-	*	between native and platform layer
+	*	Environs Portal WorkerStages
 	*	--------------------------------------------------------------------------------------
 	*
 	*	@author		Chi-Tai Dang, dang@hcm-lab.de, University of Augsburg
 	*	@version	1.0
 	*	@remarks	
 	* ****************************************************************************************
-	*/
-	typedef struct _EnvironsAVContext {
-		int            width;
-		int            height;
-		int            stride;
-		int            pixelFormat; // a value of 
-		char		*	data;     
-	}
-	EnvironsAVContext;
+     */
+    typedef struct _WorkerStages
+    {
+        IPortalCapture	*	capture;
+        IPortalRenderer *	render;
+        IPortalEncoder	*	encoder;
+    }
+    WorkerStages;
 
 } /* namespace environs */
 
 
-#endif /* INCLUDE_HCM_ENVIRONS_AVCONTEXT_DECLS */
+#endif /* INCLUDE_HCM_ENVIRONS_PORTAL_WORKERSTAGES */

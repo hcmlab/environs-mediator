@@ -139,14 +139,14 @@ private:
 
 	ApplicationDevices *					GetApplicationDevices ( const char * projectName, const char * appName );
 	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
-	DeviceInstance *						GetDeviceInstance ( unsigned int deviceID, DeviceInstance * devices );
+	DeviceInstanceList *					GetDeviceInstance ( int deviceID, DeviceInstanceList * devices );
 
 	ThreadInstance						*	GetSessionClient ( long long sessionID );
 
     map<long long, ThreadInstance *>        notifyTargets;
     void                                    UpdateNotifyTargets ( ThreadInstance * client, int filterMode );
 
-	unsigned int							CollectDevicesCount ( DeviceInstance * sourceDevice, int filterMode );
+	unsigned int							CollectDevicesCount ( DeviceInstanceList * sourceDevice, int filterMode );
 
 	pthread_mutex_t							projectsMutex;
 	map<string, AppsList * >				projects;
@@ -172,8 +172,8 @@ private:
     AESContext                              aesCtx;
     char                                    aesKey [ 32 ];
 	
-	DeviceInstance **						GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, 
-													unsigned int ** pDevicesAvailable, ApplicationDevices ** appDevices );
+	DeviceInstanceList **					GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex,
+													int ** pDevicesAvailable, ApplicationDevices ** appDevices );
 	
 	unsigned int							projectCounter;
 	map<unsigned int, string>				projectIDs;
@@ -184,8 +184,8 @@ private:
 	std::map<std::string, ProjectApps * >	projectsList;
 	
 	void									RemoveDevice ( unsigned int ip, char * msg );
-	void									RemoveDevice ( DeviceInstance * device, bool useLock = true );
-	void									RemoveDevice ( unsigned int deviceID, const char * projectName, const char * appName );
+	void									RemoveDevice ( DeviceInstanceList * device, bool useLock = true );
+	void									RemoveDevice ( int deviceID, const char * projectName, const char * appName );
 
     unsigned int                            bannAfterTries;
 	pthread_mutex_t							bannedIPsMutex;
@@ -218,9 +218,9 @@ private:
 	void *									ClientThread ( void *arg );
 
 	bool									HandleRequest ( char * buffer, ThreadInstance * client );
-	bool									UpdateDeviceRegistry ( DeviceInstance * device, unsigned int ip, char * msg );
+	bool									UpdateDeviceRegistry ( DeviceInstanceList * device, unsigned int ip, char * msg );
 
-	int										HandleRegistration ( unsigned int &deviceID, ThreadInstance * client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+	int										HandleRegistration ( int &deviceID, ThreadInstance * client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
 
 	bool									HandleDeviceRegistration ( ThreadInstance * client, unsigned int ip, char * msg );
 	bool									SecureChannelAuth ( ThreadInstance * client );
@@ -244,7 +244,7 @@ private:
 	char								*	notifyProjectName;
 	char								*	notifyAppName;
 
-	void									NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, unsigned int deviceID );
+	void									NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID );
 	static void 						*	NotifyClientsStarter ( void * daemon );
 	void									NotifyClients ( unsigned int notify );
 	

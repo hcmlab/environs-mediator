@@ -1,6 +1,6 @@
 /**
- * Render dimensions declaration
- * ------------------------------------------------------------------
+* Device display declaration
+* ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
  * @author	Chi-Tai Dang
@@ -16,35 +16,27 @@
  * A copy of the license may be obtained at:
  * http://www.eclipse.org/org/documents/epl-v10.html
  * --------------------------------------------------------------------
- */
+*/
 #pragma once
-#ifndef INCLUDE_HCM_ENVIRONS_RENDERDIMENSIONS_DECLARATIONS_H_
-#define INCLUDE_HCM_ENVIRONS_RENDERDIMENSIONS_DECLARATIONS_H_
+#ifndef INCLUDE_HCM_ENVIRONS_DEVICE_DISPLAY_DECLARATIONS_H_
+#define INCLUDE_HCM_ENVIRONS_DEVICE_DISPLAY_DECLARATIONS_H_
 
 
 namespace environs
 {
-	typedef struct _RenderDimensions
+	typedef struct _DeviceDisplay
 	{
-		int				square;
-		int				left;
-		int				top;
-
-		int				streamWidth;
-		int				streamHeight;
-		
-		int				xOffset;
-		int				yOffset;
-
-		int				left_cap;
-		int				top_cap;
-		int				width_cap;
-		int				height_cap;
-		
-		float			orientation;
+		int     width;
+		int     height;
+		int     width_mm;
+		int     height_mm;
+        
+        // DISPLAY_ORIENTATION_* - 0 = landscape, 1 = portrait
+		int     orientation;
+		float   dpi;
 	}
-	RenderDimensions;
+	DeviceDisplay;
 }
 
 
-#endif /* INCLUDE_HCM_ENVIRONS_RENDERDIMENSIONS_DECLARATIONS_H_ */
+#endif /* INCLUDE_HCM_ENVIRONS_DEVICE_DISPLAY_DECLARATIONS_H_ */

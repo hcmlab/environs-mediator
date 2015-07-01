@@ -67,6 +67,7 @@ namespace environs
         
         bool                    isIFrame;
         
+		int						frameCounter;
 #ifdef USE_ENCODER_BYTEBUFFER
 		ByteBuffer			*	outputBuffer;
 #else

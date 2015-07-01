@@ -21,6 +21,8 @@
 #include "Interface.Exports.h"
 #include "IEnvirons.Ident.h"
 #include "Human.Input.Decl.h"
+#include "Device.Display.Decl.h"
+#include "stdio.h"
 
 #ifndef INCLUDE_HCM_ENVIRONS_IHUMAN_INPUT_RECOGNIZER_H
 #define INCLUDE_HCM_ENVIRONS_IHUMAN_INPUT_RECOGNIZER_H
@@ -42,7 +44,7 @@ namespace environs
 			/** Base class initialization */
 			IEnvironsIdent ( InterfaceType::InputRecognizer ),
 			/** Default initialization */
-			triggerTouchCount ( 0 ), deviceBase ( 0 ), device_width ( 0 ), device_height ( 0 )
+			triggerTouchCount ( 0 ), deviceBase ( 0 )
 		{};
 
 		virtual ~IInputRecognizer ( ) {};
@@ -55,10 +57,16 @@ namespace environs
 		*	@param	device_height
 		*	@return	bool
 		*/
-		bool Init ( void * deviceBase, unsigned int device_width, unsigned int device_height )
+		bool Init ( void * deviceBase, DeviceDisplay * display )
 		{
             this->deviceBase = deviceBase;
-            this->device_width = device_width; this->device_height = device_height;
+            
+            if ( display ) {
+                this->display.width = display->width;
+                this->display.height = display->height;
+                this->display.width_mm = display->width_mm;
+                this->display.height_mm = display->height_mm;
+            }
 			return Init ();
 		};
 
@@ -69,14 +77,15 @@ namespace environs
 		*	@param	void
 		*	@return	bool
 		*/
-		unsigned int		triggerTouchCount;
-		virtual int			Trigger ( InputPackRec **	inputs, unsigned int inputCount ) = 0;
+        int                 triggerTouchCount;
+		virtual int			Trigger ( InputPackRec **	inputs, int inputCount ) = 0;
 
-		virtual int			Perform ( InputPackRec **	inputs, unsigned int inputCount ) = 0;
+        virtual int			Perform ( InputPackRec **	inputs, int inputCount ) = 0;
+        
+        virtual void		Flush () {};
         
 	protected:
-		unsigned int		device_width;
-		unsigned int		device_height;
+        DeviceDisplay       display;
 	};
 
 } /* namespace environs */

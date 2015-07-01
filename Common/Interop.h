@@ -87,6 +87,8 @@
 
 #else
 
+#define INTEROPTIMEVAL           		uint64_t
+
 /// NOT _WIN32
 #define COBSTR           				const char *
 
@@ -118,19 +120,17 @@
 #if defined(ANDROID) || !defined(__APPLE__)
 #define EBOOL							jboolean
 #define BSTR							jstring
-#define INTEROPTIMEVAL           		time_t
-#define INTEROPTIMEMS(ms)           	(ms)
-
+#define INTEROPTIMEMS(ms)           	(ms * 1000)
 #else /// !ANDROID
 
 /// Use bool as default for BOOL otherwise
 #define EBOOL							bool
 #define BSTR							const char *
-#define INTEROPTIMEVAL           		uint64_t
-#define INTEROPTIMEMS(ms)           	(ms * 1000 * 1000 * environs_nsec_factor)
+#define INTEROPTIMEMS(ms)           	(ms)
 #endif  /// end-ANDROID
 
 #endif
+
 
 
 

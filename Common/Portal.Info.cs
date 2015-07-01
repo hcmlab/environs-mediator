@@ -29,7 +29,7 @@ namespace hcm.environs
     /// </summary>
     public class PortalInfo
     {
-        public Int32 deviceID;
+        public int deviceID;
         public int portalID;
         public int flags;
 

@@ -49,21 +49,21 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Encoder ),
 
 			/** Default initialization */
-			inBufferType ( EncoderBufferType::ARGB ), renderer ( 0 ), capture ( 0 ), width ( 0 ), height ( 0 ), avContext ( 0 ), type ( 0 ),
-            iFrameFPSMode ( false ), iFrameRequest ( false ), frameCounter ( 0 )
+			inBufferType ( EncoderBufferType::ARGB ), width ( 0 ), height ( 0 ), avContext ( 0 ), encodedType ( 0 ),
+            iFrameFPSMode ( false ), iFrameRequest ( false ), frameCounter ( 0 ), stages ( 0 ), sendID ( -1 ), requireSendID ( false )
             { };
     
 		virtual ~IPortalEncoder () {};
 
-		virtual bool							Init ( unsigned int deviceID, unsigned int EncoderProps, unsigned int Width, unsigned int Height, unsigned int FrameRate ) = 0;
+		virtual bool							Init ( int deviceID, int EncoderProps, int Width, int Height, int FrameRate ) = 0;
 
 		// 0 means encoded, but do not send the data; 1 means encoded and new data to transmit, -1 means failed to encode.
-		virtual int								Perform ( RenderContext * context ) = 0;
+        virtual int								Perform ( RenderContext * context ) = 0;
+        virtual int								Perform () { return 0; };
 
 		EncoderBufferType::EncoderBufferType	inBufferType;
-
-		void								*	renderer;
-		void								*	capture;
+    
+        void								*	stages;
 
         bool                                    iFrameFPSMode;
         bool                                    iFrameRequest;
@@ -73,7 +73,10 @@ namespace environs
         unsigned int                            frameCounter;
 
         void								*	avContext;
-		int                                     type;
+		int                                     encodedType;
+    
+        bool                                    requireSendID;
+        int                                     sendID;
 
 		virtual int								EncodeARGB ( char * source, char * &output, RenderContext * context ) { return 0; };
 		virtual int								EncodeBGRA ( char * source, char * &output, RenderContext * context ) { return 0; };

@@ -49,7 +49,7 @@ namespace environs
 		bool								enabled;
 		bool								initialized;
 
-		unsigned int						deviceID;
+		int                                 deviceID;
 		
 		char 							*	modName;
 		void							*	hModLib;

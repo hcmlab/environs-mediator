@@ -204,42 +204,41 @@ namespace environs
 #pragma warning( pop )
 #endif
 
-	INTEROPTIMEVAL GetEnvironsTickCount ()
-	{
-#ifdef ANDROID
-		timespec ts;
-#else
-#ifndef _WIN32
-#ifndef __APPLE__
-		struct timeval	ts;
-		gettimeofday ( &ts, NULL );
-#endif
-#endif
-#endif
-
-#ifdef ANDROID
-		if ( clock_gettime ( CLOCK_REALTIME, &ts ) != 0 ) {
-			CErrArg ( "GetEnvironsTickCount: Failed to fetch time [%s]", strerror ( errno ) );
-		}
-		else {
-			return ts.tv_sec;
-		}
-#else
-
-		return
-
-#ifdef _WIN32
-			( INTEROPTIMEVAL ) GetTickCount64 ();
-#else
+    
 #ifdef __APPLE__
-			mach_absolute_time ();
-#else
-			ts.tv_usec;
+    mach_timebase_info_data_t environs_time_base_info;
 #endif
-#endif
-#endif
-	}
 
+    
+#ifdef _WIN32
+    // return milliseconds
+    INTEROPTIMEVAL GetEnvironsTickCount ()
+    {
+        return ( INTEROPTIMEVAL ) GetTickCount64 ();
+    }
+#endif
+    
+#ifdef __APPLE__
+    // return milliseconds
+    INTEROPTIMEVAL GetEnvironsTickCount ()
+    {
+        return ((mach_absolute_time() / 1000000) * environs_time_base_info.numer) / environs_time_base_info.denom;
+    }
+#endif
+    
+#ifdef ANDROID
+    // return nanoseconds
+    INTEROPTIMEVAL GetEnvironsTickCount ()
+    {
+        struct timespec	ts;
+        
+        if ( clock_gettime ( CLOCK_REALTIME, &ts ) != 0 ) {
+            CErrArg ( "GetEnvironsTickCount: Failed to fetch time [%s]", strerror ( errno ) );
+            return 0;
+        }
+        return ts.tv_nsec;
+    }
+#endif
 
 	unsigned int getRandomValue ( void * value )
 	{

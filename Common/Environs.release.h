@@ -23,7 +23,7 @@
 #define ENABLE_GPL
 
 #define	BUILD_MAJOR_VERSION		0
-#define	BUILD_MINOR_VERSION		6
+#define	BUILD_MINOR_VERSION		7
 #define	BUILD_RELEASE_COUNTER	0
 
 #include "Environs.revision.h"

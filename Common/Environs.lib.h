@@ -31,25 +31,27 @@ namespace environs
 	namespace API 
 	{
 		extern void UpdateNetworkStatus ();
-        extern void setDeviceID ( int deviceID );
+        extern void SetDeviceID ( int deviceID );
 
 		/**
 		 *	API exports that are used for every platform
 		 *
 		 * */
-		ENVIRONSAPI LIBEXPORT void CallConv setCallbacks ( long TouchCallback, long MessageCallback, long NotifyCallback, long DataCallback, long StatusMessageCallback );
+		ENVIRONSAPI LIBEXPORT void CallConv SetCallbacks ( long TouchCallback, long MessageCallback, long NotifyCallback, long DataCallback, long StatusMessageCallback );
 
-		ENVIRONSAPI LIBEXPORT EBOOL CallConv getPortalInfo1 ( void * portalInfo, const char * projName, const char * appName );
-		ENVIRONSAPI LIBEXPORT EBOOL CallConv setPortalInfo1 ( void * portalInfo, const char * projName, const char * appName );
-		ENVIRONSAPI LIBEXPORT void CallConv setDeviceID2 ( int deviceID );
+		ENVIRONSAPI LIBEXPORT EBOOL CallConv GetPortalInfo1 ( void * portalInfo );
+		ENVIRONSAPI LIBEXPORT EBOOL CallConv SetPortalInfo1 ( void * portalInfo );
+		ENVIRONSAPI LIBEXPORT void CallConv SetDeviceID2 ( int deviceID );
 
 		/**
 		* Query whether the native layer was build for release (or debug).
 		*
 		* @return	true = Release build, false = Debug build.
 		*/
-		ENVIRONSAPI LIBEXPORT EBOOL CallConv getIsReleaseBuild ();
-
+		ENVIRONSAPI LIBEXPORT EBOOL CallConv GetIsReleaseBuild ();
+        
+        extern void BridgeForNotify ( jint deviceID, const char * projName, const char * appName, jint notification, jint source, jobject contextPtr );
+        
 /**
 *	API exports for all platforms but Android
 *
@@ -60,181 +62,244 @@ namespace environs
 		extern "C"
 		{
 #endif
-			LIBEXPORT const char * CallConv getVersionString ();
-			LIBEXPORT int CallConv			getVersionMajor ();
-			LIBEXPORT int CallConv			getVersionMinor ();
-			LIBEXPORT int CallConv			getVersionRevision ();
-			LIBEXPORT int CallConv			getRuntimePlatform ();
+			LIBEXPORT const char * CallConv GetVersionString ();
+			LIBEXPORT int CallConv			GetVersionMajor ();
+			LIBEXPORT int CallConv			GetVersionMinor ();
+			LIBEXPORT int CallConv			GetVersionRevision ();
+			LIBEXPORT int CallConv			GetRuntimePlatform ();
 
-			LIBEXPORT void CallConv			registerMainThread ();
-			LIBEXPORT void CallConv			setDebug ( int mode );
-			LIBEXPORT void CallConv			setOSLevel ( int level );
-			LIBEXPORT void CallConv			resetIdentKeys ();
-			LIBEXPORT void CallConv			setDeviceID1 ( int myDeviceID );
-			LIBEXPORT int CallConv			getDeviceID ();
-			LIBEXPORT int CallConv			getDeviceIDFromMediator ();
+			LIBEXPORT void CallConv			RegisterMainThread ();
+			LIBEXPORT void CallConv			SetDebug ( int mode );
+			LIBEXPORT void CallConv			SetOSLevel ( int level );
+			LIBEXPORT void CallConv			ResetIdentKeys ();
+			LIBEXPORT void CallConv			SetDeviceID1 ( int myDeviceID );
+			LIBEXPORT int CallConv			GetDeviceID ();
+			LIBEXPORT int CallConv			GetDeviceIDFromMediator ();
             
             
-			LIBEXPORT int CallConv			getMediatorFilterLevel ( );
-			LIBEXPORT void CallConv			setMediatorFilterLevel ( int level );
-			LIBEXPORT int CallConv			getIPAddress ( );
-			LIBEXPORT int CallConv			getSubnetMask ( );
-			LIBEXPORT void CallConv			setDeviceDims ( int width, int height, float width_mm, float height_mm, int leftpos, int toppos );
+			LIBEXPORT int CallConv			GetMediatorFilterLevel ( );
+			LIBEXPORT void CallConv			SetMediatorFilterLevel ( int level );
+			LIBEXPORT int CallConv			GetIPAddress ( );
+			LIBEXPORT int CallConv			GetSubnetMask ( );
+			LIBEXPORT void CallConv			SetDeviceDims ( int width, int height, int width_mm, int height_mm, int leftpos, int toppos );
 
-			LIBEXPORT EBOOL CallConv		setPorts1 ( int tcpPort, int udpPort );
-			LIBEXPORT void CallConv			setDeviceType ( char type );
-			LIBEXPORT char CallConv			getDeviceType ( );
-            LIBEXPORT EBOOL CallConv		hasDeviceUID ( );
-            LIBEXPORT EBOOL CallConv		setDeviceUID ( const char * name );
-			LIBEXPORT EBOOL CallConv		setDeviceName ( const char * name );
+			LIBEXPORT EBOOL CallConv		SetPorts1 ( int tcpPort, int udpPort );
+			LIBEXPORT void CallConv			SetDeviceType ( char type );
+			LIBEXPORT char CallConv			GetDeviceType ( );
+            LIBEXPORT EBOOL CallConv		HasDeviceUID ( );
+            LIBEXPORT EBOOL CallConv		SetDeviceUID ( const char * name );
+			LIBEXPORT EBOOL CallConv		SetDeviceName ( const char * name );
             
-			LIBEXPORT EBOOL CallConv		setUseTouchRecognizer1 ( const char * name, bool enable );
+			LIBEXPORT EBOOL CallConv		SetUseTouchRecognizer1 ( const char * name, bool enable );
             
-			LIBEXPORT EBOOL CallConv		setProjectName1 ( const char * name );
-			LIBEXPORT const char * CallConv	getProjectName ( );
-			LIBEXPORT EBOOL CallConv		setApplicationName1 ( const char * name );
-			LIBEXPORT const char * CallConv	getApplicationName ( );
-			LIBEXPORT EBOOL CallConv		setMediatorUserName1 ( const char * name );
-			LIBEXPORT EBOOL CallConv		setMediatorPassword1 ( const char * name );
-			LIBEXPORT void CallConv			setUseAuthentication ( EBOOL usage );
-			LIBEXPORT EBOOL CallConv		setGCMAPIKey ( const char * key );
+			LIBEXPORT EBOOL CallConv		SetProjectName1 ( const char * name );
+			LIBEXPORT const char * CallConv	GetProjectName ( );
+			LIBEXPORT EBOOL CallConv		SetApplicationName1 ( const char * name );
+			LIBEXPORT const char * CallConv	GetApplicationName ( );
+			LIBEXPORT EBOOL CallConv		SetMediatorUserName1 ( const char * name );
+			LIBEXPORT EBOOL CallConv		SetMediatorPassword1 ( const char * name );
+			LIBEXPORT void CallConv			SetUseAuthentication ( EBOOL usage );
+			LIBEXPORT EBOOL CallConv		SetGCMAPIKey ( const char * key );
 
-			LIBEXPORT int CallConv			init1 ();
-			LIBEXPORT void CallConv			setAppStatus ( int status );
-			LIBEXPORT int CallConv			setMainAppWindow ( WNDHANDLE hWnd );
-			LIBEXPORT EBOOL CallConv		setPortalSourceWindow ( WNDHANDLE hWnd, int deviceID, const char * projName, const char * appName );
-			LIBEXPORT void CallConv			updateAppWindowSize ( );
+			LIBEXPORT int CallConv			Init1 ();
+			LIBEXPORT void CallConv			SetAppStatus ( int status );
+			LIBEXPORT int CallConv			SetMainAppWindow ( WNDHANDLE hWnd );
+			LIBEXPORT EBOOL CallConv		SetPortalSourceWindow ( WNDHANDLE hWnd, int deviceID, const char * projName, const char * appName );
+			LIBEXPORT void CallConv			UpdateAppWindowSize ( );
 
-			LIBEXPORT void CallConv			setUseTouchInjection ( EBOOL enabled );
+			//LIBEXPORT void CallConv			setUseTouchInjection ( EBOOL enabled );
+			/**
+			* Instruct Environs native layer to prepare required portal resources to base on generation within the platform layer.
+			*
+			* @param enable      true = enable, false = disable
+			*/
+			LIBEXPORT void CallConv			SetUsePlatformPortalGenerator ( EBOOL enabled );
 
-			LIBEXPORT EBOOL CallConv		getUseOpenCL ( );
-			LIBEXPORT void CallConv			setUseOpenCL ( EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUseOpenCL ( );
+			LIBEXPORT void CallConv			SetUseOpenCL ( EBOOL enable );
 
-			LIBEXPORT EBOOL CallConv		getUseStream ( );
-			LIBEXPORT void CallConv			setUseStream ( EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUseStream ( );
+			LIBEXPORT void CallConv			SetUseStream ( EBOOL enable );
 
-			LIBEXPORT void CallConv			setUseMouseEmulation ( EBOOL enable );
-			LIBEXPORT EBOOL CallConv		getUseMouseEmulation ( );
+			LIBEXPORT void CallConv			SetUseMouseEmulation ( EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUseMouseEmulation ( );
 
-			LIBEXPORT void CallConv			setUseTouchVisualization ( EBOOL enable );
-			LIBEXPORT EBOOL CallConv		getUseTouchVisualization ( );
+			LIBEXPORT void CallConv			SetUseTouchVisualization ( EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUseTouchVisualization ( );
 
-			LIBEXPORT int CallConv			getDeviceConnectStatus ( int deviceID, const char * projName, const char * appName );
-			LIBEXPORT EBOOL CallConv		getDirectContactStatus ( int deviceID, const char * projName, const char * appName );
+			LIBEXPORT int CallConv			GetDeviceConnectStatus ( int deviceID, const char * projName, const char * appName );
+			LIBEXPORT EBOOL CallConv		GetDirectContactStatus ( int deviceID, const char * projName, const char * appName );
             
-			LIBEXPORT EBOOL CallConv		getPortalEnabled ( int deviceID, const char * projName, const char * appName );
-			LIBEXPORT int CallConv			deviceDetected ( int deviceID, const char * projName, const char * appName, int async, int x, int y, float angle );
+            /**
+             * Get the status, whether the device (id) has established an active portal
+             *
+             * @param 	deviceID    The device id of the target device.
+             * @param 	projectName	Project name of the application environment
+             * @param 	appName		Application name of the application environment
+             * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
+             * @return	success 	true = yes, false = no
+             */
+            LIBEXPORT EBOOL CallConv		GetPortalEnabled ( int deviceID, const char * projName, const char * appName, int portalType );
+            
+            /**
+             * Get the portalID of the first active portal
+             *
+             * @param 	deviceID    The device id of the target device.
+             * @param 	projectName	Project name of the application environment
+             * @param 	appName		Application name of the application environment
+             * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
+             * @return	portalID 	The portal ID.
+             */
+            LIBEXPORT int CallConv          GetPortalId ( int deviceID, const char * projName, const char * appName, int portalType );
+            
+			LIBEXPORT int CallConv			DeviceDetected ( int deviceID, const char * projName, const char * appName, int async, int x, int y, float angle );
 
-			LIBEXPORT int CallConv			deviceConnect ( int deviceID, const char * projName, const char * appName, int async );
-			LIBEXPORT EBOOL CallConv		deviceDisconnect1 ( int deviceID, const char * projName, const char * appName, int async );
+			LIBEXPORT int CallConv			DeviceConnect ( int deviceID, const char * projName, const char * appName, int async );
+			LIBEXPORT EBOOL CallConv		DeviceDisconnect1 ( int deviceID, const char * projName, const char * appName, int async );
 
-			LIBEXPORT void CallConv			deviceUpdated ( int deviceID, const char * projName, const char * appName, int async, int x, int y, float angle );
-			LIBEXPORT void CallConv			devicePositionUpdated ( int deviceID, const char * projName, const char * appName, int async, int x, int y );
-			LIBEXPORT void CallConv			deviceAngleUpdated ( int deviceID, const char * projName, const char * appName, int async, float angle );
-			LIBEXPORT void CallConv			deviceRemoved ( int deviceID, const char * projName, const char * appName, int async, int x, int y, float angle );
-			LIBEXPORT void CallConv			deviceRemovedID ( int deviceID, const char * projName, const char * appName, int async );
+			LIBEXPORT void CallConv			DeviceUpdated ( int deviceID, const char * projName, const char * appName, int async, int x, int y, float angle );
+			LIBEXPORT void CallConv			DevicePositionUpdated ( int deviceID, const char * projName, const char * appName, int async, int x, int y );
+			LIBEXPORT void CallConv			DeviceAngleUpdated ( int deviceID, const char * projName, const char * appName, int async, float angle );
+			LIBEXPORT void CallConv			DeviceRemoved ( int deviceID, const char * projName, const char * appName, int async, int x, int y, float angle );
+			LIBEXPORT void CallConv			DeviceRemovedID ( int deviceID, const char * projName, const char * appName, int async );
 				
-			LIBEXPORT int CallConv			getStatus ();
-			LIBEXPORT int CallConv			start1 ();
-			LIBEXPORT int CallConv			stop1 ();
-			LIBEXPORT void CallConv			release1 ();
+			LIBEXPORT int CallConv			GetStatus1 ();
+			LIBEXPORT int CallConv			Start1 ();
+			LIBEXPORT int CallConv			Stop1 ();
+			LIBEXPORT void CallConv			Release1 ();
 
-			LIBEXPORT void CallConv			setStreamOverUdp ( );
-			LIBEXPORT void CallConv			setStreamOverTcp ( );
-			LIBEXPORT EBOOL CallConv		streamToggleQuality ( );
-			LIBEXPORT void CallConv			setStreamJpegs ( );
-			LIBEXPORT void CallConv			setStreamPngs ( );
+			LIBEXPORT void CallConv			SetStreamOverUdp ( );
+			LIBEXPORT void CallConv			SetStreamOverTcp ( );
+			LIBEXPORT EBOOL CallConv		StreamToggleQuality ( );
+			LIBEXPORT void CallConv			SetStreamJpegs ( );
+			LIBEXPORT void CallConv			SetStreamPngs ( );
 
-			LIBEXPORT EBOOL CallConv		sendBuffer ( int deviceID, const char * projName, const char * appName, int async, int fileID, const char * fileDescriptor, char * buffer,  int size );
-			LIBEXPORT EBOOL CallConv		sendFile ( int deviceID, const char * projName, const char * appName, int async, int fileID, const TCHAR * fileDescriptor, const TCHAR * file );
-			LIBEXPORT EBOOL CallConv		sendMsg ( int deviceID, const char * projName, const char * appName, int async, const char * message, int length );
-
-			LIBEXPORT EBOOL CallConv		sendPushNotification ( int deviceID, const char * projName, const char * appName, const char * message );
-
-			LIBEXPORT EBOOL CallConv		registerAtMediators ();
-
-			LIBEXPORT EBOOL CallConv		setMediator ( const char * ip, int port );
-			LIBEXPORT const char * CallConv getMediatorIP ();
-			LIBEXPORT const char * CallConv getMediatorUserName1 ();
-			LIBEXPORT int CallConv			getMediatorPort ();
-
-			LIBEXPORT void CallConv			setUseDefaultMediator ( EBOOL usage );
-			LIBEXPORT EBOOL CallConv		getUseDefaultMediator ( );
+			LIBEXPORT EBOOL CallConv		SendBuffer ( int deviceID, const char * projName, const char * appName, int async, int fileID, const char * fileDescriptor, char * buffer,  int size );
+			LIBEXPORT EBOOL CallConv		SendFile ( int deviceID, const char * projName, const char * appName, int async, int fileID, const TCHAR * fileDescriptor, const TCHAR * file );
+            LIBEXPORT EBOOL CallConv		SendMsg ( int deviceID, const char * projName, const char * appName, int async, const char * message, int length );
             
-			LIBEXPORT void CallConv			setUseCustomMediator ( EBOOL usage );
-			LIBEXPORT EBOOL CallConv		getUseCustomMediator ( );
+            
+			LIBEXPORT EBOOL CallConv		SendPushNotification ( int deviceID, const char * projName, const char * appName, const char * message );
+
+			LIBEXPORT EBOOL CallConv		RegisterAtMediators ();
+
+			LIBEXPORT EBOOL CallConv		SetMediator ( const char * ip, int port );
+			LIBEXPORT const char * CallConv GetMediatorIP ();
+			LIBEXPORT const char * CallConv GetMediatorUserName1 ();
+			LIBEXPORT int CallConv			GetMediatorPort ();
+
+			LIBEXPORT void CallConv			SetUseDefaultMediator ( EBOOL usage );
+			LIBEXPORT EBOOL CallConv		GetUseDefaultMediator ( );
+            
+			LIBEXPORT void CallConv			SetUseCustomMediator ( EBOOL usage );
+			LIBEXPORT EBOOL CallConv		GetUseCustomMediator ( );
 			
-            LIBEXPORT void CallConv			setUseDefaultMediator ( EBOOL usage );
-			LIBEXPORT EBOOL CallConv		getUseDefaultMediator ( );
+            LIBEXPORT void CallConv			SetUseDefaultMediator ( EBOOL usage );
+			LIBEXPORT EBOOL CallConv		GetUseDefaultMediator ( );
 
-			LIBEXPORT void CallConv			setUseCLSForMediator ( EBOOL usage );
-			LIBEXPORT EBOOL CallConv		getUseCLSForMediator ( );
+			LIBEXPORT void CallConv			SetUseCLSForMediator ( EBOOL usage );
+			LIBEXPORT EBOOL CallConv		GetUseCLSForMediator ( );
 
-			LIBEXPORT void CallConv			setUseCLSForDevices ( EBOOL usage );
-			LIBEXPORT EBOOL CallConv		getUseCLSForDevices ( );
+			LIBEXPORT void CallConv			SetUseCLSForDevices ( EBOOL usage );
+			LIBEXPORT EBOOL CallConv		GetUseCLSForDevices ( );
 
-			LIBEXPORT void CallConv			setUseCLSForDevicesEnforce ( EBOOL usage );
-			LIBEXPORT EBOOL CallConv		getUseCLSForDevicesEnforce ( );
+			LIBEXPORT void CallConv			SetUseCLSForDevicesEnforce ( EBOOL usage );
+			LIBEXPORT EBOOL CallConv		GetUseCLSForDevicesEnforce ( );
 
-			LIBEXPORT void CallConv			setUseCLSForAllTraffic ( EBOOL usage );
-            LIBEXPORT EBOOL CallConv		getUseCLSForAllTraffic ( );
+			LIBEXPORT void CallConv			SetUseCLSForAllTraffic ( EBOOL usage );
+            LIBEXPORT EBOOL CallConv		GetUseCLSForAllTraffic ( );
             
-            LIBEXPORT void CallConv			setUseNotifyDebugMessage ( EBOOL usage );
-            LIBEXPORT EBOOL CallConv		getUseNotifyDebugMessage ( );
+            LIBEXPORT void CallConv			SetUseNotifyDebugMessage ( EBOOL usage );
+            LIBEXPORT EBOOL CallConv		GetUseNotifyDebugMessage ( );
             
-            LIBEXPORT void CallConv			setUseLogFile ( EBOOL usage );
-            LIBEXPORT EBOOL CallConv		getUseLogFile ( );
+            LIBEXPORT void CallConv			SetUseLogFile ( EBOOL usage );
+            LIBEXPORT EBOOL CallConv		GetUseLogFile ( );
             
-			LIBEXPORT void CallConv			setNetworkStatus ( int netStat );
-			LIBEXPORT int CallConv			getNetworkStatus ( );
+			LIBEXPORT void CallConv			SetNetworkStatus ( int netStat );
+			LIBEXPORT int CallConv			GetNetworkStatus ( );
             
-            LIBEXPORT EBOOL CallConv        applyModuleToSettings ( const char * moduleName, char ** target, bool testInstance = true );
+            LIBEXPORT EBOOL CallConv        ApplyModuleToSettings ( const char * moduleName, char ** target, bool testInstance = true );
             
-			LIBEXPORT EBOOL CallConv		setUseEncoder ( const char * moduleName );
-			LIBEXPORT EBOOL CallConv		setUseDecoder ( const char * moduleName );
-			LIBEXPORT EBOOL CallConv		setUseRenderer ( const char * moduleName );
-			LIBEXPORT EBOOL CallConv		setUseCapturer ( const char * moduleName );
+			LIBEXPORT EBOOL CallConv		SetUseEncoder ( const char * moduleName );
+			LIBEXPORT EBOOL CallConv		SetUseDecoder ( const char * moduleName );
+			LIBEXPORT EBOOL CallConv		SetUseRenderer ( const char * moduleName );
+			LIBEXPORT EBOOL CallConv		SetUseCapturer ( const char * moduleName );
 
-			LIBEXPORT void * CallConv		getFile ( int deviceID, const char * projName, const char * appName, int fileID, void * buffer, int * capacity );
-			LIBEXPORT BSTR CallConv			getFilePath ( int deviceID, const char * projName, const char * appName, int fileID );
+			LIBEXPORT void * CallConv		GetFile ( int deviceID, const char * projName, const char * appName, int fileID, void * buffer, int * capacity );
+			LIBEXPORT BSTR CallConv			GetFilePath ( int deviceID, const char * projName, const char * appName, int fileID );
 
 
-			LIBEXPORT EBOOL CallConv		getPortalInfo ( void * buffer, const char * projName, const char * appName );
-			LIBEXPORT EBOOL CallConv		setPortalInfo ( void * buffer, const char * projName, const char * appName );
+			LIBEXPORT EBOOL CallConv		GetPortalInfo ( void * buffer );
+			LIBEXPORT EBOOL CallConv		SetPortalInfo ( void * buffer );
 
-			LIBEXPORT EBOOL CallConv		setPortalOverlayARGB ( int deviceID, const char * projName, const char * appName, int portalID, int layerID, int left, int top,
+			LIBEXPORT EBOOL CallConv		SetPortalOverlayARGB ( int deviceID, const char * projName, const char * appName, int portalID, int layerID, int left, int top,
 				 int width, int height, int stride, void * renderData, int alpha, bool positionDevice );
 
-			LIBEXPORT void CallConv			freeNativeMemory ( void * obj );
+			LIBEXPORT void CallConv			FreeNativeMemory ( void * obj );
 
-			LIBEXPORT void * CallConv		getDevices ( int fromType );
-			LIBEXPORT void * CallConv		getDevice ( int deviceID, const char * projName, const char * appName, int fromType );
-			LIBEXPORT int CallConv			getDevicesCount ( int fromType );
-			LIBEXPORT void * CallConv		getDeviceScreenProps ( int deviceID, const char * projName, const char * appName );
-			LIBEXPORT void * CallConv		getDeviceAvailableCachedBestMatch1 ( int deviceID );
+			LIBEXPORT void * CallConv		GetDevices ( int fromType );
+            LIBEXPORT void * CallConv		GetDevice ( int deviceID, const char * projName, const char * appName, int fromType );
+            LIBEXPORT void * CallConv		GetDeviceForPortal1 ( int portalID );
+            
+			LIBEXPORT int CallConv			GetDevicesCount ( int fromType );
+			LIBEXPORT void * CallConv		GetDeviceDisplayProps1 ( int deviceID, const char * projName, const char * appName );
+			LIBEXPORT void * CallConv		GetDeviceBestMatch1 ( int deviceID );
 
-			LIBEXPORT int CallConv			getConnectedDevicesCount ( );
+			LIBEXPORT int CallConv			GetConnectedDevicesCount ( );
 
-			LIBEXPORT int CallConv			getDeviceInstanceSize ();
-			LIBEXPORT int CallConv			getDevicesHeaderSize ();
+			LIBEXPORT int CallConv			GetDeviceInstanceSize ();
+			LIBEXPORT int CallConv			GetDevicesHeaderSize ();
 
 			//LIBEXPORT void CallConv			deallocNative ();
-			LIBEXPORT void CallConv			initStorage ( const char * path );
-			LIBEXPORT void CallConv			initWorkDir ( const char * path );
-			LIBEXPORT void CallConv			setGCM ( const char * gcm );
-			LIBEXPORT int CallConv			getDeviceWidth ( int deviceID, const char * projName, const char * appName );
-			LIBEXPORT int CallConv			getDeviceHeight ( int deviceID, const char * projName, const char * appName );
+			LIBEXPORT void CallConv			InitStorage ( const char * path );
+			LIBEXPORT void CallConv			InitWorkDir ( const char * path );
+			LIBEXPORT void CallConv			SetGCM ( const char * gcm );
+			LIBEXPORT int CallConv			GetDeviceWidth ( int deviceID, const char * projName, const char * appName );
+			LIBEXPORT int CallConv			GetDeviceHeight ( int deviceID, const char * projName, const char * appName );
 
-			LIBEXPORT EBOOL CallConv		initRequestPortalStream ( int deviceID, const char * projName, const char * appName, int async, int typeID );
-			LIBEXPORT EBOOL CallConv		providePortalStream1 ( int deviceID, const char * projName, const char * appName, int async, int portalID );
-			LIBEXPORT EBOOL CallConv		startPortalStream1 ( int deviceID, const char * projName, const char * appName, int async, int portalID );
-			LIBEXPORT EBOOL CallConv		pausePortalStream ( int deviceID, const char * projName, const char * appName, int async, int portalID );
-			LIBEXPORT EBOOL CallConv		stopPortalStream ( int deviceID, const char * projName, const char * appName, int async, int portalID );
+			LIBEXPORT EBOOL CallConv		InitRequestPortalStream ( int deviceID, const char * projName, const char * appName, int async, int typeID );
+			LIBEXPORT EBOOL CallConv		ProvidePortalStream1 ( int deviceID, const char * projName, const char * appName, int async, int portalID );
             
-			LIBEXPORT EBOOL CallConv		setRenderSurface1 ( int deviceID, const char * projName, const char * appName, int portalID,
-				void * renderSurface, int width, int height );
-			LIBEXPORT EBOOL CallConv		releaseRenderSurface1 ( int deviceID, const char * projName, const char * appName, int async, int portalID );
-			LIBEXPORT EBOOL CallConv		setRenderCallback ( int deviceID, const char * projName, const char * appName, int portalID, int async, long callback, int type );
+			LIBEXPORT EBOOL CallConv		StartPortalStream1 ( int async, int portalID );
+			LIBEXPORT EBOOL CallConv		PausePortalStream1 ( int async, int portalID );
+			LIBEXPORT EBOOL CallConv		StopPortalStream1 ( int async, int portalID );
+            
+            /**
+             * Acquire a native layer send identifier (and increase instanceLock on device) to be used in sendTcpPortal. This resource must be released on disposal of the portal generator.
+             *
+             * @param deviceID      The device id of the target device.
+             * @param projectName	Project name of the application environment
+             * @param appName		Application name of the application environment
+             * @param portalUnitType	e.g. MSG_TYPE_STREAM
+             * @param portalID    Values should be of type PortalType.&nbsp;This is an application specific type identifier (e.g. used for distinguishing front facing or back facing camera)
+             * @return sendID
+             */
+            LIBEXPORT int CallConv          AcquirePortalSendID ( int portalUnitType, int portalID );
+            
+            /**
+             * Release a native layer send identifier that was acquired by a call to acquireTcpPortalSendID.
+             *
+             * @param sendID      The portal send id resource to be released.
+             */
+            LIBEXPORT void CallConv         ReleasePortalSendID ( int sendID );
+            
+            /**
+             * Send a buffer with bytes to a device.&nbsp;The devices must be connected before for this call.
+             *
+             * @param sendID      		The device id of the target device.
+             * @param portalUnitFlags	Flags that will be or-ed with the portalUnitType
+             * @param prefixBuffer    	A prefix that prepend the actual buffer.
+             * @param prefixSize   		The size of the content within the prefixbuffer.
+             * @param buffer        	A buffer to be send.
+             * @param offset        	An offset into the buffer.
+             * @param contentSize   	The size of the content within the buffer.
+             * @return success
+             */
+            LIBEXPORT EBOOL CallConv		SendTcpPortal ( int sendID, int portalUnitFlags, jobject prefixBuffer, int prefixSize, jobject byteBuffer, int offset, int contentSize );
+            
+			LIBEXPORT EBOOL CallConv		SetRenderSurface1 ( int portalID, void * renderSurface, int width, int height );
+			LIBEXPORT EBOOL CallConv		ReleaseRenderSurface1 ( int async, int portalID );
+			LIBEXPORT EBOOL CallConv		SetRenderCallback ( int async, int portalID, long callback, int type );
 
 #ifdef __cplusplus
 		}

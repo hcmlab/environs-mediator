@@ -50,7 +50,8 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Render ),
 
 			/** Default initialization */
-            squareLength ( 0 ), buffersInitialized ( false ), capture ( 0 ), parent ( 0 ), filledContexts ( 0 ), hAppWindow ( 0 )
+            squareLength ( 0 ), buffersInitialized ( false ), parent ( 0 ), filledContexts ( 0 ), hAppWindow ( 0 ), stages ( 0 )
+            // , capture ( 0 )
 		{};
 
 		virtual ~IPortalRenderer ( ) {};
@@ -78,15 +79,16 @@ namespace environs
 		virtual bool		Compare ( unsigned int &equal ) = 0;
 #endif
 
-		unsigned int		squareLength;
+		int					squareLength;
 		bool				buffersInitialized;
 
 		bool				rendered;
 
 		static int			device_left;
 		static int			device_top;
-
-		void			*	capture;
+    
+        void			*	stages;
+		//void			*	capture;
 
 	private:
 		virtual bool		Init ( ) = 0;

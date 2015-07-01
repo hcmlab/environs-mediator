@@ -56,13 +56,13 @@ namespace hcm.environs
 		public const int STATUS_INITIALIZING                               =	(2);
 		/** Environs is initialized. Usually after a call to Environs.init() */
 		public const int STATUS_INITIALIZED                                =	(3);
-		/** Environs is stopped. Usually after a call to Environs.stop() */
+		/** Environs is stopped. Usually after a call to Environs.Stop() */
 		public const int STATUS_STOPPED                                    =	(4);
-		/** Environs is about to stop. Thread are being shut down and allocated resources are being released. */
+		/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
 		public const int STATUS_STOPPING                                   =	(5);
-		/** Environs is about to start. Thread are being started and resources are being allocated. */
+		/** Environs is about to Start. Thread are being started and resources are being allocated. */
 		public const int STATUS_STARTING                                   =	(6);
-		/** Environs is started. Usually after a call to Environs.start() */
+		/** Environs is started. Usually after a call to Environs.Start() */
 		public const int STATUS_STARTED                                    =	(7);
 		/** Environs is in connected state and connected to at least one device. */
 		public const int STATUS_CONNECTED                                  =	(8);
@@ -80,13 +80,13 @@ namespace hcm.environs
 			Initializing        	=	STATUS_INITIALIZING,
 			/** Environs is initialized. Usually after a call to Environs.init() */
 			Initialized         	=	STATUS_INITIALIZED,
-			/** Environs is stopped. Usually after a call to Environs.stop() */
+			/** Environs is stopped. Usually after a call to Environs.Stop() */
 			Stopped             	=	STATUS_STOPPED,
-			/** Environs is about to stop. Thread are being shut down and allocated resources are being released. */
+			/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
 			Stopping            	=	STATUS_STOPPING,
-			/** Environs is about to start. Thread are being started and resources are being allocated. */
+			/** Environs is about to Start. Thread are being started and resources are being allocated. */
 			Starting            	=	STATUS_STARTING,
-			/** Environs is started. Usually after a call to Environs.start() */
+			/** Environs is started. Usually after a call to Environs.Start() */
 			Started             	=	STATUS_STARTED,
 			/** Environs is in connected state and connected to at least one device. */
 			Connected           	=	STATUS_CONNECTED,
@@ -158,6 +158,9 @@ namespace hcm.environs
 
 
 		
+		
+		public const int ENVIRONS_OBJECT_DISPOSED                          =	(-1);
+		
 		/* 
 		 * Crypt declarations
 		 * Crypt declarations
@@ -172,7 +175,7 @@ namespace hcm.environs
 		 * Mediator device class types used for GetDevicesFrom ( type )
 		 * Mediator device class types used for GetDevicesFrom ( type )
 		 */
-		public const int MEDIATOR_DEVICE_CLASS_AVAILABLE                   =	(0);
+		public const int MEDIATOR_DEVICE_CLASS_ALL                         =	(0);
 		public const int MEDIATOR_DEVICE_CLASS_NEARBY                      =	(1);
 		public const int MEDIATOR_DEVICE_CLASS_MEDIATOR                    =	(2);
 		
@@ -257,18 +260,21 @@ namespace hcm.environs
 		public const int DATA_STREAM                                       =	(0x200);
 		public const int DATA_STREAM_INIT                                  =	(1);
 		
+		public const int DATA_STREAM_IFRAME                                =	(0x400);
+		
 		/** Class: Image type */
 		public const int MSG_TYPE_IMAGE                                    =	(1);
-		public const int DATA_STREAM_IFRAME                                =	(0x40);
-		
-		public const int DATA_STREAM_IMAGE                                 =	(0x10);
+		// 0x10
+		public const int DATA_STREAM_IMAGE                                 =	(MSG_TYPE_IMAGE << 4);
 		public const int DATA_STREAM_IMAGE_INIT                            =	(DATA_STREAM | DATA_STREAM_IMAGE | DATA_STREAM_INIT);
 		public const int DATA_STREAM_IMAGE_DATA                            =	(DATA_STREAM | DATA_STREAM_IMAGE | 8);
 		public const int DATA_STREAM_IMAGE_JPEG                            =	(DATA_STREAM_IMAGE_DATA | 2);
 		public const int DATA_STREAM_IMAGE_PNG                             =	(DATA_STREAM_IMAGE_DATA | 4);
 		
+		/** Class: Video type */
 		public const int MSG_TYPE_STREAM                                   =	(2);
-		public const int DATA_STREAM_H264                                  =	(0x20);
+		// 0x20
+		public const int DATA_STREAM_H264                                  =	(MSG_TYPE_STREAM << 4);
 		// Initialization protocol version 1 packet with width and height
 		public const int DATA_STREAM_H264_INIT                             =	(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT);
 		// Header packets of h264
@@ -318,11 +324,19 @@ namespace hcm.environs
 
 
 		
+		/** Class: Portal constants */
+		public const int MAX_PORTAL_STREAMS_A_DEVICE                       =	(3);
+		public const int MAX_PORTAL_CONTEXTS                               =	(3);
+		public const int MAX_PORTAL_OVERLAYS                               =	(3);
+		public const int MAX_PORTAL_GENERATOR_SLOTS                        =	(5);
+		
+		
 		/** Class: Portal type */
 		public const int PORTAL_TYPE_ANY                                   =	(0);
 		public const int PORTAL_TYPE_SCREEN                                =	(0x1000);
 		public const int PORTAL_TYPE_BACK_CAM                              =	(0x2000);
 		public const int PORTAL_TYPE_FRONT_CAM                             =	(0x4000);
+		public const int PORTAL_TYPE_MASK                                  =	(0xF000);
 			
 		/** 
 		 * Portal types enumeration. Represents the same values as for PORTAL_TYPE_* 
@@ -381,6 +395,7 @@ namespace hcm.environs
 		public const int MSG_PORTAL_ERROR                                  =	(0x400);
 		public const int PORTAL_DIR_INCOMING                               =	(0x200);
 		public const int PORTAL_DIR_OUTGOING                               =	(0x100);
+		public const int PORTAL_DIR_MASK                                   =	(0x300);
 		public const int NOTIFY_PORTAL                                     =	(0x800);
 		
 		
@@ -429,8 +444,10 @@ namespace hcm.environs
 		public const int NOTIFY_PORTAL_REQUEST                             =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST);
 		public const int NOTIFY_PORTAL_STREAM_INCOMING                     =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_INCOMING);
 		public const int NOTIFY_PORTAL_IMAGES_INCOMING                     =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_INCOMING);
+		public const int NOTIFY_PORTAL_RECEIVER_READY                      =	(NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING);
 		public const int NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_OUTGOING);
 		public const int NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_OUTGOING);
+		public const int NOTIFY_PORTAL_PROVIDER_READY                      =	(NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK);
 		public const int NOTIFY_PORTAL_REQUEST_FAIL                        =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_INCOMING);
 		public const int NOTIFY_PORTAL_PROVIDE_FAIL                        =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_OUTGOING);
 			
@@ -610,7 +627,47 @@ namespace hcm.environs
 		public const int MEDIATOR_FILTER_PROJECT_AND_APP                   =	(2);
 		/// Disable all devicelist notifications
 		public const int MEDIATOR_FILTER_ALL                               =	(8);
-			
+		
+		
+		/**
+		 * Environs mediator broadcast found values
+		 * Environs mediator broadcast found values
+		 */
+		public const int DEVICEINFO_DEVICE_MEDIATOR                        =	(0);
+		public const int DEVICEINFO_DEVICE_BROADCAST                       =	(1);
+		public const int DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          =	(2);
+		
+		/**
+		 * Environs mediator broadcast message Start bytes
+		 * Environs mediator broadcast message Start bytes
+		 */
+		public const int MEDIATOR_BROADCAST_DEVICETYPE_START               =	(11);
+		public const int MEDIATOR_BROADCAST_DEVICEID_START                 =	(12);
+		public const int MEDIATOR_BROADCAST_PORTS_START                    =	(20);
+		public const int MEDIATOR_BROADCAST_PLATFORM_START                 =	(24);
+		public const int MEDIATOR_BROADCAST_DESC_START                     =	(28);
+		public const int MEDIATOR_BROADCAST_SPARE_ID_LEN                   =	(28);
+		
+		/**
+		 * Environs DeviceInstance struct Start bytes
+		 * Environs DeviceInstance struct Start bytes
+		 */
+		public const int DEVICEINFO_DEVICEID_START                         =	(0);
+		public const int DEVICEINFO_IP_START                               =	(4);
+		public const int DEVICEINFO_IPe_START                              =	(8);
+		public const int DEVICEINFO_TCP_PORT_START                         =	(12);
+		public const int DEVICEINFO_UDP_PORT_START                         =	(14);
+		public const int DEVICEINFO_UPDATES_START                          =	(16);
+		public const int DEVICEINFO_PLATFORM_START                         =	(20);
+		public const int DEVICEINFO_BROADCAST_START                        =	(24);
+		public const int DEVICEINFO_UNAVAILABLE_START                      =	(25);
+		public const int DEVICEINFO_ISCONNECTED_START                      =	(26);
+		public const int DEVICEINFO_DEVICETYPE_START                       =	(28);
+		public const int DEVICEINFO_DEVICENAME_START                       =	(29);
+		public const int DEVICEINFO_PROJECTNAME_START                      =	(60);
+		public const int DEVICEINFO_APPNAME_START                          =	(91);
+		
+		
 		/**
 		 * Environs mediator notifications
 		 * Environs mediator notifications
@@ -624,7 +681,8 @@ namespace hcm.environs
 		public const int NOTIFY_MEDIATOR_SERVER_CONNECTED                  =	(NOTIFY_MEDIATOR | 20);
 		public const int NOTIFY_MEDIATOR_SERVER_DISCONNECTED               =	(NOTIFY_MEDIATOR | 21);
 		
-		public const int NOTIFY_MEDIATOR_DEVICELISTS_CHANGED               =	(NOTIFY_MEDIATOR | 51);
+		public const int NOTIFY_MEDIATOR_DEVICELISTS_UPDATE_AVAILABLE      =	(NOTIFY_MEDIATOR | 51);
+		public const int NOTIFY_MEDIATOR_DEVICELISTS_CHANGED               =	(NOTIFY_MEDIATOR | 52);
 		
 		public const int NOTIFY_MEDIATOR_MED_CHANGED                       =	(NOTIFY_MEDIATOR | 11);
 			
@@ -649,6 +707,12 @@ namespace hcm.environs
 		public const String META_MSG_IDENT                                    =	("~META~:");
 		/** Ignore: for Resolver */
 		public const String META_MSG_NAME_ID                                  =	(" NAME ");
+		/** Ignore: for Resolver */
+		public const String ENVIRONS_DEFAULT_PROJECT_NAME                     =	("Environs");
+		/** Ignore: for Resolver */
+		public const String ENVIRONS_DEFAULT_APP_NAME                         =	("HCMDefaultApp");
+		/** Ignore: for Resolver */
+		public const String ENVIRONS_DEFAULT_DEVICE_NAME                      =	("DefaultDevice");
 		
 		/**
 		 * Device types. Obsolete. Should not be used anymore.
@@ -663,6 +727,17 @@ namespace hcm.environs
 		public const char DEVICE_TYPE_TABLET                                =	('T');
 		public const char DEVICE_TYPE_UNKNOWN                               =	('U');
 		public const char DEVICE_TYPE_SMARTPHONE                            =	('P');
+		
+		
+		/**
+		 * Device display orientation types used in Device.Display.h
+		 * Device display orientation types used in Device.Display.h
+		 * Type: char
+		 * Type: char
+		 */
+		public const int DISPLAY_ORIENTATION_LANDSCAPE                     =	(0);
+		public const int DISPLAY_ORIENTATION_PORTRAIT                      =	(1);
+		
 		
 		/**
 		 * Device activity / connectivity flags
@@ -765,6 +840,8 @@ namespace hcm.environs
 			Texture3D           	=	0x1000,
 			/** The data follows either D3D or OpenGL buffer format. */
 			PixelBuffer3D       	=	0x2000,
+			/** CVPixelBufferRef of apple platforms. */
+			CVPixelBufferIOSX   	=	0x3000,
 		}
 
 
@@ -783,6 +860,19 @@ namespace hcm.environs
 
 
 		
+		
+		/**
+		 * Input recognizer states
+		 * Input recognizer states
+		 * Type: int
+		 * Type: int
+		 */
+		public const int RECOGNIZER_GIVE_BACK_INPUTS                       =	(-1);
+		public const int RECOGNIZER_REJECT                                 =	(0);
+		public const int RECOGNIZER_HANDLED                                =	(1);
+		public const int RECOGNIZER_TAKEN_OVER_INPUTS                      =	(2);
+		
+		
 		public const int NETWORK_CONNECTION_NO_NETWORK                     =	(-1);
 		public const int NETWORK_CONNECTION_NO_INTERNET                    =	(0);
 		public const int NETWORK_CONNECTION_MOBILE_DATA                    =	(1);
@@ -793,16 +883,22 @@ namespace hcm.environs
 		public const int WARN_LEVEL                                        =	(-2);
 		
 		
-		public const int DEVICE_INFO_ATTR_USER_NAME                        =	(0x1);
-		public const int DEVICE_INFO_ATTR_DEVICE_NAME                      =	(0x2);
-		public const int DEVICE_INFO_ATTR_PROJECT_NAME                     =	(0x4);
-		public const int DEVICE_INFO_ATTR_APP_NAME                         =	(0x8);
+		public const int DEVICE_INFO_ATTR_DISPOSED                         =	(0x1);
+		public const int DEVICE_INFO_ATTR_ISCONNECTED                      =	(0x2);
+		public const int DEVICE_INFO_ATTR_CONNECT_PROGRESS                 =	(0x4);
+		public const int DEVICE_INFO_ATTR_USER_NAME                        =	(0x10);
+		
+		public const int DEVICE_INFO_ATTR_IDENTITY                         =	(0x20);
+		
+		public const int DEVICE_INFO_ATTR_DEVICE_PLATFORM                  =	(0x40);
 		public const int DEVICE_INFO_ATTR_DEVICE_TYPE                      =	(0x40);
 		public const int DEVICE_INFO_ATTR_IP                               =	(0x100);
 		public const int DEVICE_INFO_ATTR_IPE                              =	(0x200);
-		public const int DEVICE_INFO_ATTR_PORT_TCP                         =	(0x400);
-		public const int DEVICE_INFO_ATTR_PORT_UDP                         =	(0x800);
-		public const int DEVICE_INFO_ATTR_BROADCAST_FOUND                  =	(0x1000);
+		public const int DEVICE_INFO_ATTR_TCP_PORT                         =	(0x400);
+		public const int DEVICE_INFO_ATTR_UDP_PORT                         =	(0x800);
+		public const int DEVICE_INFO_ATTR_UNAVAILABLE                      =	(0x1000);
+		public const int DEVICE_INFO_ATTR_BROADCAST_FOUND                  =	(0x2000);
+		public const int DEVICE_INFO_ATTR_DIRECT_CONTACT                   =	(0x4000);
 			
 		
 		public const int APP_STATUS_ACTIVE                                 =	(0);
@@ -852,10 +948,17 @@ namespace hcm.environs
 			MacBook_Flag        	=	0x10010,
 			MacMini_Flag        	=	0x10020,
 		
+			Windows_Flag        	=	0x20000,
+			WindowsVista        	=	0x20050,
+			WindowsXP           	=	0x20060,
+			Windows7            	=	0x20070,
+			Windows8            	=	0x20080,
+		
 			Tablet_Flag         	=	0x100000,
 			Smartphone_Flag     	=	0x200000,
 			Tabletop_Flag       	=	0x400000,
 			Display_Flag        	=	0x800000,
+		
 		
 		
 		
@@ -878,18 +981,6 @@ namespace hcm.environs
 		
 		
 		/**
-		 * Environs AVCONTEXT_TYPES
-		 * Environs AVCONTEXT_TYPES
-		 * Type: int
-		 * Type: int
-		 */
-		public const int DECODER_AVCONTEXT_TYPE_PIXELS                     =	(0);
-		public const int DECODER_AVCONTEXT_TYPE_AVPACK                     =	(1);
-		public const int DECODER_AVCONTEXT_TYPE_JPG                        =	(2);
-		public const int DECODER_AVCONTEXT_TYPE_PNG                        =	(3);
-		
-		
-		/**
 		 * Environs RENDER_CALLBACK_TYPES
 		 * Environs RENDER_CALLBACK_TYPES
 		 * Type: int
@@ -907,15 +998,30 @@ namespace hcm.environs
 		
 		
 		/**
+		 * Environs AVCONTEXT_TYPES
+		 * Environs AVCONTEXT_TYPES
+		 * Type: int
+		 * Type: int
+		 */
+		public const int DECODER_AVCONTEXT_TYPE_PIXELS                     =	(0);
+		public const int DECODER_AVCONTEXT_TYPE_AVCONTEXT                  =	(RENDER_CALLBACK_TYPE_AVCONTEXT);
+		public const int DECODER_AVCONTEXT_TYPE_JPG                        =	(2);
+		public const int DECODER_AVCONTEXT_TYPE_PNG                        =	(3);
+		
+		
+		/**
 		 * Environs AVCONTEXT_SUBTYPES
 		 * Environs AVCONTEXT_SUBTYPES
 		 * Type: int
 		 * Type: int
 		 */
-		public const int DECODER_AVCONTEXT_SUBTYPE_RGB                     =	(0);
-		public const int DECODER_AVCONTEXT_SUBTYPE_BGRA                    =	(1);
-		public const int DECODER_AVCONTEXT_SUBTYPE_ABGR                    =	(2);
-		public const int DECODER_AVCONTEXT_SUBTYPE_RGBA                    =	(3);
+		public const int ENVIRONS_AVCONTEXT_SUBTYPE_RGB                    =	(0);
+		public const int ENVIRONS_AVCONTEXT_SUBTYPE_RGBA                   =	(1);
+		public const int ENVIRONS_AVCONTEXT_SUBTYPE_ARGB                   =	(2);
+		
+		public const int ENVIRONS_AVCONTEXT_SUBTYPE_BGR                    =	(6);
+		public const int ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   =	(7);
+		public const int ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   =	(8);
 		
 
 
@@ -924,12 +1030,12 @@ namespace hcm.environs
 			"Stream portal provided",
 			"Image portal provided",
 			"Portal request failed",
-			"Portal stop",
-			"Portal stop ack",
-			"Portal stop failed",
-			"Portal start",
-			"Portal start ack",
-			"Portal start failed",
+			"Portal Stop",
+			"Portal Stop ack",
+			"Portal Stop failed",
+			"Portal Start",
+			"Portal Start ack",
+			"Portal Start failed",
 			"Portal pause",
 			"Portal pause ack",
 			"Portal pause failed",

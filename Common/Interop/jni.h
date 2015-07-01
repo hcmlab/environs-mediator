@@ -30,6 +30,11 @@
 #define jvoidArray      jbyteArray
 #define jtstring        jstring
 
+#define	DUMBJENV()
+#define	DUMBJCLASS()
+
+#define FAKEJNI()		JNIEnv * jenv; jclass jcls;
+//#define	DUMBJCLASS()	jclass jcls = 0;
 #else
 
 //#define JNIEXPORT
@@ -55,6 +60,10 @@
 #define jclass          void	*
 //#define JNICALL
 
+#define	DUMBJENV()		void * jenv = 0;
+#define	DUMBJCLASS()	jclass jcls = 0;
+
+#define FAKEJNI()
 #endif
 
 

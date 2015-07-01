@@ -112,7 +112,7 @@ namespace environs
 	}
 	
 
-	int GestureDummy::Trigger ( InputPack **	inputs, unsigned int inputCount )
+	int GestureDummy::Trigger ( InputPackRec ** inputs, int inputCount )
 	{
 		CVerbID ( "Trigger" );
 
@@ -129,7 +129,7 @@ namespace environs
 	}
 
 
-	int GestureDummy::Perform ( InputPack **	inputs, unsigned int inputCount )
+	int GestureDummy::Perform ( InputPackRec ** inputs, int inputCount )
 	{
 		//CVerbID ( "Perform" );
 
@@ -147,7 +147,13 @@ namespace environs
         
 		/// We return 0 to signal that we are done with gesture recognizing
 		return 0;
-	}
+    }
+    
+    
+    void GestureDummy::Flush ( )
+    {
+        //CVerbID ( "Flush" );
+    }
 
 
 } /* namespace environs */

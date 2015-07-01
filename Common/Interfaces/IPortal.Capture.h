@@ -52,13 +52,13 @@ namespace environs
 			squareLength ( 0 ), buffersInitialized ( false ), dataAccessed ( 1 ), data ( 0 ), dataHandle ( 0 ),
             dataSize ( 0 ), dataStride ( 0 ),
 			renderOverlayMutex ( 0 ), renderOverlays ( 0 ),
-			osLevel ( 0 ), hAppWindow ( 0 )
+			osLevel ( 0 ), hAppWindow ( 0 ), stages ( 0 )
 		{};
 
 		virtual ~IPortalCapture () {};
 
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
-		int										Init ( unsigned int _deviceID, void * appWindow ) {
+		int										Init ( int _deviceID, void * appWindow ) {
 													deviceID	= _deviceID;
 													hAppWindow  = appWindow;
 													return Init ( );
@@ -92,9 +92,9 @@ namespace environs
 
 		CaptureBufferType::CaptureBufferType	bufferType;
 
-		unsigned int							width;
-		unsigned int							height;
-		unsigned int							squareLength;
+		int										width;
+		int										height;
+		int										squareLength;
 		bool									buffersInitialized;
 
 		long									dataAccessed;
@@ -108,7 +108,8 @@ namespace environs
 		RenderOverlay						**	renderOverlays;
 		virtual int								AllocateOverlayBuffers ( RenderOverlay  * overlay ) { return 0; };
 		virtual void							ReleaseOverlayBuffers ( RenderOverlay  * overlay ) {};
-
+    
+        void								*	stages;
 		int										osLevel;
 
 	protected:

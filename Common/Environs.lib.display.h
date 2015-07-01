@@ -36,17 +36,17 @@ namespace environs
 		{
 #endif
 
-			LIBEXPORT void CallConv			setUseDeviceMarkerAutomatic ( EBOOL enable );
-			LIBEXPORT void CallConv			setDeviceMarkerReducedPrecision1 ( EBOOL enable );
+			LIBEXPORT void CallConv			SetUseDeviceMarkerAutomatic ( EBOOL enable );
+			LIBEXPORT void CallConv			SetDeviceMarkerReducedPrecision1 ( EBOOL enable );
             
-            LIBEXPORT int CallConv			setUseTracker ( const char * moduleName );
-            LIBEXPORT int CallConv			getUseTracker ( const char * moduleName );
-            LIBEXPORT EBOOL CallConv		disposeTracker ( const char * moduleName );
+            LIBEXPORT int CallConv			SetUseTracker ( const char * moduleName );
+            LIBEXPORT int CallConv			GetUseTracker ( const char * moduleName );
+            LIBEXPORT EBOOL CallConv		DisposeTracker ( const char * moduleName );
             
-            LIBEXPORT EBOOL CallConv		getTrackerEnabled ( int index );
-            LIBEXPORT EBOOL CallConv		setTrackerParams ( int index, int channels, int width, int height, int stride );
-            LIBEXPORT EBOOL CallConv		setTrackerImage ( int index, void * rawImage, int size );
-            LIBEXPORT EBOOL CallConv		pushTrackerCommand ( int index, int command );
+            LIBEXPORT EBOOL CallConv		GetTrackerEnabled ( int index );
+            LIBEXPORT EBOOL CallConv		SetTrackerParams ( int index, int channels, int width, int height, int stride );
+            LIBEXPORT EBOOL CallConv		SetTrackerImage ( int index, void * rawImage, int size );
+            LIBEXPORT EBOOL CallConv		PushTrackerCommand ( int index, int command );
 
 #ifdef __cplusplus
 		}

@@ -168,7 +168,7 @@ namespace environs
 	INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout )
 	{
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		return pthread_cond_timedwait_sec ( cond, lock, timeout );
+		return pthread_cond_timedwait ( cond, lock, &timeout );
 #else
 		return pthread_cond_timedwait_sec ( cond, lock, timeout / 1000 );
 #endif

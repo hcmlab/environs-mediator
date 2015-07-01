@@ -37,9 +37,6 @@
 #define MEDIATOR_MESSAGE_UNIT_ALIGN				4
 #define MEDIATOR_MESSAGE_LENGTH_FLAG_PAD		0x10000000
 
-#define MEDIATOR_BROADCAST_DESC_START			24
-#define MEDIATOR_BROADCAST_SPARE_ID_LEN			24
-
 #define MEDIATOR_BROADCAST						"E.Mediator"
 #define MEDIATOR_BROADCAST_DEVICE				"E.D."
 #define MEDIATOR_SPARE_SOCKET_REQ				"E.DS"
@@ -111,11 +108,11 @@ namespace environs	/// Namespace: environs ->
 	}
 	NetPack;
 
-	struct _DeviceInstance;
+	struct DeviceInstanceList;
 
 	typedef struct _ThreadInstance
 	{
-		unsigned int			deviceID;
+		int						deviceID;
 		pthread_t				threadID;
 		pthread_mutex_t			accessMutex;
 		unsigned int			version;
@@ -136,7 +133,7 @@ namespace environs	/// Namespace: environs ->
 		int						encrypt;
 		int						authenticated;
 		AESContext				aes;
-		_DeviceInstance		*	device;
+		DeviceInstanceList	*	device;
 
 		bool					createAuthToken;
 		char					uid [ MAX_NAMEPROPERTY * 6 ];
@@ -149,17 +146,17 @@ namespace environs	/// Namespace: environs ->
 		unsigned int			id;
 		unsigned int			projId;
 		pthread_mutex_t			mutex;
-		unsigned int			count;
+		int						count;
 		long					access;
 		
 		unsigned int			latestAssignedID;
 
-		_DeviceInstance		*	devices;
+		DeviceInstanceList	*	devices;
 	}
 	ApplicationDevices;
 
 
-	typedef struct _DeviceInstance
+	typedef struct DeviceInstanceList
 	{
 		DeviceInfo info;
 
@@ -169,9 +166,9 @@ namespace environs	/// Namespace: environs ->
 #endif
 		char					  userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
 
-		struct _DeviceInstance	* next;  // 4
+		struct DeviceInstanceList	* next;  // 4
 	}
-	DeviceInstance;
+	DeviceInstanceList;
 
 
 	typedef struct _MediatorThreadInstance
@@ -276,16 +273,16 @@ namespace environs	/// Namespace: environs ->
 
 		virtual void		OnStarted ( );
 
-		DeviceInstance *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, bool isBroadcast = false );
+		DeviceInstanceList *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
 
-		virtual DeviceInstance ** GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, unsigned int ** pDevicesAvailable, ApplicationDevices ** appDevices ) = 0;
+		virtual DeviceInstanceList ** GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** appDevices ) = 0;
 
 		virtual void		RemoveDevice ( unsigned int ip, char * msg ) {};
-		virtual void		RemoveDevice ( DeviceInstance * device, bool useLock = true ) = 0;
+		virtual void		RemoveDevice ( DeviceInstanceList * device, bool useLock = true ) = 0;
 		
 		virtual void		ReleaseDevices ( ) = 0;
 
-		virtual void		NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, unsigned int deviceID ) {};
+		virtual void		NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID ) {};
 		
 		MediatorInstance *	IsKnownMediator ( unsigned int ip, unsigned short port );
 		MediatorInstance *	AddMediator ( MediatorInstance * med );
@@ -326,7 +323,7 @@ namespace environs	/// Namespace: environs ->
 
 				union {
 					unsigned int	id;
-					unsigned int	notifyDeviceID;
+					int				notifyDeviceID;
 					char			msg;
 				}
 				data;
@@ -377,7 +374,7 @@ namespace environs	/// Namespace: environs ->
 		char			opt1;
 
 		unsigned int	msgID;
-		unsigned int	notifyDeviceID;
+		int				notifyDeviceID;
 
 		/** The project name of the appliction environment. */
 		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
@@ -398,7 +395,7 @@ namespace environs	/// Namespace: environs ->
 
 		unsigned int	msgID;
 		unsigned int	startIndex;
-		unsigned int	deviceID;
+		int				deviceID;
 
 		/** The project name of the appliction environment. */
 		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
@@ -455,7 +452,7 @@ namespace environs	/// Namespace: environs ->
 		char			ident [2];
 		char			channel;
 
-		unsigned int	deviceID;
+		int				deviceID;
         
 		/** The project name of the appliction environment. */
 		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
@@ -489,7 +486,7 @@ namespace environs	/// Namespace: environs ->
 		char			ident [3];
 		char			channel;
 
-		unsigned int	deviceID;
+		int				deviceID;
 		unsigned int	ip;
 		unsigned int	ipe;
 		unsigned int	port;
@@ -531,7 +528,7 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	size;
 		char			ident [4];
 
-		unsigned int	deviceID;
+		int				deviceID;
 		unsigned int	IP;
 		unsigned int	Port;
 
@@ -561,7 +558,7 @@ namespace environs	/// Namespace: environs ->
 		char			ident [3];
 		char			version;
 
-		unsigned int	deviceID;
+		int				deviceID;
 
 		/** The project name of the appliction environment. */
 		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
@@ -588,7 +585,7 @@ namespace environs	/// Namespace: environs ->
 		char			version;
 		char			ident [3];
 
-		unsigned int	deviceID;
+		int				deviceID;
 
 		/** The project name of the appliction environment. */
 		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
@@ -606,7 +603,7 @@ namespace environs	/// Namespace: environs ->
 		char			version;
 		char			deviceType;
 		char			ident [2];
-		unsigned int	deviceID;
+		int				deviceID;
 
 		/** The project name of the appliction environment. */
 		char			projectName [MAX_NAMEPROPERTY + 1]; // 31

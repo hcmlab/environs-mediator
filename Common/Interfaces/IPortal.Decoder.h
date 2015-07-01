@@ -50,7 +50,7 @@ namespace environs
 
 			/** Default initialization */
 			avContext ( 0 ), decodeImage ( true ), outputRGBA ( true), width ( 0 ), height ( 0 ), stride ( 0),
-            avContextType ( DECODER_AVCONTEXT_TYPE_PIXELS ), avContextSubType ( DECODER_AVCONTEXT_SUBTYPE_RGB ), avContextSize ( 0 )
+			avContextType ( DECODER_AVCONTEXT_TYPE_PIXELS ), avContextSubType ( ENVIRONS_AVCONTEXT_SUBTYPE_RGB ), avContextSize ( 0 )
 		{};
 
 		virtual ~IPortalDecoder () { ReleaseAVContext (); };
@@ -89,19 +89,12 @@ namespace environs
         virtual int								AllocateResources ( ) = 0;
 		virtual int								ReleaseResources () = 0;
 
-		virtual int								ReleaseAVContext () 
-		{
-			if ( avContext ) {
-				if ( avContextType == DECODER_AVCONTEXT_TYPE_AVPACK ) free ( avContext );
-				avContext = 0;
-			}
-			return 1;
-		};
+		virtual int								ReleaseAVContext ()  { return 1; };
     
     
-        unsigned int                            width;
-        unsigned int                            stride;
-        unsigned int                            height;
+        int                                     width;
+        int                                     stride;
+        int                                     height;
     
         void								*	avContext;
         int                                     avContextType;

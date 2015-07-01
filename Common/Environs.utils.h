@@ -33,6 +33,9 @@ namespace environs
 	extern unsigned int getRandomValue ( void * value );
 	
 	INCLINEFUNC INTEROPTIMEVAL GetEnvironsTickCount ();
+    
+    extern bool CreateDataDirectory ( char * dir );
+    extern void UpdateString ( const char * src, char ** dest );
 }
 
 

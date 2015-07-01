@@ -39,7 +39,7 @@ namespace environs
 	typedef struct _DeviceInfo
 	{
 		/** The device ID within the environment */
-		unsigned int	id;	// 4
+		int				deviceID;	// 4
 
 		/** IP from device. The IP address reported by the device which it has read from network configuration. */
 		unsigned int 	ip;	// 4
@@ -58,9 +58,11 @@ namespace environs
 		/** The number of alive updates noticed by the mediator layer since its appearance within the application environment. */
 		unsigned int	updates; // 4
 
+		/** A value that describes the device platform. */
+		int				platform; // 4
 
-		/** BroadcastFound is true if the device has been seen on the broadcast channel of the current network. */
-		bool			broadcastFound; // 1
+		/** BroadcastFound is a value of DEVICEINFO_DEVICE_* and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
+		char			broadcastFound; // 1
 		bool            unavailable;  // 1
 
 		/** isConnected is true if the device is currently in the connected state. */

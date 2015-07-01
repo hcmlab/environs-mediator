@@ -40,10 +40,11 @@ namespace environs
 		GestureDummy ( );
 		virtual ~GestureDummy ( );
         
-        bool			Init ( );
+        bool		Init ( );
         
-        int				Trigger ( InputPack **	touches, unsigned int inputCount );
-        int				Perform ( InputPack **	touches, unsigned int inputCount );
+        int			Trigger ( InputPackRec **	touches, int inputCount );
+        int			Perform ( InputPackRec **	touches, int inputCount );
+        void        Flush ( );
 
 	private:
 	};

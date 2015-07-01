@@ -1588,10 +1588,10 @@ void MediatorDaemon::ReleaseDevices ()
 					if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
 						CErr ( "ReleaseDevices: Failed to aquire mutex on application device list!" );
 					}
-					DeviceInstance * device = appDevices->devices;
+					DeviceInstanceList * device = appDevices->devices;
 			
 					while ( device ) {
-						DeviceInstance * toDelete = device;
+						DeviceInstanceList * toDelete = device;
 						device = device->next;
 						CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", toDelete->info.id );
 
@@ -1643,7 +1643,7 @@ void MediatorDaemon::ReleaseDeviceMappings ()
 }
 
 
-void MediatorDaemon::RemoveDevice ( unsigned int deviceID, const char * projectName, const char * appName )
+void MediatorDaemon::RemoveDevice ( int deviceID, const char * projectName, const char * appName )
 {
 	CVerbID ( "RemoveDevice from maps" );
 
@@ -1659,8 +1659,8 @@ void MediatorDaemon::RemoveDevice ( unsigned int deviceID, const char * projectN
 
 	bool				found	= false;
 	bool				unlock	= true;
-	DeviceInstance	*	device	= 0;
-	DeviceInstance	*	prevDevice = 0;
+	DeviceInstanceList	*	device	= 0;
+	DeviceInstanceList	*	prevDevice = 0;
 	
 	string appsName ( appName );
 	ApplicationDevices					* appDevices = 0;
@@ -1696,7 +1696,7 @@ void MediatorDaemon::RemoveDevice ( unsigned int deviceID, const char * projectN
 
 	while ( device ) 
 	{
-		if ( device->info.id == deviceID ) {	
+		if ( device->info.deviceID == deviceID ) {	
 			found = true;
 			break;
 		}
@@ -1710,14 +1710,14 @@ void MediatorDaemon::RemoveDevice ( unsigned int deviceID, const char * projectN
 	if ( found ) {
 		if ( device == appDevices->devices ) {
 			if ( device->next ) {		
-				CVerbArg ( "[0x%X].RemoveDevice: relocating client to root of list", device->next->info.id );
+				CVerbArg ( "[0x%X].RemoveDevice: relocating client to root of list", device->next->info.deviceID );
 			
-				DeviceInstance * toDelete = device;
+				DeviceInstanceList * toDelete = device;
 
 				appDevices->devices = device->next;
 				appDevices->count--;
 			
-				CVerbArg ( "[0x%X].RemoveDevice: deleting temporary prior occupied memory for client", toDelete->info.id );
+				CVerbArg ( "[0x%X].RemoveDevice: deleting temporary prior occupied memory for client", toDelete->info.deviceID );
 				free ( toDelete );
 			}
 			else {
@@ -1748,21 +1748,21 @@ void MediatorDaemon::RemoveDevice ( unsigned int deviceID, const char * projectN
 		}
 		else {
 			if ( !prevDevice ) {
-				CVerbArgID ( "RemoveDevice: Failed to lookup device list. Missing previous device for ID [0x%X]", device->info.id );
+				CVerbArgID ( "RemoveDevice: Failed to lookup device list. Missing previous device for ID [0x%X]", device->info.deviceID );
 			}
 			else {
 				if ( device->next ) {
-					CVerbArg ( "[0x%X].RemoveDevice: relinking client to previous client [0x%X]", device->next->info.id, prevDevice->info.id );
+					CVerbArg ( "[0x%X].RemoveDevice: relinking client to previous client [0x%X]", device->next->info.id, prevDevice->info.deviceID );
 					prevDevice->next = device->next;
 				}
 				else {
-					CVerbArg ( "[0x%X].RemoveDevice: finish list since client was the last one", prevDevice->info.id );
+					CVerbArg ( "[0x%X].RemoveDevice: finish list since client was the last one", prevDevice->info.deviceID );
 					prevDevice->next = 0;
 				}
 				
 				appDevices->count--;
 
-				CVerbArg ( "[0x%X].RemoveDevice: deleting memory occupied by client", device->info.id );
+				CVerbArg ( "[0x%X].RemoveDevice: deleting memory occupied by client", device->info.deviceID );
 				free ( device );
 			}
 		}
@@ -1781,14 +1781,14 @@ Finish:
 }
 
 
-void MediatorDaemon::RemoveDevice ( DeviceInstance * device, bool useLock )
+void MediatorDaemon::RemoveDevice ( DeviceInstanceList * device, bool useLock )
 {
 	CVerbVerb ( "RemoveDevice" );
 
 	if ( !device )
 		return;
 	
-	RemoveDevice ( device->info.id, device->info.projectName, device->info.appName );
+	RemoveDevice ( device->info.deviceID, device->info.projectName, device->info.appName );
 }
 
 
@@ -1936,9 +1936,9 @@ Finish:
 }
 
 
-DeviceInstance ** MediatorDaemon::GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, unsigned int ** pDevicesAvailable, ApplicationDevices ** pappDevices )
+DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** pappDevices )
 {
-	DeviceInstance ** list = 0;
+	DeviceInstanceList ** list = 0;
 
 	if ( pthread_mutex_lock ( &devicesMutex ) ) {
 		CErr ( "GetDeviceList: Failed to acquire mutex!" );
@@ -2022,11 +2022,11 @@ Finish:
 }
 
 
-void printDeviceList ( DeviceInstance * device )
+void printDeviceList ( DeviceInstanceList * device )
 {
 	while ( device ) 
 	{
-		CLogArg ( "Device      = [0x%X / %s / %s]", device->info.id, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+		CLogArg ( "Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
 		if ( device->info.ip != device->info.ipe ) {
 			CLogArg ( "Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
 		}
@@ -2537,7 +2537,7 @@ void * MediatorDaemon::MediatorUdpThread ( void * arg )
 					continue;
 				}
 
-				DeviceInstance * device = GetDeviceInstance ( destID, appDevices->devices );				
+				DeviceInstanceList * device = GetDeviceInstance ( destID, appDevices->devices );
 				if ( !device ) {
 					CErrArg ( "Udp: requested STUN device [%d] does not exist", destID );
 					goto Continue;
@@ -3122,7 +3122,7 @@ ThreadInstance * MediatorDaemon::GetSessionClient ( long long sessionID )
 }
 
 
-int MediatorDaemon::HandleRegistration ( unsigned int &deviceID, ThreadInstance * client, unsigned int bytesLeft, char * msg, unsigned int msgLen )
+int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client, unsigned int bytesLeft, char * msg, unsigned int msgLen )
 {
 	CVerb ( "HandleRegistration" );
 
@@ -3211,8 +3211,8 @@ int MediatorDaemon::HandleRegistration ( unsigned int &deviceID, ThreadInstance 
 		MediatorReqMsg	* req = (MediatorReqMsg *) msg;
 		
         ApplicationDevices * appDevices = 0;
-		unsigned int nextID = 0;
-		unsigned int mappedID = 0;
+		int nextID = 0;
+		int mappedID = 0;
         
 		if ( pthread_mutex_lock ( &usersDBMutex ) ) {
 			CErr ( "HandleRegistration: Failed to aquire mutex (devMap)!" );
@@ -3239,7 +3239,7 @@ int MediatorDaemon::HandleRegistration ( unsigned int &deviceID, ThreadInstance 
 			if ( appDevices ) 
 			{
 				/// Find the next free deviceID			
-				DeviceInstance	*	device				= appDevices->devices;
+				DeviceInstanceList	*	device				= appDevices->devices;
 		
 				if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
 					CErr ( "HandleRegistration: Failed to aquire mutex!" );
@@ -3252,10 +3252,10 @@ int MediatorDaemon::HandleRegistration ( unsigned int &deviceID, ThreadInstance 
 						nextID = appDevices->latestAssignedID + 1;
 				
 					while ( device ) {
-						if ( device->info.id == nextID )
+						if ( device->info.deviceID == nextID )
 							nextID++;
 						else 
-						if ( device->info.id > nextID )
+						if ( device->info.deviceID > nextID )
 							break;
 
 						device = device->next;
@@ -3332,7 +3332,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 
 	ThreadInstance * client = (ThreadInstance *) arg;
    
-	unsigned int deviceID = 0;
+    int deviceID = 0;
 
 	char buffer [ BUFFERSIZE ];
 
@@ -3677,10 +3677,10 @@ ShutdownClient:
 }
 
 
-DeviceInstance * MediatorDaemon::GetDeviceInstance ( unsigned int deviceID, DeviceInstance * device )
+DeviceInstanceList * MediatorDaemon::GetDeviceInstance ( int deviceID, DeviceInstanceList * device )
 {
 	while ( device ) {
-		if ( device->info.id == deviceID ) {
+		if ( device->info.deviceID == deviceID ) {
 			return device;
 		}
 		device = device->next;
@@ -3709,12 +3709,12 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	const char		*	projName			= 0;
 	const char		*	appName				= 0;
 	int					sentBytes;
-	DeviceInstance	*	device;
+	DeviceInstanceList	* device;
 	    
 	// find the destination client
 	ThreadInstance * destClient = 0;
 				
-    DeviceInstance *	destList		= 0;
+    DeviceInstanceList * destList		= 0;
     pthread_mutex_t *	destMutex		= 0;
     ApplicationDevices * appDevices		= 0;
 
@@ -3758,7 +3758,7 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	}
 	
 	shortMsg->deviceID = deviceID;
-	CLogArgID ( "HandleShortMessage: send message [%u Bytes] to device [%u] IP [%s]", length, destID, inet_ntoa ( destClient->addr.sin_addr ) );
+	CLogArgID ( "HandleShortMessage: send message to device [%u] IP [%u bytes -> %s]", destID, length, inet_ntoa ( destClient->addr.sin_addr ) );
 	
 	sentBytes = SendBuffer ( destClient, sendBuffer, length );
 	if ( sentBytes == length ) {
@@ -3796,8 +3796,8 @@ SendResponse:
 //#define FAKE42
 
 bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
-	unsigned int reqDeviceID, const char * projName, const char * appName, 
-	ApplicationDevices * appDevices, DeviceInstance *& resultList, unsigned int &resultCount )
+	int reqDeviceID, const char * projName, const char * appName, 
+	ApplicationDevices * appDevices, DeviceInstanceList *& resultList, unsigned int &resultCount )
 {
 	if ( !appDevices || !appDevices->count )
 		return true;
@@ -3813,10 +3813,10 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
     if ( resultCount >= maxDeviceCount )
         return false;
     
-	bool				ret					= true;
-	DeviceInstance  *	curDevice			= resultList;
-	unsigned int		currentStart;
-	DeviceInstance	*	device				= appDevices->devices;
+	bool                    ret					= true;
+	DeviceInstanceList  *	curDevice			= resultList;
+	unsigned int            currentStart;
+	DeviceInstanceList	*	device				= appDevices->devices;
 		
 
 	if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
@@ -3838,15 +3838,15 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
     }
     startIndex = 0;
     
-    DeviceInstance * prev = curDevice;
+    DeviceInstanceList * prev = curDevice;
 
 	while ( device )
     {
         if ( reqDeviceID ) {
-            if ( reqDeviceID == device->info.id && !strncmp ( device->info.projectName, projName, MAX_NAMEPROPERTY )
+            if ( reqDeviceID == device->info.deviceID && !strncmp ( device->info.projectName, projName, MAX_NAMEPROPERTY )
                 && !strncmp ( device->info.appName, appName, MAX_NAMEPROPERTY ) )
             {
-                DeviceInstance * newDevice = (DeviceInstance *) malloc ( sizeof(DeviceInstance) );
+                DeviceInstanceList * newDevice = (DeviceInstanceList *) malloc ( sizeof(DeviceInstanceList) );
                 if ( !newDevice ) {
 					ret = false; goto Finish;
 				}
@@ -3864,7 +3864,7 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
         }
         
         /// We have a device to insert into the result list
-        DeviceInstance * newDevice = (DeviceInstance *) malloc ( sizeof(DeviceInstance) );
+        DeviceInstanceList * newDevice = (DeviceInstanceList *) malloc ( sizeof(DeviceInstanceList) );
         if ( !newDevice ) {
 			ret = false; goto Finish;
 		}
@@ -3882,7 +3882,7 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
         else {
             /// Find the first id that is larger than the current            
             while ( curDevice ) {
-                if ( curDevice->info.id > device->info.id ) {
+                if ( curDevice->info.deviceID > device->info.deviceID ) {
                     break;
                 }
                 prev = curDevice;
@@ -3890,7 +3890,7 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
             }
 			curDevice = prev;
 
-			if ( curDevice->info.id > device->info.id && curDevice == resultList ) {
+			if ( curDevice->info.deviceID > device->info.deviceID && curDevice == resultList ) {
 				resultList = newDevice;
 				newDevice->next = curDevice;
 			}
@@ -3921,7 +3921,7 @@ Finish:
 }
 
 
-unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstance * sourceDevice, int filterMode )
+unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstanceList * sourceDevice, int filterMode )
 {
 	if ( !sourceDevice || !sourceDevice->root )
 		return 0;
@@ -4005,7 +4005,7 @@ Finish:
 }
 
 
-char * FlattenDeviceList ( DeviceInstance * devices, unsigned int capacity )
+char * FlattenDeviceList ( DeviceInstanceList * devices, unsigned int capacity )
 {    
     DeviceInfo * dest = 0;
     char * buffer = (char *) malloc ( (capacity * DEVICE_PACKET_SIZE) + DEVICES_HEADER_SIZE + DEVICES_HEADER_SIZE );
@@ -4019,7 +4019,7 @@ char * FlattenDeviceList ( DeviceInstance * devices, unsigned int capacity )
     dest = (DeviceInfo *) (buffer + DEVICES_HEADER_SIZE);
     
     while ( devices ) {
-        DeviceInstance * current = devices;
+        DeviceInstanceList * current = devices;
         devices = devices->next;
 
         memcpy ( dest, current, sizeof(DeviceInfo) );
@@ -4031,7 +4031,7 @@ char * FlattenDeviceList ( DeviceInstance * devices, unsigned int capacity )
 Finish:
     if ( devices ) {
         while ( devices ) {
-            DeviceInstance * current = devices;
+            DeviceInstanceList * current = devices;
             
             devices = devices->next;
             free ( current );
@@ -4057,7 +4057,7 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 	const char		*	projName			= sourceClient->device->info.projectName;
 	const char		*	appName				= sourceClient->device->info.appName;
 	char				subCmd;
-    DeviceInstance  *   resultList          = 0;
+    DeviceInstanceList  *   resultList          = 0;
     unsigned int        resultCount         = 0;
 
 	map<string, ApplicationDevices *> * apps;
@@ -4264,7 +4264,7 @@ SendResponse:
 		length = query->size = 8;
 	}
 
-	CLogArgID ( "HandleQueryDevices: send devicelist%s response [%d bytes] reply to IP [%s]", sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
+	CLogArgID ( "HandleQueryDevices: send devicelist%s [%d bytes -> %s]", sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
 	
 	int sentBytes = SendBuffer ( sourceClient, sendBuffer, length );
 
@@ -4379,7 +4379,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 		return false;
 	}
 	
-	DeviceInstance * device = GetDeviceInstance ( DestID, sourceClient->device->root->devices );
+	DeviceInstanceList * device = GetDeviceInstance ( DestID, sourceClient->device->root->devices );
 	
 	if ( device )
 		destClient = device->client;
@@ -4515,7 +4515,7 @@ bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
 bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTReqPacket * req )
 {
 	int					sentBytes;
-    DeviceInstance *	sourceDevice;
+    DeviceInstanceList *	sourceDevice;
 
 	STUNTRespReqPacket	response;
 	Zero ( response );
@@ -4537,11 +4537,11 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	int					status			= 0;
     const char  *		projName        = 0;
     const char  *		appName         = 0;
-    DeviceInstance *	device			= 0;
+    DeviceInstanceList *	device			= 0;
     
 	// find the destination client
 	ThreadInstance *	destClient		= 0;				
-    DeviceInstance *	destList		= 0;
+    DeviceInstanceList *	destList		= 0;
     pthread_mutex_t *	destMutex		= 0;
     ApplicationDevices * appDevices		= 0;
     
@@ -4668,7 +4668,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 		reqResponse->ipe = destClient->addr.sin_addr.s_addr;
 	}
 
-	CLogArgID ( "STUNTRequest: Send response to device IP [%s], port [%d]", inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
+	CLogArgID ( "STUNTRequest: Send response to device IP [%s:%d]", inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
 
 	destClient->sparePort = 0; // Clear the port
 		
@@ -4727,13 +4727,18 @@ void MediatorDaemon::BuildBroadcastMessage ( )
 	CVerb ( "buildBroadcastMessage" );
 
 	// Format E.Mediator port1 port2 ...
-	strncpy_s ( broadcastMessage + 4, 24, MEDIATOR_BROADCAST, 24 );
+	strncpy_s ( broadcastMessage + 4, MEDIATOR_BROADCAST_DESC_START, MEDIATOR_BROADCAST, MEDIATOR_BROADCAST_DESC_START );
+	
+	broadcastMessageLen = 16;
 
-	unsigned short * pShortBuffer = (unsigned short *) (broadcastMessage + 16);
+	unsigned short * pShortBuffer = (unsigned short *) (broadcastMessage + broadcastMessageLen);
 	
 	*pShortBuffer = (unsigned short) ports [ 0 ];
 	
-	broadcastMessageLen = 16;
+	broadcastMessageLen += 4;
+
+	*((unsigned int *) (broadcastMessage + broadcastMessageLen)) = 1; // We use the platform 1 for now
+
 
 	unsigned int bcml = broadcastMessageLen + 4;
 
@@ -4836,7 +4841,7 @@ void * MediatorDaemon::BroadcastThread ( )
 			}
 		}
 		else {
-			CVerbArg ( "BroadcastThread: read %d bytes from IP %s;\n\t\tMessage: %s", bytesReceived, inet_ntoa ( *((struct in_addr *) &ip) ), buffer);
+			CVerbArg ( "BroadcastThread: read %d bytes <- IP %s;\n\t\tMessage: %s", bytesReceived, inet_ntoa ( *((struct in_addr *) &ip) ), buffer);
 		}
 	}
    
@@ -4846,7 +4851,7 @@ void * MediatorDaemon::BroadcastThread ( )
 }
 
 
-bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstance * device, unsigned int ip, char * msg )
+bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigned int ip, char * msg )
 {
 	CVerb ( "UpdateDeviceRegistry" );
 
@@ -4914,7 +4919,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstance * device, unsigned in
 	
 	char keyBuffer [ 128 ];
 	char valueBuffer [ 256 ];
-	sprintf_s ( keyBuffer, 128, "%u_", device->info.id );
+	sprintf_s ( keyBuffer, 128, "%u_", device->info.deviceID );
 
 	keyCat = keyBuffer + strlen ( keyBuffer );
 	
@@ -5037,7 +5042,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
 	char		*	uid		= 0;
 	bool			created = false;
 
-	DeviceInstance	* device = UpdateDevices ( ip, msg, &uid, &created );
+	DeviceInstanceList	* device = UpdateDevices ( ip, msg, &uid, &created );
 	if ( !device ) {
 		CErrID ( "HandleDeviceRegistration: Failed to parse registration." );
 		return false;
@@ -5068,7 +5073,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
 	device->client = client;
 
 	*client->uid = 0;
-	if ( uid && *uid && device->info.id ) {		
+	if ( uid && *uid && device->info.deviceID ) {		
 		strcpy_s ( client->uid, sizeof(client->uid), uid );
         
 		if ( pthread_mutex_lock ( &usersDBMutex ) ) {
@@ -5090,7 +5095,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
 				if ( !mapping )
 					goto PreFailExit;
 			}
-			mapping->deviceID = device->info.id;
+			mapping->deviceID = device->info.deviceID;
             
             /// Check for authToken
             if ( !*mapping->authToken || client->createAuthToken ) {
@@ -5379,70 +5384,6 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 }
 
 
-//bool MediatorDaemon::SecureChannel ( ThreadInstance * client )
-//{
-//	CVerb ( "SecureChannel" );
-//
-//	char			buffer [ ENVIRONS_MAX_KEYBUFFER_SIZE ]; /// cert + challenge + instruct + size(4)
-//	unsigned int *	pUI			= (unsigned int *) buffer;
-//	int				length		= 0;
-//	int				addrLen		= sizeof(struct sockaddr);	
-//	int				sentBytes;
-//	bool			ret			= false;
-//
-//    if ( !certificate ) {
-//		CErr ( "SecureChannel: Certificate missing!" ); return false;
-//    }
-//	
-//	/// Send certificate (4 bytes size, x bytes cert)
-//	unsigned int certSize = (*((unsigned int *)certificate) & 0xFFFF) + 4; /// We add 4 bytes for the formatSize "header"
-//	*pUI = certSize; pUI++;
-//	memcpy ( pUI, certificate, certSize );
-//	length = certSize + 4;
-//    
-//    /// Add the padding id
-//    *pUI |= encPadding;	
-//
-//	pthread_mutex_lock ( &client->accessMutex );
-//
-//	sentBytes = (int)sendto ( client->socket, buffer, length, 0, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
-//
-//	pthread_mutex_unlock ( &client->accessMutex );
-//
-//	if ( (int)length != sentBytes ) {
-//		CVerbArg ( "SecureChannel: Sending of certificate failed [%u] != [%i].", length, sentBytes ); return false;
-//	}
-//	
-//	/// Wait for response
-//	length = (int)recvfrom ( client->socket, buffer, ENVIRONS_MAX_KEYBUFFER_SIZE - 1, 0, (struct sockaddr*) &client->addr, (socklen_t *) &addrLen );
-//	if ( length <= 0 ) {
-//		CLogArg ( "SecureChannel: Socket [%i] closed; Bytes [%i]!", client->socket, length ); return false;
-//	}
-//
-//	unsigned int decryptedSize = 0;
-//	char * decrypt = 0;
-//	
-//	do
-//	{
-//		if ( !DecryptMessage ( privKey, privKeySize, buffer + 4, length, &decrypt, &decryptedSize ) ) {
-//			CWarn ( "SecureChannel: Failed to decrypt aes key!" ); break;
-//		}    
-//
-//		/// If Accept, then derive session key from the computed AES response
-//		if ( !AESDeriveKeyContext ( decrypt, decryptedSize, &client->aes ) ) {
-//			CErr ( "SecureChannel: Failed to derive AES session keys." ); break;
-//		}   
-//
-//		ret = true;
-//	}
-//	while ( 0 );
-//
-//	if ( decrypt ) free ( decrypt );
-//
-//	return ret;
-//}
-
-
 int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock )
 {
 	CVerb ( "SendBuffer" );
@@ -5475,108 +5416,14 @@ int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned i
 }
 
 
-//void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClient, unsigned int deviceID )
-//{
-//	CVerbID ( "HandleSpareSocketRegistration" );
-//
-//	int sock = -1;
-//	ThreadInstance * orgClient = 0;
-//	//struct sockaddr_in addr;
-//	//int sentBytes;
-//
-//	// We need at first the deviceID
-//	if ( !deviceID ) {
-//		CWarnID ( "HandleSpareSocketRegistration: Invalid device [0] for spare socket mapping!" );
-//		goto Finish;
-//	}
-//	
-//	if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-//		CErrID ( "HandleSpareSocketRegistration: Failed to aquire mutex!" );
-//	}
-//	for ( unsigned int i = 0; i < acceptClients.size (); i++ ) 
-//	{		
-//		// find the one in our vector
-//		for ( unsigned i = 0; i < acceptClients.size (); i++ ) {
-//			if ( acceptClients[i] == spareClient ) {
-//				CVerbArgID ( "HandleSpareSocketRegistration: Erasing [%i] from client list", i );
-//				acceptClients.erase ( acceptClients.begin() + i );
-//
-//				break;
-//			}
-//		}
-//	}
-//	if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-//		CErrID ( "HandleSpareSocketRegistration: Failed to release mutex!" );
-//	}
-//
-//	if ( !orgClient ) {
-//		CWarnID ( "HandleSpareSocketRegistration: related thread instance for device not found!" );
-//		goto Finish;
-//	}
-//	
-//	// Check for matching IP
-//	if ( spareClient->addr.sin_addr.s_addr != orgClient->addr.sin_addr.s_addr ) {
-//		CWarnID ( "HandleSpareSocketRegistration: IP address of requestor does not match!" );
-//		goto Finish;
-//	}	
-//	
-//	// Acquire the mutex on orgClient
-//	if ( pthread_mutex_lock ( &orgClient->accessMutex ) ) {
-//		CErrID ( "HandleSpareSocketRegistration: Failed to aquire mutex on org client!" );
-//	}
-//
-//	// Apply the port
-//	sock = orgClient->spareSocket;
-//	if ( sock != -1 ) {
-//		shutdown ( sock, 2 );
-//		closesocket ( sock );
-//	}
-//	orgClient->spareSocket = spareClient->socket;
-//	orgClient->sparePort = ntohs ( spareClient->addr.sin_port );
-//		
-//	//pthread_cond_signal ( &orgClient->socketSignal );
-//	
-//	// Release the mutex on orgClient
-//	if ( pthread_mutex_unlock ( &orgClient->accessMutex ) ) {
-//		CErrID ( "HandleSpareSocketRegistration: Failed to release mutex on org client!" );
-//	}
-//	
-//	sock = 1; 
-//	
-//Finish:
-//	pthread_t thrd = spareClient->threadID;
-//	if ( pthread_valid ( thrd ) ) {
-//		pthread_detach_handle ( thrd );
-//	}
-//		
-//	if ( pthread_mutex_valid ( &spareClient->accessMutex ) )
-//		pthread_mutex_destroy ( &spareClient->accessMutex );
-//
-//	if ( sock != 1 ) {
-//		sock = spareClient->socket;
-//		if ( sock != -1 ) {
-//			shutdown ( sock, 2 );
-//			closesocket ( sock );
-//		}
-//		CLogID ( "Failed to register spare socket" );
-//	}
-//	else {
-//		CLogArgID ( "successfully registered spare socket on port [%d].", orgClient->sparePort );
-//	}
-//
-//	delete spareClient;
-//	return;
-//}
-
-
 void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClient, ThreadInstance * orgClient, char * msg, unsigned int msgLen )
 {
-	unsigned int deviceID = *( (unsigned int *) (msg + 12) );
+	int deviceID = *( (int *) (msg + 12) );
 		
 	CVerbID ( "HandleSpareSocketRegistration" );
 		
 	int					sock = -1;
-	DeviceInstance *	device;
+	DeviceInstanceList *	device;
 	
 	if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
 		CErrID ( "HandleSpareSocketRegistration: Failed to aquire mutex!" );
@@ -5607,7 +5454,7 @@ void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClien
 		CWarnID ( "HandleSpareSocketRegistration: Related client is missing a device instance!" ); goto Finish;
 	}
 	
-	if ( deviceID != device->info.id ){
+	if ( deviceID != device->info.deviceID ){
 		CWarnID ( "HandleSpareSocketRegistration: deviceIDs don't match!" );
 		goto Finish;
 	}	
@@ -5789,7 +5636,7 @@ Finish:
 
 static long notifyRunner = 0;
 
-void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, unsigned int deviceID )
+void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID )
 {
 	/// If a notification is already running, then spin around, wait and try for max. 5 seconds
 	int trys = 26;
@@ -6098,7 +5945,7 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
 	if ( appDevices )
 	{
 		unsigned int deviceID;
-		DeviceInstance * device = appDevices->devices;
+		DeviceInstanceList * device = appDevices->devices;
 		
 		if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
 			CVerb ( "NotifyClients: Failed to aquire mutex!" );
@@ -6151,7 +5998,7 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
 		NotifyContext * ctx = dests[i];
 		
 		if ( ctx ) {
-			CLogArg ( "NotifyClients: send notify to to device [0x%X]", ctx->deviceID );
+			CLogArg ( "NotifyClients: Notify device [0x%X]", ctx->deviceID );
 			sendto ( ctx->sock, (char *)&msg, sendSize, 0, (struct sockaddr *) &ctx->addr, sizeof(struct sockaddr) );
 			free ( ctx );
 		}

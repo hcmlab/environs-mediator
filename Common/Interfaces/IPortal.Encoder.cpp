@@ -43,7 +43,7 @@ namespace environs
 			return true;
 		}
 
-		buffer = relocateBuffer ( context->outputBuffer, true, payloadSize + 8 );
+		buffer = relocateBuffer ( context->outputBuffer, true, payloadSize + 4 );
 		if ( buffer ) {
 			context->outputBuffer = buffer;
 			buffer->payloadSize = payloadSize;
@@ -51,45 +51,5 @@ namespace environs
 		}
 		return false;
 	}
-
-	/*
-	__forceinline bool ResizeBuffer ( RenderContext * context, unsigned int payloadSize )
-	{
-		unsigned int		bufferSize;
-		char			*	buffer = context->outputBuffer;
-
-		if ( buffer ) {
-			// We have a buffer..
-			bufferSize = *((unsigned int *)buffer);
-
-			if ( bufferSize <= payloadSize + 8 ) {
-				// Size of buffer is too small.. reinit buffer
-				CVerbVerbArg ( "ResizeBuffer [%u]: size [%u] too small. Reinit.", context->id, bufferSize );
-				free ( buffer );
-				buffer = 0;
-				context->outputBuffer = 0;
-			}
-		}
-
-		if ( !buffer ) {
-			bufferSize	= payloadSize * 2 + 8;
-			CVerbVerbArg ( "ResizeBuffer [%u]: Allocating [%u].", context->id, bufferSize );
-
-			buffer = (char *)malloc ( bufferSize );
-			if ( !buffer ) {
-				CErrArg ( "ResizeBuffer: Failed to allocate [%d] bytes for new buffer", payloadSize );
-				return false;
-			}
-
-			*((unsigned int *)buffer) = bufferSize;
-
-			context->outputBuffer = buffer;
-		}
-
-		*(((unsigned int *)buffer) + 1) = payloadSize;
-
-		return true;
-	}
-	*/
 
 }

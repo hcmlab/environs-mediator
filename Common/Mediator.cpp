@@ -121,50 +121,50 @@ bool Mediator::Init ()
     }
 	return true;
 }
-    
-    
-    bool Mediator::InitClass ()
-    {
-        CVerb ( "InitClass" );
-        
-        if ( allocatedClass )
-            return true;
-        
-        Zero ( localNets );
-        
-        Zero ( localNetsMutex );
-        
-        if ( pthread_mutex_init ( &localNetsMutex, 0 ) ) {
-            CErr ( "InitClass: Failed to init localNetsMutex!" );
-            return false;
-        }
-        
-        allocatedClass = true;
-        
-        return true;
-    }
-    
-    
-    void Mediator::DisposeClass ()
-    {
-        CVerb ( "DisposeClass" );
-        
-        if ( !allocatedClass )
-            return;
-        
-        ReleaseNetworks();
-        
-        if ( pthread_mutex_destroy ( &localNetsMutex ) ) {
-            CErr ( "DisposeClass: Failed to init localNetsMutex!" );
-        }
-    }
 
-    
-    void Mediator::BroadcastByeBye ()
-    {
-        strcpy_s ( broadcastMessage + 4, sizeof(MEDIATOR_BROADCAST_BYEBYE), MEDIATOR_BROADCAST_BYEBYE );
-        SendBroadcast ( );
-    }
+
+bool Mediator::InitClass ()
+{
+	CVerb ( "InitClass" );
+
+	if ( allocatedClass )
+		return true;
+
+	Zero ( localNets );
+
+	Zero ( localNetsMutex );
+
+	if ( pthread_mutex_init ( &localNetsMutex, 0 ) ) {
+		CErr ( "InitClass: Failed to init localNetsMutex!" );
+		return false;
+	}
+
+	allocatedClass = true;
+
+	return true;
+}
+
+
+void Mediator::DisposeClass ()
+{
+	CVerb ( "DisposeClass" );
+
+	if ( !allocatedClass )
+		return;
+
+	ReleaseNetworks ();
+
+	if ( pthread_mutex_destroy ( &localNetsMutex ) ) {
+		CErr ( "DisposeClass: Failed to init localNetsMutex!" );
+	}
+}
+
+
+void Mediator::BroadcastByeBye ()
+{
+	strcpy_s ( broadcastMessage + 4, sizeof ( MEDIATOR_BROADCAST_BYEBYE ), MEDIATOR_BROADCAST_BYEBYE );
+	SendBroadcast ();
+}
 
     
 void Mediator::Dispose ()
@@ -833,16 +833,16 @@ unsigned int Mediator::GetLocalSN ( )
 }
 
 
-#define ENABLE_MEDIATOR_UPDATE_OUTPUT_VERBOSE
+//#define ENABLE_MEDIATOR_UPDATE_OUTPUT_VERBOSE
 
-DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, bool broadcastFound )
+DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
 {
 	CVerbVerb ( "UpdateDevices" );
 
 	if ( !msg )
 		return 0;
 
-	unsigned int	value;
+	int				value;
 	//unsigned int	flags		= 0;
 	bool			found		= false;
 	bool			changed		= false;
@@ -850,18 +850,18 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 	char		*	projectName = 0;
 	char		*	appName		= 0;
 	char		*	userName	= 0;
-	DeviceInstance * device		= 0;
-	DeviceInstance * devicePrev	= 0;
-	DeviceInstance ** listRoot	= 0;
+	DeviceInstanceList * device		= 0;
+	DeviceInstanceList * devicePrev	= 0;
+	DeviceInstanceList ** listRoot	= 0;
 	pthread_mutex_t * mutex		= 0;
 
-	unsigned int *			pDevicesAvailable	= 0;
+	int *					pDevicesAvailable	= 0;
 
 	ApplicationDevices *	appDevices			= 0;
     
 	// Get the id at first (>0)	
-	unsigned int * pUIntBuffer = (unsigned int *) (msg + 12);
-	value = *pUIntBuffer;
+	int * pIntBuffer = (int *) (msg + MEDIATOR_BROADCAST_DEVICEID_START);
+	value = *pIntBuffer;
 	if ( !value )
 		return 0;
 	
@@ -893,16 +893,16 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 	}*/
 
 #if !defined(MEDIATORDAEMON)
-	if ( value == environs.ID && !strncmp ( projectName, environs.ProjectName, sizeof(environs.ProjectName) )
-		&& !strncmp ( appName, environs.AppName, sizeof(environs.AppName) ) )
+	if ( value == environs.deviceID && !strncmp ( projectName, environs.projectName, sizeof(environs.projectName) )
+		&& !strncmp ( appName, environs.appName, sizeof(environs.appName) ) )
 		return 0;
 
 	if ( opt_mediatorFilterLevel > 0 ) {
-		if ( strncmp ( projectName, environs.ProjectName, sizeof(environs.ProjectName) ) )
+		if ( strncmp ( projectName, environs.projectName, sizeof(environs.projectName) ) )
 			return 0;
 
 		if ( opt_mediatorFilterLevel > 1 ) {
-			if ( strncmp ( appName, environs.AppName, sizeof(environs.AppName) ) )
+			if ( strncmp ( appName, environs.appName, sizeof(environs.appName) ) )
 				return 0;
 		}
 	}
@@ -927,7 +927,7 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 	{
 		CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Project [%s / %s] App [%s / %s]", device->info.id, value, device->info.projectName, projectName, device->info.appName, appName );
 
-		if ( device->info.id == value
+		if ( device->info.deviceID == value
 #ifndef MEDIATORDAEMON
 			&& !strncmp ( device->info.projectName, projectName, sizeof(device->info.projectName) ) && !strncmp ( device->info.appName, appName, sizeof(device->info.appName) )
 #endif
@@ -936,7 +936,7 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 			break;
 		}
 
-		if ( !device->next || device->info.id > value )
+		if ( !device->next || device->info.deviceID > value )
 			break;
 
 		devicePrev = device;
@@ -956,9 +956,9 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 
 	if ( !found ) {
 		// Create a new list item
-		DeviceInstance * dev = (DeviceInstance *)calloc ( 1, sizeof(DeviceInstance) );
+		DeviceInstanceList * dev = (DeviceInstanceList *)calloc ( 1, sizeof(DeviceInstanceList) );
 		if ( dev ) {
-			dev->info.id = value;
+			dev->info.deviceID = value;
 			(*pDevicesAvailable)++;
 
 #ifdef MEDIATORDAEMON
@@ -974,7 +974,7 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 			}
 			else {
 				if ( device ) {
-					if ( device->info.id > value ) {
+					if ( device->info.deviceID > value ) {
 						/// Device must be the listRoot (because there is no previous device)
 						dev->next = device;
 						*listRoot = dev;
@@ -1014,19 +1014,25 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 			device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;
 		}
 
-		if ( device->info.deviceType != msg [11] ) {
-			device->info.deviceType = msg [11]; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
+		if ( device->info.deviceType != msg [MEDIATOR_BROADCAST_DEVICETYPE_START] ) {
+			device->info.deviceType = msg [MEDIATOR_BROADCAST_DEVICETYPE_START]; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
 		}
 
-		pUIntBuffer++;
+		int platform = *((int *) (msg + MEDIATOR_BROADCAST_PLATFORM_START));
+
+		if ( device->info.platform != platform ) {
+			device->info.platform = platform; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
+		}
+
+		pIntBuffer++;
 
 		// Get the ip
-		value = *pUIntBuffer;
-		if ( device->info.ip != value ) {
+		value = *pIntBuffer;
+		if ( device->info.ip != (unsigned) value ) {
 			device->info.ip = value; changed = true; //flags |= DEVICE_INFO_ATTR_IP;
 		}	
 		// Get ports
-		unsigned short * pUShortBuffer = (unsigned short *) (msg + 20);
+		unsigned short * pUShortBuffer = (unsigned short *) (msg + MEDIATOR_BROADCAST_PORTS_START);
 		unsigned short svalue = *pUShortBuffer++;
 		if ( svalue != device->info.tcpPort ) {
 			device->info.tcpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_TCP;
@@ -1050,7 +1056,7 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 		}
 
 		if ( changed ) {		
-			CLogArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.id, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+			CLogArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
 			if ( device->info.ip != device->info.ipe ) {
 				CLogArg ( "UpdateDevices: Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &value) ) );
 			}
@@ -1069,7 +1075,7 @@ DeviceInstance * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** 
 
     value = 0;
     if ( device )
-		value = device->info.id;
+		value = device->info.deviceID;
     
 #ifdef MEDIATORDAEMON
 	if ( !found )
@@ -1106,13 +1112,14 @@ void Mediator::DevicesHasChanged ( int type )
 }
 
 
-void printDevices ( DeviceInstance * device )
+void printDevices ( DeviceInstanceList * device )
 {
 	while ( device ) 
 	{
-		CLogArg ( "UpdateDevices: Device id      = 0x%X", device->info.id );
+		CLogArg ( "UpdateDevices: Device id      = 0x%X", device->info.deviceID );
 		CLogArg ( "UpdateDevices: Project name   = %s", device->info.projectName );
 		CLogArg ( "UpdateDevices: App name       = %s", device->info.appName );
+		CLogArg ( "UpdateDevices: Platform       = %i", device->info.platform );
 		CLogArg ( "UpdateDevices: Device IPe     = %s (from socket)", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
 		CLogArg ( "UpdateDevices: Device IPe != IP (%s)", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
 		CLogArg ( "UpdateDevices: Device tcpPort = %d", device->info.tcpPort );

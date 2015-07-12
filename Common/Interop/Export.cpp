@@ -25,10 +25,10 @@
 //#define DEBUGVERBVerb
 #endif
 
-#include "Interop/export.h"
+#include "Interop/Export.h"
 #include <stdio.h>
-#include "Environs.native.h"
-#include "Interop/stat.h"
+#include "Environs.Native.h"
+#include "Interop/Stat.h"
 #include "Interfaces/Interface.Exports.h"
 #include "Environs.h"
 using namespace environs;

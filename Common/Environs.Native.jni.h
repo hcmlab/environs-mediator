@@ -7,8 +7,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#undef hcm_environs_Environs_PortalInfoSize
-#define hcm_environs_Environs_PortalInfoSize 36L
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetUseNotifyDebugMessage
@@ -124,26 +122,26 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetSubnetMask
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetDirectContactStatus
- * Signature: (ILjava/lang/String;Ljava/lang/String;)Z
+ * Signature: (I)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetDirectContactStatus
-  (JNIEnv *, jclass, jint, jstring, jstring);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetPortalEnabled
- * Signature: (ILjava/lang/String;Ljava/lang/String;I)Z
+ * Signature: (II)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalEnabled
-  (JNIEnv *, jclass, jint, jstring, jstring, jint);
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetPortalId
- * Signature: (ILjava/lang/String;Ljava/lang/String;I)I
+ * Signature: (II)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetPortalId
-  (JNIEnv *, jclass, jint, jstring, jstring, jint);
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -364,18 +362,18 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_DeviceConnect
 /*
  * Class:     hcm_environs_Environs
  * Method:    DeviceDisconnect1
- * Signature: (ILjava/lang/String;Ljava/lang/String;I)Z
+ * Signature: (II)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_DeviceDisconnect1
-  (JNIEnv *, jclass, jint, jstring, jstring, jint);
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetDeviceConnectStatus
- * Signature: (ILjava/lang/String;Ljava/lang/String;)I
+ * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDeviceConnectStatus
-  (JNIEnv *, jclass, jint, jstring, jstring);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -480,6 +478,14 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPlatform
  */
 JNIEXPORT jchar JNICALL Java_hcm_environs_Environs_GetDeviceType
   (JNIEnv *, jclass);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetPortalViewDims
+ * Signature: (IIIII)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalViewDims
+  (JNIEnv *, jclass, jint, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -787,14 +793,6 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalViewDimsAuto
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetPortalViewDims
- * Signature: (ILjava/lang/String;Ljava/lang/String;IIII)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalViewDims
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jint, jint, jint);
-
-/*
- * Class:     hcm_environs_Environs
  * Method:    GetBufferHeaderSize
  * Signature: ()I
  */
@@ -836,10 +834,10 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendMsg
 /*
  * Class:     hcm_environs_Environs
  * Method:    SendBuffer
- * Signature: (ILjava/lang/String;Ljava/lang/String;IILjava/lang/String;[BI)Z
+ * Signature: (IIILjava/lang/String;[BI)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendBuffer
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jint, jstring, jbyteArray, jint);
+  (JNIEnv *, jclass, jint, jint, jint, jstring, jbyteArray, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -892,10 +890,10 @@ JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_ReceivePortalUnit
 /*
  * Class:     hcm_environs_Environs
  * Method:    SendFile
- * Signature: (ILjava/lang/String;Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;)Z
+ * Signature: (IIILjava/lang/String;Ljava/lang/String;)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendFile
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jint, jstring, jstring);
+  (JNIEnv *, jclass, jint, jint, jint, jstring, jstring);
 
 /*
  * Class:     hcm_environs_Environs
@@ -915,22 +913,6 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetAccelerometers
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetDeviceWidth
- * Signature: (ILjava/lang/String;Ljava/lang/String;)I
- */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDeviceWidth
-  (JNIEnv *, jclass, jint, jstring, jstring);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    GetDeviceHeight
- * Signature: (ILjava/lang/String;Ljava/lang/String;)I
- */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDeviceHeight
-  (JNIEnv *, jclass, jint, jstring, jstring);
-
-/*
- * Class:     hcm_environs_Environs
  * Method:    SetUsePlatformPortalGenerator
  * Signature: (Z)V
  */
@@ -940,18 +922,18 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUsePlatformPortalGenerator
 /*
  * Class:     hcm_environs_Environs
  * Method:    InitRequestPortalStream
- * Signature: (ILjava/lang/String;Ljava/lang/String;II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_InitRequestPortalStream
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    ProvidePortalStream1
- * Signature: (ILjava/lang/String;Ljava/lang/String;II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ProvidePortalStream1
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -1036,10 +1018,10 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetSizeOfInputPack
 /*
  * Class:     hcm_environs_Environs
  * Method:    BridgeForNotifier
- * Signature: (ILjava/lang/String;Ljava/lang/String;III)V
+ * Signature: (IIII)V
  */
 JNIEXPORT void JNICALL Java_hcm_environs_Environs_BridgeForNotifier
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -1107,6 +1089,14 @@ JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePath
 
 /*
  * Class:     hcm_environs_Environs
+ * Method:    GetFilePathNative
+ * Signature: (II)Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePathNative
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    GetFile
  * Signature: (ILjava/lang/String;Ljava/lang/String;I[BI)[B
  */
@@ -1115,11 +1105,19 @@ JNIEXPORT jbyteArray JNICALL Java_hcm_environs_Environs_GetFile
 
 /*
  * Class:     hcm_environs_Environs
+ * Method:    GetFileNative
+ * Signature: (II[BI)[B
+ */
+JNIEXPORT jbyteArray JNICALL Java_hcm_environs_Environs_GetFileNative
+  (JNIEnv *, jclass, jint, jint, jbyteArray, jint);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    GetDeviceDisplayProps1
- * Signature: (ILjava/lang/String;Ljava/lang/String;)Ljava/nio/ByteBuffer;
+ * Signature: (I)Ljava/nio/ByteBuffer;
  */
 JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDeviceDisplayProps1
-  (JNIEnv *, jclass, jint, jstring, jstring);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs

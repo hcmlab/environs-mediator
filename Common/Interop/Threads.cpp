@@ -18,14 +18,17 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
-#include "./threads.h"
+#include "./Threads.h"
 #include <errno.h>
 #include <stdio.h>
 
 #ifndef _WIN32
 #include <sys/time.h>
 #endif
-#include "Environs.native.h"
+#ifndef MEDIATORDAEMON
+#include "Environs.h"
+#endif
+#include "Environs.Native.h"
 
 #ifdef USE_PTHREADS_FOR_WINDOWS
 #pragma comment ( lib, "pthreadVC2.lib" )
@@ -312,8 +315,10 @@ namespace environs
 			return;
 		}
 
+#ifndef MEDIATORDAEMON
 		CLogArg ( "Waiting for %s ...", threadName );
-
+#endif
+        
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
 
 		//DWORD dw = WaitForSingleObject ( thrd, WAIT_TIME_FOR_THREAD_CLOSING );

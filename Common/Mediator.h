@@ -21,10 +21,14 @@
 #ifndef INCLUDE_HCM_ENVIRONS_MEDIATOR_H
 #define INCLUDE_HCM_ENVIRONS_MEDIATOR_H
 
-#include "Interop/threads.h"
-#include "Interop/sock.h"
+#include "Interop/Threads.h"
+#include "Interop/Sock.h"
 #include "Device.Instance.h"
-#include "Environs.crypt.h"
+#include "Environs.Crypt.h"
+
+
+#define USE_INTEGER_PROJECT_APP
+#define USE_INTEGER_PROJECT_APP_MAPS
 
 #define DEFAULT_MEDIATOR_PORT					5898
 #define DEFAULT_BROADCAST_PORT					5899
@@ -93,6 +97,7 @@
 #define MEDIATOR_NAT_REQ_SIZE					12
 #define MEDIATOR_MSG_VERSION_SIZE				16
 
+#define MEDIATOR_DEVICE_RELOAD					-1
 #define MEDIATOR_DEVICE_CHANGE_NEARBY			1
 #define MEDIATOR_DEVICE_CHANGE_MEDIATOR			2
 
@@ -155,7 +160,11 @@ namespace environs	/// Namespace: environs ->
 	}
 	ApplicationDevices;
 
+    
+    // "int11 1s projectNameMAX_PROP 1s appNameMAX_PROP 1e"
+#define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 5)
 
+    
 	typedef struct DeviceInstanceList
 	{
 		DeviceInfo info;
@@ -163,12 +172,23 @@ namespace environs	/// Namespace: environs ->
 #ifdef MEDIATORDAEMON
 		ApplicationDevices		* root;
 		ThreadInstance			* client;
+#else
+		char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s projectNameMAX_PROP 1s appNameMAX_PROP 1e"
 #endif
 		char					  userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
 
 		struct DeviceInstanceList	* next;  // 4
 	}
-	DeviceInstanceList;
+    DeviceInstanceList;
+    
+    
+    typedef struct DeviceInstanceItem
+    {
+        DeviceInfo info;
+        
+        char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s projectNameMAX_PROP 1s appNameMAX_PROP 1e"
+    }
+    DeviceInstanceItem;
 
 
 	typedef struct _MediatorThreadInstance
@@ -228,82 +248,86 @@ namespace environs	/// Namespace: environs ->
 		Mediator ( );
 		virtual ~Mediator ( );
 
-		bool				Init ( );
-		bool				Start ( );
-		bool				IsStarted ( );
+		bool					Init ( );
+		bool					Start ( );
+		bool					IsStarted ( );
 
-		virtual void		BuildBroadcastMessage ( ) = 0;
-		bool				SendBroadcast ( );
+		virtual void			BuildBroadcastMessage ( ) = 0;
+		bool					SendBroadcast ( );
 
-		bool				AddMediator ( unsigned int ip, unsigned short port );
-        void                BroadcastByeBye ();
+		bool					AddMediator ( unsigned int ip, unsigned short port );
+        void					BroadcastByeBye ();
         
-        static bool			LoadNetworks ( );
-        static unsigned int	GetLocalIP ( );
-        static unsigned int	GetLocalSN ( );
+        static bool				LoadNetworks ( );
+        static unsigned int		GetLocalIP ( );
+        static unsigned int		GetLocalSN ( );
 
-        static bool         InitClass ();
-        static void         DisposeClass ();
+        static bool				InitClass ();
+        static void				DisposeClass ();
 
 	protected:
-        bool                allocated;
-        static bool         allocatedClass;
+        bool					allocated;
+        static bool				allocatedClass;
         
-		bool				isRunning;
-		char			*	certificate;
+		bool					isRunning;
+		char			*		certificate;
 
 		static NetPack          localNets;
-		static pthread_mutex_t  localNetsMutex;
+        static pthread_mutex_t  localNetsMutex;
+        
+#ifdef USE_INTEGER_PROJECT_APP_MAPS
+        pthread_mutex_t         idMapMutex;
+#endif
+		pthread_mutex_t			mediatorMutex;
+		MediatorInstance		mediator;
 
-		pthread_mutex_t     mediatorMutex;
-		MediatorInstance	mediator;
+		pthread_mutex_t			devicesMutex;
 
-		pthread_mutex_t     devicesMutex;
+		unsigned int			broadcastMessageLen;
+		char					broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for projectname
+		unsigned int			greetUpdates;
 
-		unsigned int		broadcastMessageLen;
-		char				broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for projectname
-		unsigned int		greetUpdates;
+		int						broadcastSocketID;
+		pthread_t				broadcastThreadID;
 
-		int					broadcastSocketID;
-		pthread_t			broadcastThreadID;
+		bool					IsLocalIP ( unsigned int ip );
+		static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
+		static bool				IsSocketAlive ( int &sock );
 
-		bool				IsLocalIP ( unsigned int ip );
-		static void			VerifySockets ( ThreadInstance * inst, bool waitThread );
-		static bool			IsSocketAlive ( int &sock );
-
-		virtual void		OnStarted ( );
+		virtual void			OnStarted ( );
 
 		DeviceInstanceList *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
 
 		virtual DeviceInstanceList ** GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** appDevices ) = 0;
 
-		virtual void		RemoveDevice ( unsigned int ip, char * msg ) {};
-		virtual void		RemoveDevice ( DeviceInstanceList * device, bool useLock = true ) = 0;
+		virtual void			RemoveDevice ( unsigned int ip, char * msg ) {};
+		virtual void			RemoveDevice ( DeviceInstanceList * device, bool useLock = true ) = 0;
+		virtual void			UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed ) = 0;
 		
-		virtual void		ReleaseDevices ( ) = 0;
+		virtual void			ReleaseDevices ( ) = 0;
 
-		virtual void		NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID ) {};
+		virtual void			NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID ) {};
 		
-		MediatorInstance *	IsKnownMediator ( unsigned int ip, unsigned short port );
-		MediatorInstance *	AddMediator ( MediatorInstance * med );
-		virtual bool		RegisterAtMediator ( MediatorInstance * med );
-		bool				RemoveMediator ( unsigned int ip );
+		MediatorInstance *		IsKnownMediator ( unsigned int ip, unsigned short port );
+		MediatorInstance *		AddMediator ( MediatorInstance * med );
+		virtual bool			RegisterAtMediator ( MediatorInstance * med );
+		bool					RemoveMediator ( unsigned int ip );
 
-		static void *		BroadcastThreadStarter ( void *arg );
-		virtual void *		BroadcastThread ( ) = 0;
+		static void *			BroadcastThreadStarter ( void *arg );
+		virtual void *			BroadcastThread ( ) = 0;
 
-		void				Dispose ( );
-		void				ReleaseMediators ( );
-		void				ReleaseMediator ( MediatorInstance * med );
-        bool				ReleaseThreads ( );
+		void					Dispose ( );
+		void					ReleaseMediators ( );
+		void					ReleaseMediator ( MediatorInstance * med );
+        bool					ReleaseThreads ( );
         
-        static void			ReleaseNetworks ( );
+        static void				ReleaseNetworks ( );
 
 	private:
-        static void			AddNetwork ( NetPack * &pack, unsigned int ip, unsigned int bcast, unsigned int netmask );
-        static unsigned int GetBroadcast ( unsigned int ip, unsigned int netmask );
+        static void				AddNetwork ( NetPack * &pack, unsigned int ip, unsigned int bcast, unsigned int netmask );
+        static unsigned int		GetBroadcast ( unsigned int ip, unsigned int netmask );
 
-		virtual void 		DevicesHasChanged ( int type );
+		virtual void 			DevicesHasChanged ( int type );
 	};
 
 	/// Attention: 64 bit value must be aligned with 8 bytes

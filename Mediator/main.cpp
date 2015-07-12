@@ -19,7 +19,7 @@
  */
 #include "stdafx.h"
 #include "Mediator.Daemon.h"
-#include "Environs.native.h"
+#include "Environs.Native.h"
 
 #ifndef _WIN32
 #include <sys/types.h>

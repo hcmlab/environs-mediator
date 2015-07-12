@@ -18,7 +18,7 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
-#include "Environs.platforms.h"
+#include "Environs.Platforms.h"
 
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG

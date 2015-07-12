@@ -29,8 +29,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "Environs.native.h"
-#include "Interop/stat.h"
+#include "Environs.Native.h"
+#include "Interop/Stat.h"
 #include "Interop.h"
 
 #if defined(_WIN32)
@@ -40,7 +40,8 @@
 #if defined(__APPLE__) || defined(ANDROID)
 #include <time.h>
 #else  // <- __APPLE__ | ANDROID ->
-#include <sys/time.h>
+#include <time.h>
+#include <sys/times.h>
 #endif
 
 #include <errno.h>
@@ -226,7 +227,7 @@ namespace environs
     }
 #endif
     
-#ifdef ANDROID
+#if !defined(_WIN32) && !defined(__APPLE__)
     // return nanoseconds
     INTEROPTIMEVAL GetEnvironsTickCount ()
     {
@@ -239,7 +240,29 @@ namespace environs
         return ts.tv_nsec;
     }
 #endif
+    
+    
+    unsigned long long   GetUnixEpoch ()
+    {
+        unsigned long long unixEpoch = 0;
+        
+#ifdef _WIN32
+        SYSTEMTIME st;
+        GetSystemTime( &st );
+        
+        FILETIME ft;
+        SystemTimeToFileTime( &st, &ft );
+        
+        unsigned long long ticks = (((unsigned long long) ft.dwHighDateTime) << 32) + ft.dwLowDateTime;
+        
+		unixEpoch = ticks / 10000000 - 11644473600LL;
+#else
+        unixEpoch = time ( NULL );
+#endif
+        return unixEpoch;
+    }
 
+    
 	unsigned int getRandomValue ( void * value )
 	{
 		unsigned int now = (unsigned int) GetEnvironsTickCount ();

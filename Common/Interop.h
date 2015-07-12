@@ -87,7 +87,11 @@
 
 #else
 
+#if defined(ANDROID) || defined(__APPLE__)
 #define INTEROPTIMEVAL           		uint64_t
+#else
+#define INTEROPTIMEVAL           		unsigned long long
+#endif
 
 /// NOT _WIN32
 #define COBSTR           				const char *
@@ -142,8 +146,8 @@
 
 // for now required for DeviceDisplay.h
 #define CALLBACK
-#define BOOLEAN							unsigned char
-#define GetEncoderClsid(a,b)
+//#define BOOLEAN							unsigned char
+//#define GetEncoderClsid(a,b)
 
 
 #define vsnprintf_s(dest,destSize,maxChar,format,vlist)		vsnprintf ( dest, destSize, format, vlist )

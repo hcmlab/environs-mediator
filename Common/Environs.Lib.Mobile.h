@@ -26,7 +26,7 @@ namespace environs
 {
 #ifndef DISPLAYDEVICE
 
-#include "Environs.lib.inc.h"
+#include "Environs.Lib.Inc.h"
 	
 	namespace API 
 	{
@@ -53,7 +53,7 @@ namespace environs
 
 			LIBEXPORT void CallConv			SetPortalViewDimsAuto ( EBOOL enable );
 			LIBEXPORT EBOOL CallConv		GetPortalViewDimsAuto ();
-			LIBEXPORT void CallConv			SetPortalViewDims ( int deviceID, const char * projName, const char * appName, int left, int top, int right, int bottom );
+			LIBEXPORT void CallConv			SetPortalViewDims ( int nativeID, int left, int top, int right, int bottom );
 
 			LIBEXPORT EBOOL CallConv		SetPortalWidthHeight ( int deviceID, int width, int height );
 

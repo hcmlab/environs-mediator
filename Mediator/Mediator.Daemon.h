@@ -186,6 +186,7 @@ private:
 	void									RemoveDevice ( unsigned int ip, char * msg );
 	void									RemoveDevice ( DeviceInstanceList * device, bool useLock = true );
 	void									RemoveDevice ( int deviceID, const char * projectName, const char * appName );
+	void									UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed );
 
     unsigned int                            bannAfterTries;
 	pthread_mutex_t							bannedIPsMutex;

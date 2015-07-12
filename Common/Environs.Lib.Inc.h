@@ -25,7 +25,7 @@
 *	Include API export macros that defines LIBEXPORT/CallConv if not declared by ANDROID
 *
 * */
-#include "Interop/export.h"
+#include "Interop/Export.h"
 
 /**
 *	Include interop declarations such as EBOOL, BSTR, etc...
@@ -36,7 +36,7 @@
 
 #if defined(ANDROID)
 // Include automatically generated API exports for Android.
-#include "Environs.native.jni.h"
+#include "Environs.Native.jni.h"
 
 #define	EnvironsAndroidNullEnv()			JNIEnv * jenv = 0; jclass jcls = 0;
 #define Environs(name, ...)					Java_hcm_environs_Environs_##name(jenv, jcls, __VA_ARGS__)

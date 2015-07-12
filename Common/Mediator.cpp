@@ -18,15 +18,17 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
+
 /// Compiler flag that enables verbose debug output
+
 #ifndef NDEBUG
 //#define DEBUGVERB
 //#define DEBUGVERBVerb
-#define ENABLE_MEDIATOR_UPDATE_OUTPUT_VERBOSE
+#define DEBUGVERBList
 #endif
 
 #include "Mediator.h"
-#include "Environs.native.h"
+#include "Environs.Native.h"
 
 #if !defined(MEDIATORDAEMON)
 #include "Environs.h"
@@ -40,6 +42,8 @@
 #ifndef _WIN32
 #include <signal.h>
 #endif
+#include <map>
+#include <string>
 
 #define	CLASS_NAME 	"Mediator"
 
@@ -52,6 +56,14 @@ namespace environs
     NetPack             Mediator::localNets;
     pthread_mutex_t     Mediator::localNetsMutex;
     
+    
+#ifdef USE_INTEGER_PROJECT_APP_MAPS
+    std::map<int, std::string>      projectIDToNames;
+    std::map<int, std::string>      appIDToNames;
+    
+    std::map<std::string, int>      nameToProjectID;
+    std::map<std::string, int>      nameToAppID;
+#endif
 
 Mediator::Mediator ( )
 {
@@ -88,6 +100,15 @@ Mediator::~Mediator ( )
         if ( pthread_mutex_destroy	( &mediatorMutex ) ) {
             CVerb ( "Init: Failed to destroy mediatorMutex!" );
         }
+#ifdef USE_INTEGER_PROJECT_APP_MAPS
+        if ( pthread_mutex_destroy	( &idMapMutex ) ) {
+            CVerb ( "Init: Failed to destroy idMapMutex!" );
+        }
+#endif
+        projectIDToNames.clear();
+        appIDToNames.clear();
+        nameToProjectID.clear();
+        nameToAppID.clear();
     }
 }
 
@@ -113,6 +134,19 @@ bool Mediator::Init ()
             return false;
         }
         
+#ifdef USE_INTEGER_PROJECT_APP_MAPS
+        Zero ( idMapMutex );
+        
+        projectIDToNames.clear();
+        appIDToNames.clear();
+        nameToProjectID.clear();
+        nameToAppID.clear();
+        
+        if ( pthread_mutex_init	( &idMapMutex, NULL ) ) {
+            CErr ( "Init: Failed to init idMapMutex!" );
+            return false;
+        }
+#endif
         allocated = true;
     }
     
@@ -925,7 +959,7 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 
 	while ( device ) 
 	{
-		CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Project [%s / %s] App [%s / %s]", device->info.id, value, device->info.projectName, projectName, device->info.appName, appName );
+		CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Project [%s / %s] App [%s / %s]", device->info.deviceID, value, device->info.projectName, projectName, device->info.appName, appName );
 
 		if ( device->info.deviceID == value
 #ifndef MEDIATORDAEMON
@@ -963,6 +997,20 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 
 #ifdef MEDIATORDAEMON
 			dev->root = appDevices;
+#else
+			dev->info.broadcastFound = broadcastFound;
+			
+            // Build the key
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+            *((int *)dev->key) = value;
+            
+            int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", projectName, appName );
+#else
+			int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, projectName, appName );
+#endif
+			if ( copied <= 0 ) {
+				CErr ( "UpdateDevices: Failed to build the key for new device!" );
+			}
 #endif
 			if ( devicePrev ) {
                 if ( devicePrev->next ) {
@@ -1002,21 +1050,25 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 			//}
 		}
 		else {
-			CErr ( "UpdateDevices: Failed to allocate memory for new Device! Low Memory Problem!" );
+			CErr ( "UpdateDevices: Failed to allocate memory for new device!" );
 			device = 0;
 		}
 	}
 
 	if ( device ) {
 		device->info.updates = greetUpdates;
-		
+
+#ifndef MEDIATORDAEMON
+		if ( !device->info.ipe || device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
+#endif
 		if ( ip != device->info.ipe ) {
 			device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;
 		}
 
-		if ( device->info.deviceType != msg [MEDIATOR_BROADCAST_DEVICETYPE_START] ) {
+		/*if ( device->info.deviceType != msg [MEDIATOR_BROADCAST_DEVICETYPE_START] ) {
 			device->info.deviceType = msg [MEDIATOR_BROADCAST_DEVICETYPE_START]; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
 		}
+        */
 
 		int platform = *((int *) (msg + MEDIATOR_BROADCAST_PLATFORM_START));
 
@@ -1024,7 +1076,7 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 			device->info.platform = platform; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
 		}
 
-		pIntBuffer++;
+		pIntBuffer += 1;
 
 		// Get the ip
 		value = *pIntBuffer;
@@ -1047,10 +1099,11 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 			strcpy_s ( device->info.deviceName, sizeof(device->info.deviceName), deviceName ); changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_NAME;
 		}
 
+#ifdef MEDIATORDAEMON
 		if ( device->info.broadcastFound != broadcastFound ) {
 			device->info.broadcastFound = broadcastFound; changed = true; //flags |= DEVICE_INFO_ATTR_BROADCAST_FOUND;
 		}
-
+#endif
 		if ( userName && *userName && strncmp ( device->userName, userName, sizeof(device->userName) ) ) {
 			strcpy_s ( device->userName, sizeof(device->userName), userName ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
 		}
@@ -1058,13 +1111,15 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 		if ( changed ) {		
 			CLogArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
 			if ( device->info.ip != device->info.ipe ) {
-				CLogArg ( "UpdateDevices: Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &value) ) );
+				CLogArg ( "UpdateDevices: Device IPe != IP  [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
+				CLogArg ( "UpdateDevices: Device IP  != IPe [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
+			}
+			else {
+				CListLogArg ( "UpdateDevices: Device IPe [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
 			}
 
-#ifdef ENABLE_MEDIATOR_UPDATE_OUTPUT_VERBOSE
-			CLogArg ( "UpdateDevices: Project/App = [%s / %s]", device->info.projectName, device->info.appName );
-			CLogArg ( "UpdateDevices: Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &ip) ), device->info.tcpPort, device->info.udpPort );
-#endif
+			CListLogArg ( "UpdateDevices: Project/App = [%s / %s]", device->info.projectName, device->info.appName );
+			CListLogArg ( "UpdateDevices: Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &ip) ), device->info.tcpPort, device->info.udpPort );
 		}
 	}
 	
@@ -1073,27 +1128,11 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 		device = 0;
 	}
 
-    value = 0;
+    /*value = 0;
     if ( device )
 		value = device->info.deviceID;
-    
-#ifdef MEDIATORDAEMON
-	if ( !found )
-		NotifyClientsStart ( NOTIFY_MEDIATOR_MED_DEVICE_ADDED, projectName, appName, value );
-	else if ( changed )
-		NotifyClientsStart ( NOTIFY_MEDIATOR_MED_DEVICE_CHANGED, projectName, appName, value );
-#else
-	if ( !found ) {
-		DevicesHasChanged ( MEDIATOR_DEVICE_CHANGE_NEARBY );
-
-		API::onEnvironsNotifier ( value, projectName, appName, NOTIFY_MEDIATOR_DEVICE_ADDED, SOURCE_NATIVE );
-	}
-	else if ( changed ) {
-		DevicesHasChanged ( MEDIATOR_DEVICE_CHANGE_NEARBY );
-
-		API::onEnvironsNotifier ( value, projectName, appName, NOTIFY_MEDIATOR_DEVICE_CHANGED, SOURCE_NATIVE );
-	}
-#endif
+    */
+	UpdateDeviceInstance ( device, !found, changed );
 
 Finish:
 
@@ -1116,15 +1155,15 @@ void printDevices ( DeviceInstanceList * device )
 {
 	while ( device ) 
 	{
-		CLogArg ( "UpdateDevices: Device id      = 0x%X", device->info.deviceID );
-		CLogArg ( "UpdateDevices: Project name   = %s", device->info.projectName );
-		CLogArg ( "UpdateDevices: App name       = %s", device->info.appName );
-		CLogArg ( "UpdateDevices: Platform       = %i", device->info.platform );
-		CLogArg ( "UpdateDevices: Device IPe     = %s (from socket)", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
-		CLogArg ( "UpdateDevices: Device IPe != IP (%s)", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
-		CLogArg ( "UpdateDevices: Device tcpPort = %d", device->info.tcpPort );
-		CLogArg ( "UpdateDevices: Device udpPort = %d", device->info.udpPort );
-		CLogArg ( "UpdateDevices: Device name    = %s", device->info.deviceName );
+		CLogArg ( "printDevices: Device id      = 0x%X", device->info.deviceID );
+		CLogArg ( "printDevices: Project name   = %s", device->info.projectName );
+		CLogArg ( "printDevices: App name       = %s", device->info.appName );
+		CLogArg ( "printDevices: Platform       = %i", device->info.platform );
+		CLogArg ( "printDevices: Device IPe     = %s (from socket)", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
+		CLogArg ( "printDevices: Device IPe != IP (%s)", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
+		CLogArg ( "printDevices: Device tcpPort = %d", device->info.tcpPort );
+		CLogArg ( "printDevices: Device udpPort = %d", device->info.udpPort );
+		CLogArg ( "printDevices: Device name    = %s", device->info.deviceName );
 
 		device = device->next;
 	}

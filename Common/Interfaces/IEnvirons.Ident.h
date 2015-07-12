@@ -18,7 +18,7 @@
  * --------------------------------------------------------------------
  */
 #include "Interfaces.h"
-#include "Environs.types.h"
+#include "Environs.Types.h"
 
 #ifndef INCLUDE_HCM_ENVIRONS_INTERFACE_IDENTIFICATION_H
 #define	INCLUDE_HCM_ENVIRONS_INTERFACE_IDENTIFICATION_H

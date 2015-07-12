@@ -21,7 +21,7 @@
 #ifndef INCLUDE_HCM_ENVIRONS_LOG_HELPER_H
 #define INCLUDE_HCM_ENVIRONS_LOG_HELPER_H
 
-#include "Interop/export.h"
+#include "Interop/Export.h"
 
 namespace environs
 {

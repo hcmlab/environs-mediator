@@ -27,6 +27,7 @@
 
 #define ENVIRONS_NATIVE_MODULE
 
+#include "Environs.h"
 #include "Environs.native.h"
 #include "Gesture.Dummy.h"
 #include "Device/Device.Base.h"

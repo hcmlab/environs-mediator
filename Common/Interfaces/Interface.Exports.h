@@ -18,7 +18,7 @@
  * http://www.eclipse.org/org/documents/epl-v10.html
  * --------------------------------------------------------------------
  */
-#include "Interop/export.h"
+#include "Interop/Export.h"
 #include "Core/Byte.Buffer.h"
 #include "Log.h"
 

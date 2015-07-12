@@ -1,6 +1,6 @@
 /**
-* Device display declaration
-* ------------------------------------------------------------------
+ * Device list/instance observer for iOSX
+ * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
  * @author	Chi-Tai Dang
@@ -16,27 +16,17 @@
  * A copy of the license may be obtained at:
  * http://www.eclipse.org/org/documents/epl-v10.html
  * --------------------------------------------------------------------
-*/
+ */
 #pragma once
-#ifndef INCLUDE_HCM_ENVIRONS_DEVICE_DISPLAY_DECLARATIONS_H_
-#define INCLUDE_HCM_ENVIRONS_DEVICE_DISPLAY_DECLARATIONS_H_
+#ifndef INCLUDE_HCM_ENVIRONS_DEVICEOBSERVER_IOSX_H
+#define INCLUDE_HCM_ENVIRONS_DEVICEOBSERVER_IOSX_H
 
+@protocol DeviceObserver <NSObject>
 
-namespace environs
-{
-	typedef struct _DeviceDisplay
-	{
-		int     width;
-		int     height;
-		int     width_mm;
-		int     height_mm;
-        
-        // environs::DISPLAY_ORIENTATION_* - 0 = landscape, 1 = portrait
-		int     orientation;
-		float   dpi;
-	}
-	DeviceDisplay;
-}
+- (void) OnListChanged;
+- (void) OnItemChanged:(id) sender Changed:(int) flags;
 
+@end
 
-#endif /* INCLUDE_HCM_ENVIRONS_DEVICE_DISPLAY_DECLARATIONS_H_ */
+#endif	/// INCLUDE_HCM_ENVIRONS_DEVICEOBSERVER_IOSX_H
+

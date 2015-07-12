@@ -18,9 +18,9 @@
  
  * --------------------------------------------------------------------
  */
-#include "Environs.platforms.h"
+#include "Environs.Platforms.h"
 
-#import <Environs.iosx.imp.h>
+#import <Environs.iOSX.Imp.h>
 
 #if ( defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX) )
 
@@ -28,11 +28,10 @@
 #import <CoreLocation/CoreLocation.h>
 
 #import "Environs.Observer.h"
-#include "Portal.Info.Base.h"
-#include "Device.Instance.h"
+#import "Device.Lists.iOSX.h"
 
 
-bool createAppID ( char * buffer, unsigned int bufSize );
+bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 @interface Environs :
 #ifdef ENVIRONS_IOS
@@ -46,7 +45,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
 + (bool) opt:(NSString *) key;
 + (bool) verbose;
 
-+ (void) showMessage:(int) deviceID Project:(const char *) projectName App:(const char *) appName Message:(const char *) message withLength:(int)msgLength;
++ (void) ShowMessage:(int) nativeID Message:(const char *) message withLength:(int)msgLength;
 
 /**
  * Initialize the environment. This must be called after the user interface has been loaded, rendered and shown.
@@ -58,35 +57,35 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  @returns success
  */
 + (bool) Init;
-+ (void) resetIdentKeys;
++ (void) ResetIdentKeys;
 
 /**
  * Get the native version of Environs.
  *
  * @return		version string
  */
-+ (const char *) getVersionString;
++ (const char *) GetVersionString;
 
 /**
  * Get the native major version of Environs.
  *
  * @return		major version
  */
-+ (int) getVersionMajor;
++ (int) GetVersionMajor;
 
 /**
  * Get the native minor version of Environs.
  *
  * @return		minor version
  */
-+ (int) getVersionMinor;
++ (int) GetVersionMinor;
 
 /**
  * Get the native revision of Environs.
  *
  * @return		revision
  */
-+ (int) getVersionRevision;
++ (int) GetVersionRevision;
 
 
 /**
@@ -94,7 +93,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return	true = Release build, false = Debug build.
  */
-+ (bool) getIsReleaseBuild;
++ (bool) GetIsReleaseBuild;
 
 
 /**
@@ -103,7 +102,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
 *
 * @param 	status	One of the APP_STATUS_* values.
 */
-+ (void) setAppStatus:(int) status;
++ (void) SetAppStatus:(int) status;
 
 /**
  Set the render surface of type UIView as the target to render the portal to. The width and height of the UIView is defined as the size of a fullscreen view.
@@ -113,7 +112,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  @param newSurface
  @returns success
  */
-+ (bool) setRenderSurface:(int)portalID withSurface:(UIView *)newSurface;
++ (bool) SetRenderSurface:(int)portalID withSurface:(UIView *)newSurface;
 
 /**
  Set the render surface of type UIView as the target to render the portal to. The UIView has a defined width and size.
@@ -124,7 +123,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  @param height
  @returns success
  */
-+ (bool) setRenderSurface:(int)portalID withSurface:(UIView *)newSurface withWidth:(int) width withHeight:(int) height;
++ (bool) SetRenderSurface:(int)portalID withSurface:(UIView *)newSurface withWidth:(int) width withHeight:(int) height;
 
 
 /**
@@ -132,10 +131,10 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  @param portalID
  @returns success
  */
-+ (bool) releaseRenderSurface:(int)portalDeviceID;
++ (bool) ReleaseRenderSurface:(int)portalDeviceID;
 
 
-+ (void) setDebug:(int)value;
++ (void) SetDebug:(int)value;
 
 /**
  * Set the device type that the local instance of Environs shall use for identification within the environment.&nbsp;
@@ -143,7 +142,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @param	type	Environs.DEVICE_TYPE_*
  */
-+ (void) setDeviceType:(char)value;
++ (void) SetDeviceType:(char)value;
 
 /**
  * Get the device type that the local instance of Environs use for identification within the environment.&nbsp;
@@ -151,7 +150,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return	type	Environs.DEVICE_TYPE_*
  */
-+ (char) getDeviceType;
++ (char) GetDeviceType;
 
 /**
  * Set the user name for authentication with a Mediator service.&nbsp;Usually the user's email address is used as the user name.
@@ -159,15 +158,15 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param 	username
  * @return	success
  */
-+ (bool) setMediatorUserName: (NSString *) userName;
-+ (bool) setUserName: (const char *) username;
++ (bool) SetMediatorUserName: (NSString *) userName;
++ (bool) SetUserName: (const char *) username;
 
 /**
  * Query UserName used to authenticate with a Mediator.
  *
  * @return UserName
  */
-+ (NSString *) getMediatorUserName;
++ (NSString *) GetMediatorUserName;
 
 /**
  * Set the user password for authentication with a Mediator service.&nbsp;The password is stored as a hashed token within Environs.
@@ -175,29 +174,29 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param 	password
  * @return	success
  */
-+ (bool) setMediatorPassword: (NSString *) password;
-+ (bool) setUserPassword: (const char *) password;
++ (bool) SetMediatorPassword: (NSString *) password;
++ (bool) SetUserPassword: (const char *) password;
 
 /**
  * Enable or disable authentication with the Mediator using username/password.
  *
  * @param 	enable
  */
-+ (void) setUseAuthentication: (bool) enable;
++ (void) SetUseAuthentication: (bool) enable;
 
 /**
  * Query the filter level for device management within Environs.
  *
  * return level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_PROJECT, Environs.MEDIATOR_FILTER_PROJECT_AND_APP
  */
-+ (int) getMediatorFilterLevel;
++ (int) GetMediatorFilterLevel;
 
 /**
  * Set the filter level for device management within Environs.
  *
  * @param level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_PROJECT, Environs.MEDIATOR_FILTER_PROJECT_AND_APP
  */
-+ (void) setMediatorFilterLevel:(int)level;
++ (void) SetMediatorFilterLevel:(int)level;
 
 
 /**
@@ -205,28 +204,28 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return		true = yes, false = no
  */
-+ (bool) getUseMediatorLoginDialog;
++ (bool) GetUseMediatorLoginDialog;
 
 /**
  * Instruct Environs to show up a login dialog if a Mediator is used and no credentials are available.
  *
  * @param enable      true = enable, false = disable
  */
-+ (void) setUseMediatorLoginDialog: (bool) enable;
++ (void) SetUseMediatorLoginDialog: (bool) enable;
 
 /**
  * Retrieve a boolean that determines whether Environs disable Mediator settings on dismiss of the login dialog.
  *
  * @return		true = yes, false = no
  */
-+ (bool) getMediatorLoginDialogDismissDisable;
++ (bool) GetMediatorLoginDialogDismissDisable;
 
 /**
  * Instruct Environs disable Mediator settings on dismiss of the login dialog.
  *
  * @param enable      true = enable, false = disable
  */
-+ (void) setMediatorLoginDialogDismissDisable: (bool) enable;
++ (void) SetMediatorLoginDialogDismissDisable: (bool) enable;
 
 
 /**
@@ -234,7 +233,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return success state
  */
-+ (bool) registerAtMediators;
++ (bool) RegisterAtMediators;
 
 
 /**
@@ -244,24 +243,24 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * 		In order to get the status, catch the onNotify handler of your EnvironsListener.
  *
  */
-+ (void) start;
++ (void) Start;
 
 /**
  * Query the status of Environs.&nsbp;Valid values are Types.NATIVE_STATUS_*
  *
  * @return Environs.NATIVE_STATUS_*
  */
-+ (int)  getStatus;
++ (int)  GetStatus;
 
 /**
  * Stop Environs and release all acquired resources.
  */
-+ (void) stop;
++ (void) Stop;
 
 /**
  * Stop Environs and release all acquired resources.
  */
-+ (void) destroy;
++ (void) Release;
 
 /**
  * Add an observer for communication with Environs and devices within the environment.
@@ -271,13 +270,48 @@ bool createAppID ( char * buffer, unsigned int bufSize );
 + (void) AddObserver:(id<EnvironsObserver>) observer;
 
 /**
+ * Remove an observer for communication with Environs and devices within the environment.
+ *
+ * @param observer Your implementation of EnvironsObserver.
+ */
++ (void) RemoveObserver:(id<EnvironsObserver>) observer;
+
+/**
+ * Add an observer for receiving messages.
+ *
+ * @param observer Your implementation of EnvironsMessageObserver.
+ */
++ (void) AddObserverForMessages:(id<EnvironsMessageObserver>) observer;
+
+/**
+ * Remove an observer for receiving messages.
+ *
+ * @param observer Your implementation of EnvironsMessageObserver.
+ */
++ (void) RemoveObserverForMessages:(id<EnvironsMessageObserver>) observer;
+
+/**
+ * Add an observer for receiving data buffers and files.
+ *
+ * @param observer Your implementation of EnvironsDataObserver.
+ */
++ (void) AddObserverForData:(id<EnvironsDataObserver>) observer;
+
+/**
+ * Remove an observer for receiving data buffers and files.
+ *
+ * @param observer Your implementation of EnvironsDataObserver.
+ */
++ (void) RemoveObserverForData:(id<EnvironsDataObserver>) observer;
+
+/**
  * Set the ports that the local instance of Environs shall use for listening on connections.
  *
  * @param	tcpPort
  * @param	udpPort
  * @return success
  */
-+ (void) setPorts:(int)comPort withDataPort:(int)dataPort;
++ (void) SetPorts:(int)comPort withDataPort:(int)dataPort;
 
 
 /**
@@ -286,43 +320,30 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param deviceID	Destination device ID
  * @return success true: connected; false: not connected
  */
-+ (bool) isDeviceConnected:(int)deviceID;
++ (bool) IsDeviceConnected:(int)deviceID;
 
 /**
  * Get status whether the device with the given ID is connected to the local instance of Environs.&nbsp;
  * The return value is of enumeration type Types.DeviceStatus.*&nbsp;
  * That is e.g. Types.DeviceStatus.ConnectInProgress
  *
- * @param deviceID	Destination device ID
+ * @param	nativeID    The native identifier that targets the device.
  * @return connectStatus Status is the integer value of one of the items in the enumeration Types.DeviceStatus.*
  */
-+ (int) getDeviceConnectStatus:(int)deviceID;
-
-/**
- * Get status whether the device with the given ID is connected to the local instance of Environs.&nbsp;
- * The return value is of enumeration type Types.DeviceStatus.*&nbsp;
- * That is e.g. Types.DeviceStatus.ConnectInProgress
- *
- * @param deviceID	Destination device ID
- * @param 	projectName	Project name of the application environment
- * @param 	appName		Application name of the application environment
- * @return connectStatus Status is the integer value of one of the items in the enumeration Types.DeviceStatus.*
- */
-+ (int) getDeviceConnectStatus:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (int) GetDeviceConnectStatus:(int)nativeID;
 
 /**
  * Query the number of devices that are connected to the local instance of Environs.
  *
  * @return numberOfConnectedDevices
  */
-+ (int) getConnectedDevicesCount;
++ (int) GetConnectedDevicesCount;
 
 
-+ (int) deviceConnect:(int)deviceID doAsync:(int)async;
-+ (int) deviceConnect:(int)deviceID Project:(const char *) projectName App:(const char *) appName  doAsync:(int)async;
++ (int) DeviceConnect:(int)deviceID doAsync:(int)async;
++ (int) DeviceConnect:(int)deviceID Project:(const char *) projectName App:(const char *) appName  doAsync:(int)async;
 
-+ (bool) deviceDisconnect:(int)deviceID doAsync:(int)async;
-+ (bool) deviceDisconnect:(int)deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async;
++ (bool) DeviceDisconnect:(int)nativeID doAsync:(int)async;
 
 /**
  * Set the project name that the local instance of Environs shall use for identification within the environment.
@@ -331,7 +352,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param	name
  * @return	success
  */
-+ (void) setProjectName: (const char *) name;
++ (void) SetProjectName: (const char *) name;
 
 /**
  * Get the project name that the local instance of Environs use for identification within the environment.
@@ -339,7 +360,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return	projectName
  */
-+ (const char *) getProjectName;
++ (const char *) GetProjectName;
 
 
 /**
@@ -349,8 +370,8 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param	name
  * @return	success
  */
-+ (void) setApplication: (const char *) name;
-+ (void) setApplicationName: (const char *) name;
++ (void) SetApplication: (const char *) name;
++ (void) SetApplicationName: (const char *) name;
 
 /**
  * Get the application name that the local instance of Environs use for identification within the environment.
@@ -358,7 +379,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return	appName
  */
-+ (const char *) getApplicationName;
++ (const char *) GetApplicationName;
 
 /**
  * Set the name of the current device.&nbsp;This name is used to communicate with other devices within the environment.
@@ -366,41 +387,18 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param 	deviceName
  * @return	success
  */
-+ (void) setDeviceName: (const char *) name;
++ (void) SetDeviceName: (const char *) name;
 
 
 /**
  * Request a portal stream from the device with the given id.&nbsp;
  * The device must be in a connected state by means of prior call to deviceConnect ().
  *
- * @param 	deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @param 	typeID		Values should be of type PortalType.&nbsp;This is an application specific type identifier (e.g. used for distinguishing front facing or back facing camera)
  * @return 	success
  */
-+ (bool) requestPortalStream:(int) deviceID doAsync:(int)async withType:(int) typeID;
-
-/**
- * Request a portal stream from the device with the given id.&nbsp;
- * The device must be in a connected state by means of prior call to deviceConnect ().
- *
- * @param 	deviceID
- * @param 	projectName	Project name of the application environment
- * @param 	appName		Application name of the application environment
- * @param 	typeID		Values should be of type PortalType.&nbsp;This is an application specific type identifier (e.g. used for distinguishing front facing or back facing camera)
- * @return 	success
- */
-+ (bool) requestPortalStream:(int) deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withType:(int) typeID;
-
-/**
- * Provide streaming of portal to this device.
- *
- * @param 	deviceID
- * @param 	projectName	Project name of the application environment
- * @param 	appName		Application name of the application environment
- * @param 	portalID	An application specific id (e.g. used for distinguishing front facing or back facing camera)
- * @return 	success
- */
-+ (bool) providePortalStream:(int) deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async type:(int) portalType;
++ (bool) RequestPortalStream:(int) nativeID doAsync:(int)async withType:(int) typeID;
 
 /**
  * Start streaming of portal to this device.
@@ -408,7 +406,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param 	portalID	An application specific id (e.g. used for distinguishing front facing or back facing camera)
  * @return 	success
  */
-+ (bool) startPortalStream:(int)async withPortal:(int) portalID;
++ (bool) StartPortalStream:(int)async withPortal:(int) portalID;
 
 /**
  * Stop streaming of portal from this device.
@@ -418,7 +416,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * 					Applications should store them in order to address the correct portal within Environs.
  * @return success
  */
-+ (bool) stopPortalStream:(int)async withPortal:(int) portalID;
++ (bool) StopPortalStream:(int)async withPortal:(int) portalID;
 
 /**
  * Pause streaming of portal to this device.
@@ -428,17 +426,17 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * 						Applications should store them in order to address the correct portal within Environs.
  * @return success
  */
-+ (bool) pausePortalStream:(int)async withPortal:(int) portalID;
++ (bool) PausePortalStream:(int)async withPortal:(int) portalID;
 
 
-+ (unsigned int) getIPAddress;
-+ (unsigned int) getSubnetMask;
-+ (NSString *) getSSID;
-+ (NSString *) getSSIDDesc;
++ (unsigned int) GetIPAddress;
++ (unsigned int) GetSubnetMask;
++ (NSString *) GetSSID;
++ (NSString *) GetSSIDDesc;
 
 #ifdef ENVIRONS_IOS
-+ (int) getActivePortalID;
-+ (int) getRequestedPortalID;
++ (int) GetActivePortalID;
++ (int) GetRequestedPortalID;
 #endif
 
 /**
@@ -458,7 +456,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param message Message to send
  * @return success
  */
-+ (bool) sendMessage: (int)deviceID doAsync:(int)async withMsg:(NSString *) msg;
++ (bool) SendMessage: (int)deviceID doAsync:(int)async withMsg:(NSString *) msg;
 
 /**
  * Send a string message to a device through one of the following ways.&nbsp;
@@ -479,120 +477,64 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param message Message to send
  * @return success
  */
-+ (bool) sendMessage: (int)deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withMsg:(NSString *) msg;
++ (bool) SendMessage: (int)deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withMsg:(NSString *) msg;
+
 
 /**
  * Send a file from the local filesystem to this device.&nbsp;The devices must be connected before for this call.
  *
- * @param deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @param fileID
  * @param descriptor (e.g. filename)
  * @param path
  * @return success
  */
-+ (bool) sendFile: (int)deviceID doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withPath:(NSString *) path;
-
-/**
- * Send a file from the local filesystem to this device.&nbsp;The devices must be connected before for this call.
- *
- * @param deviceID
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @param fileID
- * @param descriptor (e.g. filename)
- * @param path
- * @return success
- */
-+ (bool) sendFile: (int)deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withPath:(NSString *) path;
++ (bool) SendFile: (int)nativeID doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withPath:(NSString *) path;
 
 /**
  * Send a buffer with bytes to a device.&nbsp;The devices must be connected before for this call.
  *
- * @param deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @param fileID
  * @param descriptor (e.g. filename)
  * @param buffer
  * @param length number of bytes in the buffer to send
  * @return success
  */
-+ (bool) sendBuffer: (int)deviceID doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withBuffer:(char *) buffer withLength:(int)length;
-
-/**
- * Send a buffer with bytes to a device.&nbsp;The devices must be connected before for this call.
- *
- * @param deviceID
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @param fileID
- * @param descriptor (e.g. filename)
- * @param buffer
- * @param length number of bytes in the buffer to send
- * @return success
- */
-+ (bool) sendBuffer: (int)deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withBuffer:(char *) buffer withLength:(int)length;
++ (bool) SendBuffer: (int)nativeID doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withBuffer:(char *) buffer withLength:(int)length;
 
 /**
  * Query the width in pixel of the deviceID's screen.&nbsp;The device must be connected before with deviceConnect ().
  *
- * @param deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @return width in pixel
  */
-+ (int) getDeviceWidth:(int)deviceID;
-
-/**
- * Query the width in pixel of the deviceID's screen.&nbsp;The device must be connected before with deviceConnect ().
- *
- * @param deviceID
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @return width in pixel
- */
-+ (int) getDeviceWidth:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (int) GetDeviceWidth:(int)nativeID;
 
 /**
  * Query the height in pixel of the deviceID's screen. The device must be connected before with deviceConnect ()
  *
- * @param deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @return height in pixel
  */
-+ (int) getDeviceHeight:(int)deviceID;
-
-/**
- * Query the height in pixel of the deviceID's screen. The device must be connected before with deviceConnect ()
- *
- * @param deviceID
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @return height in pixel
- */
-+ (int) getDeviceHeight:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (int) GetDeviceHeight:(int)nativeID;
 
 /**
  * Query a DeviceScreen object of the device with the deviceID.&nbsp;
  * Note: The device must be connected in order to query the information.
  *
- * @param deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @return DeviceScreen
  */
-+ (char *) getDeviceDisplayProps:(int)deviceID;
++ (char *) GetDeviceDisplayProps:(int)nativeID;
 
-/**
- * Query a DeviceScreen object of the device with the deviceID.&nbsp;
- * Note: The device must be connected in order to query the information.
- *
- * @param deviceID
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @return DeviceScreen
- */
-+ (char *) getDeviceDisplayProps:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
 
 /**
  * Query an array of DeviceInfo objects of available devices within the environment (including those of the Mediator)
  *
  * @return DeviceInfo-objects
  */
-+ (char *) getDevicesAvailable;
++ (char *) GetDevicesAvailable;
 
 /**
  * Query an array of DeviceInfo objects with one DeviceInfo of available devices within the environment (including those of the Mediator)
@@ -602,21 +544,21 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param appName		Application name of the application environment
  * @return DeviceInfo-objects
  */
-+ (char *) getDeviceAvailable:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (char *) GetDeviceAvailable:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
 
 /**
  * Query the number of available devices within the environment (including those of the Mediator)
  *
  * @return numberOfDevices
  */
-+ (int) getDevicesAvailableCount;
++ (int) GetDevicesAvailableCount;
 
 /**
  * Query an array of DeviceInfo objects of nearby (broadcast visible) devices within the environment.
  *
  * @return DeviceInfo-objects
  */
-+ (char *) getDevicesNearby;
++ (char *) GetDevicesNearby;
 
 /**
  * Query an array of DeviceInfo objects of nearby (broadcast visible) devices within the environment.
@@ -626,21 +568,21 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param appName		Application name of the application environment
  * @return DeviceInfo-objects
  */
-+ (char *) getDeviceNearby:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (char *) GetDeviceNearby:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
 
 /**
  * Query the number of nearby (broadcast visible) devices within the environment.
  *
  * @return numberOfDevices
  */
-+ (int) getDevicesNearbyCount;
++ (int) GetDevicesNearbyCount;
 
 /**
  * Query an array of DeviceInfo objects of Mediator managed devices within the environment.
  *
  * @return DeviceInfo-objects
  */
-+ (char *) getDevicesFromMediator;
++ (char *) GetDevicesFromMediator;
 
 /**
  * Query an array of DeviceInfo objects with one DeviceInfo of Mediator managed devices within the environment.
@@ -650,14 +592,14 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param appName		Application name of the application environment
  * @return DeviceInfo-objects
  */
-+ (char *) getDeviceFromMediator:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (char *) GetDeviceFromMediator:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
 
 /**
  * Query the number of Mediator managed devices within the environment.
  *
  * @return numberOfDevices
  */
-+ (int) getDevicesFromMediatorCount;
++ (int) GetDevicesFromMediatorCount;
 
 
 /**
@@ -666,58 +608,35 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param portalID      The portalID that identifies an active portal.
  * @return DeviceInfo-object    IMPORTANT!!! On NON-ANDROID -> the requestor has to free the memory!!!
  */
-+ (environs::DeviceInfoHeaderedPackage *) getDeviceForPortal:(int) portalID;
++ (environs::DevicePackage *) GetDeviceForPortal:(int) portalID;
 
 
 /**
  * Get the status, whether the device (id) has direct physical contact, such as lying on the surface
  *
- * @param		deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @return		true = yes, false = no
  */
-+ (bool) getDirectContactStatus:(int)deviceID;
-
-/**
- * Get the status, whether the device (id) has direct physical contact, such as lying on the surface.
- *
- * @param deviceID		Destination device id
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @return		true = yes, false = no
- */
-+ (bool) getDirectContactStatus:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (bool) GetDirectContactStatus:(int)nativeID;
 
 /**
  * Get the status, whether the device (id) has established an active portal
  *
- * @param		deviceID
+ * @param	nativeID    The native identifier that targets the device.
  * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
  * @return		true = yes, false = no
  */
-+ (bool) getPortalEnabled:(int)deviceID type:(int)portalType;
-
-/**
- * Get the status, whether the device (id) has established an active portal
- *
- * @param deviceID
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
- * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
- * @return		true = yes, false = no
- */
-+ (bool) getPortalEnabled:(int)deviceID Project:(const char *) projectName App:(const char *) appName type:(int)portalType;
++ (bool) GetPortalEnabled:(int)nativeID type:(int)portalType;
 
 
 /**
  * Get the portalID of the first active portal
  *
- * @param 	deviceID    The device id of the target device.
- * @param 	projectName	Project name of the application environment
- * @param 	appName		Application name of the application environment
+ * @param	nativeID    The native identifier that targets the device.
  * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
  * @return	portalID 	The portal ID.
  */
-+ (int) getPortalId:(int)deviceID Project:(const char *) projectName App:(const char *) appName type:(int)portalType;
++ (int) GetPortalId:(int)nativeID type:(int)portalType;
 
 
 /**
@@ -728,7 +647,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * 						Applications should store them in order to address the correct portal within Environs.
  * @return portalInfo A PortalInfo object containing the details about the portal. If the call fails, the value is null.
  */
-+ (environs::PortalInfoBase *) getPortalInfo:(int)portalID;
++ (environs::PortalInfoBase *) GetPortalInfo:(int)portalID;
 
 
 /**
@@ -738,7 +657,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * 			The deviceID and portalID members of the PortalInfo object must have valid values.
  * @return success
  */
-+ (bool) setPortalInfo:(environs::PortalInfoBase *)info;
++ (bool) SetPortalInfo:(environs::PortalInfoBase *)info;
 
 
 /**
@@ -746,14 +665,14 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @param		deviceID
  */
-+ (void) setDeviceID:(int)deviceID;
++ (void) SetDeviceID:(int)deviceID;
 
 /**
  * Get the device id that the application has assigned to the instance of Environs.
  *
  * @return		deviceID
  */
-+ (int) getDeviceID;
++ (int) GetDeviceID;
 
 /**
  * Request a device id from mediator server instances that have been provided before this call.
@@ -763,14 +682,14 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return		deviceID
  */
-+ (int) getDeviceIDFromMediator;
++ (int) GetDeviceIDFromMediator;
 
 /**
  * Query whether the name of the current device has been set before.
  *
  * @return	has DeviceUID
  */
-+ (bool) hasDeviceUID;
++ (bool) HasDeviceUID;
 
 /**
  * Set the name of the current device.&nbsp;This name is used to communicate with other devices within the environment.
@@ -778,7 +697,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param 	uid
  * @return	success
  */
-+ (bool) setDeviceUID:(const char *)name;
++ (bool) SetDeviceUID:(const char *)name;
 
 
 /**
@@ -786,35 +705,35 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @param enable 	true = use the default Mediator
  */
-+ (void) setUseDefaultMediator:(bool)usage;
++ (void) SetUseDefaultMediator:(bool)usage;
 
 /**
  * Query whether to use given Mediator by setMediator()
  *
  * @return enabled
  */
-+ (bool) getUseDefaultMediator;
++ (bool) GetUseDefaultMediator;
 
 /**
  * Determines whether to use given Mediator by setMediator()
  *
  * @param enable 	true = enable, false = disable
  */
-+ (void) setUseCustomMediator:(bool)usage;
++ (void) SetUseCustomMediator:(bool)usage;
 
 /**
  * Query whether to use given Mediator by setMediator()
  *
  * @return enabled
  */
-+ (bool) getUseCustomMediator;
++ (bool) GetUseCustomMediator;
 
 /**
  * Query ip of custom Mediator.
  *
  * @return ip
  */
-+ (NSString *) getMediatorIP;
++ (NSString *) GetMediatorIP;
 //+ (void) setMediatorIP:(NSString *)value;
 
 /**
@@ -822,7 +741,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @return Port
  */
-+ (int) getMediatorPort;
++ (int) GetMediatorPort;
 
 //+ (void) setMediatorPort:(unsigned short) value;
 
@@ -832,7 +751,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param ip
  * @param port
  */
-+ (void) setMediator:(NSString *)ip withPort:(unsigned short) port;
++ (void) SetMediator:(NSString *)ip withPort:(unsigned short) port;
 
 /**
  * Determines whether to use Crypto Layer Security for Mediator connections.
@@ -840,87 +759,87 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @param	enable
  */
-+ (void) setUseCLSForMediator:(bool)usage;
++ (void) SetUseCLSForMediator:(bool)usage;
 
 /**
  * Query whether to use Crypto Layer Security for Mediator connections.
  *
  * @return	enabled
  */
-+ (bool) getUseCLSForMediator;
++ (bool) GetUseCLSForMediator;
 
 /**
  * Determines whether to use Crypto Layer Security for device-to-device connections.
  *
  * @param	enable
  */
-+ (void) setUseCLSForDevices:(bool)usage;
++ (void) SetUseCLSForDevices:(bool)usage;
 
 /**
  * Query whether to use Crypto Layer Security for device-to-device connections.
  *
  * @return	enabled
  */
-+ (bool) getUseCLSForDevices;
++ (bool) GetUseCLSForDevices;
 
 /**
  * Determines whether to enforce Crypto Layer Security for device-to-device connections.
  *
  * @param	enable
  */
-+ (void) setUseCLSForDevicesEnforce:(bool)usage;
++ (void) SetUseCLSForDevicesEnforce:(bool)usage;
 
 /**
  * Query whether to enforce Crypto Layer Security for device-to-device connections.
  *
  * @return	enabled
  */
-+ (bool) getUseCLSForDevicesEnforce;
++ (bool) GetUseCLSForDevicesEnforce;
 
 /**
  * Enable Crypto Layer Security for all traffic (incl. those of interactive type) in device-to-device connections.
  *
  * @param	enable
  */
-+ (void) setUseCLSForAllTraffic:(bool)usage;
++ (void) SetUseCLSForAllTraffic:(bool)usage;
 
 /**
  * Query whether all traffic (incl. those of interactive type) in device-to-device connections is encrypted.
  *
  * @return	enabled
  */
-+ (bool) getUseCLSForAllTraffic;
++ (bool) GetUseCLSForAllTraffic;
 
-+ (void) setUseH264:(bool)usage;
-+ (bool) getUseH264;
++ (void) SetUseH264:(bool)usage;
++ (bool) GetUseH264;
 
 /**
  * Instruct Environs to show log messages in the status log.
  *
  * @param enable      true = enable, false = disable
  */
-+ (void) setUseNotifyDebugMessage:(bool)usage;
++ (void) SetUseNotifyDebugMessage:(bool)usage;
 
 /**
  * Query Environs settings that show log messages in the status log.
  *
  * @return enable      true = enable, false = disable
  */
-+ (bool) getUseNotifyDebugMessage;
++ (bool) GetUseNotifyDebugMessage;
 
 /**
  * Instruct Environs to create and write a log file in the working directory.
  *
  * @param enable      true = enable, false = disable
  */
-+ (void) setUseLogFile:(bool)usage;
++ (void) SetUseLogFile:(bool)usage;
 
 /**
 * Query Environs settings that create and write a log file in the working directory.
 *
 * @return enable      true = enable, false = disable
 */
-+ (bool) getUseLogFile;
++ (bool) GetUseLogFile;
 
 
 /**
@@ -930,7 +849,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param	enable      Enable or disable
  * @return  success
  */
-+ (bool) setUseTouchRecognizer: (NSString *) moduleName withStatus:(bool)enable;
++ (bool) SetUseTouchRecognizer: (NSString *) moduleName withStatus:(bool)enable;
 
 
 /**
@@ -940,7 +859,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param	enable      Enable or disable
  * @return  success
  */
-+ (bool) setUseEncoder: (NSString *) moduleName;
++ (bool) SetUseEncoder: (NSString *) moduleName;
 
 
 /**
@@ -950,7 +869,7 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  * @param	enable      Enable or disable
  * @return  success
  */
-+ (bool) setUseDecoder: (NSString *) moduleName;
++ (bool) SetUseDecoder: (NSString *) moduleName;
 
 
 #ifdef ENVIRONS_IOS
@@ -959,73 +878,82 @@ bool createAppID ( char * buffer, unsigned int bufSize );
  *
  * @param	enable
  */
-+ (void) setUseNativeDecoder:(bool)usage;
++ (void) SetUseNativeDecoder:(bool)usage;
 
 /**
  * Query whether to use native C++ for portal stream encoding/decoding or not.
  *
  * @return	enabled
  */
-+ (bool) getUseNativeDecoder;
++ (bool) GetUseNativeDecoder;
 
 /**
  * Determines whether to use device sensor data (compass, acc, gyro, etc.) for interaction or not.
  *
  * @param	enable
  */
-+ (void) setUseSensors:(bool)usage;
++ (void) SetUseSensors:(bool)usage;
 
 /**
  * Query whether to use device sensor data (compass, acc, gyro, etc.) for interaction or not.
  *
  * @return	enabled
  */
-+ (bool) getUseSensors;
++ (bool) GetUseSensors;
 
 /**
  * Query whether to use native display resolution for the portal stream.
  *
  * @return enabled
  */
-+ (bool) getPortalNativeResolution;
++ (bool) GetPortalNativeResolution;
 
 /**
  * Determines whether to use native display resolution for the portal stream.
  *
  * @param enable 	true = enable, false = disable
  */
-+ (void) setPortalNativeResolution:(bool)usage;
++ (void) SetPortalNativeResolution:(bool)usage;
 
 /**
  * Query whether to automatically start a portal stream on successful device connection or not.
  *
  * @return enabled 	true = enable, false = disable
  */
-+ (bool) getPortalAutoStart;
++ (bool) GetPortalAutoStart;
 
 /**
  * Determine whether to automatically start a portal stream on successful device connection or not.
  *
  * @param enable 	true = enable, false = disable
  */
-+ (void) setPortalAutoStart:(bool)usage;
++ (void) SetPortalAutoStart:(bool)usage;
 
 /**
  * Determine whether to use  TCP for portal streaming (if not selectively set for a particular deviceID)
  *
  * @param enable
  */
-+ (void) setPortalTCP:(bool)usage;
++ (void) SetPortalTCP:(bool)usage;
 
 /**
  * Query whether to use TCP for portal streaming (UDP otherwise)
  *
  * @return enabled
  */
-+ (bool) getPortalTCP;
++ (bool) GetPortalTCP;
 
-+ (void) setUsePortalTCP:(bool)usage;
-+ (bool) getUsePortalTCP;
++ (void) SetUsePortalTCP:(bool)usage;
++ (bool) GetUsePortalTCP;
+#else
+
+
++ (int) SetUseTracker:(const char *) moduleName;
+
++ (int) GetUseTracker:(const char *) moduleName;
+
++ (EBOOL) DisposeTracker:(const char *) moduleName;
+
 #endif
 
 @end

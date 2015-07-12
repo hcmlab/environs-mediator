@@ -24,9 +24,9 @@
 
 #define	BUILD_MAJOR_VERSION		0
 #define	BUILD_MINOR_VERSION		7
-#define	BUILD_RELEASE_COUNTER	0
+#define	BUILD_RELEASE_COUNTER	1
 
-#include "Environs.revision.h"
+#include "Environs.Revision.h"
 
 #define BUILD_ATTR1
 

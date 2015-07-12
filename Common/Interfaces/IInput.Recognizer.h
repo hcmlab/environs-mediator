@@ -83,7 +83,9 @@ namespace environs
         virtual int			Perform ( InputPackRec **	inputs, int inputCount ) = 0;
         
         virtual void		Flush () {};
-        
+
+		virtual bool		SetIncomingPortalID ( int portalID ) { return false; };
+
 	protected:
         DeviceDisplay       display;
 	};

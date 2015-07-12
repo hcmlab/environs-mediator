@@ -23,8 +23,8 @@
 
 #define USE_ENCODER_BYTEBUFFER
 
-#include "Environs.types.h"
-#include "Interop/threads.h"
+#include "Environs.Types.h"
+#include "Interop/Threads.h"
 
 #ifdef USE_ENCODER_BYTEBUFFER
 #include "Core/Byte.Buffer.h"

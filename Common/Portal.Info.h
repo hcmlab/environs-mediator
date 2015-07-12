@@ -21,8 +21,8 @@
 #ifndef INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
 #define INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
 
+#import "Environs.iOSX.Imp.h"
 #include "Portal.Info.Base.h"
-#import "Environs.iosx.imp.h"
 
 /* Namespace: environs -> */
 namespace environs

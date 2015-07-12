@@ -26,13 +26,12 @@
 //#define DEBUGCIPHERS
 #endif
 
-#include "Environs.crypt.h"
+#include "Environs.Crypt.h"
 
-#ifdef ENABLE_ENCRYPTION
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
-#include "Environs.utils.h"
+#include "Environs.Utils.h"
 #include "Device.Instance.h"
 #include "Interop.h"
 
@@ -2245,5 +2244,3 @@ namespace environs
 
     
 }
-
-#endif /// ->ENABLE_ENCRYPTION

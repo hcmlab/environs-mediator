@@ -24,14 +24,15 @@
  */
 //#define DEBUGVERB
 //#define DEBUGVERBVerb
-#include "Environs.release.h"
-#include "Environs.platforms.h"
+
+#include "Environs.Release.h"
+#include "Environs.Platforms.h"
 
 /**
  * Include native type and data structure declarations
  * ****************************************************************************************
  */
-#include "Environs.types.h"
+#include "Environs.Types.h"
 
 
 /**
@@ -51,7 +52,7 @@
 
 #ifndef ENVIRONS_CORE_LIB
 #ifndef MEDIATORDAEMON
-#include "Environs.h"
+//#include "Environs.h"
 #endif
 #endif
 
@@ -61,7 +62,7 @@
 
 
 #ifdef DISPLAYDEVICE
-#define MAX_PORTAL_INSTANCES				30
+#define MAX_PORTAL_INSTANCES				40
 #else
 #define MAX_PORTAL_INSTANCES				10
 #endif
@@ -76,10 +77,6 @@
 #define ENVIRONS_PRIVATE_KEYNAME			"env.4321.bin"
 #define ENVIRONS_PUBLIC_CERTNAME			"env.1234.bin"
 #endif
-//
-//#define MAX_PORTAL_CONTEXTS					3
-//#define MAX_PORTAL_STREAMS_A_DEVICE			3
-//#define MAX_PORTAL_OVERLAYS					3
 
 #define ENVIRONS_MEDIATOR_MAX_TRYS          10
 
@@ -88,6 +85,16 @@
 #define ENVIRONS_TOUCH_RECOGNIZER_MAX       6
 #define ENVIRONS_INPUT_RECOGNIZER_MAX       10
 
+#define MAX_CONNECTED_DEVICES               120
+
+
+//#define USE_MEDIATOR_OPT_KEY_MAPS_COMP
+
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+#define ENVIRONS_DEVICE_KEY_EXT +4
+#else
+#define ENVIRONS_DEVICE_KEY_EXT
+#endif
 
 #define ENABLE_IOS_NATIVE_H264_ONLY
 
@@ -102,11 +109,13 @@
 
 //#define	ENVIRONS_ENABLE_RECOGNIZER_MANAGER	1
 
-#define ENABLE_ENCRYPTION
 
 #define USE_CALMED_BUFFER_ADAPT
 
+/// Removed. Needs to be verified for windows and android platforms
 #define USE_WORKER_THREADS
+#define ENABLE_ENCRYPTION
+
 #define USE_WORKER_THREADS_INITIAL_CONTEXT		1
 
 #define ENABLE_WORKER_STAGES_LOCKS
@@ -140,13 +149,6 @@
 #define PARTITION_CHUNK_SIZE				(PARTITION_SEND_BUFFER_SIZE - MSG_CHUNKED_HEADER_SIZE)
 
 
-#ifdef ANDROID
-#define ENABLE_ANDROID_CAMERA_CAPTURE
-#endif
-
-//#define OMXDECODE
-
-
 /// Fake 42 test device entries for device information retrieval through the mediator
 //#define FAKE42
 
@@ -167,13 +169,20 @@ namespace environs {
 #define		GetPortalDeviceID(p)				((p >> 24) & 0xFF)
 #define		IsInvalidPortalDeviceID(p)			(p < 0 || p >= MAX_PORTAL_INSTANCES )
 #define		IsInvalidPortalID(p)				(p < 0 || p >= MAX_PORTAL_STREAMS_A_DEVICE )
+#define		IsValidPortalID(p)					(p >= 0 && p < MAX_PORTAL_STREAMS_A_DEVICE )
 #define		PortalID()							(portalID & 0xFF)
 #define		IsPortalGenerator()					(portalID & PORTAL_DIR_OUTGOING)
 #define		IsPortalIDGenerator(p)				(p & PORTAL_DIR_OUTGOING)
 #define		IsPortalReceiver()					(portalID & PORTAL_DIR_INCOMING)
 #define		IsPortalIDReceiver()				(p & PORTAL_DIR_INCOMING)
 #define		ClearPortalDir()					(portalID &= ~(PORTAL_DIR_INCOMING | PORTAL_DIR_OUTGOING))
+#define     ReversePortalDirGet()				((portalID & ~PORTAL_DIR_MASK) | (~portalID & PORTAL_DIR_MASK))
+#define     ReversePortalDir(portalID)          portalID = ((portalID & ~PORTAL_DIR_MASK) | (~portalID & PORTAL_DIR_MASK))
 #define		ClearPortalDeviceID(p)				(p & 0xFFFFFF)
+
+#define     IsStatus(n)                         (n < 0 && (n & 0xF))
+#define     IsNotStatus(n)                      (n > 0 || (n & 0xF) == 0)
+#define     GetStatus(n)                         (0 - n)
 
 #define		ClearBit(val,mask)					(val &= ~mask)
 #define		AddBit(val,mask)					(val |= mask)
@@ -349,6 +358,7 @@ extern void MLogArg ( const char * msg, ... );
 #define CVerbN(msg)									ENVIRONS_VERB_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
 #define CVerbVerb(msg)								ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
 #define CLog(msg)									ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg ) )
+#define CListLog(msg)								ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg ) )
 #define CLogN(msg)									ENVIRONS_LOG_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg ) )
 #define CInfo(msg)									ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg ) )
 #define CWarn(msg)									ENVIRONS_WARN_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg ) )
@@ -358,6 +368,8 @@ extern void MLogArg ( const char * msg, ... );
 #define CVerbArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
 #define CVerbVerbArg(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
 #define CLogArg(msg,...)							ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
+#define CListLogArg(msg,...)						ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
+#define CLogArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
 #define CInfoArg(msg,...)							ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg), __VA_ARGS__ )
 #define CWarnArg(msg,...)							ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg), __VA_ARGS__ )
 #define CErrArg(msg,...)							ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg), __VA_ARGS__ )
@@ -369,12 +381,26 @@ extern void MLogArg ( const char * msg, ... );
 #define CWarnID(msg)								ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg ), deviceID )
 #define CErrID(msg)									ENVIRONS_ERRARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg ), deviceID )
 
+#define CVerbIDN(msg)								ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), nativeID )
+#define CVerbVerbIDN(msg)							ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), nativeID )
+#define CLogIDN(msg)								ENVIRONS_LOGARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg ), nativeID )
+#define CInfoIDN(msg)								ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg ), nativeID )
+#define CWarnIDN(msg)								ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg ), nativeID )
+#define CErrIDN(msg)								ENVIRONS_ERRARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg ), nativeID )
+
 #define CVerbArgID(msg,...)							ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), deviceID, __VA_ARGS__ )
 #define CVerbVerbArgID(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), deviceID, __VA_ARGS__ )
 #define CLogArgID(msg,...)							ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg), deviceID, __VA_ARGS__ )
 #define CInfoArgID(msg,...)							ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg), deviceID, __VA_ARGS__ )
 #define CWarnArgID(msg,...)							ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg), deviceID, __VA_ARGS__ )
 #define CErrArgID(msg,...)							ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg), deviceID, __VA_ARGS__ )
+
+#define CVerbArgIDN(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), nativeID, __VA_ARGS__ )
+#define CVerbVerbArgIDN(msg,...)					ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), nativeID, __VA_ARGS__ )
+#define CLogArgIDN(msg,...)							ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg), nativeID, __VA_ARGS__ )
+#define CInfoArgIDN(msg,...)						ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg), nativeID, __VA_ARGS__ )
+#define CWarnArgIDN(msg,...)						ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg), nativeID, __VA_ARGS__ )
+#define CErrArgIDN(msg,...)							ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg), nativeID, __VA_ARGS__ )
 
 #define CVerbLock(msg)								ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOCK_PREFIX,	msg ) )
 #define CVerbUnLock(msg)							ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_UNLOCK_PREFIX, msg ) )
@@ -384,6 +410,13 @@ extern void MLogArg ( const char * msg, ... );
 
 
 
+#ifndef DEBUGVERBList
+#undef	CListLog
+#define CListLog(msg)
+#undef	CListLogArg
+#define CListLogArg(msg,...)
+#endif
+
 #ifndef DEBUGVERB
 #undef	CVerbN
 #define CVerbN(msg)
@@ -391,10 +424,16 @@ extern void MLogArg ( const char * msg, ... );
 #define CVerb(msg)
 #undef	CVerbArg
 #define CVerbArg(msg,...)
+#undef	CVerbArgN
+#define CVerbArgN(msg,...)
 #undef	CVerbID
 #define CVerbID(msg)
+#undef	CVerbIDN
+#define CVerbIDN(msg)
 #undef	CVerbArgID
 #define CVerbArgID(msg,...)
+#undef	CVerbArgIDN
+#define CVerbArgIDN(msg,...)
 #endif
 
 #ifndef DEBUGVERBVerb
@@ -404,8 +443,12 @@ extern void MLogArg ( const char * msg, ... );
 #define CVerbVerbArg(msg,...)
 #undef	CVerbVerbID
 #define CVerbVerbID(msg)
+#undef	CVerbVerbIDN
+#define CVerbVerbIDN(msg)
 #undef	CVerbVerbArgID
 #define CVerbVerbArgID(msg,...)
+#undef	CVerbVerbArgIDN
+#define CVerbVerbArgIDN(msg,...)
 #endif
 
 #ifndef DEBUGVERBLocks

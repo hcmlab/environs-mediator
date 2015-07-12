@@ -46,10 +46,6 @@
 - (void) AddObserver:(id<DeviceObserver>) observer;
 - (void) RemoveObserver:(id<DeviceObserver>) observer;
 
-+ (void) OnDeviceListUpdate;
-+ (void) OnDeviceListNotification:(int) deviceID Project:(const char *) projName App:(const char *) appName Notify:(int) notification attach:(int) sourceIdent;
-
-+ (void) DisposeLists;
 
 + (DeviceInstance *) RefreshItem:(DeviceInstance *) source Observer:(id<DeviceObserver>)observer;
 
@@ -77,16 +73,15 @@
  */
 + (DeviceInstance *) GetDevice:(int) deviceID Project:(const char *)projectName App:(const char *)appName;
 
+
+
 /**
- * Query a DeviceInstance object that first match the deviceID only.
- * Usually the one that is in the same app environment is picked up.
- * If there is no matching in the app environment,
- * then the project environments are searched for a matchint deviceID.
+ * Query a DeviceInstance object from all available devices within the environment (including those of the Mediator)
  *
- * @param deviceID      The portalID that identifies an active portal.
+ * @param nativeID      The device id of the target device.
  * @return DeviceInstance-object
  */
-+ (DeviceInstance *) GetDevice:(int) deviceID;
++ (DeviceInstance *) GetDevice:(int) nativeID;
 
 /**
  * Query a DeviceInstance object that best match the deviceID only.
@@ -98,6 +93,17 @@
  * @return DeviceInstance-object
  */
 + (DeviceInstance *) GetDeviceBestMatch:(int) deviceID;
+
+/**
+ * Query a DeviceInstance object that best match the deviceID only from native layer.
+ * Usually the one that is in the same app environment is picked up.
+ * If there is no matching in the app environment,
+ * then the project environments are searched for a matchint deviceID.
+ *
+ * @param deviceID      The portalID that identifies an active portal.
+ * @return DeviceInstance-object
+ */
++ (DeviceInstance *) GetDeviceBestMatchNative:(int) deviceID;
 
 
 /**
@@ -117,12 +123,10 @@
 /**
  * Query a DeviceInstance object of nearby (broadcast visible) devices within the environment.
  *
- * @param deviceID      The device id of the target device.
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
+ * @param nativeID      The device id of the target device.
  * @return DeviceInstance-object
  */
-+ (DeviceInstance *) GetDeviceNearby:(int) deviceID Project:(const char *)projectName App:(const char *)appName;
++ (DeviceInstance *) GetDeviceNearby:(int) nativeID;
 
 /**
  * Release the ArrayList that holds the nearby devices.
@@ -139,12 +143,10 @@
 /**
  * Query a DeviceInstance object of Mediator managed devices within the environment.
  *
- * @param deviceID      The device id of the target device.
- * @param projectName	Project name of the application environment
- * @param appName		Application name of the application environment
+ * @param nativeID      The device id of the target device.
  * @return DeviceInstance-object
  */
-+ (DeviceInstance *) GetDeviceFromMediator:(int) deviceID Project:(const char *)projectName App:(const char *)appName;
++ (DeviceInstance *) GetDeviceFromMediator:(int) nativeID;
 
 /**
  * Query the number of Mediator managed devices within the environment.
@@ -162,9 +164,6 @@
 /// Refresh all device lists
 /// </summary>
 + (void) RefreshDeviceLists;
-
-
-+ (void) UpdateConnectProgress:(int) deviceID Project:(const char *)projectName App:(const char *)appName Connect:(int)progress;
 
 
 @end

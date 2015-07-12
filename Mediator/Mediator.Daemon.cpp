@@ -25,9 +25,8 @@
 #endif
 
 #include "Mediator.Daemon.h"
-#include "Environs.native.h"
-#include "Environs.utils.h"
-#include "Environs.crypt.h"
+#include "Environs.Native.h"
+#include "Environs.Utils.h"
 using namespace environs;
 
 #ifndef _WIN32
@@ -1772,7 +1771,7 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * projectName, cons
 		CErr ( "RemoveDevice: Failed to release mutex on app devices!" );
 	}
 	
-	NotifyClientsStart ( NOTIFY_MEDIATOR_MED_DEVICE_REMOVED, projName.c_str(), appsName.c_str(), deviceID );
+	NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED, projName.c_str(), appsName.c_str(), deviceID );
 
 Finish:
 	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
@@ -1828,6 +1827,15 @@ void MediatorDaemon::RemoveDevice ( unsigned int ip, char * msg )
 	CVerbID ( "RemoveDevice BC:" );
 
 	RemoveDevice ( deviceID, projectName, appName );
+}
+
+
+void MediatorDaemon::UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed )
+{
+	if ( added )
+		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_ADDED, device->info.projectName, device->info.appName, device->info.deviceID );
+	else if ( changed )
+		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED, device->info.projectName, device->info.appName, device->info.deviceID );
 }
 
 
@@ -4497,7 +4505,7 @@ bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
 
 	memcpy ( req.ident, "i;;", 3 );
 
-	req.notify = NOTIFY_MEDIATOR_MED_STUNT_REG_REQ;
+	req.notify = NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ;
 	    
 	CLogArg ( "NotifySTUNTRegRequest: Send spare socket register request to device [0x%X]", client->deviceID );
 
@@ -4737,7 +4745,8 @@ void MediatorDaemon::BuildBroadcastMessage ( )
 	
 	broadcastMessageLen += 4;
 
-	*((unsigned int *) (broadcastMessage + broadcastMessageLen)) = 1; // We use the platform 1 for now
+    unsigned int * pInt = (unsigned int *) (broadcastMessage + broadcastMessageLen);
+	*pInt = 1; // We use the platform 1 for now
 
 
 	unsigned int bcml = broadcastMessageLen + 4;
@@ -4963,7 +4972,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 	// device type
 	*keyCat = 0;
 	strcat_s ( keyCat, 100, "type" );
-	sprintf_s ( valueBuffer, 128, "%c", device->info.deviceType );
+	sprintf_s ( valueBuffer, 128, "%i", device->info.platform );
 
 	if ( !addToProject ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );

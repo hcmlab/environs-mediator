@@ -31,9 +31,9 @@
 #include <android/log.h>
 #endif
 
-#include "Environs.native.h"
-#include "Interop/threads.h"
-#include "Interop/stat.h"
+#include "Environs.Native.h"
+#include "Interop/Threads.h"
+#include "Interop/Stat.h"
 #include "Environs.h"
 #include "Core/Callbacks.h"
 using namespace environs;

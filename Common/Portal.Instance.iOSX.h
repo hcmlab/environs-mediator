@@ -21,12 +21,10 @@
 #ifndef INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_IOSX_H
 #define INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_IOSX_H
 
-#include "Environs.iosx.imp.h"
-#include "Environs.types.h"
-#include "Portal.Info.Base.h"
-
-#import "Environs.observer.h"
 #import "Portal.Info.h"
+#include "Environs.Types.h"
+
+#import "Environs.Observer.h"
 using namespace environs;
 
 
@@ -47,34 +45,29 @@ using namespace environs;
 #endif
 {
 @public
+    /** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
+    int                     async;
+    
     int                     portalID;
     bool                    disposed;
     id                      device;
     PortalInfo              info;
     
     int                     status;
-    bool                    established;
-    bool                    initiator;
     bool                    disposeOngoing;
     
     bool                    outgoing;
-    PortalType::PortalType  portalType;    
+    PortalType::PortalType  portalType;
+    
+    /** Application defined contexts for arbitrary use. */
+    id                      appContext1;
+    id                      appContext2;
+    id                      appContext3;
+    id                      appContext4;
 }
-
-
-- (bool) Init:(id) deviceInstance Direction:(int)Environs_PORTAL_DIR_ Type:(PortalType::PortalType)type;
-- (bool) Init:(id) deviceInstance PortalID:(int)destID;
-
-- (void) Dispose;
-+ (void) Dispose:(int) portalID;
-+ (void) KillZombies;
 
 - (void) AddObserver:(id<PortalObserver>) observer;
 - (void) RemoveObserver:(id<PortalObserver>) observer;
-- (int) GetObserverCount;
-- (id) GetObserver;
-
-- (void) NotifyObservers:(int) notification;
 
 - (bool) Establish:(bool) askForType;
 
@@ -86,10 +79,6 @@ using namespace environs;
 
 + (PortalInfoBase *) GetPortalInfo:(int) portalID;
 + (bool) SetPortalInfo:(PortalInfoBase *) infoBase;
-
-+ (void) Update:(int) deviceID Project:(const char *) projectName App:(const char *) appName Notfy:(int) notification PortalID:(int) portalID;
-+ (void) UpdateOptions:(int) notification PortalID:(int) portalID Context:(void *)context;
-+ (bool) PresentPortalToObservers:(PortalInstance *) portal;
 
 @end
 

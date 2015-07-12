@@ -21,7 +21,7 @@
 #ifndef INCLUDE_HCM_ENVIRONS_HUMAN_INPUT_DECLARATIONS_H_
 #define INCLUDE_HCM_ENVIRONS_HUMAN_INPUT_DECLARATIONS_H_
 
-#include "Environs.types.h"
+#include "Environs.Types.h"
 
 
 namespace environs

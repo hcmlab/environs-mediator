@@ -23,18 +23,13 @@
 
 #include "Device.Instance.h"
 
-#include "Environs.iosx.imp.h"
+#include "Environs.iOSX.Imp.h"
 #include "Device.Display.Decl.h"
-#import "Portal.Instance.iosx.h"
+#import "Portal.Instance.iOSX.h"
+#import "Device.observer.iOSX.h"
 using namespace environs;
 
 
-@protocol DeviceObserver <NSObject>
-
-- (void) OnListChanged;
-- (void) OnItemChanged:(id) sender Changed:(int) flags;
-
-@end
 
 
 /**
@@ -47,54 +42,72 @@ using namespace environs;
  */
 @interface DeviceInstance : NSObject
 {
-    @public
-    DeviceInfo  info;
-    bool        disposed;
-    int         connectProgress;
+
+@public
     
-    int         directStatus;
-    NSLock  *   devicePortalsLock;
-    id          devicePortals;
+    /** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
+    int             async;
+    
+    DeviceInfo      info;
+    bool            disposed;
+    int             connectProgress;
+    
+    DeviceDisplay   display;
+    
+    int             directStatus;
+    NSLock  *       devicePortalsLock;
+    
+    /** A collection of PortalInstances that this device has established or is managing. */
+    id              devicePortals;
+    
+    /** Application defined contexts for arbitrary use. */
+    int             appContext0;
+    id              appContext1;
+    id              appContext2;
 }
+
 
 - (void) AddObserver:(id<DeviceObserver>) observer;
 - (void) RemoveObserver:(id<DeviceObserver>) observer;
 
-/** Used internally **/
-- (void) SetProgress:(int)progress;
+- (void) AddObserverForData:(id<DataObserver>) observer;
+- (void) RemoveObserverForData:(id<DataObserver>) observer;
 
-/** Used internally **/
-- (void) Dispose;
+- (void) AddObserverForMessages:(id<MessageObserver>) observer;
+- (void) RemoveObserverForMessages:(id<MessageObserver>) observer;
+
+- (NSString *) GetIP;
+- (NSString *) GetIPe;
 
 - (bool) EqualsAppEnv:(DeviceInfo *) equalTo;
 - (bool) EqualsAppEnv:(const char *)projectName App:(const char *)appName;
 
-- (bool) LowerThanAppEnv:(DeviceInfo *) equalTo;
+- (bool) LowerThanAppEnv:(DeviceInfo *) compareTo;
 - (bool) LowerThanAppEnv:(const char *)projectName App:(const char *)appName;
 
 - (bool) EqualsID:(DeviceInstance *) equalTo;
 - (bool) EqualsID:(int) deviceID Project:(const char *)projectName App:(const char *)appName;
 
-/**
- * ...
- */
-+ (DeviceInstance *) CreateInstance:(DeviceInfo *) device;
-
-/** Used internally **/
-- (bool) CopyInfo:(DeviceInfo *) device;
-
-/** Used internally **/
-- (bool) Update:(DeviceInfo *) device;
-
-/** Used internally **/
-- (bool) SetDirectContact:(int)status;
 
 + (NSString *) DeviceTypeString:(DeviceInfo *) info;
+- (NSString *) DeviceTypeString;
 
 - (const char *) GetBroadcastString:(bool) fullText;
 
+/**
+ * Connect to this device asynchronously.
+ *
+ * @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
+ * 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
+ * 					true: A new connection has been triggered and is in progress
+ */
 - (bool) Connect;
 
+/**
+ * Disconnect the device with the given id and a particular application environment.
+ *
+ * @return	success		true: Connection has been shut down; false: Device with deviceID is not connected.
+ */
 - (bool) Disconnect;
 
 /**
@@ -103,6 +116,23 @@ using namespace environs;
  * @return PortalInstance-object
  */
 - (DeviceDisplay) GetDisplayProps;
+
+/**
+ * Load the file that is assigned to the fileID received by deviceID into an byte array.
+ *
+ * @param fileID        The id of the file to load (given in the onData receiver).
+ * @param size        An int pointer, that receives the size of the returned buffer.
+ * @return byte-array
+ */
+- (char *) GetFile:(int) fileID Size:(int *)size;
+
+/**
+ * Query the absolute path for the local filesystem that is assigned to the fileID received by deviceID.
+ *
+ * @param fileID        The id of the file to load (given in the onData receiver).
+ * @return absolutePath
+ */
+- (const char *) GetFilePath:(int) fileID;
 
 
 /**

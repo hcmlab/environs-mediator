@@ -17,12 +17,12 @@ endif
 
 # For release builds add -DNDEBUG to suppress debug messages
 
-CFLAGS	= -Os -DNDEBUG -Wall -DMEDIATORDAEMON -DLINUX -DMEDIATOR -I$(INCS) -I. -g -I/opt/ssl/include/  -I/opt/local/include -Wno-deprecated
+CFLAGS	= -Os -DNDEBUG -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -I$(INCS) -I. -g -I/opt/ssl/include/  -I/opt/local/include -Wno-deprecated
 LDFLAGS	= -lm -lpthread -lcurses -lcurl -L/opt/local/lib -lcrypto
 OTHER_C_FLAGS = -isystem /opt/local/include
 
 
-OBJ	= main.o stdafx.o Mediator.o Mediator.Daemon.o threads.o Environs.types.o Environs.utils.o Environs.crypt.o
+OBJ	= main.o stdafx.o Mediator.o Mediator.Daemon.o Threads.o Environs.Types.o Environs.Utils.o Environs.Crypt.o
 
 
 all: $(OBJ)
@@ -31,16 +31,16 @@ all: $(OBJ)
 Mediator.o: $(INCS)Mediator.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-threads.o: $(INCS)Interop/threads.cpp
+Threads.o: $(INCS)Interop/Threads.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-Environs.types.o: $(INCS)Environs.types.cpp
+Environs.Types.o: $(INCS)Environs.Types.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-Environs.utils.o: $(INCS)Environs.utils.cpp
+Environs.Utils.o: $(INCS)Environs.Utils.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
     
-Environs.crypt.o: $(INCS)Environs.crypt.cpp
+Environs.Crypt.o: $(INCS)Environs.Crypt.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.o: %.cpp

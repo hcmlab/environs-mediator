@@ -20,9 +20,10 @@
 #ifndef INCLUDE_HCM_ENVIRONS_DEVICEINFO_H
 #define INCLUDE_HCM_ENVIRONS_DEVICEINFO_H
 
-#include "Interop/threads.h"
+#include "Environs.Types.h"
+#include "Interop/Threads.h"
 
-#define		MAX_NAMEPROPERTY    	30
+//#define		MAX_NAMEPROPERTY    	30
 
 /* Namespace: environs -> */
 namespace environs
@@ -34,12 +35,18 @@ namespace environs
 //#define DEVICE_PACKET_SIZE				(sizeof(DeviceInstance) - (sizeof(DeviceInstance *) + sizeof(ApplicationDevices *)))
 //#define DEVICE_PACKET_SIZE				(sizeof(DeviceInstance) - sizeof(DeviceInstance *))
 //#define MAX_DEVICE_PACKETS_RESPONSE		(( (BUFFERSIZE - 4) - (2 * DEVICES_HEADER_SIZE)) / DEVICE_PACKET_SIZE)
-
-
+    
+    
+    /**
+     * Environs DeviceInstance struct Start bytes
+     */
 	typedef struct _DeviceInfo
 	{
 		/** The device ID within the environment */
-		int				deviceID;	// 4
+        int				deviceID;	// 4
+        
+        /** The ID that is used by the native layer to identify this particular device within the environment: -1 means that this device is not connected and therefore not actively managed. */
+        int				nativeID;	// 4
 
 		/** IP from device. The IP address reported by the device which it has read from network configuration. */
 		unsigned int 	ip;	// 4
@@ -67,10 +74,10 @@ namespace environs
 
 		/** isConnected is true if the device is currently in the connected state. */
 		bool			isConnected; // 1
-		bool			spare2;  // 1
+		char			internalUpdates;  // 1
 
-		/** The device type, which match the constants DEVICE_TYPE_* . */
-		char            deviceType;  // 1
+		/** Used internally by native layer. */
+		char            internalType;  // 1
 
 		/** The device name. */
 		char			deviceName [MAX_NAMEPROPERTY + 1]; // 31
@@ -93,7 +100,7 @@ namespace environs
 	DeviceHeader;
 
 
-	typedef struct _DeviceHeaderedPackage
+	typedef struct DevicePackage
 	{
 		DeviceHeader	header;
 		unsigned int    pad0;
@@ -101,7 +108,7 @@ namespace environs
 		DeviceInfo		device;
 		unsigned int    pad2;
 	}
-	DeviceInfoHeaderedPackage;
+	DevicePackage;
 
 
 } /* namepace Environs */

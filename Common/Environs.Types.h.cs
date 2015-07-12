@@ -655,20 +655,22 @@ namespace hcm.environs
 		 * Environs DeviceInstance struct Start bytes
 		 * Environs DeviceInstance struct Start bytes
 		 */
+		public const int MAX_NAMEPROPERTY                                  =	(30);
 		public const int DEVICEINFO_DEVICEID_START                         =	(0);
-		public const int DEVICEINFO_IP_START                               =	(4);
-		public const int DEVICEINFO_IPe_START                              =	(8);
-		public const int DEVICEINFO_TCP_PORT_START                         =	(12);
-		public const int DEVICEINFO_UDP_PORT_START                         =	(14);
-		public const int DEVICEINFO_UPDATES_START                          =	(16);
-		public const int DEVICEINFO_PLATFORM_START                         =	(20);
-		public const int DEVICEINFO_BROADCAST_START                        =	(24);
-		public const int DEVICEINFO_UNAVAILABLE_START                      =	(25);
-		public const int DEVICEINFO_ISCONNECTED_START                      =	(26);
-		public const int DEVICEINFO_DEVICETYPE_START                       =	(28);
-		public const int DEVICEINFO_DEVICENAME_START                       =	(29);
-		public const int DEVICEINFO_PROJECTNAME_START                      =	(60);
-		public const int DEVICEINFO_APPNAME_START                          =	(91);
+		public const int DEVICEINFO_NATIVE_ID_START                        =	(4);
+		public const int DEVICEINFO_IP_START                               =	(DEVICEINFO_NATIVE_ID_START + 4);
+		public const int DEVICEINFO_IPe_START                              =	(DEVICEINFO_IP_START + 4);
+		public const int DEVICEINFO_TCP_PORT_START                         =	(DEVICEINFO_IPe_START + 4);
+		public const int DEVICEINFO_UDP_PORT_START                         =	(DEVICEINFO_TCP_PORT_START + 2);
+		public const int DEVICEINFO_UPDATES_START                          =	(DEVICEINFO_UDP_PORT_START + 2);
+		public const int DEVICEINFO_PLATFORM_START                         =	(DEVICEINFO_UPDATES_START + 4);
+		public const int DEVICEINFO_BROADCAST_START                        =	(DEVICEINFO_PLATFORM_START + 4);
+		public const int DEVICEINFO_UNAVAILABLE_START                      =	(DEVICEINFO_BROADCAST_START + 1);
+		public const int DEVICEINFO_ISCONNECTED_START                      =	(DEVICEINFO_UNAVAILABLE_START + 1);
+		public const int DEVICEINFO_DEVICETYPE_START                       =	(DEVICEINFO_ISCONNECTED_START + 2);
+		public const int DEVICEINFO_DEVICENAME_START                       =	(DEVICEINFO_DEVICETYPE_START + 1);
+		public const int DEVICEINFO_PROJECTNAME_START                      =	(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1));
+		public const int DEVICEINFO_APPNAME_START                          =	(DEVICEINFO_PROJECTNAME_START + (MAX_NAMEPROPERTY + 1));
 		
 		
 		/**
@@ -689,10 +691,10 @@ namespace hcm.environs
 		
 		public const int NOTIFY_MEDIATOR_MED_CHANGED                       =	(NOTIFY_MEDIATOR | 11);
 			
-		public const int NOTIFY_MEDIATOR_MED_DEVICE_CHANGED                =	(NOTIFY_MEDIATOR_DEVICE_CHANGED | NOTIFY_MEDIATOR_SERVER);
-		public const int NOTIFY_MEDIATOR_MED_DEVICE_ADDED                  =	(NOTIFY_MEDIATOR_DEVICE_ADDED | NOTIFY_MEDIATOR_SERVER);
-		public const int NOTIFY_MEDIATOR_MED_DEVICE_REMOVED                =	(NOTIFY_MEDIATOR_DEVICE_REMOVED | NOTIFY_MEDIATOR_SERVER);
-		public const int NOTIFY_MEDIATOR_MED_STUNT_REG_REQ                 =	(NOTIFY_MEDIATOR | 22 | NOTIFY_MEDIATOR_SERVER);
+		public const int NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED                =	(NOTIFY_MEDIATOR_DEVICE_CHANGED | NOTIFY_MEDIATOR_SERVER);
+		public const int NOTIFY_MEDIATOR_SRV_DEVICE_ADDED                  =	(NOTIFY_MEDIATOR_DEVICE_ADDED | NOTIFY_MEDIATOR_SERVER);
+		public const int NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED                =	(NOTIFY_MEDIATOR_DEVICE_REMOVED | NOTIFY_MEDIATOR_SERVER);
+		public const int NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ                 =	(NOTIFY_MEDIATOR | 22 | NOTIFY_MEDIATOR_SERVER);
 			
 		public const int NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL              =	(NOTIFY_MEDIATOR | 41);
 		public const int NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING           =	(NOTIFY_MEDIATOR | 42);
@@ -895,6 +897,7 @@ namespace hcm.environs
 		
 		public const int DEVICE_INFO_ATTR_DEVICE_PLATFORM                  =	(0x40);
 		public const int DEVICE_INFO_ATTR_DEVICE_TYPE                      =	(0x40);
+		public const int DEVICE_INFO_ATTR_NATIVEID                         =	(0x80);
 		public const int DEVICE_INFO_ATTR_IP                               =	(0x100);
 		public const int DEVICE_INFO_ATTR_IPE                              =	(0x200);
 		public const int DEVICE_INFO_ATTR_TCP_PORT                         =	(0x400);

@@ -163,23 +163,23 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\Common\Device.Instance.h" />
-    <ClInclude Include="..\Common\Environs.crypt.h" />
-    <ClInclude Include="..\Common\Environs.native.h" />
-    <ClInclude Include="..\Common\Environs.release.h" />
-    <ClInclude Include="..\Common\Environs.revision.h" />
-    <ClInclude Include="..\Common\Environs.utils.h" />
+    <ClInclude Include="..\Common\Environs.Crypt.h" />
+    <ClInclude Include="..\Common\Environs.Native.h" />
+    <ClInclude Include="..\Common\Environs.Release.h" />
+    <ClInclude Include="..\Common\Environs.Revision.h" />
+    <ClInclude Include="..\Common\Environs.Utils.h" />
     <ClInclude Include="..\Common\Interop.h" />
-    <ClInclude Include="..\Common\Interop\threads.h" />
+    <ClInclude Include="..\Common\Interop\Threads.h" />
     <ClInclude Include="..\Common\Mediator.h" />
     <ClInclude Include="Mediator.Daemon.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\Common\Environs.crypt.cpp" />
-    <ClCompile Include="..\Common\Environs.types.cpp" />
-    <ClCompile Include="..\Common\Environs.utils.cpp" />
-    <ClCompile Include="..\Common\Interop\threads.cpp" />
+    <ClCompile Include="..\Common\Environs.Crypt.cpp" />
+    <ClCompile Include="..\Common\Environs.Types.cpp" />
+    <ClCompile Include="..\Common\Environs.Utils.cpp" />
+    <ClCompile Include="..\Common\Interop\Threads.cpp" />
     <ClCompile Include="..\Common\Mediator.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mediator.Daemon.cpp" />

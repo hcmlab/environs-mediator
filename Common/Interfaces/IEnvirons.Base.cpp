@@ -22,7 +22,8 @@
 //#define DEBUGVERB
 //#define DEBUGVERBVerb
 
-#include "Environs.native.h"
+#include "Environs.h"
+#include "Environs.Native.h"
 #include "Interop.h"
 #include "Interfaces/IEnvirons.Base.h"
 

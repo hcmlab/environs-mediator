@@ -33,9 +33,9 @@ namespace environs
 	extern unsigned int getRandomValue ( void * value );
 	
 	INCLINEFUNC INTEROPTIMEVAL GetEnvironsTickCount ();
-    
+    extern unsigned long long   GetUnixEpoch ();
     extern bool CreateDataDirectory ( char * dir );
-    extern void UpdateString ( const char * src, char ** dest );
+	extern void CreateCopyString ( const char * src, char ** dest );
 }
 
 

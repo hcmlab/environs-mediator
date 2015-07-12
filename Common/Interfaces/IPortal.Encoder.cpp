@@ -26,7 +26,8 @@
 //#define ENCODERDEBUGVERB
 #endif
 
-#include "Environs.native.h"
+#include "Environs.h"
+#include "Environs.Native.h"
 #include "Interfaces/IPortal.Encoder.h"
 
 #define CLASS_NAME	"IPortalEncoder"

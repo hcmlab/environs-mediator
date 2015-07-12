@@ -21,11 +21,8 @@
 #ifndef INCLUDE_HCM_ENVIRONS_CRYPT_UTILS_AND_TOOLS_H
 #define INCLUDE_HCM_ENVIRONS_CRYPT_UTILS_AND_TOOLS_H
 
-#include "Environs.native.h"
-
-#ifdef ENABLE_ENCRYPTION
-
-#include "Interop/threads.h"
+#include "Environs.Native.h"
+#include "Interop/Threads.h"
 
 #define ENVIRONS_MAX_KEYBUFFER_SIZE		(ENVIRONS_MAX_KEYSIZE + 1024)
 #define AES_SHA256_KEY_LENGTH           32
@@ -128,6 +125,5 @@ namespace environs
 	extern char * ConvertToByteBuffer ( const char * src, unsigned int length, char * buffer );
 }
 
-#endif /// ->ENABLE_ENCRYPTION
 
 #endif /// ->INCLUDE_HCM_ENVIRONS_CRYPT_UTILS_AND_TOOLS_H

@@ -26,7 +26,7 @@ namespace environs
 {
 #ifdef DISPLAYDEVICE
 
-#include "Environs.lib.inc.h"
+#include "Environs.Lib.Inc.h"
 	
 	namespace API 
 	{
@@ -38,7 +38,9 @@ namespace environs
 
 			LIBEXPORT void CallConv			SetUseDeviceMarkerAutomatic ( EBOOL enable );
 			LIBEXPORT void CallConv			SetDeviceMarkerReducedPrecision1 ( EBOOL enable );
-            
+
+			LIBEXPORT void CallConv			SetUseTouchInjection ( EBOOL enabled );
+
             LIBEXPORT int CallConv			SetUseTracker ( const char * moduleName );
             LIBEXPORT int CallConv			GetUseTracker ( const char * moduleName );
             LIBEXPORT EBOOL CallConv		DisposeTracker ( const char * moduleName );

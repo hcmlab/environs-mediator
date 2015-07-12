@@ -623,20 +623,22 @@ namespace environs {
 /**
  * Environs DeviceInstance struct Start bytes
  */
+#define	MAX_NAMEPROPERTY                                  		(30)
 #define	DEVICEINFO_DEVICEID_START                         		(0)
-#define	DEVICEINFO_IP_START                               		(4)
-#define	DEVICEINFO_IPe_START                              		(8)
-#define	DEVICEINFO_TCP_PORT_START                         		(12)
-#define	DEVICEINFO_UDP_PORT_START                         		(14)
-#define	DEVICEINFO_UPDATES_START                          		(16)
-#define	DEVICEINFO_PLATFORM_START                         		(20)
-#define	DEVICEINFO_BROADCAST_START                        		(24)
-#define	DEVICEINFO_UNAVAILABLE_START                      		(25)
-#define	DEVICEINFO_ISCONNECTED_START                      		(26)
-#define	DEVICEINFO_DEVICETYPE_START                       		(28)
-#define	DEVICEINFO_DEVICENAME_START                       		(29)
-#define	DEVICEINFO_PROJECTNAME_START                      		(60)
-#define	DEVICEINFO_APPNAME_START                          		(91)
+#define	DEVICEINFO_NATIVE_ID_START                        		(4)
+#define	DEVICEINFO_IP_START                               		(DEVICEINFO_NATIVE_ID_START + 4)
+#define	DEVICEINFO_IPe_START                              		(DEVICEINFO_IP_START + 4)
+#define	DEVICEINFO_TCP_PORT_START                         		(DEVICEINFO_IPe_START + 4)
+#define	DEVICEINFO_UDP_PORT_START                         		(DEVICEINFO_TCP_PORT_START + 2)
+#define	DEVICEINFO_UPDATES_START                          		(DEVICEINFO_UDP_PORT_START + 2)
+#define	DEVICEINFO_PLATFORM_START                         		(DEVICEINFO_UPDATES_START + 4)
+#define	DEVICEINFO_BROADCAST_START                        		(DEVICEINFO_PLATFORM_START + 4)
+#define	DEVICEINFO_UNAVAILABLE_START                      		(DEVICEINFO_BROADCAST_START + 1)
+#define	DEVICEINFO_ISCONNECTED_START                      		(DEVICEINFO_UNAVAILABLE_START + 1)
+#define	DEVICEINFO_DEVICETYPE_START                       		(DEVICEINFO_ISCONNECTED_START + 2)
+#define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_DEVICETYPE_START + 1)
+#define	DEVICEINFO_PROJECTNAME_START                      		(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1))
+#define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_PROJECTNAME_START + (MAX_NAMEPROPERTY + 1))
 
 
 /**
@@ -656,10 +658,10 @@ namespace environs {
 
 #define	NOTIFY_MEDIATOR_MED_CHANGED                       		(NOTIFY_MEDIATOR | 11)
 	
-#define	NOTIFY_MEDIATOR_MED_DEVICE_CHANGED                		(NOTIFY_MEDIATOR_DEVICE_CHANGED | NOTIFY_MEDIATOR_SERVER)
-#define	NOTIFY_MEDIATOR_MED_DEVICE_ADDED                  		(NOTIFY_MEDIATOR_DEVICE_ADDED | NOTIFY_MEDIATOR_SERVER)
-#define	NOTIFY_MEDIATOR_MED_DEVICE_REMOVED                		(NOTIFY_MEDIATOR_DEVICE_REMOVED | NOTIFY_MEDIATOR_SERVER)
-#define	NOTIFY_MEDIATOR_MED_STUNT_REG_REQ                 		(NOTIFY_MEDIATOR | 22 | NOTIFY_MEDIATOR_SERVER)
+#define	NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED                		(NOTIFY_MEDIATOR_DEVICE_CHANGED | NOTIFY_MEDIATOR_SERVER)
+#define	NOTIFY_MEDIATOR_SRV_DEVICE_ADDED                  		(NOTIFY_MEDIATOR_DEVICE_ADDED | NOTIFY_MEDIATOR_SERVER)
+#define	NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED                		(NOTIFY_MEDIATOR_DEVICE_REMOVED | NOTIFY_MEDIATOR_SERVER)
+#define	NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ                 		(NOTIFY_MEDIATOR | 22 | NOTIFY_MEDIATOR_SERVER)
 	
 #define	NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL              		(NOTIFY_MEDIATOR | 41)
 #define	NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING           		(NOTIFY_MEDIATOR | 42)
@@ -855,6 +857,7 @@ namespace environs {
 
 #define	DEVICE_INFO_ATTR_DEVICE_PLATFORM                  		(0x40)
 #define	DEVICE_INFO_ATTR_DEVICE_TYPE                      		(0x40)
+#define	DEVICE_INFO_ATTR_NATIVEID                         		(0x80)
 #define	DEVICE_INFO_ATTR_IP                               		(0x100)
 #define	DEVICE_INFO_ATTR_IPE                              		(0x200)
 #define	DEVICE_INFO_ATTR_TCP_PORT                         		(0x400)

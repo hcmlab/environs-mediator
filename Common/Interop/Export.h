@@ -44,18 +44,17 @@ extern HMODULE LocateLoadEnvModule ( const char * module, unsigned int deviceID 
 
 typedef HMODULE ( *pLocateLoadModule )( COBSTR module, unsigned int deviceID );
 
-#define	ENVMODPREFIX							"libEnv-"
+#define	ENVMODPREFIX					"libEnv-"
+
+#define	LIBNAME_EXT_DIR					"libs"
 
 #ifdef __APPLE__
-    #define	LIBNAME_EXT_DIR						""
-    #define	LIBEXTENSION						".dylib"
+    #define	LIBEXTENSION				".dylib"
 #else
-	#define	LIBNAME_EXT_DIR						"libs"
-
     #ifdef _WIN32
-        #define	LIBEXTENSION					".dll"
+        #define	LIBEXTENSION			".dll"
     #else
-        #define	LIBEXTENSION					".so"
+        #define	LIBEXTENSION			".so"
     #endif
 
 #ifdef _WIN32

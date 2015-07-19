@@ -21,10 +21,15 @@
 #ifndef INCLUDE_HCM_ENVIRONS_DEVICEOBSERVER_IOSX_H
 #define INCLUDE_HCM_ENVIRONS_DEVICEOBSERVER_IOSX_H
 
-@protocol DeviceObserver <NSObject>
+@protocol ChangeObserver <NSObject>
 
-- (void) OnListChanged;
 - (void) OnItemChanged:(id) sender Changed:(int) flags;
+
+@end
+
+@protocol ListObserver <NSObject>
+
+- (void) OnListChanged:(NSArray *) oldDevices appeared:(NSArray *) newDevices;
 
 @end
 

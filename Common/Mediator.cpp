@@ -456,11 +456,12 @@ bool Mediator::LoadNetworks ( )
     }	
 	CLogArg ( "LoadNetworks: Host name [%s]", ac );
 
-	SOCKET sock = WSASocket ( AF_INET, SOCK_DGRAM, 0, 0, 0, 0 );
+	SOCKET sock = WSASocket ( PF_INET, SOCK_DGRAM, 0, 0, 0, 0 );
     if ( sock == SOCKET_ERROR ) {
         CErrArg ( "LoadNetworks: Failed to get a socket. Error %i", WSAGetLastError () );
         goto EndOfMethod;
     }
+    DisableSIGPIPE ( sock );
 
     INTERFACE_INFO InterfaceList [ 20 ];
     unsigned long nBytesReturned;
@@ -527,11 +528,12 @@ bool Mediator::LoadNetworks ( )
 	ifconf.ifc_buf = (char *) ifreqs;
 	ifconf.ifc_len = sizeof(ifreqs);
 
-	sock = socket ( AF_INET, SOCK_STREAM, 0 );
+	sock = socket ( PF_INET, SOCK_STREAM, 0 );
 	if ( sock < 0 ) {
 		CErr ( "LoadNetworks: Failed to create socket for ioctl!" );
         goto EndOfMethod;
-	}
+    }
+    DisableSIGPIPE ( sock );
 
 	rval = ioctl ( sock, SIOCGIFCONF , (char*) &ifconf );
 	if ( rval < 0 ) {
@@ -568,7 +570,7 @@ bool Mediator::LoadNetworks ( )
 		}
 		
 		// Retrieve netmask	
-		ifr_mask.ifr_addr.sa_family = AF_INET;
+		ifr_mask.ifr_addr.sa_family = PF_INET;
 
 		strncpy ( ifr_mask.ifr_name, ifreqs[i].ifr_name, IFNAMSIZ-1 );
 
@@ -606,7 +608,7 @@ bool Mediator::LoadNetworks ( )
     
 	for ( ifa = ifList; ifa != NULL; ifa = ifa->ifa_next )
     {
-	    if ( ifa ->ifa_addr->sa_family == AF_INET ) {
+	    if ( ifa ->ifa_addr->sa_family == PF_INET ) {
 	        // IPv4
             ip = ( (struct sockaddr_in *) ifa->ifa_addr )->sin_addr.s_addr;
             
@@ -642,11 +644,11 @@ bool Mediator::LoadNetworks ( )
             
             AddNetwork ( pack, ip, bcast, mask );
 	    }
-        else if ( ifa->ifa_addr->sa_family == AF_INET6 ) {
+        else if ( ifa->ifa_addr->sa_family == PF_INET6 ) {
 	            // We do not support IPv6 yet
 	            tmp=&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
 	            char addressBuffer[INET6_ADDRSTRLEN];
-	            inet_ntop(AF_INET6, tmp, addressBuffer, INET6_ADDRSTRLEN);
+	            inet_ntop(PF_INET6, tmp, addressBuffer, INET6_ADDRSTRLEN);
 	            CVerbArg ( "LoadNetworks: IPv6 not supported yet: [%s] IP Address [%s]", ifa->ifa_name, addressBuffer);
 	        }
     }
@@ -714,7 +716,9 @@ bool Mediator::Start ()
 		if ( sock == -1 ) {
 			CErr ( "Start: Failed to create broadcast socket!" );
 			return false;
-		}
+        }
+        DisableSIGPIPE ( sock );
+        
 		broadcastSocketID = sock;
 
 		int value = 1;
@@ -776,7 +780,7 @@ bool Mediator::SendBroadcast ( )
 	struct 	sockaddr_in		broadcastAddr;
 	Zero ( broadcastAddr );
 
-	broadcastAddr.sin_family = AF_INET;
+	broadcastAddr.sin_family = PF_INET;
 	broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
 
 	broadcastAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
@@ -853,6 +857,7 @@ unsigned int Mediator::GetLocalIP ( )
 {
 	CVerb ( "GetLocalIP" );
 
+    if ( !localNets.ip )
     if ( !LoadNetworks() )
         return 0;
     

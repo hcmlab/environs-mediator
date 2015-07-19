@@ -27,23 +27,18 @@
  * @author Chi-Tai Dang, dang@hcm-lab.de, University of Augsburg
  * 
  */
-using System;
-using System.IO;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+package hcm.environs;
 
 
-namespace hcm.environs
+
+/// <summary>
+/// Events, Types, Messages for hcm_environs Types 
+/// This class defines integer values which identifies status values, events, message types and so on delivered by Environs.
+/// </summary>
+public class TypesResolver extends hcm.environs.Types
 {
-	/// <summary>
-	/// Events, Types, Messages for hcm_environs Types 
-	/// This class defines integer values which identifies status values, events, message types and so on delivered by Environs.
-	/// </summary>
-	public partial class Environs 
-	{
 
-		public static String resolveName ( int constToResolve ) {
+	public static String resolveName ( int constToResolve ) {
 
 
 
@@ -959,8 +954,8 @@ namespace hcm.environs
 
 
 			return "Unkown";
-		} /// -> get()
+	} /// -> get()
 
-	} /// -> class Types
+} /// -> class TypesResolver
 
-} /// -> namespace environs 
+

@@ -226,7 +226,10 @@ namespace environs
             LIBEXPORT void * CallConv		GetFile ( int deviceID, const char * projName, const char * appName, int fileID, void * buffer, int * capacity );
             
             LIBEXPORT BSTR CallConv			GetFilePathNative ( int nativeID, int fileID );
-            LIBEXPORT BSTR CallConv			GetFilePath ( int deviceID, const char * projName, const char * appName, int fileID );
+			LIBEXPORT BSTR CallConv			GetFilePath ( int deviceID, const char * projName, const char * appName, int fileID );
+
+			LIBEXPORT BSTR CallConv			GetFilePathForStorage ( int deviceID, const char * projName, const char * appName );
+			LIBEXPORT void CallConv			ReleaseString ( int deviceID, const char * projName, const char * appName );
 
 
 			LIBEXPORT EBOOL CallConv		GetPortalInfo ( void * buffer );

@@ -30,6 +30,7 @@
 #define LogSocketError()					CWarnArg("SocketError: %d",WSAGetLastError())
 #define VerbLogSocketError()				CVerbArg("SocketError: %d",WSAGetLastError())
 #define SOCK_IN_PROGRESS					(WSAGetLastError() == WSAEWOULDBLOCK)
+#define DisableSIGPIPE(socki)
 
 #else
 
@@ -42,17 +43,14 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <signal.h>
 
 #ifndef ANDROID
 // -> Linux/iOS includes
 #include <ifaddrs.h>
-
-//#ifndef __APPLE__
-//size_t strlcpy ( char *d, char const *s, size_t n )
-//{
-//	return snprintf ( d, n, "%s", s );
-//}
-//#endif
+#define DisableSIGPIPE(socki)                {int value = 1; setsockopt(socki, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));}
+#else
+#define DisableSIGPIPE(socki)
 #endif
 
 #define LogSocketError()					CWarnArg("SocketError: %s",strerror(errno))

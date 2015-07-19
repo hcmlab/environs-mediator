@@ -99,6 +99,10 @@ namespace environs
 				case ( (8 << 24) ):
 					return "ENVIRONS_CRYPT_PAD_PKCS1SHA256";
 			} /// -> switch
+			if ( constToResolve == ( 0xFFFF ) )
+				return "MEDIATOR_CLIENT_MAX_BUFFER_SIZE";
+			if ( constToResolve == ( MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) )
+				return "DEVICE_HANDSHAKE_BUFFER_MAX_SIZE";
 //				case ( 0 ):
 //					return "MEDIATOR_DEVICE_CLASS_ALL";
 //				case ( 1 ):
@@ -778,6 +782,32 @@ namespace environs
 
 
 			switch ( constToResolve ) {
+				case ( NOTIFY_TYPE_ENVIRONS | 0x4000 ):
+					return "NOTIFY_TRACKER";
+				case ( 0x8 ):
+					return "NOTIFY_TRACKER_FAILED_FLAG";
+				case ( NOTIFY_TRACKER | 0x1 ):
+					return "NOTIFY_TRACKER_ENABLED";
+				case ( NOTIFY_TRACKER | 0x2 ):
+					return "NOTIFY_TRACKER_CHANGED";
+				case ( NOTIFY_TRACKER | 0x4 ):
+					return "NOTIFY_TRACKER_DISABLED";
+				case ( NOTIFY_TRACKER | NOTIFY_TRACKER_FAILED_FLAG ):
+					return "NOTIFY_TRACKER_ENABLE_FAILED";
+				case ( NOTIFY_TRACKER | 0x10 ):
+					return "NOTIFY_TRACKER_STATE_INIT_SENSOR";
+				case ( NOTIFY_TRACKER_STATE_INIT_SENSOR | NOTIFY_TRACKER_FAILED_FLAG ):
+					return "NOTIFY_TRACKER_STATE_INIT_SENSOR_FAILED";
+				case ( NOTIFY_TRACKER | 0x20 ):
+					return "NOTIFY_TRACKER_STATE_START";
+				case ( NOTIFY_TRACKER | NOTIFY_TRACKER_STATE_START | NOTIFY_TRACKER_FAILED_FLAG ):
+					return "NOTIFY_TRACKER_STATE_START_FAILED";
+				case ( NOTIFY_TRACKER | 0x40 ):
+					return "NOTIFY_TRACKER_STATE_STOP";
+			} /// -> switch
+
+
+			switch ( constToResolve ) {
 				case ( 'D' ):
 					return "DEVICE_TYPE_DISPLAY";
 				case ( 'M' ):
@@ -876,8 +906,18 @@ namespace environs
 
 
 			switch ( constToResolve ) {
+				case ( 0x8000 ):
+					return "DEVICE_INFO_ATTR_APP_CONTEXT";
 				case ( 0x10000 ):
 					return "DEVICE_INFO_ATTR_PORTAL_CREATED";
+			} /// -> switch
+
+
+			switch ( constToResolve ) {
+				case ( 0x20000 ):
+					return "FILE_INFO_ATTR_SEND_PROGRESS";
+				case ( 0x40000 ):
+					return "FILE_INFO_ATTR_RECEIVE_PROGRESS";
 			} /// -> switch
 //				case ( 0 ):
 //					return "APP_STATUS_ACTIVE";

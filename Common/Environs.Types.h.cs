@@ -171,6 +171,8 @@ namespace hcm.environs
 		public const int ENVIRONS_CRYPT_PAD_PKCS1SHA1                      =	((4 << 24));
 		public const int ENVIRONS_CRYPT_PAD_PKCS1SHA256                    =	((8 << 24));
 		
+		public const int MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   =	(0xFFFF);
+		public const int DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  =	(MEDIATOR_CLIENT_MAX_BUFFER_SIZE);
 		/* 
 		 * Mediator device class types used for GetDevicesFrom ( type )
 		 * Mediator device class types used for GetDevicesFrom ( type )
@@ -719,6 +721,26 @@ namespace hcm.environs
 		/** Ignore: for Resolver */
 		public const String ENVIRONS_DEFAULT_DEVICE_NAME                      =	("DefaultDevice");
 		
+		
+		/**
+		 * Environs network notifications
+		 * Environs network notifications
+		 */
+		public const int NOTIFY_TRACKER                                    =	(NOTIFY_TYPE_ENVIRONS | 0x4000);
+		
+		public const int NOTIFY_TRACKER_FAILED_FLAG                        =	(0x8);
+		
+		public const int NOTIFY_TRACKER_ENABLED                            =	(NOTIFY_TRACKER | 0x1);
+		public const int NOTIFY_TRACKER_CHANGED                            =	(NOTIFY_TRACKER | 0x2);
+		public const int NOTIFY_TRACKER_DISABLED                           =	(NOTIFY_TRACKER | 0x4);
+		public const int NOTIFY_TRACKER_ENABLE_FAILED                      =	(NOTIFY_TRACKER | NOTIFY_TRACKER_FAILED_FLAG);
+		
+		public const int NOTIFY_TRACKER_STATE_INIT_SENSOR                  =	(NOTIFY_TRACKER | 0x10);
+		public const int NOTIFY_TRACKER_STATE_INIT_SENSOR_FAILED           =	(NOTIFY_TRACKER_STATE_INIT_SENSOR | NOTIFY_TRACKER_FAILED_FLAG);
+		public const int NOTIFY_TRACKER_STATE_START                        =	(NOTIFY_TRACKER | 0x20);
+		public const int NOTIFY_TRACKER_STATE_START_FAILED                 =	(NOTIFY_TRACKER | NOTIFY_TRACKER_STATE_START | NOTIFY_TRACKER_FAILED_FLAG);
+		public const int NOTIFY_TRACKER_STATE_STOP                         =	(NOTIFY_TRACKER | 0x40);
+		
 		/**
 		 * Device types. Obsolete. Should not be used anymore.
 		 * Device types. Obsolete. Should not be used anymore.
@@ -905,9 +927,12 @@ namespace hcm.environs
 		public const int DEVICE_INFO_ATTR_UNAVAILABLE                      =	(0x1000);
 		public const int DEVICE_INFO_ATTR_BROADCAST_FOUND                  =	(0x2000);
 		public const int DEVICE_INFO_ATTR_DIRECT_CONTACT                   =	(0x4000);
+		public const int DEVICE_INFO_ATTR_APP_CONTEXT                      =	(0x8000);
 		
 		public const int DEVICE_INFO_ATTR_PORTAL_CREATED                   =	(0x10000);
-			
+		
+		public const int FILE_INFO_ATTR_SEND_PROGRESS                      =	(0x20000);
+		public const int FILE_INFO_ATTR_RECEIVE_PROGRESS                   =	(0x40000);
 		
 		public const int APP_STATUS_ACTIVE                                 =	(0);
 		public const int APP_STATUS_SLEEPING                               =	(1);

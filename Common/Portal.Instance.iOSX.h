@@ -80,6 +80,8 @@ using namespace environs;
 + (PortalInfoBase *) GetPortalInfo:(int) portalID;
 + (bool) SetPortalInfo:(PortalInfoBase *) infoBase;
 
++ (PortalInstance *) GetPortal:(int) portalID;
+
 @end
 
 

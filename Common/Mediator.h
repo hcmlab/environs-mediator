@@ -372,7 +372,7 @@ namespace environs	/// Namespace: environs ->
 		/** The applcation name of the appliction environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
         
-		/** The applcation name of the appliction environment. */
+		/** The machine name of the device */
 		char			deviceUID [MAX_NAMEPROPERTY * 6]; // 31
 	}
 	MediatorReqMsg;

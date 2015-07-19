@@ -66,15 +66,19 @@ using namespace environs;
     id              appContext2;
 }
 
+- (NSString *) ToString;
 
-- (void) AddObserver:(id<DeviceObserver>) observer;
-- (void) RemoveObserver:(id<DeviceObserver>) observer;
+- (void) AddObserver:(id<ChangeObserver>) observer;
+- (void) RemoveObserver:(id<ChangeObserver>) observer;
 
 - (void) AddObserverForData:(id<DataObserver>) observer;
 - (void) RemoveObserverForData:(id<DataObserver>) observer;
 
 - (void) AddObserverForMessages:(id<MessageObserver>) observer;
 - (void) RemoveObserverForMessages:(id<MessageObserver>) observer;
+
+- (void) NotifyAppContextChanged:(int) customFlags;
+
 
 - (NSString *) GetIP;
 - (NSString *) GetIPe;
@@ -239,6 +243,28 @@ using namespace environs;
  * @return success
  */
 - (bool) SendMessage:(NSString *)message;
+
+- (NSString *) GetStoragePath;
+
+- (void) ClearMessages;
+- (void) ClearStorage;
+
+
+/**
+ * Get a dictionary with all files that this device instance has received.
+ *
+ * @return Collection with objects of type FileInstance with the fileID as the key.
+ */
+- (NSMutableDictionary *) GetAllFiles;
+
+
+/**
+ * Get a list with all messages that this device has received (and sent).
+ *
+ * @return Collection with objects of type MessageInstance
+ */
+- (NSMutableArray *) GetAllMessages;
+
 
 @end
 

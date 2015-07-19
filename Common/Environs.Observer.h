@@ -24,6 +24,14 @@
 
 @protocol EnvironsObserver <NSObject>
 /**
+ * OnStatus is called whenever the framework status changes.&nbsp;
+ *
+ * @param status      A status constant of type STATUS_*
+ */
+- (void) OnStatus:(int) Environs_STATUS_;
+
+
+/**
  * OnNotify is called whenever a notification is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
  * The notification parameter is an integer value which represents one of the values as listed in Types.*
  * The string representation can be retrieved through TypesResolver.get(notification).
@@ -129,13 +137,11 @@
 
 @protocol MessageObserver <NSObject>
 /**
- * OnMessage is called whenever a text message is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
+ * OnMessage is called whenever a text message has been received from a device.
  *
- * @param sender        The device instance which sent the data.
- * @param message       The message as string text
- * @param length        The length of the message
+ * @param messageInst   The corresponding message object of type MessageInstance
  */
-- (void) OnMessage:(id) sender Message:(const char *) message Length:(int) length;
+- (void) OnMessage:(id) messageInstance;
 
 @end
 
@@ -145,12 +151,8 @@
  * OnData is called whenever new binary data (files, buffers) has been received.
  * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
  *
- * @param sender        The device instance which sent the data.
- * @param type          The type of the data
- * @param fileID        A user-customizable id that identifies the file
- * @param fileDescriptor    A text that describes the file
- * @param size          The size in bytes
+ * @param fileInst     The corresponding file object of type FileInstance
  */
-- (void) OnData:(id) sender Type:(int) type ID:(int) fileID Desc:(const char *) fileDescriptor Size:(int) size;
+- (void) OnData:(id) fileInstance;
 
 @end

@@ -157,7 +157,7 @@ private:
 
 	map<string, DeviceMapping *>			deviceMappings;
 
-	char									inputBuffer [BUFFERSIZE];
+	char									inputBuffer [MEDIATOR_CLIENT_MAX_BUFFER_SIZE];
 	char	*								input;
 		
 	unsigned int							sessionCounter;

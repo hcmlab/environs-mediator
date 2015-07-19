@@ -2387,7 +2387,7 @@ void MediatorDaemon::Run ()
 				printf ( "%c", c );
 
 			input++;
-			if (input == inputBuffer + BUFFERSIZE - 1) {
+			if (input == inputBuffer + MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1) {
 				// Buffer overflow now
 				input = inputBuffer;
 
@@ -3342,7 +3342,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
    
     int deviceID = 0;
 
-	char buffer [ BUFFERSIZE ];
+	char buffer [ MEDIATOR_CLIENT_MAX_BUFFER_SIZE + 1 ];
 
 	socklen_t addrLen = sizeof(client->addr);
 
@@ -3351,7 +3351,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 	char		*	msg;
 	char		*	msgEnd			= buffer;
 	int				bytesReceived, sock = client->socket;
-	unsigned int	remainingSize	= BUFFERSIZE - 1;
+	unsigned int	remainingSize	= MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
     char		*	msgDec			= 0;
 	unsigned int	msgDecLength;
     char		*	decrypted		= 0;
@@ -3384,7 +3384,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 
 			if ( msgLength > (unsigned int) bytesLeft ) 
 			{
-				if ( msgLength >= BUFFERSIZE ) goto ShutdownClient;
+				if ( msgLength >= MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) goto ShutdownClient;
 				break;
 			}
             
@@ -3590,7 +3590,7 @@ Continue:
             if ( decrypted ) { free ( decrypted ); decrypted = 0; }
 		}
 
-		remainingSize = BUFFERSIZE - 1;
+		remainingSize = MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
 
 		if ( bytesLeft > 0 ) {
 			refactorBuffer ( msg, buffer, bytesLeft, msgEnd );
@@ -3741,7 +3741,7 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
         destList = sourceClient->device->root->devices;
     }
     else {
-        appDevices = GetApplicationDevices(projName, appName);
+        appDevices = GetApplicationDevices ( projName, appName );
         if ( !appDevices ) {
             goto SendResponse;
         }
@@ -3766,6 +3766,13 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	}
 	
 	shortMsg->deviceID = deviceID;
+    if ( sourceClient->device ) {
+        if ( *sourceClient->device->info.projectName )
+            strcpy_s ( shortMsg->projectName, sizeof(shortMsg->projectName), sourceClient->device->info.projectName );
+        if ( *sourceClient->device->info.appName )
+            strcpy_s ( shortMsg->appName, sizeof(shortMsg->appName), sourceClient->device->info.appName );
+    }
+        
 	CLogArgID ( "HandleShortMessage: send message to device [%u] IP [%u bytes -> %s]", destID, length, inet_ntoa ( destClient->addr.sin_addr ) );
 	
 	sentBytes = SendBuffer ( destClient, sendBuffer, length );

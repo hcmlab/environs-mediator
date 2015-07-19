@@ -1,5 +1,5 @@
 /**
- * Environs.ios.h
+ * Environs.iOSX.h
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -28,7 +28,8 @@
 #import <CoreLocation/CoreLocation.h>
 
 #import "Environs.Observer.h"
-#import "Device.Lists.iOSX.h"
+#import "Device.List.iOSX.h"
+#import "Message.Instance.iOSX.h"
 
 
 bool CreateAppID ( char * buffer, unsigned int bufSize );
@@ -303,6 +304,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param observer Your implementation of EnvironsDataObserver.
  */
 + (void) RemoveObserverForData:(id<EnvironsDataObserver>) observer;
+
 
 /**
  * Set the ports that the local instance of Environs shall use for listening on connections.
@@ -948,11 +950,13 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 #else
 
 
-+ (int) SetUseTracker:(const char *) moduleName;
++ (int) SetUseTracker:(int) async module:(const char *) moduleName;
 
 + (int) GetUseTracker:(const char *) moduleName;
 
-+ (EBOOL) DisposeTracker:(const char *) moduleName;
++ (EBOOL) DisposeTracker:(int) async module:(const char *) moduleName;
+
++ (EBOOL) PushTrackerCommand:(int) async module: (int) index cmd:(int) command;
 
 #endif
 

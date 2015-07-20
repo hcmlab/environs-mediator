@@ -2,6 +2,7 @@
 
 ---------------------------
 
+* Fixed: Compile error on Linux platforms.
 * Updated: Release 0.7.3
 
 * Fixed: Disconnects from Mediator due to inactivity of devices.

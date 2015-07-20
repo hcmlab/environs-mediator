@@ -30,7 +30,7 @@
 #define LogSocketError()					CWarnArg("SocketError: %d",WSAGetLastError())
 #define VerbLogSocketError()				CVerbArg("SocketError: %d",WSAGetLastError())
 #define SOCK_IN_PROGRESS					(WSAGetLastError() == WSAEWOULDBLOCK)
-#define DisableSIGPIPE(socki)
+#define DisableSIGPIPE(socki)				
 
 #else
 
@@ -46,11 +46,15 @@
 #include <signal.h>
 
 #ifndef ANDROID
-// -> Linux/iOS includes
 #include <ifaddrs.h>
+#endif
+
+#ifdef __APPLE__
+// -> OSX/iOS includes
 #define DisableSIGPIPE(socki)                {int value = 1; setsockopt(socki, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));}
 #else
-#define DisableSIGPIPE(socki)
+// -> Linux/Android includes
+#define DisableSIGPIPE(socki)				signal(SIGPIPE, SIG_IGN);
 #endif
 
 #define LogSocketError()					CWarnArg("SocketError: %s",strerror(errno))

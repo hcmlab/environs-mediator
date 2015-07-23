@@ -188,14 +188,14 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 /**
  * Query the filter level for device management within Environs.
  *
- * return level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_PROJECT, Environs.MEDIATOR_FILTER_PROJECT_AND_APP
+ * return level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
  */
 + (int) GetMediatorFilterLevel;
 
 /**
  * Set the filter level for device management within Environs.
  *
- * @param level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_PROJECT, Environs.MEDIATOR_FILTER_PROJECT_AND_APP
+ * @param level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
  */
 + (void) SetMediatorFilterLevel:(int)level;
 
@@ -343,26 +343,26 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 
 + (int) DeviceConnect:(int)deviceID doAsync:(int)async;
-+ (int) DeviceConnect:(int)deviceID Project:(const char *) projectName App:(const char *) appName  doAsync:(int)async;
++ (int) DeviceConnect:(int)deviceID Area:(const char *) areaName App:(const char *) appName  doAsync:(int)async;
 
 + (bool) DeviceDisconnect:(int)nativeID doAsync:(int)async;
 
 /**
- * Set the project name that the local instance of Environs shall use for identification within the environment.
+ * Set the area name that the local instance of Environs shall use for identification within the environment.
  * It must be set before creating the Environs instance.
  *
  * @param	name
  * @return	success
  */
-+ (void) SetProjectName: (const char *) name;
++ (void) SetAreaName: (const char *) name;
 
 /**
- * Get the project name that the local instance of Environs use for identification within the environment.
+ * Get the area name that the local instance of Environs use for identification within the environment.
  * It must be set before creating the Environs instance.
  *
- * @return	projectName
+ * @return	areaName
  */
-+ (const char *) GetProjectName;
++ (const char *) GetAreaName;
 
 
 /**
@@ -474,12 +474,12 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * a registered EnvironsListener instance.
  *
  * @param deviceID	The device id which the message should be send to.
- * @param 	projectName	Project name of the application environment
+ * @param 	areaName	Area name of the application environment
  * @param 	appName		Application name of the application environment
  * @param message Message to send
  * @return success
  */
-+ (bool) SendMessage: (int)deviceID Project:(const char *) projectName App:(const char *) appName doAsync:(int)async withMsg:(NSString *) msg;
++ (bool) SendMessage: (int)deviceID Area:(const char *) areaName App:(const char *) appName doAsync:(int)async withMsg:(NSString *) msg;
 
 
 /**
@@ -542,11 +542,11 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * Query an array of DeviceInfo objects with one DeviceInfo of available devices within the environment (including those of the Mediator)
  *
  * @param deviceID
- * @param projectName	Project name of the application environment
+ * @param areaName      Area name of the application environment
  * @param appName		Application name of the application environment
  * @return DeviceInfo-objects
  */
-+ (char *) GetDeviceAvailable:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (char *) GetDeviceAvailable:(int)deviceID Area:(const char *) areaName App:(const char *) appName;
 
 /**
  * Query the number of available devices within the environment (including those of the Mediator)
@@ -566,11 +566,11 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * Query an array of DeviceInfo objects of nearby (broadcast visible) devices within the environment.
  *
  * @param deviceID
- * @param projectName	Project name of the application environment
+ * @param areaName      Area name of the application environment
  * @param appName		Application name of the application environment
  * @return DeviceInfo-objects
  */
-+ (char *) GetDeviceNearby:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (char *) GetDeviceNearby:(int)deviceID Area:(const char *) areaName App:(const char *) appName;
 
 /**
  * Query the number of nearby (broadcast visible) devices within the environment.
@@ -590,11 +590,11 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * Query an array of DeviceInfo objects with one DeviceInfo of Mediator managed devices within the environment.
  *
  * @param deviceID
- * @param projectName	Project name of the application environment
+ * @param areaName      Area name of the application environment
  * @param appName		Application name of the application environment
  * @return DeviceInfo-objects
  */
-+ (char *) GetDeviceFromMediator:(int)deviceID Project:(const char *) projectName App:(const char *) appName;
++ (char *) GetDeviceFromMediator:(int)deviceID Area:(const char *) areaName App:(const char *) appName;
 
 /**
  * Query the number of Mediator managed devices within the environment.
@@ -678,7 +678,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 /**
  * Request a device id from mediator server instances that have been provided before this call.
- * Prior to this call, the project and application name must be provided as well,
+ * Prior to this call, the area and application name must be provided as well,
  * in order to get an available device id for the specified application environment.
  * If the application has already set a deviceID (using setDeviceID), this call returns the previously set value.
  *

@@ -68,11 +68,11 @@
  * Query a DeviceInstance object from all available devices within the environment (including those of the Mediator)
  *
  * @param deviceID      The device id of the target device.
- * @param projectName	Project name of the application environment
+ * @param areaName      Area name of the application environment
  * @param appName		Application name of the application environment
  * @return DeviceInstance-object
  */
-+ (DeviceInstance *) GetDevice:(int) deviceID Project:(const char *)projectName App:(const char *)appName;
++ (DeviceInstance *) GetDevice:(int) deviceID Area:(const char *)areaName App:(const char *)appName;
 
 
 
@@ -88,7 +88,7 @@
  * Query a DeviceInstance object that best match the deviceID only.
  * Usually the one that is in the same app environment is picked up.
  * If there is no matching in the app environment,
- * then the project environments are searched for a matchint deviceID.
+ * then the areas are searched for a matchint deviceID.
  *
  * @param deviceID      The portalID that identifies an active portal.
  * @return DeviceInstance-object
@@ -99,7 +99,7 @@
  * Query a DeviceInstance object that best match the deviceID only from native layer.
  * Usually the one that is in the same app environment is picked up.
  * If there is no matching in the app environment,
- * then the project environments are searched for a matchint deviceID.
+ * then the areas are searched for a matchint deviceID.
  *
  * @param deviceID      The portalID that identifies an active portal.
  * @return DeviceInstance-object

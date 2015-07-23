@@ -90,8 +90,8 @@ namespace environs
             
 			LIBEXPORT EBOOL CallConv		SetUseTouchRecognizer1 ( const char * name, bool enable );
             
-			LIBEXPORT EBOOL CallConv		SetProjectName1 ( const char * name );
-			LIBEXPORT const char * CallConv	GetProjectName ( );
+			LIBEXPORT EBOOL CallConv		SetAreaName1 ( const char * name );
+			LIBEXPORT const char * CallConv	GetAreaName ( );
 			LIBEXPORT EBOOL CallConv		SetApplicationName1 ( const char * name );
 			LIBEXPORT const char * CallConv	GetApplicationName ( );
 			LIBEXPORT EBOOL CallConv		SetMediatorUserName1 ( const char * name );
@@ -131,7 +131,7 @@ namespace environs
              * Get the status, whether the device (id) has established an active portal
              *
              * @param 	deviceID    The device id of the target device.
-             * @param 	projectName	Project name of the application environment
+             * @param 	areaName	Area name of the application environment
              * @param 	appName		Application name of the application environment
              * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
              * @return	success 	true = yes, false = no
@@ -142,16 +142,16 @@ namespace environs
              * Get the portalID of the first active portal
              *
              * @param 	deviceID    The device id of the target device.
-             * @param 	projectName	Project name of the application environment
+             * @param 	areaName	Area name of the application environment
              * @param 	appName		Application name of the application environment
              * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
              * @return	portalID 	The portal ID.
              */
             LIBEXPORT int CallConv          GetPortalId ( int nativeID, int portalType );
             
-            LIBEXPORT int CallConv			DeviceDetected ( int deviceID, const char * projName, const char * appName, int async, int x, int y, float angle );
+            LIBEXPORT int CallConv			DeviceDetected ( int deviceID, const char * areaName, const char * appName, int Environs_CALL_, int x, int y, float angle );
             
-            LIBEXPORT int CallConv			DeviceConnect ( int deviceID, const char * projName, const char * appName, int async );
+            LIBEXPORT int CallConv			DeviceConnect ( int deviceID, const char * areaName, const char * appName, int async );
             LIBEXPORT EBOOL CallConv		DeviceDisconnect1 ( int nativeID, int async );
             
             LIBEXPORT void CallConv			DeviceUpdated ( int nativeID, int async, int x, int y, float angle );
@@ -174,9 +174,9 @@ namespace environs
             LIBEXPORT EBOOL CallConv		SendBuffer ( int nativeID, int async, int fileID, const char * fileDescriptor, char * buffer,  int size );
             LIBEXPORT EBOOL CallConv		SendFile ( int nativeID, int async, int fileID, const TCHAR * fileDescriptor, const TCHAR * file );
 
-            LIBEXPORT EBOOL CallConv		SendMsg ( int deviceID, const char * projName, const char * appName, int async, const char * message, int length );
+            LIBEXPORT EBOOL CallConv		SendMsg ( int deviceID, const char * areaName, const char * appName, int async, const char * message, int length );
             
-			LIBEXPORT EBOOL CallConv		SendPushNotification ( int deviceID, const char * projName, const char * appName, const char * message );
+			LIBEXPORT EBOOL CallConv		SendPushNotification ( int deviceID, const char * areaName, const char * appName, const char * message );
 
 			LIBEXPORT EBOOL CallConv		RegisterAtMediators ();
 
@@ -223,13 +223,13 @@ namespace environs
 			LIBEXPORT EBOOL CallConv		SetUseCapturer ( const char * moduleName );
 
             LIBEXPORT void * CallConv		GetFileNative ( int nativeID, int fileID, void * buffer, int * capacity );
-            LIBEXPORT void * CallConv		GetFile ( int deviceID, const char * projName, const char * appName, int fileID, void * buffer, int * capacity );
+            LIBEXPORT void * CallConv		GetFile ( int deviceID, const char * areaName, const char * appName, int fileID, void * buffer, int * capacity );
             
             LIBEXPORT BSTR CallConv			GetFilePathNative ( int nativeID, int fileID );
-			LIBEXPORT BSTR CallConv			GetFilePath ( int deviceID, const char * projName, const char * appName, int fileID );
+			LIBEXPORT BSTR CallConv			GetFilePath ( int deviceID, const char * areaName, const char * appName, int fileID );
 
-			LIBEXPORT BSTR CallConv			GetFilePathForStorage ( int deviceID, const char * projName, const char * appName );
-			LIBEXPORT void CallConv			ReleaseString ( int deviceID, const char * projName, const char * appName );
+			LIBEXPORT BSTR CallConv			GetFilePathForStorage ( int deviceID, const char * areaName, const char * appName );
+			LIBEXPORT void CallConv			ReleaseString ( int deviceID, const char * areaName, const char * appName );
 
 
 			LIBEXPORT EBOOL CallConv		GetPortalInfo ( void * buffer );
@@ -240,7 +240,7 @@ namespace environs
 			LIBEXPORT void CallConv			FreeNativeMemory ( void * obj );
 
 			LIBEXPORT void * CallConv		GetDevices ( int fromType );
-            LIBEXPORT void * CallConv		GetDevice ( int deviceID, const char * projName, const char * appName, int fromType );
+            LIBEXPORT void * CallConv		GetDevice ( int deviceID, const char * areaName, const char * appName, int fromType );
             LIBEXPORT void * CallConv		GetDeviceForPortal1 ( int portalID );
             
             LIBEXPORT int CallConv			GetDevicesCount ( int fromType );
@@ -273,7 +273,7 @@ namespace environs
              * Acquire a native layer send identifier (and increase instanceLock on device) to be used in sendTcpPortal. This resource must be released on disposal of the portal generator.
              *
              * @param deviceID      The device id of the target device.
-             * @param projectName	Project name of the application environment
+             * @param areaName		Area name of the application environment
              * @param appName		Application name of the application environment
              * @param portalUnitType	e.g. MSG_TYPE_STREAM
              * @param portalID    Values should be of type PortalType.&nbsp;This is an application specific type identifier (e.g. used for distinguishing front facing or back facing camera)

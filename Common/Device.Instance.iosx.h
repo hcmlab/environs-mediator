@@ -47,11 +47,18 @@ using namespace environs;
     
     /** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
     int             async;
-    
+
+	/** The device properties structure into a DeviceInfo object. */
     DeviceInfo      info;
+
+	/**
+	 * disposed is true if DeviceInstance is no longer valid. Nothing will be updated anymore.
+	 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to ChangeObservers.
+	 * */
     bool            disposed;
     int             connectProgress;
-    
+
+	/** A DeviceDisplay structure that describes the device's display properties. */
     DeviceDisplay   display;
     
     int             directStatus;
@@ -68,15 +75,53 @@ using namespace environs;
 
 - (NSString *) ToString;
 
+/**
+* Add an observer (ChangeObserver) that notifies about device property changes.
+*
+* @param observer A ChangeObserver
+*/
 - (void) AddObserver:(id<ChangeObserver>) observer;
+
+/**
+* Remove an observer (ChangeObserver) that was added before.
+*
+* @param observer A ChangeObserver
+*/
 - (void) RemoveObserver:(id<ChangeObserver>) observer;
 
+/**
+* Add an observer (DataObserver) that notifies about data received or sent through the DeviceInstance.
+*
+* @param observer A DataObserver
+*/
 - (void) AddObserverForData:(id<DataObserver>) observer;
+
+/**
+* Remove an observer (DataObserver) that was added before.
+*
+* @param observer A DataObserver
+*/
 - (void) RemoveObserverForData:(id<DataObserver>) observer;
 
+/**
+* Add an observer (MessageObserver) that notifies about messages received or sent through the DeviceInstance.
+*
+* @param observer A MessageObserver
+*/
 - (void) AddObserverForMessages:(id<MessageObserver>) observer;
+
+/**
+* Remove an observer (MessageObserver) that was added before.
+*
+* @param observer A MessageObserver
+*/
 - (void) RemoveObserverForMessages:(id<MessageObserver>) observer;
 
+/**
+* Notify to all observers (ChangeObserver) that the appContext has changed.
+*
+* @param customFlags Either custom declared flags or 0. If 0 is provided, then the flag Environs.DEVICE_INFO_ATTR_APP_CONTEXT will be used.
+*/
 - (void) NotifyAppContextChanged:(int) customFlags;
 
 
@@ -84,13 +129,13 @@ using namespace environs;
 - (NSString *) GetIPe;
 
 - (bool) EqualsAppEnv:(DeviceInfo *) equalTo;
-- (bool) EqualsAppEnv:(const char *)projectName App:(const char *)appName;
+- (bool) EqualsAppEnv:(const char *)areaName App:(const char *)appName;
 
 - (bool) LowerThanAppEnv:(DeviceInfo *) compareTo;
-- (bool) LowerThanAppEnv:(const char *)projectName App:(const char *)appName;
+- (bool) LowerThanAppEnv:(const char *)areaName App:(const char *)appName;
 
 - (bool) EqualsID:(DeviceInstance *) equalTo;
-- (bool) EqualsID:(int) deviceID Project:(const char *)projectName App:(const char *)appName;
+- (bool) EqualsID:(int) deviceID Area:(const char *)areaName App:(const char *)appName;
 
 
 + (NSString *) DeviceTypeString:(DeviceInfo *) info;
@@ -101,6 +146,8 @@ using namespace environs;
 /**
  * Connect to this device asynchronously.
  *
+ * @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
+ *
  * @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
  * 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
  * 					true: A new connection has been triggered and is in progress
@@ -108,11 +155,29 @@ using namespace environs;
 - (bool) Connect;
 
 /**
+ * Connect to this device using the given mode.
+ *
+ * @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
+ * 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
+ * 					true: A new connection has been triggered and is in progress
+ */
+- (bool) Connect:(int) Environs_CALL_;
+
+/**
  * Disconnect the device with the given id and a particular application environment.
  *
  * @return	success		true: Connection has been shut down; false: Device with deviceID is not connected.
  */
 - (bool) Disconnect;
+
+/**
+ * Disconnect the device using the given mode with the given id and a particular application environment.
+ *
+ * @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
+ *
+ * @return	success		true: Connection has been shut down; false: Device with deviceID is not connected.
+ */
+- (bool) Disconnect:(int) Environs_CALL_;
 
 /**
  * Retrieve display properties and dimensions of this device. The device must be connected before this object is available.
@@ -151,7 +216,7 @@ using namespace environs;
  * Creates a portal instance.
  *
  * @param Environs_PORTAL_DIR   A value of PORTAL_DIR_* that determines whether an outgoing or incoming portal.
- * @param portalType	        Project name of the application environment
+ * @param portalType	        P
  * @return PortalInstance-object
  */
 - (PortalInstance *) PortalCreate:(int) Environs_PORTAL_DIR type:(PortalType::PortalType) portalType;
@@ -244,9 +309,23 @@ using namespace environs;
  */
 - (bool) SendMessage:(NSString *)message;
 
+/**
+* Query the absolute path for the local filesystem to the persistent storage for this DeviceInstance.
+*
+* @return absolutePath
+*/
 - (NSString *) GetStoragePath;
 
+/**
+* Clear (Delete permanently) all messages for this DeviceInstance in the persistent storage.
+*
+*/
 - (void) ClearMessages;
+
+/**
+* Clear (Delete permanently) all files for this DeviceInstance in the persistent storage.
+*
+*/
 - (void) ClearStorage;
 
 

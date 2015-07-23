@@ -44,7 +44,7 @@ namespace environs
 			LIBEXPORT void CallConv			touch2 ( int deviceID, int id, int x, int y, float angle, float size, float axisx, float axisy, unsigned char event );
 
 			LIBEXPORT int CallConv			GetSizeOfBufferHeader ();
-			LIBEXPORT void * CallConv		ReceiveStreamPack ( int deviceID, const char * projName, const char * appName, int portalID );
+			LIBEXPORT void * CallConv		ReceiveStreamPack ( int deviceID, const char * areaName, const char * appName, int portalID );
 
 			LIBEXPORT int CallConv			GetSizeOfTouchPack ();
 

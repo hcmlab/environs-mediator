@@ -50,13 +50,13 @@
  * The string representation can be retrieved through TypesResolver.get(notification).
  *
  * @param deviceID      The device id of the sender device.
- * @param projectName	Project name of the application environment
+ * @param areaName      Area name of the application environment
  * @param appName		Application name of the application environment
  * @param notification  The notification
  * @param sourceIdent   A value of the enumeration Types.EnvironsSource
  * @param context       A value that provides additional context information (if available).
  */
-- (void) OnNotifyExt:(int) deviceID Project:(const char *) projectName App:(const char *) appName withNotify:(int) notification withSource:(int)source withContext:(int)context;
+- (void) OnNotifyExt:(int) deviceID Area:(const char *) areaName App:(const char *) appName withNotify:(int) notification withSource:(int)source withContext:(int)context;
 
 
 /**
@@ -86,13 +86,13 @@
  * OnMessage is called whenever a text message is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
  *
  * @param deviceID      The device id of the sender device.
- * @param projectName	Project name of the application environment
+ * @param areaName      Area name of the application environment
  * @param appName		Application name of the application environment
  * @param type	        Determines the source (either from a device, environs, or native layer)
  * @param message       The message as string text
  * @param length        The length of the message
  */
-- (void) OnMessageExt:(int) deviceID Project:(const char *) projectName App:(const char *) appName withType:(int)type withMsg:(const char *) message withLength:(int)msgLength;
+- (void) OnMessageExt:(int) deviceID Area:(const char *) areaName App:(const char *) appName withType:(int)type withMsg:(const char *) message withLength:(int)msgLength;
 
 /**
  * OnStatusMessage is called when the native layer has broadcase a text message to inform about a status change.

@@ -149,7 +149,7 @@ namespace environs	/// Namespace: environs ->
 	typedef struct _ApplicationDevices
 	{
 		unsigned int			id;
-		unsigned int			projId;
+		unsigned int			areaId;
 		pthread_mutex_t			mutex;
 		int						count;
 		long					access;
@@ -161,7 +161,7 @@ namespace environs	/// Namespace: environs ->
 	ApplicationDevices;
 
     
-    // "int11 1s projectNameMAX_PROP 1s appNameMAX_PROP 1e"
+    // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
 #define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 5)
 
     
@@ -173,7 +173,7 @@ namespace environs	/// Namespace: environs ->
 		ApplicationDevices		* root;
 		ThreadInstance			* client;
 #else
-		char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s projectNameMAX_PROP 1s appNameMAX_PROP 1e"
+		char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
 #endif
 		char					  userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
 
@@ -186,7 +186,7 @@ namespace environs	/// Namespace: environs ->
     {
         DeviceInfo info;
         
-        char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s projectNameMAX_PROP 1s appNameMAX_PROP 1e"
+        char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
     }
     DeviceInstanceItem;
 
@@ -284,7 +284,7 @@ namespace environs	/// Namespace: environs ->
 		pthread_mutex_t			devicesMutex;
 
 		unsigned int			broadcastMessageLen;
-		char					broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for projectname
+		char					broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
 		unsigned int			greetUpdates;
 
 		int						broadcastSocketID;
@@ -298,7 +298,7 @@ namespace environs	/// Namespace: environs ->
 
 		DeviceInstanceList *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
 
-		virtual DeviceInstanceList ** GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** appDevices ) = 0;
+		virtual DeviceInstanceList ** GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** appDevices ) = 0;
 
 		virtual void			RemoveDevice ( unsigned int ip, char * msg ) {};
 		virtual void			RemoveDevice ( DeviceInstanceList * device, bool useLock = true ) = 0;
@@ -306,7 +306,7 @@ namespace environs	/// Namespace: environs ->
 		
 		virtual void			ReleaseDevices ( ) = 0;
 
-		virtual void			NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID ) {};
+		virtual void			NotifyClientsStart ( unsigned int notify, const char * areaName, const char * appName, int deviceID ) {};
 		
 		MediatorInstance *		IsKnownMediator ( unsigned int ip, unsigned short port );
 		MediatorInstance *		AddMediator ( MediatorInstance * med );
@@ -366,10 +366,10 @@ namespace environs	/// Namespace: environs ->
 		char			opt0;
 		char			opt1;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
         
 		/** The machine name of the device */
@@ -400,10 +400,10 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	msgID;
 		int				notifyDeviceID;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 	}
 	MediatorNotify;
@@ -421,10 +421,10 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	startIndex;
 		int				deviceID;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 	}
 	MediatorQueryMsg;
@@ -478,10 +478,10 @@ namespace environs	/// Namespace: environs ->
 
 		int				deviceID;
         
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
         
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 
 		char			pad [2];
@@ -515,10 +515,10 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	ipe;
 		unsigned int	port;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 		unsigned int	pad0;
 	}
@@ -532,16 +532,16 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	sourceID;
 		unsigned int	destID;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The project name of the appliction environment. */
-		char			projectNameSrc [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaNameSrc [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appNameSrc [MAX_NAMEPROPERTY + 1]; // 31
 	}
 	STUNReqPacket;
@@ -556,10 +556,10 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	IP;
 		unsigned int	Port;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The applcation name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 	}
 	STUNReqReqPacket;
@@ -584,10 +584,10 @@ namespace environs	/// Namespace: environs ->
 
 		int				deviceID;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 	}
 	UdpHelloPacket;
@@ -611,10 +611,10 @@ namespace environs	/// Namespace: environs ->
 
 		int				deviceID;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 
 		char			msg;
@@ -629,10 +629,10 @@ namespace environs	/// Namespace: environs ->
 		char			ident [2];
 		int				deviceID;
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the application environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 
 		char			text;

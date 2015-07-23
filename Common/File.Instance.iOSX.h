@@ -34,17 +34,64 @@
 @interface FileInstance : NSObject
 {
 @public
+	/**
+	 * An integer type identifier to uniquely identify this FileInstance between two DeviceInstances.
+	 * A value of 0 indicates an invalid fileID.
+	 * */
     int fileID;
+
+	/**
+	 * Used internally.
+	 * */
     int type;
+
+	/**
+	 * A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
+	 * */
     NSString * descriptor;
+    
+    /**
+     * sent is true if this FileInstance is data that was sent or received (false).
+     * */
     bool sent;
+    
+    /**
+     * created is a posix timestamp that determines the time and date that this FileInstance
+     * has been received or sent.
+     * */
     long created;
+
+	/**
+	 * The size in bytes of a buffer to send or data received.
+	 * */
     long size;
+
+	/**
+	 * The absolute path to the file if this FileInstance originates from a call to SendFile or received data.
+	 * */
     NSString * path;
     
+    /**
+     * sendProgress is a value between 0-100 (percentage) that reflects the percentage of the
+     * file or buffer that has already been sent.
+     * If this value changes, then the corresponding device's ChangeObserver is notified
+     * with this FileInstance object as the sender
+     * and the change-flag FILE_INFO_ATTR_SEND_PROGRESS
+     * */
     int sendProgress;
+    
+    /**
+     * receiveProgress is a value between 0-100 (percentage) that reflects the percentage of the
+     * file or buffer that has already been received.
+     * If this value changes, then the corresponding device's ChangeObserver is notified
+     * with this FileInstance object as the sender
+     * and the change-flag FILE_INFO_ATTR_RECEIVE_PROGRESS
+     * */
     int receiveProgress;
     
+	/**
+	 * A reference to the DeviceInstance that is responsible for this FileInstance.
+	 * */
     id device;
 }
 

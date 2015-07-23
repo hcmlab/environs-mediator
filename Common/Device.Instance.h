@@ -82,10 +82,10 @@ namespace environs
 		/** The device name. */
 		char			deviceName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The project name of the appliction environment. */
-		char			projectName [MAX_NAMEPROPERTY + 1]; // 31
+		/** The area name of the appliction environment. */
+		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
 
-		/** The applcation name of the appliction environment. */
+		/** The application name of the appliction environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 	}
 	DeviceInfo;

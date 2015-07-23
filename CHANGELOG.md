@@ -1,3 +1,11 @@
+### v 0.8.0
+
+---------------------------
+
+* Updated: to version 0.8.0
+* Changed: ProjectName to AreaName
+
+
 ### v 0.7.3
 
 ---------------------------

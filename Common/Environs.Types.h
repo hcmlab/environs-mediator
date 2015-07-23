@@ -599,8 +599,8 @@ namespace environs {
  * Environs mediator filter constants
  */
 #define	MEDIATOR_FILTER_NONE                              		(0)
-#define	MEDIATOR_FILTER_PROJECT                           		(1)
-#define	MEDIATOR_FILTER_PROJECT_AND_APP                   		(2)
+#define	MEDIATOR_FILTER_AREA                              		(1)
+#define	MEDIATOR_FILTER_AREA_AND_APP                      		(2)
 /// Disable all devicelist notifications
 #define	MEDIATOR_FILTER_ALL                               		(8)
 
@@ -639,8 +639,8 @@ namespace environs {
 #define	DEVICEINFO_ISCONNECTED_START                      		(DEVICEINFO_UNAVAILABLE_START + 1)
 #define	DEVICEINFO_DEVICETYPE_START                       		(DEVICEINFO_ISCONNECTED_START + 2)
 #define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_DEVICETYPE_START + 1)
-#define	DEVICEINFO_PROJECTNAME_START                      		(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1))
-#define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_PROJECTNAME_START + (MAX_NAMEPROPERTY + 1))
+#define	DEVICEINFO_AREANAME_START                         		(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1))
+#define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1))
 
 
 /**
@@ -681,7 +681,7 @@ namespace environs {
 /** Ignore: for Resolver */
 #define	META_MSG_NAME_ID                                  		(" NAME ")
 /** Ignore: for Resolver */
-#define	ENVIRONS_DEFAULT_PROJECT_NAME                     		("Environs")
+#define	ENVIRONS_DEFAULT_AREA_NAME                        		("Environs")
 /** Ignore: for Resolver */
 #define	ENVIRONS_DEFAULT_APP_NAME                         		("HCMDefaultApp")
 /** Ignore: for Resolver */
@@ -967,8 +967,8 @@ namespace environs {
  * Environs call flags
  * Type: int
  */
-#define	CALL_SYNC                                         		(0)
-#define	CALL_ASYNC                                        		(1)
+#define	CALL_WAIT                                         		(0)
+#define	CALL_NOWAIT                                       		(1)
 
 
 /**

@@ -886,7 +886,7 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 	bool			found		= false;
 	bool			changed		= false;
 	char		*	deviceName	= 0;
-	char		*	projectName = 0;
+	char		*	areaName	= 0;
 	char		*	appName		= 0;
 	char		*	userName	= 0;
 	DeviceInstanceList * device		= 0;
@@ -904,7 +904,7 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 	if ( !value )
 		return 0;
 	
-	// Get the projectname, appname, etc..
+	// Get the areaName, appname, etc..
 	char * context = NULL;
 	char * psem = strtok_s ( msg + MEDIATOR_BROADCAST_DESC_START, ";", &context );
 	if ( !psem )
@@ -914,7 +914,7 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 	psem = strtok_s ( NULL, ";", &context );
 	if ( !psem )
 		return 0;
-	projectName = psem;
+	areaName = psem;
 	
 	psem = strtok_s ( NULL, ";", &context );
 	if ( !psem )
@@ -932,22 +932,22 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 	}*/
 
 #if !defined(MEDIATORDAEMON)
-	if ( value == environs.deviceID && !strncmp ( projectName, environs.projectName, sizeof(environs.projectName) )
+	if ( value == environs.deviceID && !strncmp ( areaName, environs.areaName, sizeof ( environs.areaName ) )
 		&& !strncmp ( appName, environs.appName, sizeof(environs.appName) ) )
 		return 0;
 
-	if ( opt_mediatorFilterLevel > 0 ) {
-		if ( strncmp ( projectName, environs.projectName, sizeof(environs.projectName) ) )
+	if ( opt_mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
+		if ( strncmp ( areaName, environs.areaName, sizeof ( environs.areaName ) ) )
 			return 0;
 
-		if ( opt_mediatorFilterLevel > 1 ) {
+		if ( opt_mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
 			if ( strncmp ( appName, environs.appName, sizeof(environs.appName) ) )
 				return 0;
 		}
 	}
 #endif
 
-	listRoot = GetDeviceList ( projectName, appName, &mutex, &pDevicesAvailable, &appDevices );
+	listRoot = GetDeviceList ( areaName, appName, &mutex, &pDevicesAvailable, &appDevices );
 
 #ifdef MEDIATORDAEMON
 	if ( !listRoot ) {
@@ -964,11 +964,11 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 
 	while ( device ) 
 	{
-		CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Project [%s / %s] App [%s / %s]", device->info.deviceID, value, device->info.projectName, projectName, device->info.appName, appName );
+		CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Area [%s / %s] App [%s / %s]", device->info.deviceID, value, device->info.areaName, areaName, device->info.appName, appName );
 
 		if ( device->info.deviceID == value
 #ifndef MEDIATORDAEMON
-			&& !strncmp ( device->info.projectName, projectName, sizeof(device->info.projectName) ) && !strncmp ( device->info.appName, appName, sizeof(device->info.appName) )
+			&& !strncmp ( device->info.areaName, areaName, sizeof ( device->info.areaName ) ) && !strncmp ( device->info.appName, appName, sizeof ( device->info.appName ) )
 #endif
 		) {			
 			found = true; device->info.unavailable = true;
@@ -1009,9 +1009,9 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 #ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
             *((int *)dev->key) = value;
             
-            int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", projectName, appName );
+			int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
 #else
-			int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, projectName, appName );
+			int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
 #endif
 			if ( copied <= 0 ) {
 				CErr ( "UpdateDevices: Failed to build the key for new device!" );
@@ -1046,8 +1046,8 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 			}
 			device = dev;
 			
-			changed = true; //flags |= DEVICE_INFO_ATTR_PROJECT_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
-			strcpy_s ( device->info.projectName, sizeof(device->info.projectName), projectName );
+			changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
+			strcpy_s ( device->info.areaName, sizeof ( device->info.areaName ), areaName );
 			strcpy_s ( device->info.appName, sizeof(device->info.appName), appName );
 			//if ( userName ) {
 			//	strcpy_s ( device->userName, sizeof(device->userName), userName );
@@ -1123,7 +1123,7 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 				CListLogArg ( "UpdateDevices: Device IPe [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
 			}
 
-			CListLogArg ( "UpdateDevices: Project/App = [%s / %s]", device->info.projectName, device->info.appName );
+			CListLogArg ( "UpdateDevices: Area/App = [%s / %s]", device->info.areaName, device->info.appName );
 			CListLogArg ( "UpdateDevices: Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &ip) ), device->info.tcpPort, device->info.udpPort );
 		}
 	}
@@ -1161,7 +1161,7 @@ void printDevices ( DeviceInstanceList * device )
 	while ( device ) 
 	{
 		CLogArg ( "printDevices: Device id      = 0x%X", device->info.deviceID );
-		CLogArg ( "printDevices: Project name   = %s", device->info.projectName );
+		CLogArg ( "printDevices: Area name      = %s", device->info.areaName );
 		CLogArg ( "printDevices: App name       = %s", device->info.appName );
 		CLogArg ( "printDevices: Platform       = %i", device->info.platform );
 		CLogArg ( "printDevices: Device IPe     = %s (from socket)", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );

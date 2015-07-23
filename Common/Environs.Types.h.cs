@@ -628,8 +628,8 @@ namespace hcm.environs
 		 * Environs mediator filter constants
 		 */
 		public const int MEDIATOR_FILTER_NONE                              =	(0);
-		public const int MEDIATOR_FILTER_PROJECT                           =	(1);
-		public const int MEDIATOR_FILTER_PROJECT_AND_APP                   =	(2);
+		public const int MEDIATOR_FILTER_AREA                              =	(1);
+		public const int MEDIATOR_FILTER_AREA_AND_APP                      =	(2);
 		/// Disable all devicelist notifications
 		public const int MEDIATOR_FILTER_ALL                               =	(8);
 		
@@ -671,8 +671,8 @@ namespace hcm.environs
 		public const int DEVICEINFO_ISCONNECTED_START                      =	(DEVICEINFO_UNAVAILABLE_START + 1);
 		public const int DEVICEINFO_DEVICETYPE_START                       =	(DEVICEINFO_ISCONNECTED_START + 2);
 		public const int DEVICEINFO_DEVICENAME_START                       =	(DEVICEINFO_DEVICETYPE_START + 1);
-		public const int DEVICEINFO_PROJECTNAME_START                      =	(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1));
-		public const int DEVICEINFO_APPNAME_START                          =	(DEVICEINFO_PROJECTNAME_START + (MAX_NAMEPROPERTY + 1));
+		public const int DEVICEINFO_AREANAME_START                         =	(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1));
+		public const int DEVICEINFO_APPNAME_START                          =	(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1));
 		
 		
 		/**
@@ -715,7 +715,7 @@ namespace hcm.environs
 		/** Ignore: for Resolver */
 		public const String META_MSG_NAME_ID                                  =	(" NAME ");
 		/** Ignore: for Resolver */
-		public const String ENVIRONS_DEFAULT_PROJECT_NAME                     =	("Environs");
+		public const String ENVIRONS_DEFAULT_AREA_NAME                        =	("Environs");
 		/** Ignore: for Resolver */
 		public const String ENVIRONS_DEFAULT_APP_NAME                         =	("HCMDefaultApp");
 		/** Ignore: for Resolver */
@@ -1009,8 +1009,8 @@ namespace hcm.environs
 		 * Type: int
 		 * Type: int
 		 */
-		public const int CALL_SYNC                                         =	(0);
-		public const int CALL_ASYNC                                        =	(1);
+		public const int CALL_WAIT                                         =	(0);
+		public const int CALL_NOWAIT                                       =	(1);
 		
 		
 		/**

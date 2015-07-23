@@ -125,16 +125,16 @@ MediatorDaemon::MediatorDaemon ()
 	deviceMappings      .clear ();
 	acceptClients       .clear ();
 
-	projects            .clear ();
+	areas	            .clear ();
 	ports               .clear ();
 	bannedIPs           .clear ();
     bannedIPConnects    .clear ();
     bannAfterTries      = 3;
 	
-	projectsList        .clear ();
+	areasList        .clear ();
 	
-	projectCounter      = 0;
-	projectIDs          .clear ();
+	areasCounter      = 0;
+	areaIDs          .clear ();
 
 	appsCounter         = 0;
 	appIDs              .clear ();
@@ -166,7 +166,7 @@ MediatorDaemon::MediatorDaemon ()
     encPadding              = ENVIRONS_DEFAULT_CRYPT_PAD;
 
 	notifyDeviceID			= 0;
-	notifyProjectName		= 0;
+	notifyAreaName          = 0;
 	notifyAppName			= 0;
 	spareID					= 0;
 
@@ -187,7 +187,7 @@ MediatorDaemon::~MediatorDaemon ()
 	Dispose ();
 
     notifyTargets    .clear ();
-	projectIDs      .clear ();
+	areaIDs		      .clear ();
 	appIDs          .clear ();
 
 	CloseLog ();
@@ -196,9 +196,9 @@ MediatorDaemon::~MediatorDaemon ()
 
 	ReleaseEnvironsCrypt ();
 	
-	if ( notifyProjectName ) {
-		free ( notifyProjectName );
-		notifyProjectName = 0;
+	if ( notifyAreaName ) {
+		free ( notifyAreaName );
+		notifyAreaName = 0;
 	}
 	if ( notifyAppName ) {
 		free ( notifyAppName );
@@ -209,7 +209,7 @@ MediatorDaemon::~MediatorDaemon ()
 		pthread_mutex_destroy ( &usersDBMutex );
 		pthread_mutex_destroy ( &bannedIPsMutex );
 		pthread_mutex_destroy ( &acceptClientsMutex );
-		pthread_mutex_destroy ( &projectsMutex );
+		pthread_mutex_destroy ( &areasMutex );
 		pthread_mutex_destroy ( &thread_mutex );
 		pthread_mutex_destroy ( &logMutex );
 	}
@@ -260,8 +260,8 @@ bool MediatorDaemon::InitMediator ()
 			return false;
 		}
 
-		if ( pthread_mutex_init		( &projectsMutex, NULL ) ) {
-			CErr ( "InitMediator: Failed to init projectsMutex." );
+		if ( pthread_mutex_init		( &areasMutex, NULL ) ) {
+			CErr ( "InitMediator: Failed to init areasMutex." );
 			return false;
 		}
 		
@@ -596,8 +596,8 @@ bool MediatorDaemon::LoadProjectValues ()
 	if ( !conffile.good() )
 		return false;
 	
-	if ( pthread_mutex_lock ( &projectsMutex ) ) {
-		CErr ( "LoadProjectValues: Failed to aquire mutex on project/values!" );
+	if ( pthread_mutex_lock ( &areasMutex ) ) {
+		CErr ( "LoadProjectValues: Failed to aquire mutex on areas/values!" );
 	}	
 
 	AppsList					*	apps	= 0;
@@ -611,14 +611,14 @@ bool MediatorDaemon::LoadProjectValues ()
 			continue;
 
 		if ( str [ 0 ] == 'P' && str [ 1 ] == ':' ) {
-			CVerbArg ( "Loading project [%s]", str );
+			CVerbArg ( "Loading area [%s]", str );
 
 			apps = new AppsList ();
 			if ( !apps ) {
-				CErrArg ( "LoadProjectValues: Failed to create new project [%s].", str + 2 );
+				CErrArg ( "LoadProjectValues: Failed to create new area [%s].", str + 2 );
 				break;
 			}
-			projects [ string ( str + 2 ) ] = apps;
+			areas [ string ( str + 2 ) ] = apps;
 			continue;
 		}
 
@@ -665,13 +665,13 @@ bool MediatorDaemon::LoadProjectValues ()
 	}
 	
 	/// Sanitinize database
-	map<string, AppsList*>::iterator it = projects.begin();
+	map<string, AppsList*>::iterator it = areas.begin();
 	
-	while ( it != projects.end() )
+	while ( it != areas.end() )
 	{		
 		if ( !it->second ) {
-			projects.erase ( it );
-			it = projects.begin();
+			areas.erase ( it );
+			it = areas.begin();
 			continue;
 		}
 		
@@ -693,16 +693,16 @@ bool MediatorDaemon::LoadProjectValues ()
 		}
 
 		if ( !it->second->apps.size() ) {
-			projects.erase ( it );
-			it = projects.begin();
+			areas.erase ( it );
+			it = areas.begin();
 			continue;
 		}
 
 		it++;
 	}
 
-	if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-		CErr ( "LoadProjectValues: Failed to release mutex on project/values!" );
+	if ( pthread_mutex_unlock ( &areasMutex ) ) {
+		CErr ( "LoadProjectValues: Failed to release mutex on areas/values!" );
 	}
 
 	conffile.close();
@@ -722,13 +722,13 @@ bool MediatorDaemon::SaveProjectValues ()
 	if ( !conffile.good() )
 		return false;
 	
-	if ( pthread_mutex_lock ( &projectsMutex ) ) {
-		CErr ( "SaveProjectValues: Failed to aquire mutex on project/values!" );
+	if ( pthread_mutex_lock ( &areasMutex ) ) {
+		CErr ( "SaveProjectValues: Failed to aquire mutex on areas/values!" );
 		ret = false;
 	}
 	else {
-		// Save Projects
-		for ( map<string, AppsList * >::iterator it = projects.begin(); it != projects.end(); it++ )
+		// Save areas
+		for ( map<string, AppsList * >::iterator it = areas.begin(); it != areas.end(); it++ )
 		{
 			if ( !it->second )
 				continue;
@@ -751,8 +751,8 @@ bool MediatorDaemon::SaveProjectValues ()
 			}
 		}
 			
-		if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-			CErr ( "SaveProjectValues: Failed to release mutex on project/values!" );
+		if ( pthread_mutex_unlock ( &areasMutex ) ) {
+			CErr ( "SaveProjectValues: Failed to release mutex on areas/values!" );
 			ret = false;
 		}
 	}
@@ -890,7 +890,7 @@ bool MediatorDaemon::SaveDeviceMappings ( )
 		ret = false;
 	}
 	else {
-		// Save Projects
+		// Save areas
 		for ( map<string, DeviceMapping *>::iterator it = deviceMappings.begin(); it != deviceMappings.end(); it++ )
 		{
 			if ( !it->second )
@@ -1111,7 +1111,7 @@ bool MediatorDaemon::SaveUserDB ()
 		ret = false;
 	}
 	else {
-		// Save Projects
+		// Save areas
 		for ( map<string, string>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
 		{
 			//CVerbArg ( "SaveUserDB: try saving [%s]", it->first.c_str() );
@@ -1388,11 +1388,11 @@ void MediatorDaemon::Dispose ()
 	
 	ReleaseDevices ();
 
-	if ( pthread_mutex_lock ( &projectsMutex ) ) {
-		CErr ( "Dispose: Failed to aquire mutex on project/values!" );
+	if ( pthread_mutex_lock ( &areasMutex ) ) {
+		CErr ( "Dispose: Failed to aquire mutex on area/values!" );
 	}
 		
-	for ( map<string, AppsList * >::iterator it = projects.begin(); it != projects.end(); it++ )
+	for ( map<string, AppsList * >::iterator it = areas.begin(); it != areas.end(); it++ )
 	{
 		if ( !it->second )
 			continue;
@@ -1412,10 +1412,10 @@ void MediatorDaemon::Dispose ()
 		}
 		delete it->second;
 	}
-	projects.clear ();
+	areas.clear ();
 
-	if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-		CErr ( "Dispose: Failed to release mutex on project/values!" );
+	if ( pthread_mutex_unlock ( &areasMutex ) ) {
+		CErr ( "Dispose: Failed to release mutex on areas/values!" );
 	}
 
 	ReleaseDeviceMappings ();
@@ -1571,15 +1571,15 @@ void MediatorDaemon::ReleaseDevices ()
 	CLog ( "ReleaseDevices" );
 
 	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErr ( "ReleaseDevices: Failed to aquire mutex on project/values!" );
+		CErr ( "ReleaseDevices: Failed to aquire mutex on area/values!" );
 	}
 
-	for ( map<string, ProjectApps*>::iterator it = projectsList.begin(); it != projectsList.end(); ++it )
+	for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end(); ++it )
 	{
 		if ( it->second ) {
-			ProjectApps * projApps = it->second;
+			AreaApps * areaApps = it->second;
 
-			for ( map<string, ApplicationDevices *>::iterator ita = projApps->apps.begin(); ita != projApps->apps.end(); ++ita )
+			for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end(); ++ita )
 			{
 				ApplicationDevices * appDevices = ita->second;
 				if ( appDevices ) 
@@ -1608,13 +1608,13 @@ void MediatorDaemon::ReleaseDevices ()
 				}
 			}
 
-			delete projApps;
+			delete areaApps;
 		}
 	}
-	projectsList.clear ();
+	areasList.clear ();
 
 	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-		CErr ( "ReleaseDevices: Failed to release mutex on project/values!" );
+		CErr ( "ReleaseDevices: Failed to release mutex on area/values!" );
 	}
 }
 
@@ -1642,17 +1642,17 @@ void MediatorDaemon::ReleaseDeviceMappings ()
 }
 
 
-void MediatorDaemon::RemoveDevice ( int deviceID, const char * projectName, const char * appName )
+void MediatorDaemon::RemoveDevice ( int deviceID, const char * areaName, const char * appName )
 {
 	CVerbID ( "RemoveDevice from maps" );
 
-	if ( !projectName || !appName ) {
-		CErrID ( "RemoveDevice: Called with NULL argument for projectName or appName?!" );
+	if ( !areaName || !appName ) {
+		CErrID ( "RemoveDevice: Called with NULL argument for areaName or appName?!" );
 		return;
 	}
 	
 	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErrID ( "RemoveDevice: Failed to acquire mutex on project list!" );
+		CErrID ( "RemoveDevice: Failed to acquire mutex on area list!" );
 		return;
 	}
 
@@ -1664,22 +1664,22 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * projectName, cons
 	string appsName ( appName );
 	ApplicationDevices					* appDevices = 0;
 
-	string projName ( projectName );
-	ProjectApps							* projApps	= 0;
+	string pareaName ( areaName );
+	AreaApps							* areaApps	= 0;
 
 	map<string, ApplicationDevices * >::iterator appsIt;
 
-    map<string, ProjectApps * >::iterator projIt = projectsList.find ( projName );
-	if ( projIt != projectsList.end ( ) )
-		projApps = projIt->second;
+    map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );
+	if ( areaIt != areasList.end ( ) )
+		areaApps = areaIt->second;
     
-	if ( !projApps ) {
-		CWarnArgID ( "RemoveDevice: projectName [%s] not found.", projectName );
+	if ( !areaApps ) {
+		CWarnArgID ( "RemoveDevice: areaName [%s] not found.", areaName );
 		goto Finish;
 	}		
 
-	appsIt = projApps->apps.find ( appsName );				
-	if ( appsIt != projApps->apps.end ( ) )
+	appsIt = areaApps->apps.find ( appsName );				
+	if ( appsIt != areaApps->apps.end ( ) )
 		appDevices = appsIt->second;
 
 	if ( !appDevices ) {
@@ -1733,14 +1733,14 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * projectName, cons
 				pthread_mutex_unlock ( &appDevices->mutex );
 				unlock = false;
 
-				projApps->erase ( appsIt );
+				areaApps->erase ( appsIt );
 
 				pthread_mutex_destroy ( &appDevices->mutex );
 				free ( appDevices );
 
-				if ( projApps->size() == 0 ) {
-					projectsList.erase ( projIt );
-					delete projApps;
+				if ( areaApps->size() == 0 ) {
+					areasList.erase ( areaIt );
+					delete areaApps;
 				}
 #endif
 			}
@@ -1771,7 +1771,7 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * projectName, cons
 		CErr ( "RemoveDevice: Failed to release mutex on app devices!" );
 	}
 	
-	NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED, projName.c_str(), appsName.c_str(), deviceID );
+	NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED, pareaName.c_str(), appsName.c_str(), deviceID );
 
 Finish:
 	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
@@ -1787,7 +1787,7 @@ void MediatorDaemon::RemoveDevice ( DeviceInstanceList * device, bool useLock )
 	if ( !device )
 		return;
 	
-	RemoveDevice ( device->info.deviceID, device->info.projectName, device->info.appName );
+	RemoveDevice ( device->info.deviceID, device->info.areaName, device->info.appName );
 }
 
 
@@ -1799,7 +1799,7 @@ void MediatorDaemon::RemoveDevice ( unsigned int ip, char * msg )
 		return;
 
 	unsigned int deviceID;
-	char * projectName = 0;
+	char * areaName = 0;
 	char * appName = 0;
 
 	// Get the id at first (>0)	
@@ -1808,7 +1808,7 @@ void MediatorDaemon::RemoveDevice ( unsigned int ip, char * msg )
 	if ( !deviceID )
 		return;
 	
-	// Get the projectname, appname, etc..
+	// Get the areaName, appname, etc..
 	char * context = NULL;
 	char * psem = strtok_s ( msg + MEDIATOR_BROADCAST_DESC_START, ";", &context );
 	if ( !psem )
@@ -1817,7 +1817,7 @@ void MediatorDaemon::RemoveDevice ( unsigned int ip, char * msg )
 	psem = strtok_s ( NULL, ";", &context );
 	if ( !psem )
 		return;
-	projectName = psem;
+	areaName = psem;
 	
 	psem = strtok_s ( NULL, ";", &context );
 	if ( !psem )
@@ -1826,22 +1826,22 @@ void MediatorDaemon::RemoveDevice ( unsigned int ip, char * msg )
 	
 	CVerbID ( "RemoveDevice BC:" );
 
-	RemoveDevice ( deviceID, projectName, appName );
+	RemoveDevice ( deviceID, areaName, appName );
 }
 
 
 void MediatorDaemon::UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed )
 {
 	if ( added )
-		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_ADDED, device->info.projectName, device->info.appName, device->info.deviceID );
+		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_ADDED, device->info.areaName, device->info.appName, device->info.deviceID );
 	else if ( changed )
-		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED, device->info.projectName, device->info.appName, device->info.deviceID );
+		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED, device->info.areaName, device->info.appName, device->info.deviceID );
 }
 
 
 /// 0 no filter
-/// 1 show only within same project
-/// 2 show only within same project and apps
+/// 1 show only within same area
+/// 2 show only within same area and apps
 
 void MediatorDaemon::UpdateNotifyTargets ( ThreadInstance * client, int filterMode )
 {
@@ -1856,40 +1856,40 @@ void MediatorDaemon::UpdateNotifyTargets ( ThreadInstance * client, int filterMo
     if ( client->filterMode == MEDIATOR_FILTER_NONE )
     {
         /// Remove from project notifiers
-		CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in NONE-filter", client->deviceID, client->device ? client->device->info.projectName : "", client->device ? client->device->info.appName : "" );
+		CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in NONE-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : "" );
 
         notifyIt = notifyTargets.find ( client->sessionID );
         if ( notifyIt != notifyTargets.end () ) {
-			CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from NONE-filter", client->deviceID, client->device ? client->device->info.projectName : "", client->device ? client->device->info.appName : ""  );
+			CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from NONE-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
             notifyTargets.erase ( notifyIt );
         }
     }
-    else if ( client->filterMode == MEDIATOR_FILTER_PROJECT ) {
+    else if ( client->filterMode == MEDIATOR_FILTER_AREA ) {
         while ( client->device && client->device->root )
         {
-            /// Search for project
-            map<unsigned int, string>::iterator projIDsIt = projectIDs.find ( client->device->root->projId );
+            /// Search for area
+            map<unsigned int, string>::iterator areaIdsIt = areaIDs.find ( client->device->root->areaId );
             
-            if ( projIDsIt == projectIDs.end () ) {
-                CWarnArg ( "UpdateNotifyTargets: Failed to find project ID [%u]", client->device->root->projId );
+            if ( areaIdsIt == areaIDs.end () ) {
+                CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", client->device->root->areaId );
                 break;
             }
             
-            map<string, ProjectApps *>::iterator projIt = projectsList.find ( projIDsIt->second );
+            map<string, AreaApps *>::iterator areaIt = areasList.find ( areaIdsIt->second );
             
-            if ( projIt == projectsList.end ( ) ){
-                CWarnArg ( "UpdateNotifyTargets: Failed to find project [%s]", projIDsIt->second.c_str () );
+            if ( areaIt == areasList.end ( ) ){
+                CWarnArg ( "UpdateNotifyTargets: Failed to find area [%s]", areaIdsIt->second.c_str () );
                 break;
             }
             
-            ProjectApps * projApps = projIt->second;
+            AreaApps * areaApps = areaIt->second;
             
-			CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in Project-filter", client->deviceID, client->device ? client->device->info.projectName : "", client->device ? client->device->info.appName : ""  );
+			CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in Area-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
 
-            notifyIt = projApps->notifyTargets.find ( client->sessionID );
-            if ( notifyIt != projApps->notifyTargets.end () ) {
-				CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from Project-filter", client->deviceID, client->device ? client->device->info.projectName : "", client->device ? client->device->info.appName : ""  );
-                projApps->notifyTargets.erase ( notifyIt );
+            notifyIt = areaApps->notifyTargets.find ( client->sessionID );
+            if ( notifyIt != areaApps->notifyTargets.end () ) {
+				CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from Area-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
+                areaApps->notifyTargets.erase ( notifyIt );
             }
             
             break;
@@ -1907,30 +1907,30 @@ void MediatorDaemon::UpdateNotifyTargets ( ThreadInstance * client, int filterMo
     
     if ( filterMode == MEDIATOR_FILTER_NONE )
     {
-		CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to NONE-filter", client->deviceID, client->device ? client->device->info.projectName : "", client->device ? client->device->info.appName : ""  );
+		CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to NONE-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
         notifyTargets [ client->sessionID ] = client;
     }
-    else if ( filterMode == MEDIATOR_FILTER_PROJECT ) {
+    else if ( filterMode == MEDIATOR_FILTER_AREA ) {
         while ( client->device && client->device->root )
         {
-            /// Search for project
-            map<unsigned int, string>::iterator projIDsIt = projectIDs.find ( client->device->root->projId );
+            /// Search for area
+            map<unsigned int, string>::iterator areaIDsIt = areaIDs.find ( client->device->root->areaId );
             
-            if ( projIDsIt == projectIDs.end () ) {
-                CWarnArg ( "UpdateNotifyTargets: Failed to find project ID [%u]", client->device->root->projId );
+            if ( areaIDsIt == areaIDs.end () ) {
+                CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", client->device->root->areaId );
                 break;
             }
             
-            map<string, ProjectApps *>::iterator projIt = projectsList.find ( projIDsIt->second );
+            map<string, AreaApps *>::iterator areaIt = areasList.find ( areaIDsIt->second );
             
-            if ( projIt == projectsList.end ( ) ){
-                CWarnArg ( "UpdateNotifyTargets: Failed to find project [%s]", projIDsIt->second.c_str () );
+            if ( areaIt == areasList.end ( ) ){
+                CWarnArg ( "UpdateNotifyTargets: Failed to find area [%s]", areaIDsIt->second.c_str () );
                 break;
             }
             
-			CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to Project-filter", client->deviceID, client->device ? client->device->info.projectName : "", client->device ? client->device->info.appName : ""  );
-            ProjectApps * projApps = projIt->second;
-            projApps->notifyTargets [ client->sessionID ] = client;
+			CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to Area-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
+            AreaApps * areaApps = areaIt->second;
+            areaApps->notifyTargets [ client->sessionID ] = client;
             
             break;
         }
@@ -1944,7 +1944,7 @@ Finish:
 }
 
 
-DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** pappDevices )
+DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** pappDevices )
 {
 	DeviceInstanceList ** list = 0;
 
@@ -1954,51 +1954,51 @@ DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * projectName, char *
 	}	
 
 	ApplicationDevices	*				appDevices	= 0;
-	ProjectApps			*				projApps	= 0;
+	AreaApps			*				areaApps	= 0;
 	map<string, ApplicationDevices * >::iterator appsIt;
 	
 	string appsName ( appName );
-	string projName ( projectName );
+	string pareaName ( areaName );
 
-    map<string, ProjectApps *>::iterator projIt = projectsList.find ( projName );	
+    map<string, AreaApps *>::iterator areaIt = areasList.find ( pareaName );	
 
-	if ( projIt == projectsList.end ( ) ) {
+	if ( areaIt == areasList.end ( ) ) {
 		/// Create a new one...
-		projApps = new ProjectApps ();
-		if ( projApps ) {
-			projectCounter++;
-			projectIDs [ projectCounter ] = projName;
+		areaApps = new AreaApps ();
+		if ( areaApps ) {
+			areasCounter++;
+			areaIDs [ areasCounter ] = pareaName;
 			
-			projApps->id = projectCounter;
-			projApps->apps.clear ();
-            projApps->notifyTargets.clear ();
+			areaApps->id = areasCounter;
+			areaApps->apps.clear ();
+            areaApps->notifyTargets.clear ();
 
-			projectsList [ projName ] = projApps;
+			areasList [ pareaName ] = areaApps;
 		}
-		else { CErrArg ( "GetDeviceList: Failed to create new project [%s] Low memory problem?!", projectName ); }
+		else { CErrArg ( "GetDeviceList: Failed to create new area [%s] Low memory problem?!", areaName ); }
 	}
 	else
-		projApps = projIt->second;
+		areaApps = areaIt->second;
     
-	if ( !projApps ) {
+	if ( !areaApps ) {
 		CLogArg ( "GetDeviceList: App [%s] not found.", appName );
 		goto Finish;
 	}
 		
-	appsIt = projApps->apps.find ( appsName );
+	appsIt = areaApps->apps.find ( appsName );
 				
-	if ( appsIt == projApps->apps.end ( ) ) {
+	if ( appsIt == areaApps->apps.end ( ) ) {
 		/// Create a new one...
 		appDevices = (ApplicationDevices *) calloc ( 1, sizeof(ApplicationDevices) );
 		if ( appDevices ) {
 			pthread_mutex_init ( &appDevices->mutex, 0 );
 
 			appDevices->access = 1;			
-			projApps->apps [ appsName ] = appDevices;
+			areaApps->apps [ appsName ] = appDevices;
 			
 			appsCounter++;
 			appDevices->id = appsCounter;
-			appDevices->projId = projApps->id;
+			appDevices->areaId = areaApps->id;
 			appIDs [ appsCounter ] = appsName;
 		}
 		else { CErrArg ( "GetDeviceList: Failed to create new application devicelist [%s] Low memory problem?!", appName ); }
@@ -2038,7 +2038,7 @@ void printDeviceList ( DeviceInstanceList * device )
 		if ( device->info.ip != device->info.ipe ) {
 			CLogArg ( "Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
 		}
-		CLogArg ( "Project/App = [%s / %s]", device->info.projectName, device->info.appName );
+		CLogArg ( "Area/App = [%s / %s]", device->info.areaName, device->info.appName );
 		CLogArg ( "Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ), device->info.tcpPort, device->info.udpPort );
 
 		device = device->next;
@@ -2204,15 +2204,15 @@ void MediatorDaemon::Run ()
 			else if ( c == 'd' ) {
 				CLog ( "Database:" );
 				printf ( "----------------------------------------------------------------\n" );
-				if ( pthread_mutex_lock ( &projectsMutex ) ) {
-					CErr ( "Failed to aquire mutex on project/values!" );
+				if ( pthread_mutex_lock ( &areasMutex ) ) {
+					CErr ( "Failed to aquire mutex on area/values!" );
 				}
 				else {		
-					for ( map<string, AppsList * >::iterator it = projects.begin(); it != projects.end(); it++ )
+					for ( map<string, AppsList * >::iterator it = areas.begin(); it != areas.end(); it++ )
 					{
 						if ( !it->second )
 							continue;
-						CLogArg ( "Project: %s", it->first.c_str() );
+						CLogArg ( "Area: %s", it->first.c_str() );
 
 						for ( map<string, map<string, ValuePack*>*>::iterator ita = it->second->apps.begin(); ita != it->second->apps.end(); ita++ ) 
 						{
@@ -2229,8 +2229,8 @@ void MediatorDaemon::Run ()
 						}
 					}
 			
-					if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-						CErr ( "Failed to release mutex on project/values!" );
+					if ( pthread_mutex_unlock ( &areasMutex ) ) {
+						CErr ( "Failed to release mutex on area/values!" );
 					}
 				}
                 printf ( "----------------------------------------------------------------\n" );
@@ -2266,13 +2266,13 @@ void MediatorDaemon::Run ()
 					CErr ( "Failed to aquire mutex on devices!" );
 				}
 				else {
-					for ( map<string, ProjectApps*>::iterator it = projectsList.begin(); it != projectsList.end(); ++it )
+					for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end(); ++it )
 					{
 						if ( it->second ) {
-							ProjectApps * projApps = it->second;
+							AreaApps * areaApps = it->second;
 							CLogArg ( "P: [%s]", it->first.c_str () );
 
-							for ( map<string, ApplicationDevices *>::iterator ita = projApps->apps.begin(); ita != projApps->apps.end(); ++ita )
+							for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end(); ++ita )
 							{
 								ApplicationDevices * appDevices = ita->second;
 								if ( appDevices ) 
@@ -2297,7 +2297,7 @@ void MediatorDaemon::Run ()
 					}
 
 					if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-						CErr ( "Failed to release mutex on project/values!" );
+						CErr ( "Failed to release mutex on area/values!" );
 					}
 				}
 				CLog ( "----------------------------------------------------------------" );
@@ -2531,10 +2531,10 @@ void * MediatorDaemon::MediatorUdpThread ( void * arg )
 			if ( bytesReceived >= (int)sizeof(STUNReqPacket) ) 
 			{
 				msgDec [ msgDecLength ] = 0;
-				const char * projName;
+				const char * areaName;
 				const char * appName;
 
-				ApplicationDevices * appDevices	= GetApplicationDevices ( stunPacket->projectName, stunPacket->appName );
+				ApplicationDevices * appDevices	= GetApplicationDevices ( stunPacket->areaName, stunPacket->appName );
 			
 				if ( !appDevices )
 					continue;
@@ -2563,15 +2563,15 @@ void * MediatorDaemon::MediatorUdpThread ( void * arg )
 					CErrArg ( "Udp: Failed to send UDP ACK to device [%d]", sourceID );
 				}
 
-				projName = stunPacket->projectName;
-				if ( *stunPacket->projectNameSrc )
-					projName = stunPacket->projectNameSrc;
+				areaName = stunPacket->areaName;
+				if ( *stunPacket->areaNameSrc )
+					areaName = stunPacket->areaNameSrc;
 
 				appName = stunPacket->appName;
 				if ( *stunPacket->appNameSrc )
 					appName = stunPacket->appNameSrc;
 
-				HandleSTUNRequest ( client, sourceID, projName, appName, (unsigned int) addr.sin_addr.s_addr, ntohs ( addr.sin_port ) );
+				HandleSTUNRequest ( client, sourceID, areaName, appName, (unsigned int) addr.sin_addr.s_addr, ntohs ( addr.sin_port ) );
 					
 Continue:
 				UnlockApplicationDevices ( appDevices );
@@ -2736,41 +2736,41 @@ void * MediatorDaemon::ClientThreadStarter ( void *arg )
 }
 
 
-bool MediatorDaemon::addToProject ( const char * project, const char * app, const char * pKey, const char * pValue )
+bool MediatorDaemon::addToArea ( const char * area, const char * app, const char * pKey, const char * pValue )
 {
 	bool ret = false;
 
-	// Search for the project at first
+	// Search for the area at first
 	map<string, ValuePack*>							*	values	= 0;
 	AppsList										*	apps	= 0;
 	map<string, map<string, ValuePack*>*>::iterator		appsIt;
 		
-	if ( !project || !app ) {
-		CErr ( "addToProject: Invalid parameters. Missing project/app name!" );
+	if ( !area || !app ) {
+		CErr ( "addToArea: Invalid parameters. Missing area/app name!" );
 		return false;
 	}
 
-	if ( pthread_mutex_lock ( &projectsMutex ) ) {
-		CErr ( "addToProject: Failed to aquire mutex on project/values!" );
+	if ( pthread_mutex_lock ( &areasMutex ) ) {
+		CErr ( "addToArea: Failed to aquire mutex on area/values!" );
 		return false;
 	}
 	
-	string projectName ( project );
+	string areaName ( area );
 	string appName ( app );
 
-	map<string, AppsList * >::iterator projectIt = projects.find ( projectName );			
+	map<string, AppsList * >::iterator areaIt = areas.find ( areaName );			
 
-	if ( projectIt == projects.end () )
+	if ( areaIt == areas.end () )
 	{		
 		apps = new AppsList ();
 		if ( !apps ) {
-			CErrArg ( "addToProject: Failed to create new project [%s].", project );
+			CErrArg ( "addToArea: Failed to create new area [%s].", area );
 			goto EndWithStatus;
 		}
-		projects [ projectName ] = apps;
+		areas [ areaName ] = apps;
 	}
 	else
-		apps = projectIt->second;
+		apps = areaIt->second;
 	
 	appsIt = apps->apps.find ( appName );
 
@@ -2778,7 +2778,7 @@ bool MediatorDaemon::addToProject ( const char * project, const char * app, cons
 	{		
 		values = new map<string, ValuePack*> ();
 		if ( !values ) {
-			CErrArg ( "addToProject: Failed to create new application [%s].", appName.c_str () );
+			CErrArg ( "addToArea: Failed to create new application [%s].", appName.c_str () );
 			goto EndWithStatus;
 		}
 		apps->apps [ appName ] = values;
@@ -2786,11 +2786,11 @@ bool MediatorDaemon::addToProject ( const char * project, const char * app, cons
 	else
 		values = appsIt->second;
 
-	ret = addToProject ( values, pKey, pValue, (unsigned int) strlen(pValue) );
+	ret = addToArea ( values, pKey, pValue, (unsigned int) strlen(pValue) );
 
 EndWithStatus:
-	if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-		CErr ( "addToProject: Failed to release mutex on project/values!" );
+	if ( pthread_mutex_unlock ( &areasMutex ) ) {
+		CErr ( "addToArea: Failed to release mutex on area/values!" );
 		return false;
 	}
 
@@ -2798,12 +2798,12 @@ EndWithStatus:
 }
 
 
-bool MediatorDaemon::addToProject ( map<string, ValuePack*> * values, const char * pKey, const char * pValue, unsigned int valueSize )
+bool MediatorDaemon::addToArea ( map<string, ValuePack*> * values, const char * pKey, const char * pValue, unsigned int valueSize )
 {
 	bool ret = false;
 	
 	if ( !pKey || !pValue || valueSize <= 0 ) {
-		CErr ( "addToProject: Invalid parameters. Missing key/value!" );
+		CErr ( "addToArea: Invalid parameters. Missing key/value!" );
 		return false;
 	}
 
@@ -2822,7 +2822,7 @@ bool MediatorDaemon::addToProject ( map<string, ValuePack*> * values, const char
 
 	ValuePack * pack = new ValuePack ();
 	if ( !pack ) {
-		CErrArg ( "addToProject: Failed to create new value object for %s! Memory low problem!", pKey );
+		CErrArg ( "addToArea: Failed to create new value object for %s! Memory low problem!", pKey );
 		goto EndWithStatus;
 	}
 	pack->timestamp = 0;
@@ -2832,7 +2832,7 @@ bool MediatorDaemon::addToProject ( map<string, ValuePack*> * values, const char
 	(*values) [ key ] = pack;
 	ret = true;
 
-	//CVerbArg ( "addToProject: added %s -> %s", pKey, pValue );
+	//CVerbArg ( "addToArea: added %s -> %s", pKey, pValue );
 
 EndWithStatus:
 	return ret;
@@ -2849,21 +2849,21 @@ bool MediatorDaemon::sendDatabase ( int sock, struct sockaddr * addr )
 
 	char buffer [ BUFFERSIZE ];
 	
-	if ( pthread_mutex_lock ( &projectsMutex ) ) {
-		CErr ( "sendDatabase: Failed to aquire mutex on project/values! Skipping client request!" );
+	if ( pthread_mutex_lock ( &areasMutex ) ) {
+		CErr ( "sendDatabase: Failed to aquire mutex on areas/values! Skipping client request!" );
 		return false;
 	}
 
-	for ( map<string, map<string, ValuePack*>*>::iterator it = projects.begin(); it != projects.end(); ++it )
+	for ( map<string, map<string, ValuePack*>*>::iterator it = areas.begin(); it != areas.end(); ++it )
 	{
-		CLogArg ( "Project: %s", it->first.c_str() );
+		CLogArg ( "Area: %s", it->first.c_str() );
 
 		if ( it->second ) {
 			for ( map<string, ValuePack*>::iterator itv = it->second->begin(); itv != it->second->end(); ++itv )
 			{
-				// Parse values: "<P>Project Key Value"
-				// Parse values: "<P>Project Key Value<P>Project Key Value"
-				// Parse values: "<P>Project Key Value<P><EOF>"
+				// Parse values: "<P>Area Key Value"
+				// Parse values: "<P>Area Key Value<P>Project Key Value"
+				// Parse values: "<P>Area Key Value<P><EOF>"
 				if ( itv->second ) {
 					sprintf_s ( buffer, BUFFERSIZE, "<P>%s %s %s", it->first.c_str(), itv->first.c_str(), itv->second->value.c_str() );
 									
@@ -2889,8 +2889,8 @@ EndOfGetAll:
 		CErrArg ( "sendDatabase: Failed to send %s", buffer );
 	}
 
-	if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-		CErr ( "sendDatabase: Failed to release mutex on project/values!" );
+	if ( pthread_mutex_unlock ( &areasMutex ) ) {
+		CErr ( "sendDatabase: Failed to release mutex on areas/values!" );
 	}
 
 	return ret;
@@ -2928,50 +2928,50 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 	}
 
 	if ( !params [ 0 ] || !params [ 1 ] || !params [ 2 ] ) {
-		CErr ( "HandleRequest: Invalid parameters. project and/or key missing!" );
+		CErr ( "HandleRequest: Invalid parameters. area and/or key missing!" );
 		return false;
 	}
 		
 	if ( *(params [ 0 ]) == ' ' ) {
-		/// Use project name of the client
-		params [ 0 ] = client->device->info.projectName;
+		/// Use area name of the client
+		params [ 0 ] = client->device->info.areaName;
 	}
 		
 	if ( *(params [ 1 ]) == ' ' ) {
-		/// Use project name of the client
+		/// Use app name of the client
 		params [ 1 ] = client->device->info.appName;
 	}
 		
-	// Search for the project at first
+	// Search for the area at first
 	map<string, ValuePack*> *				values	= 0;
 	AppsList							*	apps	= 0;
 	map<string, map<string, ValuePack*>*>::iterator appsIt;
 	map<string, ValuePack*>::iterator valueIt;
 		
-	if ( pthread_mutex_lock ( &projectsMutex ) ) {
-		CErr ( "HandleRequest: Failed to aquire mutex on project/values! Skipping client request!" );
+	if ( pthread_mutex_lock ( &areasMutex ) ) {
+		CErr ( "HandleRequest: Failed to aquire mutex on areas/values! Skipping client request!" );
 		return false;
 	}
 
-	string projectName ( params [ 0 ] );
+	string areaName ( params [ 0 ] );
 
-	map<string, AppsList * >::iterator projectIt = projects.find ( projectName );			
+	map<string, AppsList * >::iterator areaIt = areas.find ( areaName );			
 
 	// COMMAND: Set New Value
 	if ( query->cmd == MEDIATOR_CMD_SET )
 	{
-		if ( projectIt == projects.end() )
+		if ( areaIt == areas.end() )
 		{
-			// Create a new map for the project
+			// Create a new map for the area
 			apps = new AppsList ();
 			if ( !apps ) {
-				CErrArg ( "HandleRequest: Failed to create new project [%s].", params [ 0 ] );
+				CErrArg ( "HandleRequest: Failed to create new area [%s].", params [ 0 ] );
 				goto Continue;
 			}
-			projects [ projectName ] = apps;
+			areas [ areaName ] = apps;
 		}
 		else
-			apps = projectIt->second;
+			apps = areaIt->second;
 		
 		appsIt = apps->apps.find ( string ( params [ 1 ] ) );
 		if ( appsIt == apps->apps.end () ) 
@@ -3015,7 +3015,7 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 			CErrArg ( "HandleRequest: size of value of [%i] invalid!", valueSize );
 			goto Continue;
 		}
-		if ( !addToProject ( values, params [ 2 ], params [ 3 ], (unsigned) valueSize ) ) {
+		if ( !addToArea ( values, params [ 2 ], params [ 3 ], (unsigned) valueSize ) ) {
 			CErrArg ( "HandleRequest: Adding key [%s] failed!", params [ 2 ] );
 			goto Continue;
 		}
@@ -3031,8 +3031,8 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 		const char * response = "---";
 		size_t length	= strlen ( response );
 
-		if ( projectIt != projects.end() ) {
-			apps = projectIt->second;
+		if ( areaIt != areas.end() ) {
+			apps = areaIt->second;
 				
 			appsIt = apps->apps.find ( string ( params [ 1 ]) );
 			if ( appsIt != apps->apps.end () ) {
@@ -3074,8 +3074,8 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 	CWarnArg ( "HandleRequest: command [%c] not supported anymore", query->cmd );
 					
 Continue:
-	if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-		CErr ( "HandleRequest: Failed to release mutex on project/values!" );
+	if ( pthread_mutex_unlock ( &areasMutex ) ) {
+		CErr ( "HandleRequest: Failed to release mutex on areas/values!" );
 	}
 	return ret;
 }
@@ -3083,7 +3083,7 @@ Continue:
 
 ThreadInstance * MediatorDaemon::GetSessionClient ( long long sessionID )
 {
-	//sid |= ((long long)((client->device->root->id << 16) | client->device->root->projId)) << 32;
+	//sid |= ((long long)((client->device->root->id << 16) | client->device->root->areaId)) << 32;
 			
 	map<long long, ThreadInstance *>::iterator sessionIt = sessions.find ( sessionID );
 	if ( sessionIt != sessions.end () ) {
@@ -3093,21 +3093,21 @@ ThreadInstance * MediatorDaemon::GetSessionClient ( long long sessionID )
 	/*
 	unsigned int id = (unsigned int)((sessionID >> 32) & 0xFFFF);
 
-	map<unsigned int, string>::iterator projIDsIt = projectIDs.find ( id );
+	map<unsigned int, string>::iterator areaIdsIt = areaIDs.find ( id );
 
-	if ( projIDsIt == projectIDs.end () ) {
-		CWarnArg ( "GetSessionClient: Failed to find project ID [%u]", id );
+	if ( areaIdsIt == areaIDs.end () ) {
+		CWarnArg ( "GetSessionClient: Failed to find area ID [%u]", id );
 		return 0;
 	}
 
-	map<string, ProjectApps *>::iterator projIt = projectsList.find ( projIDsIt->second );	
+	map<string, AreaApps *>::iterator areaIt = areasList.find ( areaIdsIt->second );	
 
-	if ( projIt == projectsList.end ( ) ){
-		CWarnArg ( "GetSessionClient: Failed to find project [%s]", projIDsIt->second.c_str () );
+	if ( areaIt == areasList.end ( ) ){
+		CWarnArg ( "GetSessionClient: Failed to find area [%s]", areaIdsIt->second.c_str () );
 		return 0;
 	}
 
-	ProjectApps * projApps = projIt->second;
+	AreaApps * areaApps = areaIt->second;
 
 	id = (unsigned int)((sessionID >> 48) & 0xFFFF);
 	
@@ -3118,9 +3118,9 @@ ThreadInstance * MediatorDaemon::GetSessionClient ( long long sessionID )
 		return 0;
 	}
 		
-	map<string, ApplicationDevices * >::iterator appsIt = projApps->apps.find ( appIDsIt->second );
+	map<string, ApplicationDevices * >::iterator appsIt = areaApps->apps.find ( appIDsIt->second );
 	
-	if ( appsIt == projApps->apps.end ( ) ){
+	if ( appsIt == areaApps->apps.end ( ) ){
 		CWarnArg ( "GetSessionClient: Failed to find app [%s]", appIDsIt->second.c_str () );
 		return 0;
 	}
@@ -3243,7 +3243,7 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
                     goto PreFailExit;
 			}
 
-			GetDeviceList ( req->projectName, req->appName, 0, 0, &appDevices );
+			GetDeviceList ( req->areaName, req->appName, 0, 0, &appDevices );
 			if ( appDevices ) 
 			{
 				/// Find the next free deviceID			
@@ -3714,7 +3714,7 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 
 	unsigned int		destID				= shortMsg->deviceID;
 	unsigned int		deviceID			= sourceClient->deviceID;
-	const char		*	projName			= 0;
+	const char		*	areaName			= 0;
 	const char		*	appName				= 0;
 	int					sentBytes;
 	DeviceInstanceList	* device;
@@ -3727,21 +3727,21 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
     ApplicationDevices * appDevices		= 0;
 
 	if ( shortMsg->version >= '3' ) {
-		if ( *shortMsg->projectName && *shortMsg->appName ) {
-			projName = shortMsg->projectName;
+		if ( *shortMsg->areaName && *shortMsg->appName ) {
+			areaName = shortMsg->areaName;
 			appName = shortMsg->appName;
 		}
 	}
     
-    if ( !projName || !appName ) {
-        projName = sourceClient->device->info.projectName;
+    if ( !areaName || !appName ) {
+        areaName = sourceClient->device->info.areaName;
         appName = sourceClient->device->info.appName;
 
         destMutex = &sourceClient->device->root->mutex;
         destList = sourceClient->device->root->devices;
     }
     else {
-        appDevices = GetApplicationDevices ( projName, appName );
+        appDevices = GetApplicationDevices ( areaName, appName );
         if ( !appDevices ) {
             goto SendResponse;
         }
@@ -3767,8 +3767,8 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	
 	shortMsg->deviceID = deviceID;
     if ( sourceClient->device ) {
-        if ( *sourceClient->device->info.projectName )
-            strcpy_s ( shortMsg->projectName, sizeof(shortMsg->projectName), sourceClient->device->info.projectName );
+        if ( *sourceClient->device->info.areaName )
+            strcpy_s ( shortMsg->areaName, sizeof(shortMsg->areaName), sourceClient->device->info.areaName );
         if ( *sourceClient->device->info.appName )
             strcpy_s ( shortMsg->appName, sizeof(shortMsg->appName), sourceClient->device->info.appName );
     }
@@ -3811,7 +3811,7 @@ SendResponse:
 //#define FAKE42
 
 bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
-	int reqDeviceID, const char * projName, const char * appName, 
+	int reqDeviceID, const char * areaName, const char * appName,
 	ApplicationDevices * appDevices, DeviceInstanceList *& resultList, unsigned int &resultCount )
 {
 	if ( !appDevices || !appDevices->count )
@@ -3858,7 +3858,7 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
 	while ( device )
     {
         if ( reqDeviceID ) {
-            if ( reqDeviceID == device->info.deviceID && !strncmp ( device->info.projectName, projName, MAX_NAMEPROPERTY )
+            if ( reqDeviceID == device->info.deviceID && !strncmp ( device->info.areaName, areaName, MAX_NAMEPROPERTY )
                 && !strncmp ( device->info.appName, appName, MAX_NAMEPROPERTY ) )
             {
                 DeviceInstanceList * newDevice = (DeviceInstanceList *) malloc ( sizeof(DeviceInstanceList) );
@@ -3942,7 +3942,7 @@ unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstanceList * sourceDe
 		return 0;
 
 	unsigned int            deviceCount = 0;
-    ProjectApps         *   projApps;
+    AreaApps	         *   areaApps;
     ApplicationDevices  *   appDevices;
 
 	/// Get number of devices within the same application environment
@@ -3955,15 +3955,15 @@ unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstanceList * sourceDe
 			goto Finish;
 		}
 
-		/// Iterate over all projects
-		for ( map<string, ProjectApps*>::iterator it = projectsList.begin(); it != projectsList.end (); ++it )
+		/// Iterate over all areas
+		for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end (); ++it )
 		{
 			if ( !it->second )
 				continue;
 						
-			projApps = it->second;
+			areaApps = it->second;
 
-			for ( map<string, ApplicationDevices *>::iterator ita = projApps->apps.begin(); ita != projApps->apps.end (); ++ita )
+			for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end (); ++ita )
 			{
 				appDevices = ita->second;
 				if ( !appDevices || appDevices == sourceDevice->root )
@@ -3978,29 +3978,29 @@ unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstanceList * sourceDe
 		}
 	}
 	else if ( filterMode < 2 ) {
-		/// Get number of devices of other application environments within the same project
-		string projName ( sourceDevice->info.projectName );
+		/// Get number of devices of other application environments within the same area
+		string areaName ( sourceDevice->info.areaName );
 		
 		if ( pthread_mutex_lock ( &devicesMutex ) ) {
 			CErr ( "CollectDevicesCount: Failed to acquire mutex!" );
 			goto Finish;
 		}
 
-		map<string, ProjectApps * >::iterator projIt = projectsList.find ( projName );	
+		map<string, AreaApps * >::iterator areaIt = areasList.find ( areaName );
 
-		if ( projIt == projectsList.end ( ) ) {
-			CLogArg ( "CollectDevicesCount: Project [%s] not found.", sourceDevice->info.projectName );
+		if ( areaIt == areasList.end ( ) ) {
+			CLogArg ( "CollectDevicesCount: Area [%s] not found.", sourceDevice->info.areaName );
 			goto FinishLimitApps;
 		}
 	
-		projApps = projIt->second;
+		areaApps = areaIt->second;
     
-		if ( !projApps ) {
-			CLog ( "CollectDevicesCount: Invalid project name." );
+		if ( !areaApps ) {
+			CLog ( "CollectDevicesCount: Invalid area name." );
 			goto FinishLimitApps;
 		}
 				
-		for ( map<string, ApplicationDevices *>::iterator ita = projApps->apps.begin(); ita != projApps->apps.end (); ++ita )
+		for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end (); ++ita )
 		{
 			appDevices = ita->second;
 			if ( !appDevices || appDevices == sourceDevice->root )
@@ -4069,7 +4069,7 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 	bool				error				= true;
 	unsigned int		startIndex;
 	int					filterMode			= sourceClient->filterMode;
-	const char		*	projName			= sourceClient->device->info.projectName;
+	const char		*	areaName			= sourceClient->device->info.areaName;
 	const char		*	appName				= sourceClient->device->info.appName;
 	char				subCmd;
     DeviceInstanceList  *   resultList          = 0;
@@ -4137,17 +4137,17 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 
 	if ( subCmd == MEDIATOR_OPT_DEVICE_LIST_DEVICE_ID ) {
 		deviceIDReq = query->deviceID;
-		if ( *query->projectName && *query->appName ) {
-			projName = query->projectName;
+		if ( *query->areaName && *query->appName ) {
+			areaName = query->areaName;
 			appName = query->appName;
 
-			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] [%s/%s]", deviceIDReq, projName, appName );
+			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] [%s/%s]", deviceIDReq, pareaName, appName );
 		}
 		else {
-			projName = sourceClient->device->info.projectName;
+			areaName = sourceClient->device->info.areaName;
 			appName = sourceClient->device->info.appName;
 
-			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] of default appEnv [%s/%s]", deviceIDReq, projName, appName );
+			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] of default appEnv [%s/%s]", deviceIDReq, pareaName, appName );
 		}
 	}
 
@@ -4155,7 +4155,7 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 
 	/// Lets start with the devices within the same appEnv	
 
-	if ( appDevices->count && !CollectDevices ( sourceClient, startIndex, deviceIDReq, projName, appName, 
+	if ( appDevices->count && !CollectDevices ( sourceClient, startIndex, deviceIDReq, areaName, appName,
 		appDevices, resultList, resultCount ) ) 
 		goto Finish;
 	
@@ -4166,8 +4166,8 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 			goto Finish;
 		}
 
-		/// Iterate over all projects
-		for ( map<string, ProjectApps*>::iterator it = projectsList.begin(); it != projectsList.end (); ++it )
+		/// Iterate over all areas
+		for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end (); ++it )
 		{
 			if ( !it->second )
 				continue;
@@ -4181,7 +4181,7 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 
 				availableDevices += appDevices->count;
 
-				if ( !CollectDevices ( sourceClient, startIndex, deviceIDReq, projName, appName, 
+				if ( !CollectDevices ( sourceClient, startIndex, deviceIDReq, areaName, appName,
 					appDevices, resultList, resultCount ) ) {
 					goto FinishNoLimit;
 				}
@@ -4195,22 +4195,22 @@ FinishNoLimit:
 		goto Finish;
 	}
 	else if ( filterMode < 2 ) {
-		/// Get number of devices of other application environments within the same project
-		string projectName ( projName );
+		/// Get number of devices of other application environments within the same area
+		string pareaName ( areaName );
 		
 		if ( pthread_mutex_lock ( &devicesMutex ) ) {
 			CErr ( "HandleQueryDevices: Failed to acquire mutex!" );
 			goto Finish;
 		}
 
-		map<string, ProjectApps * >::iterator projIt = projectsList.find ( projectName );	
+		map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );
 
-		if ( projIt == projectsList.end ( ) || !projIt->second ) {
-			CLogArg ( "HandleQueryDevices: Project [%s] not found.", projName );
-			goto FinishLimitProject;
+		if ( areaIt == areasList.end ( ) || !areaIt->second ) {
+			CLogArg ( "HandleQueryDevices: Area [%s] not found.", areaName );
+			goto FinishLimitArea;
 		}
 
-		apps = &projIt->second->apps;
+		apps = &areaIt->second->apps;
 				
 		for ( map<string, ApplicationDevices *>::iterator ita = apps->begin(); ita != apps->end (); ita++ )
 		{
@@ -4220,13 +4220,13 @@ FinishNoLimit:
 
 			availableDevices += appDevices->count;
 
-			if ( !CollectDevices ( sourceClient, startIndex, deviceIDReq, projName, appName, 
+			if ( !CollectDevices ( sourceClient, startIndex, deviceIDReq, areaName, appName,
 				appDevices, resultList, resultCount ) ) {
-					goto FinishLimitProject;
+					goto FinishLimitArea;
 			}
 		}
 
-FinishLimitProject:
+FinishLimitArea:
 		if ( pthread_mutex_unlock ( &devicesMutex ) ) {
 			CErr ( "HandleQueryDevices: Failed to release mutex!" );
 		}
@@ -4452,7 +4452,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 }
 
 
-bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, unsigned int sourceID, const char * projName, const char * appName, unsigned int IP, unsigned int Port )
+bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, unsigned int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port )
 {
 	STUNReqReqPacket	request;
 	Zero ( request );
@@ -4468,7 +4468,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, unsigned i
 	request.IP = IP;
 	request.Port = Port;
 	
-	strcpy_s ( request.projectName, sizeof(request.projectName), projName );
+	strcpy_s ( request.areaName, sizeof(request.areaName), areaName );
 	strcpy_s ( request.appName, sizeof(request.appName), appName );
 
 	/*unsigned int * pUI = (unsigned int *) buffer;
@@ -4550,7 +4550,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	bool				sourceLocked	= false;
 	bool				destLocked		= false;
 	int					status			= 0;
-    const char  *		projName        = 0;
+    const char  *		areaName        = 0;
     const char  *		appName         = 0;
     DeviceInstanceList *	device			= 0;
     
@@ -4561,21 +4561,21 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
     ApplicationDevices * appDevices		= 0;
     
     if ( req->size >= sizeof(STUNTReqPacket) ) {
-        if ( *req->projectName )
-            projName = req->projectName;
+        if ( *req->areaName )
+            areaName = req->areaName;
         if ( *req->appName )
             appName = req->appName;
     }
     
-    if ( !projName || !appName ) {
-        projName = sourceClient->device->info.projectName;
+    if ( !areaName || !appName ) {
+        areaName = sourceClient->device->info.areaName;
         appName = sourceClient->device->info.appName;
 
         destMutex = &sourceClient->device->root->mutex;
         destList = sourceClient->device->root->devices;
     }
     else {
-        appDevices = GetApplicationDevices ( projName, appName );
+        appDevices = GetApplicationDevices ( areaName, appName );
         if ( !appDevices ) {
             goto UnlockQuit;
         }
@@ -4657,7 +4657,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	response.ipe = IPe;
 	response.port = portSource;
 
-    strcpy_s ( response.projectName, sizeof(response.projectName), sourceClient->device->info.projectName );
+    strcpy_s ( response.areaName, sizeof(response.areaName), sourceClient->device->info.areaName );
     strcpy_s ( response.appName, sizeof(response.appName), sourceClient->device->info.appName );
 	
 	CLogArgID ( "STUNTRequest: Send request to device IP [%s], port [%d]", inet_ntoa ( destClient->addr.sin_addr ), portSource );
@@ -4884,10 +4884,10 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 		return false;
 	}
 
-	char * pprojectName = device->info.projectName;
+	char * pareaName = device->info.areaName;
 		
-	if ( !pprojectName || pthread_mutex_lock ( &projectsMutex ) ) {
-		CErr ( "UpdateDeviceRegistry: Failed to aquire mutex on project/values (alt: projectName invalid)! Skipping client request!" );
+	if ( !pareaName || pthread_mutex_lock ( &areasMutex ) ) {
+		CErr ( "UpdateDeviceRegistry: Failed to aquire mutex on areas/values (alt: areaName invalid)! Skipping client request!" );
 
 		if ( pthread_mutex_unlock ( &devicesMutex ) ) {
 			CErr ( "UpdateDeviceRegistry: Failed to release mutex on devices!" );
@@ -4895,28 +4895,28 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 		return false;
 	}
 		
-	// Search for the project at first
+	// Search for the area at first
 	map<string, ValuePack*>					*	values = 0;
 	AppsList								*	apps	= 0;
 	map<string, map<string, ValuePack*>*>::iterator appsIt;
 
 		
-	string projectName ( pprojectName );
+	string areaName ( pareaName );
 	string appName ( device->info.appName );
 
-	map<string, AppsList * >::iterator projectIt = projects.find ( projectName );			
+	map<string, AppsList * >::iterator areaIt = areas.find ( areaName );
 
-	if ( projectIt == projects.end () )
+	if ( areaIt == areas.end () )
 	{		
 		apps = new AppsList ();
 		if ( !apps ) {
-			CErrArg ( "UpdateDeviceRegistry: Failed to create new project [%s].", pprojectName );
+			CErrArg ( "UpdateDeviceRegistry: Failed to create new area [%s].", pareaName );
 			goto Continue;
 		}
-		projects [ projectName ] = apps;
+		areas [ areaName ] = apps;
 	}
 	else
-		apps = projectIt->second;
+		apps = areaIt->second;
 	
 	appsIt = apps->apps.find ( appName );
 
@@ -4944,7 +4944,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 
 	value = inet_ntoa ( *((struct in_addr *) &device->info.ip) );
 
-	if ( !addToProject ( values, keyBuffer, value, (unsigned int) strlen ( value ) ) ) {
+	if ( !addToArea ( values, keyBuffer, value, (unsigned int) strlen ( value ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
 	}		
 	
@@ -4954,7 +4954,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 
 	value = inet_ntoa ( *((struct in_addr *) &ip) );
 
-	if ( !addToProject ( values, keyBuffer, value, (unsigned int) strlen ( value ) ) ) {
+	if ( !addToArea ( values, keyBuffer, value, (unsigned int) strlen ( value ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
 	}		
 	
@@ -4963,7 +4963,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 	strcat_s ( keyCat, 100, "cport" );
 	sprintf_s ( valueBuffer, 128, "%u", device->info.tcpPort );
 
-	if ( !addToProject ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
+	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
 	}		
 	
@@ -4972,7 +4972,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 	strcat_s ( keyCat, 100, "dport" );
 	sprintf_s ( valueBuffer, 128, "%u", device->info.udpPort );
 
-	if ( !addToProject ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
+	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
 	}
 	
@@ -4981,7 +4981,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 	strcat_s ( keyCat, 100, "type" );
 	sprintf_s ( valueBuffer, 128, "%i", device->info.platform );
 
-	if ( !addToProject ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
+	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
 	}
 	
@@ -4989,13 +4989,13 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 	*keyCat = 0;
 	strcat_s ( keyCat, 100, "name" );
 
-	if ( !addToProject ( values, keyBuffer, device->info.deviceName, (unsigned int) strlen ( device->info.deviceName ) ) ) {
+	if ( !addToArea ( values, keyBuffer, device->info.deviceName, (unsigned int) strlen ( device->info.deviceName ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
 	}
 			
 Continue:
-	if ( pthread_mutex_unlock ( &projectsMutex ) ) {
-		CErr ( "UpdateDeviceRegistry: Failed to release mutex on project/values!" );
+	if ( pthread_mutex_unlock ( &areasMutex ) ) {
+		CErr ( "UpdateDeviceRegistry: Failed to release mutex on area/values!" );
 	}
 
 	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
@@ -5129,7 +5129,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
                 regMsg.opt0 = MEDIATOR_OPT_NULL;
                 regMsg.opt1 = MEDIATOR_OPT_NULL;
                 
-                memcpy ( regMsg.projectName, mapping->authToken, tokCount );
+                memcpy ( regMsg.areaName, mapping->authToken, tokCount );
             }
 
 			deviceMappings [ string ( client->uid ) ] = mapping;
@@ -5170,7 +5170,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
 
 	/// Assign a session id
 	sid = sessionCounter++;
-	sid |= ((long long)((client->device->root->id << 16) | client->device->root->projId)) << 32;
+	sid |= ((long long)((client->device->root->id << 16) | client->device->root->areaId)) << 32;
 
 	sessions[sid] = client;
 
@@ -5558,7 +5558,7 @@ bool MediatorDaemon::SendPushNotification ( map<string, ValuePack*> * values, in
 
 	// check which push notification service is registered for the client
 	
-	// look for the project
+	// look for the area
 	map<string, ValuePack*>::iterator valueIt;
 	string details;
 	std::stringstream ss;
@@ -5582,7 +5582,7 @@ bool MediatorDaemon::SendPushNotification ( map<string, ValuePack*> * values, in
 	if ( details[0] == 'g' && details[1] == 'c' && details[2] == 'm' ) {
 		string clientRegID ( details.begin() + 3, details.end() );
 
-		// Do we have a GCM api key for this project?
+		// Do we have a GCM api key for this area?
 		map<string, ValuePack*>::iterator notifierIt = values->find ( string ( "0_gcm" ) );
 		
 		if ( notifierIt == values->end() ) {
@@ -5652,7 +5652,7 @@ Finish:
 
 static long notifyRunner = 0;
 
-void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID )
+void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * areaName, const char * appName, int deviceID )
 {
 	/// If a notification is already running, then spin around, wait and try for max. 5 seconds
 	int trys = 26;
@@ -5677,9 +5677,9 @@ void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * proj
 
 	this->notify = notify;
 
-	if ( notifyProjectName ) {
-		free ( notifyProjectName );
-		notifyProjectName = 0;
+	if ( notifyAreaName ) {
+		free ( notifyAreaName );
+		notifyAreaName = 0;
 	}
 	if ( notifyAppName ) {
 		free ( notifyAppName );
@@ -5690,16 +5690,16 @@ void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * proj
 	unsigned int len;
 	char * name;
 
-	if ( projectName ) {
-		len = (unsigned int) strlen ( projectName );
+	if ( areaName ) {
+		len = (unsigned int) strlen ( areaName );
 		name = (char *) malloc ( len + 1 );
 		if ( !name ) {
-			CErr ( "NotifyClientsStart: Failed to allocate memory for projectName." );
+			CErr ( "NotifyClientsStart: Failed to allocate memory for areaName." );
 			goto Failed;
 		}
-		memcpy ( name, projectName, len );
+		memcpy ( name, areaName, len );
 		name [ len ] = 0;
-		notifyProjectName = name;
+		notifyAreaName = name;
 	}
 
 	if ( appName ) {
@@ -5725,9 +5725,9 @@ void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * proj
 	CErr ( "NotifyClientsStart: Error creating thread for notifying..." );
 
 Failed:
-	if ( notifyProjectName ) {
-		free ( notifyProjectName );
-		notifyProjectName = 0;
+	if ( notifyAreaName ) {
+		free ( notifyAreaName );
+		notifyAreaName = 0;
 	}
 	if ( notifyAppName ) {
 		free ( notifyAppName );
@@ -5768,11 +5768,11 @@ typedef struct _NotifyContext
 NotifyContext;
 
 
-ApplicationDevices * MediatorDaemon::GetApplicationDevices ( const char * projectName, const char * appName )
+ApplicationDevices * MediatorDaemon::GetApplicationDevices ( const char * areaName, const char * appName )
 {
 	CVerb ( "GetApplicationDevices" );
 	
-	if ( !projectName || !appName ) {
+	if ( !areaName || !appName ) {
 		CErr ( "GetApplicationDevices: Called with NULL argument." );
 		return 0;
 	}
@@ -5783,29 +5783,29 @@ ApplicationDevices * MediatorDaemon::GetApplicationDevices ( const char * projec
 	}	
 
 	ApplicationDevices				*	appDevices	= 0;
-	ProjectApps						*	projApps	= 0;
+	AreaApps						*	areaApps	= 0;
 	map<string, ApplicationDevices * >::iterator appsIt;
 	
 	string appsName ( appName );
-	string projName ( projectName );
+	string pareaName ( areaName );
 
-    map<string, ProjectApps * >::iterator projIt = projectsList.find ( projName );	
+    map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );	
 
-	if ( projIt == projectsList.end ( ) ) {
-		CLogArg ( "GetApplicationDevices: Project [%s] not found.", projectName );
+	if ( areaIt == areasList.end ( ) ) {
+		CLogArg ( "GetApplicationDevices: Area [%s] not found.", areaName );
 		goto Finish;
 	}
 	
-	projApps = projIt->second;
+	areaApps = areaIt->second;
     
-	if ( !projApps ) {
+	if ( !areaApps ) {
 		CLogArg ( "GetApplicationDevices: App [%s] not found.", appName );
 		goto Finish;
 	}
 		
-	appsIt = projApps->apps.find ( appsName );
+	appsIt = areaApps->apps.find ( appsName );
 				
-	if ( appsIt == projApps->apps.end ( ) ) {
+	if ( appsIt == areaApps->apps.end ( ) ) {
 		CLogArg ( "GetApplicationDevices: Devicelist of App [%s] not found.", appName );
 		goto Finish;
 	}
@@ -5854,8 +5854,8 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
 
 	unsigned int sendSize = sizeof(MediatorNotify);
 
-	if ( notifyProjectName && notifyAppName ) {
-		strcpy_s ( msg.projectName, sizeof(msg.projectName), notifyProjectName );
+	if ( notifyAreaName && notifyAppName ) {
+		strcpy_s ( msg.areaName, sizeof(msg.areaName), notifyAreaName );
 		strcpy_s ( msg.appName, sizeof(msg.appName), notifyAppName );
 		sendSize = sizeof(MediatorNotify);
 	}
@@ -5904,21 +5904,21 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
     }
     while ( 0 );
     
-    /// Get the projectApps
+    /// Get the AreaApps
     do
     {
 		map<string, ApplicationDevices * >::iterator appsIt;
 	
-		string projName ( notifyProjectName );
+		string pareaName ( notifyAreaName );
 			
 		/*if ( pthread_mutex_lock ( &devicesMutex ) ) {
             CErr ( "NotifyClients: Failed to acquire mutex!" ); break;
 		}*/
 
-		map<string, ProjectApps * >::iterator projIt = projectsList.find ( projName );	
+		map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );	
 
-		if ( projIt == projectsList.end ( ) ) {
-			CLogArg ( "NotifyClients: Project [%s] not found.", notifyProjectName );	
+		if ( areaIt == areasList.end ( ) ) {
+			CLogArg ( "NotifyClients: Area [%s] not found.", notifyAreaName );
 
 			/*if ( pthread_mutex_unlock ( &devicesMutex ) ) {
 				CErr ( "NotifyClients: Failed to release mutex!" );
@@ -5926,11 +5926,11 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
 			break;
 		}
         
-        ProjectApps * projApps = projIt->second;
+        AreaApps * areaApps = areaIt->second;
         
-        map<long long, ThreadInstance *>::iterator clientIt = projApps->notifyTargets.begin ();
+        map<long long, ThreadInstance *>::iterator clientIt = areaApps->notifyTargets.begin ();
         
-        while ( clientIt != projApps->notifyTargets.end () )
+        while ( clientIt != areaApps->notifyTargets.end () )
         {
             destClient = clientIt->second;
             
@@ -5957,7 +5957,7 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
         CErr ( "NotifyClients: Failed to release mutex!" ); goto Finish;
 	}
     
-	appDevices	= GetApplicationDevices ( notifyProjectName, notifyAppName );
+	appDevices	= GetApplicationDevices ( notifyAreaName, notifyAppName );
 	if ( appDevices )
 	{
 		unsigned int deviceID;

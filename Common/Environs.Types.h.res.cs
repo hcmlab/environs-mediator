@@ -675,9 +675,9 @@ namespace hcm.environs
 //				case ( 0 ):
 //					return "MEDIATOR_FILTER_NONE";
 //				case ( 1 ):
-//					return "MEDIATOR_FILTER_PROJECT";
+//					return "MEDIATOR_FILTER_AREA";
 //				case ( 2 ):
-//					return "MEDIATOR_FILTER_PROJECT_AND_APP";
+//					return "MEDIATOR_FILTER_AREA_AND_APP";
 		/// Disable all devicelist notifications
 //				case ( 8 ):
 //					return "MEDIATOR_FILTER_ALL";
@@ -735,8 +735,8 @@ namespace hcm.environs
 				case ( DEVICEINFO_DEVICETYPE_START + 1 ):
 					return "DEVICEINFO_DEVICENAME_START";
 				case ( DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1) ):
-					return "DEVICEINFO_PROJECTNAME_START";
-				case ( DEVICEINFO_PROJECTNAME_START + (MAX_NAMEPROPERTY + 1) ):
+					return "DEVICEINFO_AREANAME_START";
+				case ( DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1) ):
 					return "DEVICEINFO_APPNAME_START";
 			} /// -> switch
 
@@ -930,9 +930,9 @@ namespace hcm.environs
 					return "ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT";
 			} /// -> switch
 //				case ( 0 ):
-//					return "CALL_SYNC";
+//					return "CALL_WAIT";
 //				case ( 1 ):
-//					return "CALL_ASYNC";
+//					return "CALL_NOWAIT";
 //				case ( 0 ):
 //					return "RENDER_CALLBACK_TYPE_ALL";
 //				case ( 0x10 ):

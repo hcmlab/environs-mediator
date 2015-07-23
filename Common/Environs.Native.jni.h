@@ -441,10 +441,10 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetDeviceDims
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetProjectName1
+ * Method:    SetAreaName1
  * Signature: (Ljava/lang/String;)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetProjectName1
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetAreaName1
   (JNIEnv *, jclass, jstring);
 
 /*
@@ -1086,6 +1086,14 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDevicesHeaderSize
  */
 JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePath
   (JNIEnv *, jclass, jint, jstring, jstring, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetFilePathForStorage
+ * Signature: (ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+ */
+JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePathForStorage
+  (JNIEnv *, jclass, jint, jstring, jstring);
 
 /*
  * Class:     hcm_environs_Environs

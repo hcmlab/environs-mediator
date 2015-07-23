@@ -59,14 +59,14 @@ typedef struct _ValuePack
 } ValuePack;
 
 
-typedef struct _projectApps
+typedef struct _areaApps
 {
 	unsigned int								id;
 	std::map<std::string, ApplicationDevices*>	apps;
 
     map<long long, ThreadInstance *>            notifyTargets;
 }
-ProjectApps;
+AreaApps;
 
 
 typedef struct _AppsList
@@ -137,7 +137,7 @@ private:
 	pthread_mutex_t							acceptClientsMutex;
 	vector<ThreadInstance *>				acceptClients;
 
-	ApplicationDevices *					GetApplicationDevices ( const char * projectName, const char * appName );
+	ApplicationDevices *					GetApplicationDevices ( const char * areaName, const char * appName );
 	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
 	DeviceInstanceList *					GetDeviceInstance ( int deviceID, DeviceInstanceList * devices );
 
@@ -148,8 +148,8 @@ private:
 
 	unsigned int							CollectDevicesCount ( DeviceInstanceList * sourceDevice, int filterMode );
 
-	pthread_mutex_t							projectsMutex;
-	map<string, AppsList * >				projects;
+	pthread_mutex_t							areasMutex;
+	map<string, AppsList * >				areas;
 
 	bool									reqAuth;
 	pthread_mutex_t							usersDBMutex;
@@ -172,20 +172,20 @@ private:
     AESContext                              aesCtx;
     char                                    aesKey [ 32 ];
 	
-	DeviceInstanceList **					GetDeviceList ( char * projectName, char * appName, pthread_mutex_t ** mutex,
+	DeviceInstanceList **					GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex,
 													int ** pDevicesAvailable, ApplicationDevices ** appDevices );
 	
-	unsigned int							projectCounter;
-	map<unsigned int, string>				projectIDs;
+	unsigned int							areasCounter;
+	map<unsigned int, string>				areaIDs;
 
 	unsigned int							appsCounter;
 	map<unsigned int, string>				appIDs;
 
-	std::map<std::string, ProjectApps * >	projectsList;
+	std::map<std::string, AreaApps * >		areasList;
 	
 	void									RemoveDevice ( unsigned int ip, char * msg );
 	void									RemoveDevice ( DeviceInstanceList * device, bool useLock = true );
-	void									RemoveDevice ( int deviceID, const char * projectName, const char * appName );
+	void									RemoveDevice ( int deviceID, const char * areaName, const char * appName );
 	void									UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed );
 
     unsigned int                            bannAfterTries;
@@ -199,8 +199,8 @@ private:
 
 	int										ScanForParameters ( char * buffer, unsigned int maxLen, const char * delim, char ** params, int maxParams );
 
-	bool									addToProject ( map<string, ValuePack*> * values, const char * key, const char * value, unsigned int valueSize );
-	bool									addToProject ( const char * project, const char * app, const char * key, const char * value );
+	bool									addToArea ( map<string, ValuePack*> * values, const char * key, const char * value, unsigned int valueSize );
+	bool									addToArea ( const char * project, const char * app, const char * key, const char * value );
 	bool									sendDatabase ( int sock, struct sockaddr * addr );
 	
 	int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true );
@@ -235,17 +235,17 @@ private:
 	void									HandleCertSign ( ThreadInstance * client, char * msg );
 	
     bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
-	bool									HandleSTUNRequest ( ThreadInstance * destClient, unsigned int sourceID, const char * projName, const char * appName, unsigned int IP, unsigned int Port );
+	bool									HandleSTUNRequest ( ThreadInstance * destClient, unsigned int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 
 	bool									HandleQueryDevices ( ThreadInstance * client, char * msg );
 	bool									HandleShortMessage ( ThreadInstance * client, char * msg );
 
 	unsigned int							notify;
 	unsigned int							notifyDeviceID;
-	char								*	notifyProjectName;
+	char								*	notifyAreaName;
 	char								*	notifyAppName;
 
-	void									NotifyClientsStart ( unsigned int notify, const char * projectName, const char * appName, int deviceID );
+	void									NotifyClientsStart ( unsigned int notify, const char * areaName, const char * appName, int deviceID );
 	static void 						*	NotifyClientsStarter ( void * daemon );
 	void									NotifyClients ( unsigned int notify );
 	

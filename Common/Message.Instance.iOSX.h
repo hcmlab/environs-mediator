@@ -34,12 +34,38 @@
 @interface MessageInstance : NSObject
 {
 @public
+	/**
+	 * sent is true if this MessageInstance is data that was sent or received (false).
+	 * */
     bool sent;
+
+	/**
+	 * created is a posix timestamp that determines the time and date that this MessageInstance
+	 * has been received or sent.
+	 * */
     long created;
+
+	/**
+	 * The length of the text message in bytes (characters).
+	 * */
     int length;
+
+	/**
+	 * The text message.
+	 * */
     NSString * text;
+
+	/**
+	 * Determins the type of connection (channel type) used to exchange this message.
+	 * c = in connected state
+	 * d = in not connected state through a direct device to device channel.
+	 * m = in not connected state by means of a Mediator service.
+	 * */
     char connection;
     
+	/**
+	 * A reference to the DeviceInstance that is responsible for this FileInstance.
+	 * */
     id device;
 }
 

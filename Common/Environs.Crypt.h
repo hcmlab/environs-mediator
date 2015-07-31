@@ -36,7 +36,8 @@
 
 #ifndef ANDROID
 
-    #if ( defined(MEDIATORDAEMON) || defined(ENVIRONS_OSX) ) /// we use openssl for linux (and macos as apple's crypt simply doesn't work for rsa?)
+//#if ( defined(MEDIATORDAEMON) )
+    #if ( defined(MEDIATORDAEMON) || defined(ENVIRONS_OSX) )
 
         #if ( !defined(ENVIRONS_IOS) && !defined(_WIN32) )
         /// Use openssl for macos and mediatordaemon

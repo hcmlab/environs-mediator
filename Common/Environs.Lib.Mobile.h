@@ -35,11 +35,10 @@ namespace environs
 		extern "C"
 		{
 #endif
-			//LIBEXPORT void CallConv			allocNative ();
-			LIBEXPORT void CallConv			SetOrientations ( float x, float y, float z );
-			LIBEXPORT void CallConv			SetAccelerometers ( float x, float y, float z );
+			LIBEXPORT void CallConv			NextOrientations ( float x, float y, float z );
+			LIBEXPORT void CallConv			NextAccelerometers ( float x, float y, float z );
 
-			LIBEXPORT void CallConv			TouchDispatch ( int deviceID, void * buffer, int count, EBOOL init );
+			LIBEXPORT void CallConv			TouchDispatch ( int portalID, void * buffer, int count, EBOOL init );
 			LIBEXPORT void CallConv			touch1 ( int deviceID, int id, int x, int y, unsigned char event );
 			LIBEXPORT void CallConv			touch2 ( int deviceID, int id, int x, int y, float angle, float size, float axisx, float axisy, unsigned char event );
 
@@ -47,14 +46,7 @@ namespace environs
 			LIBEXPORT void * CallConv		ReceiveStreamPack ( int deviceID, const char * areaName, const char * appName, int portalID );
 
 			LIBEXPORT int CallConv			GetSizeOfTouchPack ();
-
-			LIBEXPORT int CallConv          GetActivePortalID ();
-			LIBEXPORT int CallConv          GetRequestedPortalID ();
-
-			LIBEXPORT void CallConv			SetPortalViewDimsAuto ( EBOOL enable );
-			LIBEXPORT EBOOL CallConv		GetPortalViewDimsAuto ();
-			LIBEXPORT void CallConv			SetPortalViewDims ( int nativeID, int left, int top, int right, int bottom );
-
+			
 			LIBEXPORT EBOOL CallConv		SetPortalWidthHeight ( int deviceID, int width, int height );
 
 			LIBEXPORT EBOOL CallConv		GetUseSensors ();

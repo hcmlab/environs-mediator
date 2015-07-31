@@ -150,24 +150,6 @@ namespace environs {
 
 #define	ENVIRONS_OBJECT_DISPOSED                          		(-1)
 
-/* 
- * Crypt declarations
- */
-#define	ENVIRONS_DEVICES_KEYSIZE                          		(2048)
-#define	ENVIRONS_CRYPT_PAD_OAEP                           		((1 << 24))
-#define	ENVIRONS_CRYPT_PAD_PKCS1                          		((2 << 24))
-#define	ENVIRONS_CRYPT_PAD_PKCS1SHA1                      		((4 << 24))
-#define	ENVIRONS_CRYPT_PAD_PKCS1SHA256                    		((8 << 24))
-
-#define	MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   		(0xFFFF)
-#define	DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  		(MEDIATOR_CLIENT_MAX_BUFFER_SIZE)
-/* 
- * Mediator device class types used for GetDevicesFrom ( type )
- */
-#define	MEDIATOR_DEVICE_CLASS_ALL                         		(0)
-#define	MEDIATOR_DEVICE_CLASS_NEARBY                      		(1)
-#define	MEDIATOR_DEVICE_CLASS_MEDIATOR                    		(2)
-
 /*
  * Native payload type class is determined by the upper byte of payload
  */
@@ -268,28 +250,8 @@ namespace environs {
 #define	DATA_STREAM_H264_HDR                              		(DATA_STREAM | DATA_STREAM_H264 | 2)
 #define	DATA_STREAM_H264_NAL                              		(DATA_STREAM | DATA_STREAM_H264 | 4)
 #define	DATA_STREAM_H264_NALUS                            		(DATA_STREAM | DATA_STREAM_H264 | 8)
-/*
- * Native file types to app
- */
-#define	MSG_TYPE_FILE                                     		(3)
-/** Class: File type */
-// File types
-#define	NATIVE_FILE_TYPE                                  		(0x400)
-#define	NATIVE_FILE_TYPE_APP_DEFINED                      		(NATIVE_FILE_TYPE)
-#define	NATIVE_FILE_TYPE_EXT_DEFINED                      		(NATIVE_FILE_TYPE | 1)
-#define	NATIVE_FILE_TYPE_CHUNKED                          		(NATIVE_FILE_TYPE | 6)
-#define	NATIVE_FILE_TYPE_ACK                              		(NATIVE_FILE_TYPE | 0xF)
-
-#define	MSG_TYPE_MESSAGE                                  		(4)
-#define	MESSAGE_FROM_APP                                  		(0x800)
-#define	MESSAGE_APP_STRING                                		(MESSAGE_FROM_APP | 1)
 
 
-#define	NOTIFY_TYPE_FILE                                  		((MSG_TYPE_FILE << 16))
-#define	NOTIFY_TYPE_FILE_PROGRESS                         		(NOTIFY_TYPE_FILE | 0x20)
-
-#define	NOTIFY_FILE_SEND_PROGRESS                         		(NOTIFY_TYPE_FILE_PROGRESS | 1)
-#define	NOTIFY_FILE_RECEIVE_PROGRESS                      		(NOTIFY_TYPE_FILE_PROGRESS | 2)
 /** 
  * Portal Source Status enumeration.
  * */
@@ -311,13 +273,21 @@ namespace environs {
 
 
 /** Class: Portal constants */
-#define	MAX_PORTAL_STREAMS_A_DEVICE                       		(3)
-#define	MAX_PORTAL_CONTEXTS                               		(3)
-#define	MAX_PORTAL_OVERLAYS                               		(3)
+#define	MAX_PORTAL_STREAMS_A_DEVICE                       		(6)
+#define	MAX_PORTAL_CONTEXT_WORKERS                        		(2)
+#define	MAX_PORTAL_OVERLAYS                               		(6)
 #define	MAX_PORTAL_GENERATOR_SLOTS                        		(5)
 #define	MAX_PORTAL_REQUEST_WAIT_TIME_MS                   		(30000)
 
 
+/**
+ * A portal ID is masked as follows:
+ * 0xFFFFFFFF
+ * 0xFF000000 portal map table identifier (used internal by devices to access the map)
+ * 0x0000F000 portal type
+ * 0x00000300 direction
+ * 0x000000FF portal id (the same between both devices)
+ */
 
 /** Class: Portal type */
 #define	PORTAL_TYPE_ANY                                   		(0)
@@ -343,6 +313,15 @@ namespace environs {
 		};
 	};
 
+
+
+/** Class: Portal status */
+#define	PORTAL_STATUS_DISPOSED                            		(ENVIRONS_OBJECT_DISPOSED)
+#define	PORTAL_STATUS_CREATED                             		(0)
+#define	PORTAL_STATUS_CREATED_FROM_REQUEST                		(1)
+#define	PORTAL_STATUS_CREATED_ASK_REQUEST                 		(2)
+#define	PORTAL_STATUS_ESTABLISHED                         		(4)
+#define	PORTAL_STATUS_STARTED                             		(6)
 
 
 /** Class: Portal stream type */
@@ -378,7 +357,7 @@ namespace environs {
 #define	PORTAL_INFO_FLAG_LOCATION                         		(0x1)
 #define	PORTAL_INFO_FLAG_ANGLE                            		(0x2)
 #define	PORTAL_INFO_FLAG_SIZE                             		(0x4)
-	
+
 
 /** Class: Portal messages and notifications */
 #define	MSG_TYPE_PORTAL                                   		(5)
@@ -389,55 +368,63 @@ namespace environs {
 #define	NOTIFY_PORTAL                                     		(0x800)
 
 
+#define	NOTIFY_PORTAL_INSTANCE                            		(0x100800)
+#define	PORTAL_INSTANCE_FLAG_SURFACE_CHANGED              		(NOTIFY_PORTAL_INSTANCE | 0x1)
+
 // Portal message subtypes
 #define	MSG_PORTAL_REQUEST_ID                             		(0)
 #define	MSG_PORTAL_REQUEST                                		(NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID)
-#define	MSG_PORTAL_PROVIDE_STREAM_ID                      		(1)
+#define	MSG_PORTAL_ASK_FOR_REQUEST_ID                     		(1)
+#define	MSG_PORTAL_ASK_FOR_REQUEST                        		(NOTIFY_PORTAL 	| MSG_PORTAL_ASK_FOR_REQUEST_ID)
+#define	MSG_PORTAL_PROVIDE_STREAM_ID                      		(2)
 #define	MSG_PORTAL_PROVIDE_STREAM                         		(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID)
-#define	MSG_PORTAL_PROVIDE_IMAGES_ID                      		(2)
+#define	MSG_PORTAL_PROVIDE_IMAGES_ID                      		(3)
 #define	MSG_PORTAL_PROVIDE_IMAGES                         		(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID)
-#define	MSG_PORTAL_REQUEST_FAIL_ID                        		(3)
+#define	MSG_PORTAL_REQUEST_FAIL_ID                        		(4)
 #define	MSG_PORTAL_REQUEST_FAIL                           		(MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID)
 	
-#define	MSG_PORTAL_STOP_ID                                		(4)
+#define	MSG_PORTAL_STOP_ID                                		(5)
 #define	MSG_PORTAL_STOP                                   		(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID)
-#define	MSG_PORTAL_STOP_ACK_ID                            		(5)
+#define	MSG_PORTAL_STOP_ACK_ID                            		(6)
 #define	MSG_PORTAL_STOP_ACK                               		(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID)
-#define	MSG_PORTAL_STOP_FAIL_ID                           		(6)
+#define	MSG_PORTAL_STOP_FAIL_ID                           		(7)
 #define	MSG_PORTAL_STOP_FAIL                              		(MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID)
-#define	MSG_PORTAL_START_ID                               		(7)
+#define	MSG_PORTAL_START_ID                               		(8)
 #define	MSG_PORTAL_START                                  		(NOTIFY_PORTAL 	| MSG_PORTAL_START_ID)
-#define	MSG_PORTAL_START_ACK_ID                           		(8)
+#define	MSG_PORTAL_START_ACK_ID                           		(9)
 #define	MSG_PORTAL_START_ACK                              		(NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID)
-#define	MSG_PORTAL_START_FAIL_ID                          		(9)
+#define	MSG_PORTAL_START_FAIL_ID                          		(10)
 #define	MSG_PORTAL_START_FAIL                             		(MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID)
-#define	MSG_PORTAL_PAUSE_ID                               		(10)
+#define	MSG_PORTAL_PAUSE_ID                               		(11)
 #define	MSG_PORTAL_PAUSE                                  		(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID)
-#define	MSG_PORTAL_PAUSE_ACK_ID                           		(11)
+#define	MSG_PORTAL_PAUSE_ACK_ID                           		(12)
 #define	MSG_PORTAL_PAUSE_ACK                              		(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID)
-#define	MSG_PORTAL_PAUSE_FAIL_ID                          		(12)
+#define	MSG_PORTAL_PAUSE_FAIL_ID                          		(13)
 #define	MSG_PORTAL_PAUSE_FAIL                             		(MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID)
 
 
-#define	MSG_PORTAL_BUFFER_FULL_ID                         		(13)
+#define	MSG_PORTAL_BUFFER_FULL_ID                         		(14)
 #define	MSG_PORTAL_BUFFER_FULL                            		(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID)
-#define	MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  		(14)
+#define	MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  		(15)
 #define	MSG_PORTAL_BUFFER_AVAIL_AGAIN                     		(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID)
-#define	MSG_PORTAL_IFRAME_REQUEST_ID                      		(15)
+#define	MSG_PORTAL_IFRAME_REQUEST_ID                      		(16)
 #define	MSG_PORTAL_IFRAME_REQUEST                         		(NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID)
 
-#define	MSG_PORTAL_MAX_COUNT                              		(15 + 1)
+#define	MSG_PORTAL_MAX_COUNT                              		(16 + 1)
 
 
 #define	NOTIFY_TYPE_PORTAL                                		((MSG_TYPE_PORTAL << 16))
+#define	NOTIFY_PORTAL_ESTABLISHED                         		(0x80)
+#define	NOTIFY_PORTAL_ESTABLISHED_RESOLUTION              		(NOTIFY_TYPE_PORTAL | 0x81)
 
 #define	NOTIFY_PORTAL_REQUEST                             		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST)
+#define	NOTIFY_PORTAL_ASK_REQUEST                         		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_ASK_FOR_REQUEST)
 #define	NOTIFY_PORTAL_STREAM_INCOMING                     		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_INCOMING)
 #define	NOTIFY_PORTAL_IMAGES_INCOMING                     		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_INCOMING)
-#define	NOTIFY_PORTAL_RECEIVER_READY                      		(NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING)
+#define	NOTIFY_PORTAL_INCOMING_ESTABLISHED                		(NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING | NOTIFY_PORTAL_ESTABLISHED)
 #define	NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_OUTGOING)
 #define	NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_OUTGOING)
-#define	NOTIFY_PORTAL_PROVIDER_READY                      		(NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK)
+#define	NOTIFY_PORTAL_PROVIDER_READY                      		(NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK | NOTIFY_PORTAL_ESTABLISHED)
 #define	NOTIFY_PORTAL_REQUEST_FAIL                        		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_INCOMING)
 #define	NOTIFY_PORTAL_PROVIDE_FAIL                        		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_OUTGOING)
 	
@@ -486,7 +473,31 @@ namespace environs {
 #define	NOTIFY_PORTAL_SIZE_CHANGED                        		(NOTIFY_TYPE_OPTIONS | MSG_OPT_PORTAL_WH_SET)
 #define	NOTIFY_CONTACT_DIRECT_CHANGED                     		(NOTIFY_TYPE_OPTIONS | MSG_OPT_CONTACT_DIRECT_SET)
 
-	
+
+/*
+ * Native file types to app
+ */
+#define	MSG_TYPE_FILE                                     		(3)
+/** Class: File type */
+// File types
+#define	NATIVE_FILE_TYPE                                  		(0x400)
+#define	NATIVE_FILE_TYPE_APP_DEFINED                      		(NATIVE_FILE_TYPE)
+#define	NATIVE_FILE_TYPE_EXT_DEFINED                      		(NATIVE_FILE_TYPE | 1)
+#define	NATIVE_FILE_TYPE_CHUNKED                          		(NATIVE_FILE_TYPE | 6)
+#define	NATIVE_FILE_TYPE_ACK                              		(NATIVE_FILE_TYPE | 0xF)
+
+#define	MSG_TYPE_MESSAGE                                  		(4)
+#define	MESSAGE_FROM_APP                                  		(0x800)
+#define	MESSAGE_APP_STRING                                		(MESSAGE_FROM_APP | 1)
+
+
+#define	NOTIFY_TYPE_FILE                                  		((MSG_TYPE_FILE << 16))
+#define	NOTIFY_TYPE_FILE_PROGRESS                         		(NOTIFY_TYPE_FILE | 0x20)
+
+#define	NOTIFY_FILE_SEND_PROGRESS                         		(NOTIFY_TYPE_FILE_PROGRESS | 1)
+#define	NOTIFY_FILE_RECEIVE_PROGRESS                      		(NOTIFY_TYPE_FILE_PROGRESS | 2)
+
+
 /*
  * Environs options data identifiers for onData
  */
@@ -818,8 +829,12 @@ namespace environs {
 			ARGBHandle          	=	0x2,
 			/** iOS ARGB. */
 			BGRA                	=	0x3,
+			/** RGB 24bit. */
+			RGB                 	=	0x4,
 			/** I420. */
 			YUV420              	=	0x10,
+			/** YV12. */
+			YV12                	=	0x12,
 			/** GDIBitmap. */
 			GDIBitmap           	=	0x100,
 			/** The data follows either D3D or OpenGL texture format. */
@@ -962,6 +977,24 @@ namespace environs {
 
 
 
+/*
+ * Crypt declarations
+ */
+#define	ENVIRONS_DEVICES_KEYSIZE                          		(2048)
+#define	ENVIRONS_CRYPT_PAD_OAEP                           		((1 << 24))
+#define	ENVIRONS_CRYPT_PAD_PKCS1                          		((2 << 24))
+#define	ENVIRONS_CRYPT_PAD_PKCS1SHA1                      		((4 << 24))
+#define	ENVIRONS_CRYPT_PAD_PKCS1SHA256                    		((8 << 24))
+
+#define	MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   		(0xFFFF)
+#define	DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  		(MEDIATOR_CLIENT_MAX_BUFFER_SIZE)
+/*
+ * Mediator device class types used for GetDevicesFrom ( type )
+ */
+#define	MEDIATOR_DEVICE_CLASS_ALL                         		(0)
+#define	MEDIATOR_DEVICE_CLASS_NEARBY                      		(1)
+#define	MEDIATOR_DEVICE_CLASS_MEDIATOR                    		(2)
+
 
 /**
  * Environs call flags
@@ -1014,6 +1047,7 @@ namespace environs {
 
 	static const char *	MSG_PORTAL_Descriptions 	[] = {
 		"Portal requested",
+		"Portal provided",
 		"Stream portal provided",
 		"Image portal provided",
 		"Portal request failed",

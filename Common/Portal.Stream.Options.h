@@ -26,16 +26,17 @@ namespace environs
 {
 	typedef struct _PortalStreamOptions
 	{
-		bool			usePNG;
-		bool			useOpenCL;
-		bool			useStream;
-		bool			useNativeResolution;
-		bool			streamOverCom;
-		bool			limitMaxResolution;
+		bool	usePNG;
+		bool	useOpenCL;
+		bool	useStream;
+		bool	useNativeResolution;
+		bool	streamOverCom;
+		bool	limitMaxResolution;
 
-		unsigned int	streamWidth;
-		unsigned int	streamHeight;
-        int             streamType;
+		int		streamWidth;
+		int		streamHeight;
+        float   streamMinFPS;
+        int     streamType;
 	}
 	PortalStreamOptions;
 }

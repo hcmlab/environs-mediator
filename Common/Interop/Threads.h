@@ -189,6 +189,7 @@ namespace environs
 #define pthread_cond_mutex_unlock(m)	false
 #define pthread_cond_prepare(e)			ResetEvent ( *e )
 #define pthread_cond_signal(e)			!SetEvent ( *e )
+#define pthread_cond_broadcast(e)		pthread_cond_signal(e)
 #define pthread_cond_signal_checked(e)	if (*e) SetEvent ( *e )
 #define pthread_cond_prepare_checked(e) if (*e) ResetEvent ( *e )
 #define pthread_cond_destroy(e)			(!CloseHandle ( *e ) || ((*e = 0) != 0))

@@ -50,6 +50,12 @@ namespace environs
 					src->outputType = src->outputTypes [j];
 					dst->inputType = src->outputType;
 
+					if ( !src->ApplyOutput () )
+						continue;
+
+					if ( !dst->ApplyInput () )
+						continue;
+
 					CVerbID ( "Connect: successfully connected." );
 					return true;
 				}

@@ -63,9 +63,8 @@
  * OnPortal is called when a portal request from another devices came in, or when a portal has been provided by another device.
  *
  * @param portal 		The PortalInstance object.
- * @return	accept		 The called method must return true, if it takes over this request. If false is returned, then the next observer (if any) is called.
  */
-- (bool) OnPortalRequestOrProvided:(id) portalInstance;
+- (void) OnPortalRequestOrProvided:(id) portalInstance;
 
 @end
 
@@ -127,10 +126,10 @@
 /**
  * OnPortalChanged is called when the portal status has changed, e.g. stream has started, stopped, disposed, etc..
  *
- * @param sender        The PortalInstance object.
- * @param notification	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
+ * @param sender                    The PortalInstance object.
+ * @param Environs_NOTIFY_PORTAL_	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
  */
-- (void) OnPortalChanged:(id) sender Notify:(int)notification;
+- (void) OnPortalChanged:(id) sender Notify:(int)Environs_NOTIFY_PORTAL_;
 
 @end
 

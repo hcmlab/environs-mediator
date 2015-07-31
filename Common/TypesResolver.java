@@ -83,27 +83,7 @@ public class TypesResolver extends hcm.environs.Types
 			switch ( constToResolve ) {
 				case ( -1 ):
 					return "ENVIRONS_OBJECT_DISPOSED";
-				case ( 2048 ):
-					return "ENVIRONS_DEVICES_KEYSIZE";
-				case ( (1 << 24) ):
-					return "ENVIRONS_CRYPT_PAD_OAEP";
-				case ( (2 << 24) ):
-					return "ENVIRONS_CRYPT_PAD_PKCS1";
-				case ( (4 << 24) ):
-					return "ENVIRONS_CRYPT_PAD_PKCS1SHA1";
-				case ( (8 << 24) ):
-					return "ENVIRONS_CRYPT_PAD_PKCS1SHA256";
 			} /// -> switch
-			if ( constToResolve == ( 0xFFFF ) )
-				return "MEDIATOR_CLIENT_MAX_BUFFER_SIZE";
-			if ( constToResolve == ( MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) )
-				return "DEVICE_HANDSHAKE_BUFFER_MAX_SIZE";
-//				case ( 0 ):
-//					return "MEDIATOR_DEVICE_CLASS_ALL";
-//				case ( 1 ):
-//					return "MEDIATOR_DEVICE_CLASS_NEARBY";
-//				case ( 2 ):
-//					return "MEDIATOR_DEVICE_CLASS_MEDIATOR";
 
 
 			switch ( constToResolve ) {
@@ -264,51 +244,11 @@ public class TypesResolver extends hcm.environs.Types
 					return "DATA_STREAM_H264_NALUS";
 			} /// -> switch
 
-//			if ( constToResolve == ( 0x400 ) )
-//				return "NATIVE_FILE_TYPE";
-//				case ( 3 ):
-//					return "MSG_TYPE_FILE";
-		// File types
-
-
-			switch ( constToResolve ) {
-				case ( NATIVE_FILE_TYPE ):
-					return "NATIVE_FILE_TYPE_APP_DEFINED";
-				case ( NATIVE_FILE_TYPE | 1 ):
-					return "NATIVE_FILE_TYPE_EXT_DEFINED";
-				case ( NATIVE_FILE_TYPE | 6 ):
-					return "NATIVE_FILE_TYPE_CHUNKED";
-				case ( NATIVE_FILE_TYPE | 0xF ):
-					return "NATIVE_FILE_TYPE_ACK";
-			} /// -> switch
-//				case ( 4 ):
-//					return "MSG_TYPE_MESSAGE";
-
-
-			switch ( constToResolve ) {
-				case ( 0x800 ):
-					return "MESSAGE_FROM_APP";
-				case ( MESSAGE_FROM_APP | 1 ):
-					return "MESSAGE_APP_STRING";
-			} /// -> switch
-
-
-			switch ( constToResolve ) {
-				case ( (MSG_TYPE_FILE << 16) ):
-					return "NOTIFY_TYPE_FILE";
-				case ( NOTIFY_TYPE_FILE | 0x20 ):
-					return "NOTIFY_TYPE_FILE_PROGRESS";
-				case ( NOTIFY_TYPE_FILE_PROGRESS | 1 ):
-					return "NOTIFY_FILE_SEND_PROGRESS";
-				case ( NOTIFY_TYPE_FILE_PROGRESS | 2 ):
-					return "NOTIFY_FILE_RECEIVE_PROGRESS";
-			} /// -> switch
-
-//			if ( constToResolve == ( 3 ) )
+//			if ( constToResolve == ( 6 ) )
 //				return "MAX_PORTAL_STREAMS_A_DEVICE";
-//				case ( 3 ):
-//					return "MAX_PORTAL_CONTEXTS";
-//				case ( 3 ):
+//				case ( 2 ):
+//					return "MAX_PORTAL_CONTEXT_WORKERS";
+//				case ( 6 ):
 //					return "MAX_PORTAL_OVERLAYS";
 //				case ( 5 ):
 //					return "MAX_PORTAL_GENERATOR_SLOTS";
@@ -334,8 +274,21 @@ public class TypesResolver extends hcm.environs.Types
 					return "PORTAL_TYPE_MASK";
 			} /// -> switch
 
+			if ( constToResolve == ( ENVIRONS_OBJECT_DISPOSED ) )
+				return "PORTAL_STATUS_DISPOSED";
+
 //			if ( constToResolve == ( 0 ) )
 //				return "STREAMTYPE_UNKNOWN";
+//				case ( 0 ):
+//					return "PORTAL_STATUS_CREATED";
+//				case ( 1 ):
+//					return "PORTAL_STATUS_CREATED_FROM_REQUEST";
+//				case ( 2 ):
+//					return "PORTAL_STATUS_CREATED_ASK_REQUEST";
+//				case ( 4 ):
+//					return "PORTAL_STATUS_ESTABLISHED";
+//				case ( 6 ):
+//					return "PORTAL_STATUS_STARTED";
 
 
 			switch ( constToResolve ) {
@@ -376,8 +329,16 @@ public class TypesResolver extends hcm.environs.Types
 				case ( 0x300 ):
 					return "PORTAL_DIR_MASK";
 			} /// -> switch
-//				case ( 0x800 ):
-//					return "NOTIFY_PORTAL";
+
+
+			switch ( constToResolve ) {
+				case ( 0x800 ):
+					return "NOTIFY_PORTAL";
+				case ( 0x100800 ):
+					return "NOTIFY_PORTAL_INSTANCE";
+			} /// -> switch
+			if ( constToResolve == ( NOTIFY_PORTAL_INSTANCE | 0x1 ) )
+				return "PORTAL_INSTANCE_FLAG_SURFACE_CHANGED";
 //				case ( 0 ):
 //					return "MSG_PORTAL_REQUEST_ID";
 
@@ -386,66 +347,70 @@ public class TypesResolver extends hcm.environs.Types
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID ):
 					return "MSG_PORTAL_REQUEST";
 //				case ( 1 ):
+//					return "MSG_PORTAL_ASK_FOR_REQUEST_ID";
+				case ( NOTIFY_PORTAL 	| MSG_PORTAL_ASK_FOR_REQUEST_ID ):
+					return "MSG_PORTAL_ASK_FOR_REQUEST";
+//				case ( 2 ):
 //					return "MSG_PORTAL_PROVIDE_STREAM_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID ):
 					return "MSG_PORTAL_PROVIDE_STREAM";
-//				case ( 2 ):
+//				case ( 3 ):
 //					return "MSG_PORTAL_PROVIDE_IMAGES_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID ):
 					return "MSG_PORTAL_PROVIDE_IMAGES";
-//				case ( 3 ):
+//				case ( 4 ):
 //					return "MSG_PORTAL_REQUEST_FAIL_ID";
 				case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID ):
 					return "MSG_PORTAL_REQUEST_FAIL";
-//				case ( 4 ):
+//				case ( 5 ):
 //					return "MSG_PORTAL_STOP_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID ):
 					return "MSG_PORTAL_STOP";
-//				case ( 5 ):
+//				case ( 6 ):
 //					return "MSG_PORTAL_STOP_ACK_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID ):
 					return "MSG_PORTAL_STOP_ACK";
-//				case ( 6 ):
+//				case ( 7 ):
 //					return "MSG_PORTAL_STOP_FAIL_ID";
 				case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID ):
 					return "MSG_PORTAL_STOP_FAIL";
-//				case ( 7 ):
+//				case ( 8 ):
 //					return "MSG_PORTAL_START_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_START_ID ):
 					return "MSG_PORTAL_START";
-//				case ( 8 ):
-//					return "MSG_PORTAL_START_ACK_ID";
+				case ( 9 ):
+					return "MSG_PORTAL_START_ACK_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID ):
 					return "MSG_PORTAL_START_ACK";
-				case ( 9 ):
+				case ( 10 ):
 					return "MSG_PORTAL_START_FAIL_ID";
 				case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID ):
 					return "MSG_PORTAL_START_FAIL";
-				case ( 10 ):
+				case ( 11 ):
 					return "MSG_PORTAL_PAUSE_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID ):
 					return "MSG_PORTAL_PAUSE";
-				case ( 11 ):
+				case ( 12 ):
 					return "MSG_PORTAL_PAUSE_ACK_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID ):
 					return "MSG_PORTAL_PAUSE_ACK";
-				case ( 12 ):
+				case ( 13 ):
 					return "MSG_PORTAL_PAUSE_FAIL_ID";
 				case ( MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID ):
 					return "MSG_PORTAL_PAUSE_FAIL";
-				case ( 13 ):
+				case ( 14 ):
 					return "MSG_PORTAL_BUFFER_FULL_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID ):
 					return "MSG_PORTAL_BUFFER_FULL";
-				case ( 14 ):
+				case ( 15 ):
 					return "MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID ):
 					return "MSG_PORTAL_BUFFER_AVAIL_AGAIN";
-				case ( 15 ):
+				case ( 16 ):
 					return "MSG_PORTAL_IFRAME_REQUEST_ID";
 				case ( NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID ):
 					return "MSG_PORTAL_IFRAME_REQUEST";
-				case ( 15 + 1 ):
+				case ( 16 + 1 ):
 					return "MSG_PORTAL_MAX_COUNT";
 			} /// -> switch
 
@@ -453,19 +418,25 @@ public class TypesResolver extends hcm.environs.Types
 			switch ( constToResolve ) {
 				case ( (MSG_TYPE_PORTAL << 16) ):
 					return "NOTIFY_TYPE_PORTAL";
+				case ( 0x80 ):
+					return "NOTIFY_PORTAL_ESTABLISHED";
+				case ( NOTIFY_TYPE_PORTAL | 0x81 ):
+					return "NOTIFY_PORTAL_ESTABLISHED_RESOLUTION";
 				case ( NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST ):
 					return "NOTIFY_PORTAL_REQUEST";
+				case ( NOTIFY_TYPE_PORTAL | MSG_PORTAL_ASK_FOR_REQUEST ):
+					return "NOTIFY_PORTAL_ASK_REQUEST";
 				case ( NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_INCOMING ):
 					return "NOTIFY_PORTAL_STREAM_INCOMING";
 				case ( NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_INCOMING ):
 					return "NOTIFY_PORTAL_IMAGES_INCOMING";
-				case ( NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING ):
-					return "NOTIFY_PORTAL_RECEIVER_READY";
+				case ( NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING | NOTIFY_PORTAL_ESTABLISHED ):
+					return "NOTIFY_PORTAL_INCOMING_ESTABLISHED";
 				case ( NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_OUTGOING ):
 					return "NOTIFY_PORTAL_PROVIDE_STREAM_ACK";
 				case ( NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_OUTGOING ):
 					return "NOTIFY_PORTAL_PROVIDE_IMAGES_ACK";
-				case ( NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK ):
+				case ( NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK | NOTIFY_PORTAL_ESTABLISHED ):
 					return "NOTIFY_PORTAL_PROVIDER_READY";
 				case ( NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_INCOMING ):
 					return "NOTIFY_PORTAL_REQUEST_FAIL";
@@ -543,6 +514,46 @@ public class TypesResolver extends hcm.environs.Types
 					return "NOTIFY_PORTAL_SIZE_CHANGED";
 				case ( NOTIFY_TYPE_OPTIONS | MSG_OPT_CONTACT_DIRECT_SET ):
 					return "NOTIFY_CONTACT_DIRECT_CHANGED";
+			} /// -> switch
+
+//			if ( constToResolve == ( 0x400 ) )
+//				return "NATIVE_FILE_TYPE";
+//				case ( 3 ):
+//					return "MSG_TYPE_FILE";
+		// File types
+
+
+			switch ( constToResolve ) {
+				case ( NATIVE_FILE_TYPE ):
+					return "NATIVE_FILE_TYPE_APP_DEFINED";
+				case ( NATIVE_FILE_TYPE | 1 ):
+					return "NATIVE_FILE_TYPE_EXT_DEFINED";
+				case ( NATIVE_FILE_TYPE | 6 ):
+					return "NATIVE_FILE_TYPE_CHUNKED";
+				case ( NATIVE_FILE_TYPE | 0xF ):
+					return "NATIVE_FILE_TYPE_ACK";
+			} /// -> switch
+//				case ( 4 ):
+//					return "MSG_TYPE_MESSAGE";
+//				case ( 0x800 ):
+//					return "MESSAGE_FROM_APP";
+
+
+			switch ( constToResolve ) {
+				case ( MESSAGE_FROM_APP | 1 ):
+					return "MESSAGE_APP_STRING";
+			} /// -> switch
+
+
+			switch ( constToResolve ) {
+				case ( (MSG_TYPE_FILE << 16) ):
+					return "NOTIFY_TYPE_FILE";
+				case ( NOTIFY_TYPE_FILE | 0x20 ):
+					return "NOTIFY_TYPE_FILE_PROGRESS";
+				case ( NOTIFY_TYPE_FILE_PROGRESS | 1 ):
+					return "NOTIFY_FILE_SEND_PROGRESS";
+				case ( NOTIFY_TYPE_FILE_PROGRESS | 2 ):
+					return "NOTIFY_FILE_RECEIVE_PROGRESS";
 //				case ( 0x40 ):
 //					return "NOTIFY_TOUCHSOURCE";
 				case ( NOTIFY_TOUCHSOURCE | 2 ):
@@ -564,11 +575,11 @@ public class TypesResolver extends hcm.environs.Types
 //					return "INPUT_TYPE_MARKER";
 //				case ( 8 ):
 //					return "INPUT_TYPE_BLOB";
+//				case ( 0x80 ):
+//					return "NATIVE_EVENT_ERROR_MISC";
 
 
 			switch ( constToResolve ) {
-				case ( 0x80 ):
-					return "NATIVE_EVENT_ERROR_MISC";
 				case ( NATIVE_EVENT_ERROR_MISC | 3 ):
 					return "NATIVE_EVENT_DATA_CON_FAILED";
 				case ( NATIVE_EVENT_ERROR_MISC | 4 ):
@@ -923,7 +934,27 @@ public class TypesResolver extends hcm.environs.Types
 			switch ( constToResolve ) {
 				case ( 60 ):
 					return "ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT";
+				case ( 2048 ):
+					return "ENVIRONS_DEVICES_KEYSIZE";
+				case ( (1 << 24) ):
+					return "ENVIRONS_CRYPT_PAD_OAEP";
+				case ( (2 << 24) ):
+					return "ENVIRONS_CRYPT_PAD_PKCS1";
+				case ( (4 << 24) ):
+					return "ENVIRONS_CRYPT_PAD_PKCS1SHA1";
+				case ( (8 << 24) ):
+					return "ENVIRONS_CRYPT_PAD_PKCS1SHA256";
 			} /// -> switch
+			if ( constToResolve == ( 0xFFFF ) )
+				return "MEDIATOR_CLIENT_MAX_BUFFER_SIZE";
+			if ( constToResolve == ( MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) )
+				return "DEVICE_HANDSHAKE_BUFFER_MAX_SIZE";
+//				case ( 0 ):
+//					return "MEDIATOR_DEVICE_CLASS_ALL";
+//				case ( 1 ):
+//					return "MEDIATOR_DEVICE_CLASS_NEARBY";
+//				case ( 2 ):
+//					return "MEDIATOR_DEVICE_CLASS_MEDIATOR";
 //				case ( 0 ):
 //					return "CALL_WAIT";
 //				case ( 1 ):

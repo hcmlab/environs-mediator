@@ -249,30 +249,6 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_ResetIdentKeys
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetRenderSurface1
- * Signature: (ILandroid/view/Surface;II)Z
- */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetRenderSurface1
-  (JNIEnv *, jclass, jint, jobject, jint, jint);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    ReleaseRenderSurface1
- * Signature: (II)Z
- */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ReleaseRenderSurface1
-  (JNIEnv *, jclass, jint, jint);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    RequestPortalIntraFrame
- * Signature: (II)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_RequestPortalIntraFrame
-  (JNIEnv *, jclass, jint, jint);
-
-/*
- * Class:     hcm_environs_Environs
  * Method:    IsNativeAllocated
  * Signature: ()Z
  */
@@ -482,9 +458,9 @@ JNIEXPORT jchar JNICALL Java_hcm_environs_Environs_GetDeviceType
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetPortalViewDims
- * Signature: (IIIII)V
+ * Signature: (IIIII)Z
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalViewDims
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetPortalViewDims
   (JNIEnv *, jclass, jint, jint, jint, jint, jint);
 
 /*
@@ -605,6 +581,14 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseHardwareEncoder1
  * Signature: ()Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseHardwareEncoder
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetUsePortalDefaultModules
+ * Signature: ()Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUsePortalDefaultModules
   (JNIEnv *, jclass);
 
 /*
@@ -897,18 +881,18 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendFile
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetOrientations
+ * Method:    NextOrientations
  * Signature: (FFF)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetOrientations
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_NextOrientations
   (JNIEnv *, jclass, jfloat, jfloat, jfloat);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetAccelerometers
+ * Method:    NextAccelerometers
  * Signature: (FFF)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetAccelerometers
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_NextAccelerometers
   (JNIEnv *, jclass, jfloat, jfloat, jfloat);
 
 /*
@@ -921,11 +905,19 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUsePlatformPortalGenerator
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    InitRequestPortalStream
- * Signature: (III)Z
+ * Method:    GetPortalIDFreeSlot
+ * Signature: (II)I
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_InitRequestPortalStream
-  (JNIEnv *, jclass, jint, jint, jint);
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetPortalIDFreeSlot
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    RequestPortalStream1
+ * Signature: (IIIII)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_RequestPortalStream1
+  (JNIEnv *, jclass, jint, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -933,6 +925,14 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_InitRequestPortalStream
  * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ProvidePortalStream1
+  (JNIEnv *, jclass, jint, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    ProvideRequestPortalStream1
+ * Signature: (III)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ProvideRequestPortalStream1
   (JNIEnv *, jclass, jint, jint, jint);
 
 /*
@@ -954,18 +954,34 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_PausePortalStream1
 /*
  * Class:     hcm_environs_Environs
  * Method:    StopPortalStream1
- * Signature: (II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_StopPortalStream1
+  (JNIEnv *, jclass, jint, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetRenderSurface1
+ * Signature: (ILandroid/view/Surface;II)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetRenderSurface1
+  (JNIEnv *, jclass, jint, jobject, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    ReleaseRenderSurface1
+ * Signature: (II)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ReleaseRenderSurface1
   (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetActivePortalID
- * Signature: ()I
+ * Method:    RequestPortalIntraFrame
+ * Signature: (II)V
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetActivePortalID
-  (JNIEnv *, jclass);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_RequestPortalIntraFrame
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs

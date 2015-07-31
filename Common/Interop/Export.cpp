@@ -83,7 +83,11 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 			if ( hModLib )
 				break;
 
-            if ( !environs::environs.workDir ) {
+            const char * libDir = environs::environs.libDir;
+            if ( !libDir )
+                libDir = environs::environs.workDir;
+            
+            if ( !libDir ) {
 				CVerbArgID ( "LocateLoadModule: [%s" LIBEXTENSION "] not available in search path. No working directory available.", module );
 				return 0;
 			}
@@ -104,7 +108,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 			CVerbVerbArgID ( "LocateLoadModule: [%s] not found in toolset working directory path.", absPath );
 #endif
 
-			sprintf ( absPath, "%s%s" LIBEXTENSION, environs::environs.workDir, module );
+			sprintf ( absPath, "%s%s" LIBEXTENSION, libDir, module );
 
 			CVerbArgID ( "LocateLoadModule: Trying [%s].", absPath );
 
@@ -118,7 +122,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 			CVerbArgID ( "LocateLoadModule: [%s]", dlerror ( ) );
 #endif
 
-			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/%s" LIBEXTENSION, environs::environs.workDir, module );
+			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/%s" LIBEXTENSION, libDir, module );
 
 			CVerbArgID ( "LocateLoadModule: Trying [%s].", absPath );
 

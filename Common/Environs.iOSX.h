@@ -44,7 +44,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 }
 
 + (bool) opt:(NSString *) key;
-+ (bool) verbose;
+
 
 + (void) ShowMessage:(int) nativeID Message:(const char *) message withLength:(int)msgLength;
 
@@ -106,32 +106,32 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 + (void) SetAppStatus:(int) status;
 
 /**
- Set the render surface of type UIView as the target to render the portal to. The width and height of the UIView is defined as the size of a fullscreen view.
- The portal is determined through the deviceID and portalID.
- @param deviceID
- @param portalDeviceID
- @param newSurface
- @returns success
- */
-+ (bool) SetRenderSurface:(int)portalID withSurface:(UIView *)newSurface;
+* Set the render surface of type UIView as the target to render the portal to. The width and height of the UIView is defined as the size of a fullscreen view.
+* The portal is determined through the deviceID and portalID.
+* @param deviceID
+* @param portalDeviceID
+* @param newSurface
+* @returns success
+*/
++ (bool) SetRenderSurface:(int)portalID Surface:(UIView *)newSurface;
 
 /**
- Set the render surface of type UIView as the target to render the portal to. The UIView has a defined width and size.
- The portal is determined through the deviceID and portalID.
- @param portalID
- @param newSurface
- @param width
- @param height
- @returns success
- */
-+ (bool) SetRenderSurface:(int)portalID withSurface:(UIView *)newSurface withWidth:(int) width withHeight:(int) height;
+*  Set the render surface of type UIView as the target to render the portal to. The UIView has a defined width and size.
+*  The portal is determined through the deviceID and portalID.
+*  @param portalID
+*  @param newSurface
+*  @param width
+*  @param height
+*  @returns success
+*/
++ (bool) SetRenderSurface:(int)portalID Surface:(UIView *)newSurface Width:(int)width Height:(int)height;
 
 
 /**
- Release the render surface determined through the deviceID and portalID.
- @param portalID
- @returns success
- */
+*  Release the render surface determined through the deviceID and portalID.
+*  @param portalID
+*  @returns success
+*/
 + (bool) ReleaseRenderSurface:(int)portalDeviceID;
 
 
@@ -389,7 +389,18 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param 	deviceName
  * @return	success
  */
-+ (void) SetDeviceName: (const char *) name;
++(void) SetDeviceName: (const char *) name;
+
+
+/**
+* Find a free portalID slot for the direction encoded into the given portalDetails.
+*
+* @param 	nativeID    	The native device id of the target device.
+* @param	portalDetails	Required PORTAL_DIR_INCOMING or PORTAL_DIR_OUTGOING
+*
+* @return	portalID 		The portal ID with the free id slot encoded in bits 0xFF.
+*/
++ (int) GetPortalIDFreeSlot:(int) nativeID details : (int) portalDetails;
 
 
 /**
@@ -400,7 +411,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param 	typeID		Values should be of type PortalType.&nbsp;This is an application specific type identifier (e.g. used for distinguishing front facing or back facing camera)
  * @return 	success
  */
-+ (bool) RequestPortalStream:(int) nativeID doAsync:(int)async withType:(int) typeID;
++ (bool) RequestPortalStream:(int) nativeID doAsync:(int)async Type:(int) typeID Width:(int) width Height:(int) height;
 
 /**
  * Start streaming of portal to this device.
@@ -408,17 +419,18 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param 	portalID	An application specific id (e.g. used for distinguishing front facing or back facing camera)
  * @return 	success
  */
-+ (bool) StartPortalStream:(int)async withPortal:(int) portalID;
++ (bool) StartPortalStream:(int)async PortalID:(int) portalID;
 
 /**
  * Stop streaming of portal from this device.
  *
- * @param portalID		This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
+ * @param nativeID  The native identifier that targets the device.
+ * @param portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
  * 					It is provided within the notification listener as sourceIdent.&nbsp;
  * 					Applications should store them in order to address the correct portal within Environs.
  * @return success
  */
-+ (bool) StopPortalStream:(int)async withPortal:(int) portalID;
++ (bool) StopPortalStream:(int)async NativeID:(int)nativeID PortalID:(int)portalID;
 
 /**
  * Pause streaming of portal to this device.
@@ -428,7 +440,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * 						Applications should store them in order to address the correct portal within Environs.
  * @return success
  */
-+ (bool) PausePortalStream:(int)async withPortal:(int) portalID;
++ (bool) PausePortalStream:(int)async PortalID:(int) portalID;
 
 
 + (unsigned int) GetIPAddress;
@@ -436,10 +448,6 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 + (NSString *) GetSSID;
 + (NSString *) GetSSIDDesc;
 
-#ifdef ENVIRONS_IOS
-+ (int) GetActivePortalID;
-+ (int) GetRequestedPortalID;
-#endif
 
 /**
  * Send a string message to a device through one of the following ways.&nbsp;
@@ -458,7 +466,8 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param message Message to send
  * @return success
  */
-+ (bool) SendMessage: (int)deviceID doAsync:(int)async withMsg:(NSString *) msg;
++ (bool) SendMessage: (int)deviceID doAsync:(int)async Msg:(NSString *) msg;
+
 
 /**
  * Send a string message to a device through one of the following ways.&nbsp;
@@ -479,7 +488,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param message Message to send
  * @return success
  */
-+ (bool) SendMessage: (int)deviceID Area:(const char *) areaName App:(const char *) appName doAsync:(int)async withMsg:(NSString *) msg;
++ (bool) SendMessage: (int)deviceID Area:(const char *) areaName App:(const char *) appName doAsync:(int)async Msg:(NSString *) msg;
 
 
 /**
@@ -491,7 +500,8 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param path
  * @return success
  */
-+ (bool) SendFile: (int)nativeID doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withPath:(NSString *) path;
++ (bool) SendFile: (int)nativeID doAsync:(int)async FileID:(int)fileID Descriptor:(NSString *) descriptor Path:(NSString *) path;
+
 
 /**
  * Send a buffer with bytes to a device.&nbsp;The devices must be connected before for this call.
@@ -503,7 +513,8 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param length number of bytes in the buffer to send
  * @return success
  */
-+ (bool) SendBuffer: (int)nativeID doAsync:(int)async withFileID:(int)fileID withDescriptor:(NSString *) descriptor withBuffer:(char *) buffer withLength:(int)length;
++ (bool) SendBuffer: (int)nativeID doAsync:(int)async FileID:(int)fileID Descriptor:(NSString *) descriptor Buffer:(char *) buffer Length:(int)length;
+
 
 /**
  * Query the width in pixel of the deviceID's screen.&nbsp;The device must be connected before with deviceConnect ().
@@ -851,27 +862,52 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param	enable      Enable or disable
  * @return  success
  */
-+ (bool) SetUseTouchRecognizer: (NSString *) moduleName withStatus:(bool)enable;
++ (bool) SetUseTouchRecognizer: (const char *) moduleName withStatus:(bool)enable;
 
 
 /**
- * Enable or disable a portal encoder module by name (libEnv-Enc...).
+ * Use default encoder, decoder, capture, render modules.
  *
- * @param	moduleName  The module name
- * @param	enable      Enable or disable
  * @return  success
  */
-+ (bool) SetUseEncoder: (NSString *) moduleName;
++ (bool) SetUsePortalDefaultModules;
 
 
 /**
- * Enable or disable a portal decoder module by name (libEnv-Dec...).
+ * Use encoder module with the name moduleName. (libEnv-Enc...).
  *
  * @param	moduleName  The module name
- * @param	enable      Enable or disable
  * @return  success
  */
-+ (bool) SetUseDecoder: (NSString *) moduleName;
++ (bool) SetUseEncoder: (const char *) moduleName;
+
+
+/**
+ * Use decoder module with the name moduleName. (libEnv-Dec...).
+ *
+ * @param	moduleName  The module name
+ * @return  success
+ */
++ (bool) SetUseDecoder: (const char *) moduleName;
+
+
+/**
+ * Use capture module with the name moduleName. (libEnv-Cap...).
+ *
+ * @param	moduleName	the name of the module
+ * @return  success
+ */
++ (bool) SetUseCapturer: (const char *) moduleName;
+
+
+/**
+ * Use render module with the name moduleName. (libEnv-Rend...).
+ *
+ * @param	moduleName	the name of the module
+ * @return  success
+ */
++ (bool) SetUseRenderer: (const char *) moduleName;
+
 
 
 #ifdef ENVIRONS_IOS

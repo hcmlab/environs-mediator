@@ -111,7 +111,7 @@ namespace environs
 		if ( equal ) { \
 			if ( opt_useRenderCache ) { \
 				filledContexts++; \
-				if ( filledContexts > MAX_PORTAL_CONTEXTS ) { \
+				if ( filledContexts > MAX_PORTAL_CONTEXT_WORKERS ) { \
 					context->hasChanged = false; \
 					return true; \
 				} \

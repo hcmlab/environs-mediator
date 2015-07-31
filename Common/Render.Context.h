@@ -45,8 +45,12 @@ namespace environs
 		bool					hasChanged;
 		bool					hasSendLoad;
 
+		// This flag is true, if there is no renderer. In this case, the renderedData pointers may be used by the capturer and encoder arbitrarily.
+		bool					renderSkipped;
+
 		PortalBufferType::PortalBufferType	renderedDataType;
 		void				*	renderedData;
+		int						renderedDataCapacity;
 		void				*	renderedDataHandle;
 
 		// For PortalBufferType::ARGB we need to supply width/height/stride of the renderedData

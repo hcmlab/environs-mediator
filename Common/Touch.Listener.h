@@ -41,10 +41,9 @@ typedef void (^TouchesEventEntity)(NSSet * touches, UIEvent * event);
 @interface TouchListener : UIGestureRecognizer
 {
     TouchesEventEntity      touchesBeganCallback;
-    unsigned int            deviceID;
 }
 
-- (void) updateView: (UIView *)view;
+- (void) UpdateView: (UIView *)view  Portal:(id)portal;
 
 @property(copy) TouchesEventEntity touchesBeganCallback;
 

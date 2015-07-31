@@ -30,8 +30,6 @@
 using namespace environs;
 
 
-
-
 /**
  *	DeviceInstance iOSX
  *
@@ -42,38 +40,79 @@ using namespace environs;
  */
 @interface DeviceInstance : NSObject
 {
-
-@public
-    
-    /** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-    int             async;
-
-	/** The device properties structure into a DeviceInfo object. */
-    DeviceInfo      info;
-
-	/**
-	 * disposed is true if DeviceInstance is no longer valid. Nothing will be updated anymore.
-	 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to ChangeObservers.
-	 * */
-    bool            disposed;
-    int             connectProgress;
-
-	/** A DeviceDisplay structure that describes the device's display properties. */
-    DeviceDisplay   display;
-    
-    int             directStatus;
-    NSLock  *       devicePortalsLock;
-    
-    /** A collection of PortalInstances that this device has established or is managing. */
-    id              devicePortals;
-    
-    /** Application defined contexts for arbitrary use. */
-    int             appContext0;
-    id              appContext1;
-    id              appContext2;
 }
 
-- (NSString *) ToString;
+
+/**
+ * disposed is true if DeviceInstance is no longer valid. Nothing will be updated anymore.
+ * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to ChangeObservers.
+ * */
+@property (readonly, nonatomic) bool			disposed;
+
+/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
+@property (nonatomic) int						async;
+
+/** The device ID within the environment */
+@property (readonly, nonatomic) int				deviceID;
+
+/** The ID that is used by the native layer to identify this particular device within the environment.
+ A value of 0 means that this device is not connected and therefore not actively managed. */
+@property (readonly, nonatomic) int				nativeID;
+
+/** IP from device. The IP address reported by the device which it has read from network configuration. */
+@property (readonly, nonatomic) unsigned int 	ip;
+
+/** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
+ * This address could be different from IP due to NAT, Router, Gateways behind the device.
+ */
+@property (readonly, nonatomic) unsigned int 	ipe; // The external IP or the IP resolved from the socket address
+
+/** The tcp port on which the device listens for device connections. */
+@property (readonly, nonatomic) unsigned short	tcpPort;
+
+/** The udp port on which the device listens for device connections. */
+@property (readonly, nonatomic) unsigned short	udpPort;
+
+/** The number of alive updates noticed by the mediator layer since its appearance within the application environment. */
+@property (readonly, nonatomic) unsigned int	updates;
+
+/** A value that describes the device platform. */
+@property (readonly, nonatomic) int				platform;
+
+/** BroadcastFound is a value of DEVICEINFO_DEVICE_* and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
+@property (readonly, nonatomic) char			broadcastFound;
+@property (readonly, nonatomic) bool            unavailable;
+
+/** isConnected is true if the device is currently in the connected state. */
+@property (readonly, nonatomic) bool			isConnected;
+@property (readonly, nonatomic) char			internalUpdates;
+
+/** Used internally by native layer. */
+@property (readonly, nonatomic) char            internalType;
+
+/** The device name. */
+@property (readonly, nonatomic) char *			deviceName;
+
+/** The area name of the appliction environment. */
+@property (readonly, nonatomic) char *			areaName;
+
+/** The application name of the appliction environment. */
+@property (readonly, nonatomic) char *			appName;
+
+
+@property (readonly, nonatomic) int				connectProgress;
+
+/** A DeviceDisplay structure that describes the device's display properties. */
+@property (readonly, nonatomic) DeviceDisplay	display;
+
+@property (readonly, nonatomic) int				directStatus;
+
+/** Application defined contexts for arbitrary use. */
+@property (nonatomic) int						appContext0;
+@property (nonatomic) id						appContext1;
+@property (nonatomic) id						appContext2;
+
+@property (readonly, nonatomic) NSString * ToString;
 
 /**
 * Add an observer (ChangeObserver) that notifies about device property changes.
@@ -205,29 +244,22 @@ using namespace environs;
 
 
 /**
- * Creates a portal instance.
+ * Creates a portal instance that requests a portal.
  *
- * @param request   The portal request.
- * @return PortalInstance-object
+ * @param 	portalType	        Project name of the application environment
+ *
+ * @return 	PortalInstance-object
  */
-- (PortalInstance *) PortalCreate:(int) request;
+- (PortalInstance *) PortalRequest:(PortalType::PortalType) portalType;
 
 /**
- * Creates a portal instance.
+ * Creates a portal instance that provides a portal.
  *
- * @param Environs_PORTAL_DIR   A value of PORTAL_DIR_* that determines whether an outgoing or incoming portal.
- * @param portalType	        P
- * @return PortalInstance-object
- */
-- (PortalInstance *) PortalCreate:(int) Environs_PORTAL_DIR type:(PortalType::PortalType) portalType;
-
-/**
- * Creates a portal instance with a given portalID.
+ * @param 	portalType	        Project name of the application environment
  *
- * @param portalID   The portalID received from native layer.
- * @return PortalInstance-object
+ * @return 	PortalInstance-object
  */
-- (PortalInstance *) PortalCreateID:(int) portalID;
+- (PortalInstance *) PortalProvide:(PortalType::PortalType) portalType;
 
 
 /**
@@ -243,13 +275,6 @@ using namespace environs;
  * @return PortalInstance-object
  */
 - (PortalInstance *) PortalGetIncoming;
-
-/**
- * Query the first PortalInstance that manages a waiting/temporary incoming/outgoing portal.
- *
- * @return PortalInstance-object
- */
--(PortalInstance *) PortalGetWaiting:(bool) outgoing;
 
 /**
  * Send a file from the local filesystem to this device.&nbsp;The devices must be connected before for this call.

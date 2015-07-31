@@ -161,26 +161,6 @@ namespace hcm.environs
 		
 		public const int ENVIRONS_OBJECT_DISPOSED                          =	(-1);
 		
-		/* 
-		 * Crypt declarations
-		 * Crypt declarations
-		 */
-		public const int ENVIRONS_DEVICES_KEYSIZE                          =	(2048);
-		public const int ENVIRONS_CRYPT_PAD_OAEP                           =	((1 << 24));
-		public const int ENVIRONS_CRYPT_PAD_PKCS1                          =	((2 << 24));
-		public const int ENVIRONS_CRYPT_PAD_PKCS1SHA1                      =	((4 << 24));
-		public const int ENVIRONS_CRYPT_PAD_PKCS1SHA256                    =	((8 << 24));
-		
-		public const int MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   =	(0xFFFF);
-		public const int DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  =	(MEDIATOR_CLIENT_MAX_BUFFER_SIZE);
-		/* 
-		 * Mediator device class types used for GetDevicesFrom ( type )
-		 * Mediator device class types used for GetDevicesFrom ( type )
-		 */
-		public const int MEDIATOR_DEVICE_CLASS_ALL                         =	(0);
-		public const int MEDIATOR_DEVICE_CLASS_NEARBY                      =	(1);
-		public const int MEDIATOR_DEVICE_CLASS_MEDIATOR                    =	(2);
-		
 		/*
 		 * Native payload type class is determined by the upper byte of payload
 		 * Native payload type class is determined by the upper byte of payload
@@ -284,29 +264,8 @@ namespace hcm.environs
 		public const int DATA_STREAM_H264_HDR                              =	(DATA_STREAM | DATA_STREAM_H264 | 2);
 		public const int DATA_STREAM_H264_NAL                              =	(DATA_STREAM | DATA_STREAM_H264 | 4);
 		public const int DATA_STREAM_H264_NALUS                            =	(DATA_STREAM | DATA_STREAM_H264 | 8);
-		/*
-		 * Native file types to app
-		 * Native file types to app
-		 */
-		public const int MSG_TYPE_FILE                                     =	(3);
-		/** Class: File type */
-		// File types
-		public const int NATIVE_FILE_TYPE                                  =	(0x400);
-		public const int NATIVE_FILE_TYPE_APP_DEFINED                      =	(NATIVE_FILE_TYPE);
-		public const int NATIVE_FILE_TYPE_EXT_DEFINED                      =	(NATIVE_FILE_TYPE | 1);
-		public const int NATIVE_FILE_TYPE_CHUNKED                          =	(NATIVE_FILE_TYPE | 6);
-		public const int NATIVE_FILE_TYPE_ACK                              =	(NATIVE_FILE_TYPE | 0xF);
-		
-		public const int MSG_TYPE_MESSAGE                                  =	(4);
-		public const int MESSAGE_FROM_APP                                  =	(0x800);
-		public const int MESSAGE_APP_STRING                                =	(MESSAGE_FROM_APP | 1);
 		
 		
-		public const int NOTIFY_TYPE_FILE                                  =	((MSG_TYPE_FILE << 16));
-		public const int NOTIFY_TYPE_FILE_PROGRESS                         =	(NOTIFY_TYPE_FILE | 0x20);
-		
-		public const int NOTIFY_FILE_SEND_PROGRESS                         =	(NOTIFY_TYPE_FILE_PROGRESS | 1);
-		public const int NOTIFY_FILE_RECEIVE_PROGRESS                      =	(NOTIFY_TYPE_FILE_PROGRESS | 2);
 		/** 
 		 * Portal Source Status enumeration.
 		 * Portal Source Status enumeration.
@@ -328,13 +287,27 @@ namespace hcm.environs
 
 		
 		/** Class: Portal constants */
-		public const int MAX_PORTAL_STREAMS_A_DEVICE                       =	(3);
-		public const int MAX_PORTAL_CONTEXTS                               =	(3);
-		public const int MAX_PORTAL_OVERLAYS                               =	(3);
+		public const int MAX_PORTAL_STREAMS_A_DEVICE                       =	(6);
+		public const int MAX_PORTAL_CONTEXT_WORKERS                        =	(2);
+		public const int MAX_PORTAL_OVERLAYS                               =	(6);
 		public const int MAX_PORTAL_GENERATOR_SLOTS                        =	(5);
 		public const int MAX_PORTAL_REQUEST_WAIT_TIME_MS                   =	(30000);
 		
 		
+		/**
+		 * A portal ID is masked as follows:
+		 * A portal ID is masked as follows:
+		 * 0xFFFFFFFF
+		 * 0xFFFFFFFF
+		 * 0xFF000000 portal map table identifier (used internal by devices to access the map)
+		 * 0xFF000000 portal map table identifier (used internal by devices to access the map)
+		 * 0x0000F000 portal type
+		 * 0x0000F000 portal type
+		 * 0x00000300 direction
+		 * 0x00000300 direction
+		 * 0x000000FF portal id (the same between both devices)
+		 * 0x000000FF portal id (the same between both devices)
+		 */
 		
 		/** Class: Portal type */
 		public const int PORTAL_TYPE_ANY                                   =	(0);
@@ -360,6 +333,15 @@ namespace hcm.environs
 		}
 
 
+		
+		/** Class: Portal status */
+		public const int PORTAL_STATUS_DISPOSED                            =	(ENVIRONS_OBJECT_DISPOSED);
+		public const int PORTAL_STATUS_CREATED                             =	(0);
+		public const int PORTAL_STATUS_CREATED_FROM_REQUEST                =	(1);
+		public const int PORTAL_STATUS_CREATED_ASK_REQUEST                 =	(2);
+		public const int PORTAL_STATUS_ESTABLISHED                         =	(4);
+		public const int PORTAL_STATUS_STARTED                             =	(6);
+		
 		
 		/** Class: Portal stream type */
 		public const int STREAMTYPE_UNKNOWN                                =	(0);
@@ -393,7 +375,7 @@ namespace hcm.environs
 		public const int PORTAL_INFO_FLAG_LOCATION                         =	(0x1);
 		public const int PORTAL_INFO_FLAG_ANGLE                            =	(0x2);
 		public const int PORTAL_INFO_FLAG_SIZE                             =	(0x4);
-			
+		
 		
 		/** Class: Portal messages and notifications */
 		public const int MSG_TYPE_PORTAL                                   =	(5);
@@ -404,55 +386,63 @@ namespace hcm.environs
 		public const int NOTIFY_PORTAL                                     =	(0x800);
 		
 		
+		public const int NOTIFY_PORTAL_INSTANCE                            =	(0x100800);
+		public const int PORTAL_INSTANCE_FLAG_SURFACE_CHANGED              =	(NOTIFY_PORTAL_INSTANCE | 0x1);
+		
 	// Portal message subtypes
 		public const int MSG_PORTAL_REQUEST_ID                             =	(0);
 		public const int MSG_PORTAL_REQUEST                                =	(NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID);
-		public const int MSG_PORTAL_PROVIDE_STREAM_ID                      =	(1);
+		public const int MSG_PORTAL_ASK_FOR_REQUEST_ID                     =	(1);
+		public const int MSG_PORTAL_ASK_FOR_REQUEST                        =	(NOTIFY_PORTAL 	| MSG_PORTAL_ASK_FOR_REQUEST_ID);
+		public const int MSG_PORTAL_PROVIDE_STREAM_ID                      =	(2);
 		public const int MSG_PORTAL_PROVIDE_STREAM                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID);
-		public const int MSG_PORTAL_PROVIDE_IMAGES_ID                      =	(2);
+		public const int MSG_PORTAL_PROVIDE_IMAGES_ID                      =	(3);
 		public const int MSG_PORTAL_PROVIDE_IMAGES                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID);
-		public const int MSG_PORTAL_REQUEST_FAIL_ID                        =	(3);
+		public const int MSG_PORTAL_REQUEST_FAIL_ID                        =	(4);
 		public const int MSG_PORTAL_REQUEST_FAIL                           =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID);
 			
-		public const int MSG_PORTAL_STOP_ID                                =	(4);
+		public const int MSG_PORTAL_STOP_ID                                =	(5);
 		public const int MSG_PORTAL_STOP                                   =	(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID);
-		public const int MSG_PORTAL_STOP_ACK_ID                            =	(5);
+		public const int MSG_PORTAL_STOP_ACK_ID                            =	(6);
 		public const int MSG_PORTAL_STOP_ACK                               =	(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID);
-		public const int MSG_PORTAL_STOP_FAIL_ID                           =	(6);
+		public const int MSG_PORTAL_STOP_FAIL_ID                           =	(7);
 		public const int MSG_PORTAL_STOP_FAIL                              =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID);
-		public const int MSG_PORTAL_START_ID                               =	(7);
+		public const int MSG_PORTAL_START_ID                               =	(8);
 		public const int MSG_PORTAL_START                                  =	(NOTIFY_PORTAL 	| MSG_PORTAL_START_ID);
-		public const int MSG_PORTAL_START_ACK_ID                           =	(8);
+		public const int MSG_PORTAL_START_ACK_ID                           =	(9);
 		public const int MSG_PORTAL_START_ACK                              =	(NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID);
-		public const int MSG_PORTAL_START_FAIL_ID                          =	(9);
+		public const int MSG_PORTAL_START_FAIL_ID                          =	(10);
 		public const int MSG_PORTAL_START_FAIL                             =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID);
-		public const int MSG_PORTAL_PAUSE_ID                               =	(10);
+		public const int MSG_PORTAL_PAUSE_ID                               =	(11);
 		public const int MSG_PORTAL_PAUSE                                  =	(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID);
-		public const int MSG_PORTAL_PAUSE_ACK_ID                           =	(11);
+		public const int MSG_PORTAL_PAUSE_ACK_ID                           =	(12);
 		public const int MSG_PORTAL_PAUSE_ACK                              =	(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID);
-		public const int MSG_PORTAL_PAUSE_FAIL_ID                          =	(12);
+		public const int MSG_PORTAL_PAUSE_FAIL_ID                          =	(13);
 		public const int MSG_PORTAL_PAUSE_FAIL                             =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID);
 		
 		
-		public const int MSG_PORTAL_BUFFER_FULL_ID                         =	(13);
+		public const int MSG_PORTAL_BUFFER_FULL_ID                         =	(14);
 		public const int MSG_PORTAL_BUFFER_FULL                            =	(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID);
-		public const int MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  =	(14);
+		public const int MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  =	(15);
 		public const int MSG_PORTAL_BUFFER_AVAIL_AGAIN                     =	(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID);
-		public const int MSG_PORTAL_IFRAME_REQUEST_ID                      =	(15);
+		public const int MSG_PORTAL_IFRAME_REQUEST_ID                      =	(16);
 		public const int MSG_PORTAL_IFRAME_REQUEST                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID);
 		
-		public const int MSG_PORTAL_MAX_COUNT                              =	(15 + 1);
+		public const int MSG_PORTAL_MAX_COUNT                              =	(16 + 1);
 		
 		
 		public const int NOTIFY_TYPE_PORTAL                                =	((MSG_TYPE_PORTAL << 16));
+		public const int NOTIFY_PORTAL_ESTABLISHED                         =	(0x80);
+		public const int NOTIFY_PORTAL_ESTABLISHED_RESOLUTION              =	(NOTIFY_TYPE_PORTAL | 0x81);
 		
 		public const int NOTIFY_PORTAL_REQUEST                             =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST);
+		public const int NOTIFY_PORTAL_ASK_REQUEST                         =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_ASK_FOR_REQUEST);
 		public const int NOTIFY_PORTAL_STREAM_INCOMING                     =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_INCOMING);
 		public const int NOTIFY_PORTAL_IMAGES_INCOMING                     =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_INCOMING);
-		public const int NOTIFY_PORTAL_RECEIVER_READY                      =	(NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING);
+		public const int NOTIFY_PORTAL_INCOMING_ESTABLISHED                =	(NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING | NOTIFY_PORTAL_ESTABLISHED);
 		public const int NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_OUTGOING);
 		public const int NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_OUTGOING);
-		public const int NOTIFY_PORTAL_PROVIDER_READY                      =	(NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK);
+		public const int NOTIFY_PORTAL_PROVIDER_READY                      =	(NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK | NOTIFY_PORTAL_ESTABLISHED);
 		public const int NOTIFY_PORTAL_REQUEST_FAIL                        =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_INCOMING);
 		public const int NOTIFY_PORTAL_PROVIDE_FAIL                        =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_OUTGOING);
 			
@@ -502,7 +492,32 @@ namespace hcm.environs
 		public const int NOTIFY_PORTAL_SIZE_CHANGED                        =	(NOTIFY_TYPE_OPTIONS | MSG_OPT_PORTAL_WH_SET);
 		public const int NOTIFY_CONTACT_DIRECT_CHANGED                     =	(NOTIFY_TYPE_OPTIONS | MSG_OPT_CONTACT_DIRECT_SET);
 		
-			
+		
+		/*
+		 * Native file types to app
+		 * Native file types to app
+		 */
+		public const int MSG_TYPE_FILE                                     =	(3);
+		/** Class: File type */
+		// File types
+		public const int NATIVE_FILE_TYPE                                  =	(0x400);
+		public const int NATIVE_FILE_TYPE_APP_DEFINED                      =	(NATIVE_FILE_TYPE);
+		public const int NATIVE_FILE_TYPE_EXT_DEFINED                      =	(NATIVE_FILE_TYPE | 1);
+		public const int NATIVE_FILE_TYPE_CHUNKED                          =	(NATIVE_FILE_TYPE | 6);
+		public const int NATIVE_FILE_TYPE_ACK                              =	(NATIVE_FILE_TYPE | 0xF);
+		
+		public const int MSG_TYPE_MESSAGE                                  =	(4);
+		public const int MESSAGE_FROM_APP                                  =	(0x800);
+		public const int MESSAGE_APP_STRING                                =	(MESSAGE_FROM_APP | 1);
+		
+		
+		public const int NOTIFY_TYPE_FILE                                  =	((MSG_TYPE_FILE << 16));
+		public const int NOTIFY_TYPE_FILE_PROGRESS                         =	(NOTIFY_TYPE_FILE | 0x20);
+		
+		public const int NOTIFY_FILE_SEND_PROGRESS                         =	(NOTIFY_TYPE_FILE_PROGRESS | 1);
+		public const int NOTIFY_FILE_RECEIVE_PROGRESS                      =	(NOTIFY_TYPE_FILE_PROGRESS | 2);
+		
+		
 		/*
 		 * Environs options data identifiers for onData
 		 * Environs options data identifiers for onData
@@ -859,8 +874,12 @@ namespace hcm.environs
 			ARGBHandle          	=	0x2,
 			/** iOS ARGB. */
 			BGRA                	=	0x3,
+			/** RGB 24bit. */
+			RGB                 	=	0x4,
 			/** I420. */
 			YUV420              	=	0x10,
+			/** YV12. */
+			YV12                	=	0x12,
 			/** GDIBitmap. */
 			GDIBitmap           	=	0x100,
 			/** The data follows either D3D or OpenGL texture format. */
@@ -1002,6 +1021,26 @@ namespace hcm.environs
 
 
 		
+		/*
+		 * Crypt declarations
+		 * Crypt declarations
+		 */
+		public const int ENVIRONS_DEVICES_KEYSIZE                          =	(2048);
+		public const int ENVIRONS_CRYPT_PAD_OAEP                           =	((1 << 24));
+		public const int ENVIRONS_CRYPT_PAD_PKCS1                          =	((2 << 24));
+		public const int ENVIRONS_CRYPT_PAD_PKCS1SHA1                      =	((4 << 24));
+		public const int ENVIRONS_CRYPT_PAD_PKCS1SHA256                    =	((8 << 24));
+		
+		public const int MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   =	(0xFFFF);
+		public const int DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  =	(MEDIATOR_CLIENT_MAX_BUFFER_SIZE);
+		/*
+		 * Mediator device class types used for GetDevicesFrom ( type )
+		 * Mediator device class types used for GetDevicesFrom ( type )
+		 */
+		public const int MEDIATOR_DEVICE_CLASS_ALL                         =	(0);
+		public const int MEDIATOR_DEVICE_CLASS_NEARBY                      =	(1);
+		public const int MEDIATOR_DEVICE_CLASS_MEDIATOR                    =	(2);
+		
 		
 		/**
 		 * Environs call flags
@@ -1060,6 +1099,7 @@ namespace hcm.environs
 
 		public static readonly string 	[] 	MSG_PORTAL_Descriptions = {
 			"Portal requested",
+			"Portal provided",
 			"Stream portal provided",
 			"Image portal provided",
 			"Portal request failed",

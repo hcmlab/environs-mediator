@@ -35,9 +35,9 @@
  */
 @interface DeviceList : NSObject
 {
-@public
-    bool disposed;
 }
+
+@property (readonly, nonatomic) bool disposed;
 
 - (void) SetListType:(int)listType;
 

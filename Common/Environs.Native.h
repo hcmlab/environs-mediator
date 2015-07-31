@@ -34,7 +34,6 @@
  */
 #include "Environs.Types.h"
 
-
 /**
  * Log macros and forwards
  *
@@ -48,12 +47,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#endif
-
-#ifndef ENVIRONS_CORE_LIB
-#ifndef MEDIATORDAEMON
-//#include "Environs.h"
-#endif
 #endif
 
 
@@ -94,7 +87,10 @@
 #define ENVIRONS_DEVICE_KEY_EXT
 #endif
 
+//#define USE_PORTAL_THREADS_FOR_IOSX_CAM
+
 #define ENABLE_IOS_NATIVE_H264_ONLY
+//#define ENABLE_IOS_STATIC_TOUCH_LISTENER
 
 
 //#define ENABLE_WIND3D_CAPTURE
@@ -164,6 +160,7 @@ namespace environs {
 
 #define		Zero(mem)							memset(&mem,0,sizeof(mem))
 #define		GetPortalID(p)						(p & 0xFF)
+#define		RemovePortalID(p)					(p & 0xFFFFFF00)
 #define		GetPortalDeviceID(p)				((p >> 24) & 0xFF)
 #define		IsInvalidPortalDeviceID(p)			(p < 0 || p >= MAX_PORTAL_INSTANCES )
 #define		IsInvalidPortalID(p)				(p < 0 || p >= MAX_PORTAL_STREAMS_A_DEVICE )

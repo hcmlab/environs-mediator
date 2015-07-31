@@ -50,10 +50,12 @@ namespace environs
 		PortalBufferType::PortalBufferType		outputType;
 		PortalBufferType::PortalBufferType	*	outputTypes;
 		unsigned int							outputTypesLength;
+		virtual bool							ApplyOutput () { return true; };
 
 		PortalBufferType::PortalBufferType		inputType;
 		PortalBufferType::PortalBufferType	*	inputTypes;
 		unsigned int							inputTypesLength;
+		virtual bool							ApplyInput () { return true; };
 
 	};
 

@@ -20,7 +20,9 @@
 #include "IEnvirons.Base.h"
 #include "Interface.Exports.h"
 #include "Render.Dimensions.h"
+#include "Render.Context.h"
 #include "Render.Overlay.h"
+#include "Portal.Stream.Options.h"
 
 #ifndef INCLUDE_HCM_ENVIRONS_IPORTALCAPTURE_H
 #define INCLUDE_HCM_ENVIRONS_IPORTALCAPTURE_H
@@ -48,7 +50,7 @@ namespace environs
 			/** Default initialization */
 			captureType ( CaptureType::Unknown ),
             portalWorkerEvent ( 0 ), portalCaptureEvent ( 0 ), portalWorkerEventLock ( 0 ),
-			bufferType ( CaptureBufferType::Unknown ), width ( 0 ), height ( 0 ),
+			bufferType ( CaptureBufferType::Unknown ), width ( 0 ), height ( 0 ), minFPS ( 30 ),
 			squareLength ( 0 ), buffersInitialized ( false ), dataAccessed ( 1 ), data ( 0 ), dataHandle ( 0 ),
             dataSize ( 0 ), dataStride ( 0 ),
 			renderOverlayMutex ( 0 ), renderOverlays ( 0 ),
@@ -58,9 +60,12 @@ namespace environs
 		virtual ~IPortalCapture () {};
 
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
-		int										Init ( int _deviceID, void * appWindow ) {
-													deviceID	= _deviceID;
+		int										Init ( int deviceID, void * appWindow, PortalStreamOptions * opts ) {
+													this->deviceID	= deviceID;
 													hAppWindow  = appWindow;
+													this->width = opts->streamWidth;
+													this->height = opts->streamHeight;
+                                                    this->minFPS = opts->streamMinFPS;
 													return Init ( );
 												}
 
@@ -79,7 +84,7 @@ namespace environs
 		*
 		* @return	status	1 = success; 0 = failed this time, error status is recoverable, so try again with next round; -1 = failed, skip this plugin for further procesing
 		*/
-		virtual int								Perform ( RenderDimensions * dims ) = 0;
+		virtual int								Perform ( RenderDimensions * dims, RenderContext * context ) = 0;
 		
 		CaptureType::CaptureType				captureType;
 
@@ -92,6 +97,7 @@ namespace environs
 
 		CaptureBufferType::CaptureBufferType	bufferType;
 
+        float                                   minFPS;
 		int										width;
 		int										height;
 		int										squareLength;

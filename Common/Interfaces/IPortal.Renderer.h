@@ -61,7 +61,7 @@ namespace environs
 		*	@return	bool
 		*/
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
-		bool				Init ( unsigned int deviceID, void * parent, void * appWindow );
+		bool				Init ( int deviceID, void * parent, void * appWindow );
 		
 		virtual void		Dispose ( ) = 0;
 

@@ -30,7 +30,10 @@
 #include "Environs.Native.h"
 #include "Interop/Stat.h"
 #include "Interfaces/Interface.Exports.h"
+
+#ifndef MEDIATORDAEMON
 #include "Environs.h"
+#endif
 using namespace environs;
 
 #ifdef WINDOWS_PHONE
@@ -40,7 +43,7 @@ using namespace environs;
 #define CLASS_NAME	"Export"
 
 
-HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
+HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID )
 {
 	CVerbID ( "LocateLoadModule" );
     
@@ -82,7 +85,8 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 			hModLib = dlopen ( absPath, RTLD_LAZY );
 			if ( hModLib )
 				break;
-
+            
+#ifndef MEDIATORDAEMON
             const char * libDir = environs::environs.libDir;
             if ( !libDir )
                 libDir = environs::environs.workDir;
@@ -126,7 +130,8 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 
 			CVerbArgID ( "LocateLoadModule: Trying [%s].", absPath );
 
-			hModLib = dlopen ( absPath, RTLD_LAZY );
+            hModLib = dlopen ( absPath, RTLD_LAZY );
+#endif
 			if ( !hModLib ) {
 #ifdef _WIN32
 				CLogArgID ( "LocateLoadModule: [%s] not found.", absPath );
@@ -138,7 +143,8 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 		while ( 0 );
 	}
 #endif
-
+    
+#ifndef MEDIATORDAEMON
     if ( hModLib ) {
         pSetEnvironsObject SetEnvironsObject = 0;
         
@@ -152,6 +158,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, unsigned int deviceID )
 			CVerbID ( "LocateLoadModule: Cannot find SetEnvironsObject in module. Assuming a 3rd party module." );
         }
     }
+#endif
     
 	return hModLib;
 }

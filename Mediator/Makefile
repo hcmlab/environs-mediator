@@ -1,6 +1,7 @@
 CC	= g++
 # This must be set to the common code directory of Environs
 INCS	= ../Common/
+3RD	= ../3rd/
 
 OUTF	= Mediator
 ifeq ($(OS),Windows_NT)
@@ -17,12 +18,13 @@ endif
 
 # For release builds add -DNDEBUG to suppress debug messages
 
-CFLAGS	= -Os -DNDEBUG -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -I$(INCS) -I. -g -I/opt/ssl/include/  -I/opt/local/include -Wno-deprecated
-LDFLAGS	= -lm -lpthread -lcurses -lcurl -L/opt/local/lib -lcrypto
+CFLAGS	= -Os -DNDEBUG -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -I$(INCS) -I. -g -I$(3RD) -I/opt/ssl/include/  -I/opt/local/include -Wno-deprecated
+LDFLAGS	= -lm -lpthread -lcurses -lcurl -ldl -L/opt/local/lib 
+#-lcrypto
 OTHER_C_FLAGS = -isystem /opt/local/include
 
 
-OBJ	= main.o stdafx.o Mediator.o Mediator.Daemon.o Threads.o Environs.Types.o Environs.Utils.o Environs.Crypt.o
+OBJ	= main.o stdafx.o Mediator.o Mediator.Daemon.o Threads.o Environs.Types.o Environs.Utils.o Environs.Crypt.o Export.o Dyn.Lib.Crypto.o
 
 
 all: $(OBJ)
@@ -41,6 +43,12 @@ Environs.Utils.o: $(INCS)Environs.Utils.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
     
 Environs.Crypt.o: $(INCS)Environs.Crypt.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+    
+Export.o: $(INCS)Interop/Export.cpp
+	$(CC) $(CFLAGS) -c -o $@ $<
+    
+Dyn.Lib.Crypto.o: $(3RD)DynLib/Dyn.Lib.Crypto.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.o: %.cpp

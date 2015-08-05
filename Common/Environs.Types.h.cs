@@ -880,6 +880,8 @@ namespace hcm.environs
 			YUV420              	=	0x10,
 			/** YV12. */
 			YV12                	=	0x12,
+			/** YUY2. */
+			YUY2                	=	0x14,
 			/** GDIBitmap. */
 			GDIBitmap           	=	0x100,
 			/** The data follows either D3D or OpenGL texture format. */

@@ -33,7 +33,7 @@
 namespace environs
 {
     
-#if (defined(ANDROID) || defined(_WIN32) )
+#if (defined(ANDROID) )
     bool UpdateKeyAndCert ( char * priv, char * cert )
     {
         return true;

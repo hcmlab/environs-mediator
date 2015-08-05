@@ -35,15 +35,9 @@
 #include "Device.Instance.h"
 #include "Interop.h"
 
-#ifndef ANDROID
+#ifndef ANDROID1
 #ifdef USE_OPENSSL
-#include <openssl/evp.h>
-#include <openssl/rsa.h>
-#include <openssl/x509.h>
-#include <openssl/sha.h>
-#include <openssl/pem.h>
-#include <openssl/err.h>
-#include <openssl/evp.h>
+#include "DynLib/Dyn.Lib.Crypto.h"
 #endif
 
 #ifdef _WIN32
@@ -56,6 +50,9 @@
 
 #endif
 
+#if !defined(ANDROID)
+#define ENABLE_DUMMY_CRYPT
+#endif
 
 #define CLASS_NAME	"Environs.crypt"
 
@@ -70,33 +67,34 @@ namespace environs
     
     bool allocated = false;
     
-	bool InitEnvironsCrypt ()
-	{
-		if ( !allocated ) {
-			Zero ( privKeyMutex );
-            if ( pthread_mutex_init ( &privKeyMutex, 0 ) ) {
-                CErr ( "InitEnvironsCrypt: Failed to initialize privKeyMutex." );
-                return false;
-            }
-            allocated = true;
-        }
-        
-#ifdef USE_OPENSSL
-        OpenSSL_add_all_algorithms ();
-        ERR_load_crypto_strings ();
-#endif
-        return true;
-	}
+    pEncryptMessage         EncryptMessage = 0;
+    pDecryptMessage         DecryptMessage = 0;
+    pReleaseCert            ReleaseCert = 0;
+    pSHAHashCreate          SHAHashCreate = 0;
+    pAESEncrypt             AESEncrypt = 0;
+    pAESDecrypt             AESDecrypt = 0;
+    pGenerateCertificate    GenerateCertificate = 0;
+    
+    pAESDeriveKeyContext    AESDeriveKeyContext = 0;
+    pAESUpdateKeyContext    AESUpdateKeyContext = 0;
+    pAESDisposeKeyContext   AESDisposeKeyContext = 0;
+    pPreparePrivateKey      PreparePrivateKey = 0;
+    pDisposePublicKey       DisposePublicKey = 0;
+    pDisposePrivateKey      DisposePrivateKey = 0;
 
     
 	void ReleaseEnvironsCrypt ()
 	{
         if ( allocated ) {
             if ( pthread_mutex_destroy ( &privKeyMutex ) ) {
-                CErr ( "InitEnvironsCrypt: Failed to destroy privKeyMutex." );
+                CErr ( "ReleaseEnvironsCrypt: Failed to destroy privKeyMutex." );
             }
             else allocated = false;
         }
+        
+#ifdef USE_OPENSSL
+        ReleaseLibOpenSSL();
+#endif
 	}
 
 	
@@ -204,16 +202,25 @@ namespace environs
 	}
 
     
-#ifndef ANDROID
-	void AESUpdateKeyContext ( AESContext * ctx, unsigned int deviceID )
-	{
-	}
+#if (!defined(ANDROID))
+    void dAESUpdateKeyContext ( AESContext * ctx, int deviceID )
+    {
+    }
+    
+#ifndef ENVIRONS_IOS
+    bool UpdateKeyAndCert ( char * priv, char * cert )
+    {        
+        return true;
+    }
 #endif
-	
+#endif
     
 #ifdef USE_OPENSSL
+    void cryptAESUpdateKeyContext ( AESContext * ctx, int deviceID )
+    {
+    }
     
-    bool PreparePrivateKey ( char ** privKey )
+    bool cryptPreparePrivateKey ( char ** privKey )
     {
         if ( !privKey || !*privKey ) {
             CErr ( "PreparePrivateKey: Called with NULL argument" ); return false;
@@ -234,7 +241,7 @@ namespace environs
             CErr ( "PreparePrivateKey: Invalid length" ); goto Finish;
         }
         
-        if ( !d2i_RSAPrivateKey ( &rsaKey, &inKey, len) || !rsaKey ) {
+        if ( !dd2i_RSAPrivateKey ( &rsaKey, &inKey, len) || !rsaKey ) {
             CErr ( "PreparePrivateKey: Converting key failed." ); goto Finish;
         }
         
@@ -246,18 +253,16 @@ namespace environs
         if ( key )
             free ( key );
         if ( rsaKey )
-            RSA_free ( rsaKey );
+            dRSA_free ( rsaKey );
         
         return ret;
     }
+#endif
     
-#else
-    
-    bool PreparePrivateKey ( char ** privKey )
+    bool dPreparePrivateKey ( char ** privKey )
     {
         return true;
     }
-#endif
 
     
 #if defined(USE_OPENSSL) || defined(_WIN32)
@@ -319,8 +324,12 @@ namespace environs
 		return true;
 	}
 #endif
-	
+    
+#  define dEVP_PKEY_assign_RSA(pkey,rsa) dEVP_PKEY_assign((pkey),EVP_PKEY_RSA,\
+(char *)(rsa))
+    
 #ifdef MEDIATORDAEMON
+    
 	bool SignCertificate ( char * key, unsigned int keySize, char * pub, char ** cert )
 	{
 		bool ret = false;
@@ -338,68 +347,68 @@ namespace environs
         
 		do
 		{
-            pKey = EVP_PKEY_new ();
+            pKey = dEVP_PKEY_new ();
             if ( !pKey ) {
                 break;
             }
             
-            if ( !EVP_PKEY_set1_RSA ( pKey, rsa ) ) {
+            if ( !dEVP_PKEY_set1_RSA ( pKey, rsa ) ) {
                 break;
             }
             
             unsigned int certSize = *((unsigned int *)pub) & 0xFFFF;
-			x509 = d2i_X509 ( 0, &certIn, certSize );
+			x509 = dd2i_X509 ( 0, &certIn, certSize );
             if ( !x509 ) {
                 CVerb ( "SignCertificate: Read X509 cert file failed." );
-                ERR_print_errors_fp ( stderr );
+                dERR_print_errors_fp ( stderr );
                 
-                if ( !d2i_RSA_PUBKEY ( &rsaPub, &certIn, certSize ) ) {
+                if ( !dd2i_RSA_PUBKEY ( &rsaPub, &certIn, certSize ) ) {
                     CErr ( "SignCertificate: Read cert file and RSA public key failed." );
-                    ERR_print_errors_fp ( stderr ); break;
+                    dERR_print_errors_fp ( stderr ); break;
                 }
                 CVerb ( "SignCertificate: Read RSA public key ok." );
-                pPubKey = EVP_PKEY_new ();
+                pPubKey = dEVP_PKEY_new ();
                 if ( !pPubKey ) {
                     break;
                 }
                 
-                if ( !EVP_PKEY_assign_RSA ( pPubKey, rsaPub ) ) {
+                if ( !dEVP_PKEY_assign_RSA ( pPubKey, rsaPub ) ) {
                     break;
                 }
                 
-                x509 = X509_new ();
+                x509 = dX509_new ();
                 if ( !x509 ) {
                     break;
                 }
                 
-                X509_set_pubkey ( x509, pPubKey );
+                dX509_set_pubkey ( x509, pPubKey );
             }
             
             if ( !x509 ) {
                 CErr ( "SignCertificate: Read cert data failed." );
-                ERR_print_errors_fp ( stderr ); break;
+                dERR_print_errors_fp ( stderr ); break;
             }
             
-            ASN1_INTEGER_set ( X509_get_serialNumber ( x509 ), rand () );
+            dASN1_INTEGER_set ( dX509_get_serialNumber ( x509 ), rand () );
             
-            X509_gmtime_adj ( X509_get_notBefore(x509), 0 );
-            X509_gmtime_adj ( X509_get_notAfter(x509), 94608000L );
+            dX509_gmtime_adj ( X509_get_notBefore(x509), 0 );
+            dX509_gmtime_adj ( X509_get_notAfter(x509), 94608000L );
             
             
-            X509_NAME * subject = X509_get_subject_name ( x509 );
+            X509_NAME * subject = dX509_get_subject_name ( x509 );
             
-            X509_NAME_add_entry_by_txt ( subject, "C",  MBSTRING_ASC, (unsigned char *)"CA",        -1, -1, 0 );
-            X509_NAME_add_entry_by_txt ( subject, "O",  MBSTRING_ASC, (unsigned char *)"Environs", -1, -1, 0 );
-            X509_NAME_add_entry_by_txt ( subject, "CN", MBSTRING_ASC, (unsigned char *)"hcm-lab.de", -1, -1, 0 );
+            dX509_NAME_add_entry_by_txt ( subject, "C",  MBSTRING_ASC, (unsigned char *)"CA",        -1, -1, 0 );
+            dX509_NAME_add_entry_by_txt ( subject, "O",  MBSTRING_ASC, (unsigned char *)"Environs", -1, -1, 0 );
+            dX509_NAME_add_entry_by_txt ( subject, "CN", MBSTRING_ASC, (unsigned char *)"hcm-lab.de", -1, -1, 0 );
             
-            X509_set_issuer_name ( x509, subject );
+            dX509_set_issuer_name ( x509, subject );
             
-            if ( !X509_sign ( x509, pKey, EVP_sha1 () ) ) { /// We should switch to sha2
+            if ( !dX509_sign ( x509, pKey, dEVP_sha1 () ) ) { /// We should switch to sha2
 //            if ( !X509_sign ( x509, pKey, EVP_sha () ) ) {
                 break;
             }
             
-            certDataSize = i2d_X509 ( x509, 0 );
+            certDataSize = di2d_X509 ( x509, 0 );
             if ( certDataSize <= 0 ) {
                 CErrArg ( "SignCertificate: i2d_X509 returned size [%i].", certDataSize ); break;
             }
@@ -410,7 +419,7 @@ namespace environs
             }
             
             unsigned char * certDataStore = (unsigned char *) (certData + 4);
-            if ( !i2d_X509 ( x509, &certDataStore ) ) {
+            if ( !di2d_X509 ( x509, &certDataStore ) ) {
                 CErr ( "SignCertificate: i2d_X509 failed." ); break;
             }
             *((unsigned int *) certData) = ('d' << 16 | certDataSize | ENVIRONS_CERT_SIGNED_FLAG);
@@ -421,8 +430,8 @@ namespace environs
 		}
 		while ( 0 );
         
-        if ( x509 )     X509_free ( x509 );
-        if ( pKey )     EVP_PKEY_free ( pKey );
+        if ( x509 )     dX509_free ( x509 );
+        if ( pKey )     dEVP_PKEY_free ( pKey );
         if ( certData ) free ( certData );
 #else
 #ifdef _WIN32
@@ -499,7 +508,7 @@ namespace environs
 			}*/
 
 			if ( !CryptGenKey ( hCSP, AT_SIGNATURE, CRYPT_EXPORTABLE, &hKey ) ) {
-				CErr ( "GenerateCertificate: CryptGenKey failed." ); break;
+				CErr ( "SignCertificate: CryptGenKey failed." ); break;
 			}
 
 			Zero ( certInfo );
@@ -627,8 +636,15 @@ namespace environs
 
 
 #ifdef USE_OPENSSL
+
+#ifdef ENABLE_DUMMY_CRYPT
+    bool dGenerateCertificate ( char ** priv, char ** pub )
+    {
+        return false;
+    }
+#endif
     
-	bool GenerateCertificate ( char ** priv, char ** pub )
+	bool cryptGenerateCertificate ( char ** priv, char ** pub )
 	{
 		bool ret = false;
         
@@ -638,46 +654,63 @@ namespace environs
         X509        *   x509        = 0;
         unsigned int    certDataSize = 0;
         char        *   certData    = 0;
+        BIGNUM      *   bne         = 0;
         
         unsigned char * tmpPrivKey  = 0;
         
 		do
 		{
-            pKey = EVP_PKEY_new ();
+            pKey = dEVP_PKEY_new ();
             if ( !pKey ) {
                 break;
             }
             
-            rsa = RSA_generate_key ( ENVIRONS_DEVICES_KEYSIZE, RSA_F4, NULL, NULL );
-            if ( !EVP_PKEY_assign_RSA ( pKey, rsa ) ) {
+            if ( dRSA_generate_key ) {
+                rsa = dRSA_generate_key ( ENVIRONS_DEVICES_KEYSIZE, RSA_F4, NULL, NULL );
+            }
+            else {
+                bne = dBN_new ();
+                int success = ret = dBN_set_word ( bne, RSA_F4 );
+                if ( success != 1 ) {
+                    break;
+                }
+                
+                rsa = dRSA_new ();
+                
+                success = dRSA_generate_key_ex ( rsa, ENVIRONS_DEVICES_KEYSIZE, bne, NULL );
+                if ( success != 1 ) {
+                    break;
+                }
+            }
+            if ( !dEVP_PKEY_assign_RSA ( pKey, rsa ) ) {
                 break;
             }
             
-            x509 = X509_new ();
+            x509 = dX509_new ();
             if ( !x509 ) {
                 break;
             }
             
-            ASN1_INTEGER_set( X509_get_serialNumber ( x509 ), rand () );
+            dASN1_INTEGER_set( dX509_get_serialNumber ( x509 ), rand () );
             
-            X509_gmtime_adj ( X509_get_notBefore(x509), 0 );
-            X509_gmtime_adj ( X509_get_notAfter(x509), 94608000L );
+            dX509_gmtime_adj ( X509_get_notBefore(x509), 0 );
+            dX509_gmtime_adj ( X509_get_notAfter(x509), 94608000L );
             
-            X509_set_pubkey ( x509, pKey );
+            dX509_set_pubkey ( x509, pKey );
             
-            X509_NAME * subject = X509_get_subject_name ( x509 );
+            X509_NAME * subject = dX509_get_subject_name ( x509 );
             
-            X509_NAME_add_entry_by_txt ( subject, "C",  MBSTRING_ASC, (unsigned char *)"CA",        -1, -1, 0 );
-            X509_NAME_add_entry_by_txt ( subject, "O",  MBSTRING_ASC, (unsigned char *)"Environs", -1, -1, 0 );
-            X509_NAME_add_entry_by_txt ( subject, "CN", MBSTRING_ASC, (unsigned char *)"hcm-lab.de", -1, -1, 0 );
+            dX509_NAME_add_entry_by_txt ( subject, "C",  MBSTRING_ASC, (unsigned char *)"CA",        -1, -1, 0 );
+            dX509_NAME_add_entry_by_txt ( subject, "O",  MBSTRING_ASC, (unsigned char *)"Environs", -1, -1, 0 );
+            dX509_NAME_add_entry_by_txt ( subject, "CN", MBSTRING_ASC, (unsigned char *)"hcm-lab.de", -1, -1, 0 );
             
-            X509_set_issuer_name ( x509, subject );
+            dX509_set_issuer_name ( x509, subject );
             
-            if ( !X509_sign ( x509, pKey, EVP_sha1 () ) ) {  /// We should switch to sha2
+            if ( !dX509_sign ( x509, pKey, dEVP_sha1 () ) ) {  /// We should switch to sha2
                 break;
             }
             
-            certDataSize = i2d_X509 ( x509, 0 );
+            certDataSize = di2d_X509 ( x509, 0 );
             if ( certDataSize <= 0 ) {
                 CErrArg ( "GenerateCertificate: i2d_X509 returned size [%i].", certDataSize ); break;
             }
@@ -688,14 +721,14 @@ namespace environs
             }
             
             unsigned char * certDataStore = (unsigned char *) (certData + 4);
-            if ( !i2d_X509 ( x509, &certDataStore ) ) {
+            if ( !di2d_X509 ( x509, &certDataStore ) ) {
                 CErr ( "GenerateCertificate: i2d_X509 failed." ); break;
             }
             *((unsigned int *) certData) = ('d' << 16 | certDataSize | ENVIRONS_CERT_SIGNED_FLAG);
             *pub = (char *) certData;
             certData = 0;
             
-            unsigned int privKeyLen = i2d_RSAPrivateKey(rsa, 0);
+            unsigned int privKeyLen = di2d_RSAPrivateKey(rsa, 0);
             if ( privKeyLen <= 0 ) {
                 break;
             }
@@ -704,7 +737,7 @@ namespace environs
                 CErrArg ( "GenerateCertificate: Memory allocation failed. size [%i].", privKeyLen ); break;
             }
             
-            privKeyLen = i2d_RSAPrivateKey (rsa, (unsigned char **)&tmpPrivKey);
+            privKeyLen = di2d_RSAPrivateKey (rsa, (unsigned char **)&tmpPrivKey);
             
             if ( privKeyLen <= 0 || !tmpPrivKey ) {
                 CErr ( "GenerateCertificate: Failed to get private key." );
@@ -721,9 +754,10 @@ namespace environs
 		}
 		while ( 0 );
         
-        if ( x509 )     X509_free ( x509 );
-        if ( pKey )     EVP_PKEY_free ( pKey );
-//        if ( rsa )      RSA_free ( rsa );
+        if ( bne )      dBN_free ( bne );
+        if ( x509 )     dX509_free ( x509 );
+        if ( pKey )     dEVP_PKEY_free ( pKey );
+//        if ( rsa )      dRSA_free ( rsa );
 		if ( privKey )	free ( privKey );
         if ( certData ) free ( certData );
 		return ret;
@@ -733,7 +767,7 @@ namespace environs
 #ifdef _WIN32
     
 
-	bool GenerateCertificate ( char ** priv, char ** pub )
+	bool cryptGenerateCertificate ( char ** priv, char ** pub )
 	{
 		bool ret = false;
 
@@ -861,9 +895,15 @@ namespace environs
 	}
 #endif
 #endif
-
     
-	bool EncryptMessage ( unsigned int deviceID, char * cert, char * msg, unsigned int * msgLen )
+#ifdef ENABLE_DUMMY_CRYPT
+    bool dEncryptMessage ( int deviceID, char * cert, char * msg, unsigned int * msgLen )
+    {
+        return false;
+    }
+#endif
+    
+	bool cryptEncryptMessage ( int deviceID, char * cert, char * msg, unsigned int * msgLen )
 	{
 		if ( !cert || !msg || !msgLen ) {
 			CErrID ( "EncryptMessage: Called with at least one null argument." );
@@ -888,8 +928,12 @@ namespace environs
 		bool ret = false;
 
 #ifdef USE_OPENSSL
-        OpenSSL_add_all_algorithms();
-        ERR_load_crypto_strings();
+# ifdef OPENSSL_LOAD_CONF
+        dOPENSSL_add_all_algorithms_conf();
+# else
+        dOPENSSL_add_all_algorithms_noconf();
+# endif
+        dERR_load_crypto_strings();
 
         EVP_PKEY    *   pkey	= 0;
         X509		*	cert509 = 0;
@@ -900,23 +944,23 @@ namespace environs
         
         do
         {            
-			cert509 = d2i_X509 ( 0, &certD, certSize );
+			cert509 = dd2i_X509 ( 0, &certD, certSize );
             if ( !cert509 ) {
 				CErrArgID ( "EncryptMessage: Read X509 cert file (format %c) failed.", format );
-                ERR_print_errors_fp ( stderr ); break;
+                dERR_print_errors_fp ( stderr ); break;
             }
             
-            pkey = X509_get_pubkey ( cert509 );
+            pkey = dX509_get_pubkey ( cert509 );
             if ( !pkey ) {
 				CErrID ( "EncryptMessage: Failed to load public key from certificate." ); break;
             }
             
-            rsaKey = EVP_PKEY_get1_RSA ( pkey );
+            rsaKey = dEVP_PKEY_get1_RSA ( pkey );
             if ( !rsaKey ) {
 				CErrID ( "EncryptMessage: Failed to load public key from certificate." ); break;
             }
 
-            cipherSize = (unsigned int) RSA_size(rsaKey);
+            cipherSize = (unsigned int) dRSA_size(rsaKey);
             //unsigned char * pubK = 0;
             //unsigned int pubKSize =
             //i2d_RSAPublicKey(rsaKey, &pubK);
@@ -936,7 +980,7 @@ namespace environs
             else
                 pad = RSA_PKCS1_OAEP_PADDING; //RSA_NO_PADDING;
 
-            int ciphersSize = RSA_public_encrypt ( *msgLen, (unsigned char *)msg, (unsigned char *)ciphers, rsaKey, pad );
+            int ciphersSize = dRSA_public_encrypt ( *msgLen, (unsigned char *)msg, (unsigned char *)ciphers, rsaKey, pad );
             if ( ciphersSize <= 0 ) {
 				CErrID ( "EncryptMessage: Encrypt failed." ); break;
             }
@@ -947,9 +991,9 @@ namespace environs
         while ( 0 );
         
 		if ( ciphers )	free ( ciphers );
-        if ( pkey )		EVP_PKEY_free ( pkey );
-        if ( cert509 )	X509_free ( cert509 );
-        if ( rsaKey )	RSA_free ( rsaKey );
+        if ( pkey )		dEVP_PKEY_free ( pkey );
+        if ( cert509 )	dX509_free ( cert509 );
+        if ( rsaKey )	dRSA_free ( rsaKey );
 #else
 		
 
@@ -1068,8 +1112,16 @@ namespace environs
 		return ret;
 	}
 
-
-	bool DecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize )
+    
+    
+#ifdef ENABLE_DUMMY_CRYPT
+    bool dDecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize )
+    {
+        return false;
+    }
+#endif
+    
+	bool cryptDecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize )
 	{
 		if ( !key || !msg || !msgLen || !decrypted || !decryptedSize ) {
 			CErr ( "DecryptMessage: Called with at least one null argument." );
@@ -1087,7 +1139,7 @@ namespace environs
 #ifdef USE_OPENSSL
         RSA     * rsa       = (RSA *) key;
         char    * decrypt   = 0;
-		unsigned int rsaSize = (unsigned int) RSA_size(rsa);
+		unsigned int rsaSize = (unsigned int) dRSA_size(rsa);
         
         do
         {
@@ -1106,42 +1158,42 @@ namespace environs
             
             do
             {                
-                decSize = RSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_OAEP_PADDING );
+                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_OAEP_PADDING );
                 if ( decSize <= 0 ) {
-                    ERR_print_errors_fp ( stderr );
+                    dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_PKCS1_OAEP_PADDING Decrypted message size is [%i].", decSize );
                 }
                 else break;
 
-                decSize = RSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_PADDING );
+                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_PADDING );
                 if ( decSize <= 0 ) {
-                    ERR_print_errors_fp ( stderr );
+                    dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_PKCS1_PADDING Decrypted message size is [%i].", decSize );
                 }
                 else break;
 
-                decSize = RSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_PSS_PADDING );
+                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_PSS_PADDING );
                 if ( decSize <= 0 ) {
-                    ERR_print_errors_fp ( stderr );
+                    dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_PKCS1_PSS_PADDING Decrypted message size is [%i].", decSize );
                 }
                 else break;
 
-                decSize = RSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_NO_PADDING );
+                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_NO_PADDING );
                 if ( decSize <= 0 ) {
-                    ERR_print_errors_fp ( stderr );
+                    dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_NO_PADDING Decrypted message size is [%i].", decSize );
                 }
             }
             while ( 0 );
 
             if ( decSize <= 0 ) {
-                ERR_print_errors_fp ( stderr );
+                dERR_print_errors_fp ( stderr );
 				CErrArg ( "DecryptMessage: All padding types failed. Decrypted message size is [%i].", decSize ); break;
 			}
 
 			if ( decSize > (int)rsaSize ) {
-				ERR_print_errors_fp ( stderr );
+				dERR_print_errors_fp ( stderr );
 				CErrArg ( "DecryptMessage: Decrypted message size [%u] is larger than RSA buffer.", decSize ); break;
 			}
 
@@ -1239,14 +1291,24 @@ namespace environs
 		return ret;
 	}
     
+#ifdef ENABLE_DUMMY_CRYPT
+    void dReleaseCert ( int deviceID )
+    {
+    }
+#endif
 
-    void ReleaseCert ( unsigned int deviceID )
+    void cryptReleaseCert ( int deviceID )
     {
         
     }
-
+    
+#ifdef ENABLE_DUMMY_CRYPT
+    void dAESDisposeKeyContext ( AESContext * ctx )
+    {
+    }
+#endif
 	
-	void AESDisposeKeyContext ( AESContext * ctx )
+	void cryptAESDisposeKeyContext ( AESContext * ctx )
 	{
 		CVerb ( "AESDisposeKeyContexts" );
 
@@ -1259,12 +1321,12 @@ namespace environs
 #ifdef USE_OPENSSL_AES
 		if ( ctx->encCtx ) {
 			EVP_CIPHER_CTX * ect = (EVP_CIPHER_CTX *) ctx->encCtx;
-			EVP_CIPHER_CTX_cleanup ( ect );
+			dEVP_CIPHER_CTX_cleanup ( ect );
 			free ( ctx->encCtx );
 		}
 		if ( ctx->decCtx ) {
 			EVP_CIPHER_CTX * ect = (EVP_CIPHER_CTX *) ctx->decCtx;
-			EVP_CIPHER_CTX_cleanup ( ect );
+			dEVP_CIPHER_CTX_cleanup ( ect );
 			free ( ctx->decCtx );
 		}
 #else
@@ -1278,8 +1340,14 @@ namespace environs
 		memset ( ctx, 0, sizeof(AESContext) );
 	}
     
+#ifdef ENABLE_DUMMY_CRYPT
+    bool dAESDeriveKeyContext ( char * key, unsigned int keyLen, AESContext * ctx )
+    {
+        return false;
+    }
+#endif
 
-	bool AESDeriveKeyContext ( char * key, unsigned int keyLen, AESContext * ctx )
+	bool cryptAESDeriveKeyContext ( char * key, unsigned int keyLen, AESContext * ctx )
 	{
 		CVerb ( "AESDeriveKeyContexts" );
 
@@ -1326,17 +1394,17 @@ namespace environs
 			unsigned char hash [ SHA256_DIGEST_LENGTH ];
 			Zero ( hash );
 
-			SHA256_Init ( &sha );
-			SHA256_Update ( &sha, key, AES_SHA256_KEY_LENGTH );
+			dSHA256_Init ( &sha );
+			dSHA256_Update ( &sha, key, AES_SHA256_KEY_LENGTH );
 
-			SHA256_Final ( hash, &sha );
+			dSHA256_Final ( hash, &sha );
 			memcpy ( blob, hash, AES_SHA256_KEY_LENGTH );
 			
-			EVP_CIPHER_CTX_init ( e );
-			ret = EVP_EncryptInit_ex ( e, EVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1;
+			dEVP_CIPHER_CTX_init ( e );
+			ret = dEVP_EncryptInit_ex ( e, dEVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1;
 
-			EVP_CIPHER_CTX_init ( d );
-			ret = EVP_DecryptInit_ex ( d, EVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1;
+			dEVP_CIPHER_CTX_init ( d );
+			ret = dEVP_DecryptInit_ex ( d, dEVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1;
     
 			CVerbVerbArg ( "AESDeriveKeyContexts: AES key [%s]", ConvertToHexSpaceString ( blob, AES_SHA256_KEY_LENGTH ) );
 
@@ -1435,12 +1503,19 @@ namespace environs
 		return ret;
     }
 
-
+    
+#ifdef ENABLE_DUMMY_CRYPT
+    bool dAESEncrypt ( AESContext * ctx, char * buffer, unsigned int *bufferLen, char ** cipher )
+    {
+        return false;
+    }
+#endif
+    
     /*
      * Encrypt *len bytes of data
      * All data going in & out is considered binary (unsigned char[])
      */
-	bool AESEncrypt ( AESContext * ctx, char * buffer, unsigned int *bufferLen, char ** cipher )
+	bool cryptAESEncrypt ( AESContext * ctx, char * buffer, unsigned int *bufferLen, char ** cipher )
 	{
 		CVerbVerb ( "AESEncrypt" );
 
@@ -1480,21 +1555,21 @@ namespace environs
 
 			cipherStart = ciphers + 20;
 
-            if ( !EVP_EncryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) (ciphers + 4) ) ) {
+            if ( !dEVP_EncryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) (ciphers + 4) ) ) {
 				CErrID ( "AESEncrypt: EVP_EncryptInit_ex IV failed." ); break;
             }
 
-			/*if ( !EVP_EncryptInit_ex ( e, NULL, NULL, NULL, NULL ) ) {
+			/*if ( !dEVP_EncryptInit_ex ( e, NULL, NULL, NULL, NULL ) ) {
 				CErrID ( "AESEncrypt: EVP_EncryptInit_ex failed." ); break;
 			}
             */
 
-			if ( !EVP_EncryptUpdate ( e, (unsigned char *)cipherStart, (int *)&ciphersSize, (unsigned char *)buffer, *bufferLen ) ) {
+			if ( !dEVP_EncryptUpdate ( e, (unsigned char *)cipherStart, (int *)&ciphersSize, (unsigned char *)buffer, *bufferLen ) ) {
 				CErrID ( "AESEncrypt: EVP_EncryptUpdate failed." ); break;
 			}
         
 			/* update ciphertext with the final remaining bytes */
-			if ( !EVP_EncryptFinal_ex ( e, (unsigned char *) (cipherStart + ciphersSize), &finalSize ) ) {
+			if ( !dEVP_EncryptFinal_ex ( e, (unsigned char *) (cipherStart + ciphersSize), &finalSize ) ) {
 				CErrID ( "AESEncrypt: EVP_EncryptFinal_ex failed." ); break;
 			}
        
@@ -1621,9 +1696,16 @@ namespace environs
 		if ( ciphers ) free ( ciphers );
 		return ret;
     }
+    
+    
+#ifdef ENABLE_DUMMY_CRYPT
+    bool dAESDecrypt ( AESContext * ctx, char * buffer, unsigned int *bufferLen, char ** decrypted )
+    {
+        return false;
+    }
+#endif
 
-
-	bool AESDecrypt ( AESContext * ctx, char * buffer, unsigned int *bufferLen, char ** decrypted )
+	bool cryptAESDecrypt ( AESContext * ctx, char * buffer, unsigned int *bufferLen, char ** decrypted )
 	{
 		CVerbVerb ( "AESDecrypt" );
 
@@ -1660,16 +1742,16 @@ namespace environs
 				CErrArg ( "AESDecrypt: Memory allocation [%i bytes] failed.", decryptedBufSize ); break;
 			}
             
-            if ( !EVP_DecryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) IV ) ) {
+            if ( !dEVP_DecryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) IV ) ) {
                 CErrID ( "AESDecrypt: EVP_DecryptInit_ex for IV failed." ); break;
             }
             
             unsigned int len = *bufferLen - 20;
-            if ( !EVP_DecryptUpdate ( e, (unsigned char *)decrypt, (int *)&decryptedSize, (unsigned char *)(buffer + 20), len ) ) {
+            if ( !dEVP_DecryptUpdate ( e, (unsigned char *)decrypt, (int *)&decryptedSize, (unsigned char *)(buffer + 20), len ) ) {
                 CErrID ( "AESDecrypt: EVP_DecryptUpdate failed." ); break;
             }
             
-			if ( !EVP_DecryptFinal_ex ( e, (unsigned char *) (decrypt + decryptedSize), &finalSize ) ) {
+			if ( !dEVP_DecryptFinal_ex ( e, (unsigned char *) (decrypt + decryptedSize), &finalSize ) ) {
 				CErrID ( "AESDecrypt: EVP_DecryptFinal_ex failed." ); break;
 			}
 
@@ -1785,13 +1867,19 @@ namespace environs
 		if ( decrypt ) free ( decrypt );
 		return ret;
     }
-
+    
+#ifdef ENABLE_DUMMY_CRYPT
+    bool dSHAHashCreate ( const char * msg, char ** hash, unsigned int * xchLen )
+    {
+        return false;
+    }
+#endif
 
 	/**
 	*	SHAHashCreate: Creates a SHA512 hash for a given message, i.e. used to hash user passwords.
 	*
 	*/
-	bool SHAHashCreate ( const char * msg, char ** hash, unsigned int * xchLen )
+	bool cryptSHAHashCreate ( const char * msg, char ** hash, unsigned int * xchLen )
 	{
 		CVerb ( "SHAHashCreate" );
 
@@ -1866,11 +1954,11 @@ namespace environs
         SHA512_CTX ctx;
 		do
 		{
-			if ( !SHA512_Init ( &ctx ) ) {
+			if ( !dSHA512_Init ( &ctx ) ) {
 				CErr ( "SHAHashCreate: SHA512_Init failed." ); break;
 			}
 
-			if ( !SHA512_Update ( &ctx, msg, *xchLen ) ) {
+			if ( !dSHA512_Update ( &ctx, msg, *xchLen ) ) {
 				CErr ( "SHAHashCreate: SHA512_Update failed." ); break;
 			}
 
@@ -1879,7 +1967,7 @@ namespace environs
 				CErr ( "SHAHashCreate: Memory allocation failed." ); break;
 			}
 
-			if ( !SHA512_Final ( (unsigned char *)blob, &ctx ) ) {
+			if ( !dSHA512_Final ( (unsigned char *)blob, &ctx ) ) {
 				CErr ( "SHAHashCreate: SHA512_Final failed." ); break;
 			}            
 
@@ -1998,29 +2086,40 @@ namespace environs
 #endif
 	}
 
-
-	void DisposePrivateKey ( void ** key )
+    
+#ifdef USE_OPENSSL
+	void cryptDisposePrivateKey ( void ** key )
 	{
         if ( key && *key ) {
-#ifdef USE_OPENSSL
-            RSA_free ( (RSA *)*key );
-#else
+            dRSA_free ( (RSA *)*key );
+            *key = 0;
+        }
+    }
+#endif
+    
+    
+    void dDisposePrivateKey ( void ** key )
+    {
+        if ( key && *key ) {
             unsigned int keySize = *((unsigned int *)(*key));
             memset ( *key, 0, keySize );
             free ( *key );
-#endif
             *key = 0;
         }
-	}
-
-	void DisposePublicKey ( void * key )
-	{
+    }
+    
+    
 #ifdef USE_OPENSSL
-        if ( key ) RSA_free ( (RSA *)key );
-#else
-		if ( key )  free ( key );
+	void cryptDisposePublicKey ( void * key )
+	{
+        if ( key ) dRSA_free ( (RSA *)key );
+    }
 #endif
-	}
+    
+    void dDisposePublicKey ( void * key )
+    {
+        if ( key )  free ( key );
+    }
 
 
 #ifdef MEDIATORDAEMON
@@ -2052,12 +2151,12 @@ namespace environs
                 CErr ( "LoadPublicCertificate: 404." ); break;
             }
             
-            if ( !PEM_read_X509 ( fp, &cert509, NULL, NULL) ) {
+            if ( !dPEM_read_X509 ( fp, &cert509, NULL, NULL) ) {
                 CErr ( "LoadPublicCertificate: Read X509 cert file failed." );
-                ERR_print_errors_fp ( stderr ); break;
+                dERR_print_errors_fp ( stderr ); break;
             }
 
-            certDataSize = i2d_X509 ( cert509, 0 );
+            certDataSize = di2d_X509 ( cert509, 0 );
             if ( certDataSize <= 0 ) {
                 CErrArg ( "LoadPublicCertificate: i2d_X509 returned size [%i].", certDataSize ); break;
             }
@@ -2068,7 +2167,7 @@ namespace environs
             }
             
             unsigned char * certDataStore = certData + 4;
-            if ( !i2d_X509 ( cert509, &certDataStore ) ) {
+            if ( !di2d_X509 ( cert509, &certDataStore ) ) {
                 CErr ( "LoadPublicCertificate: i2d_X509 failed." ); break;
             }
             *((unsigned int *) certData) = ('d' << 16 | certDataSize );
@@ -2081,7 +2180,7 @@ namespace environs
         if ( certData )
             free ( certData );
         if ( cert509 )
-            X509_free ( cert509 );
+            dX509_free ( cert509 );
         if ( fp )
             fclose ( fp );
 #else       
@@ -2156,10 +2255,10 @@ namespace environs
 			goto Finish;
 		}
 
-		if ( !PEM_read_RSAPrivateKey ( fp, &rsaKey, NULL, NULL) )
+		if ( !dPEM_read_RSAPrivateKey ( fp, &rsaKey, NULL, NULL) )
 		{
 			CErr ( "LoadPrivateKey: Read RSA file failed." );
-			ERR_print_errors_fp ( stderr );
+			dERR_print_errors_fp ( stderr );
 			goto Finish;
         }
 
@@ -2169,7 +2268,7 @@ namespace environs
 
 	Finish:
 		if ( rsaKey )
-			RSA_free ( rsaKey );
+			dRSA_free ( rsaKey );
 		if ( fp )
 			fclose ( fp );
 #else
@@ -2241,6 +2340,95 @@ namespace environs
 		return ret;
 	}
 #endif
+    
+    
+    bool InitEnvironsCrypt ()
+    {
+        if ( !allocated ) {
+            Zero ( privKeyMutex );
+            if ( pthread_mutex_init ( &privKeyMutex, 0 ) ) {
+                CErr ( "InitEnvironsCrypt: Failed to initialize privKeyMutex." );
+                return false;
+            }
+            allocated = true;
+        }
+        
+#ifdef USE_OPENSSL
+        
+        if ( InitLibOpenSSL () ) {
+            CInfo ( "InitEnvironsCrypt: Successfuly loaded libcrypto!" );
+            
+            EncryptMessage = cryptEncryptMessage;
+            DecryptMessage = cryptDecryptMessage;
+            ReleaseCert = cryptReleaseCert;
+            SHAHashCreate = cryptSHAHashCreate;
+            AESEncrypt = cryptAESEncrypt;
+            AESDecrypt = cryptAESDecrypt;
+            GenerateCertificate = cryptGenerateCertificate;
+            AESDeriveKeyContext = cryptAESDeriveKeyContext;
+            AESUpdateKeyContext = cryptAESUpdateKeyContext;
+            AESDisposeKeyContext = cryptAESDisposeKeyContext;
+            PreparePrivateKey   = cryptPreparePrivateKey;
+            DisposePublicKey   = cryptDisposePublicKey;
+            DisposePrivateKey = cryptDisposePrivateKey;
 
+# ifdef OPENSSL_LOAD_CONF
+            dOPENSSL_add_all_algorithms_conf();
+# else
+            dOPENSSL_add_all_algorithms_noconf();
+# endif
+            dERR_load_crypto_strings ();
+        }
+        else {
+#ifndef ANDROID
+            CErr ( "InitEnvironsCrypt: CRITICAL ERROR. Failed to load libcrypto! Encryption not available!" );
+#endif
+            EncryptMessage = dEncryptMessage;
+            DecryptMessage = dDecryptMessage;
+            ReleaseCert = dReleaseCert;
+            SHAHashCreate = dSHAHashCreate;
+            AESEncrypt = dAESEncrypt;
+            AESDecrypt = dAESDecrypt;
+            GenerateCertificate = dGenerateCertificate;
+            AESDeriveKeyContext = dAESDeriveKeyContext;
+            AESUpdateKeyContext = dAESUpdateKeyContext;
+            AESDisposeKeyContext = dAESDisposeKeyContext;
+            PreparePrivateKey   = dPreparePrivateKey;
+            DisposePublicKey   = dDisposePublicKey;
+            DisposePrivateKey = dDisposePrivateKey;
+        }
+#else
+#ifdef _WIN32
+		EncryptMessage = cryptEncryptMessage;
+		DecryptMessage = cryptDecryptMessage;
+		ReleaseCert = cryptReleaseCert;
+		SHAHashCreate = cryptSHAHashCreate;
+		AESEncrypt = cryptAESEncrypt;
+		AESDecrypt = cryptAESDecrypt;
+		GenerateCertificate = cryptGenerateCertificate;
+		AESDeriveKeyContext = cryptAESDeriveKeyContext;
+		AESUpdateKeyContext = dAESUpdateKeyContext;
+		AESDisposeKeyContext = cryptAESDisposeKeyContext;
+		PreparePrivateKey   = dPreparePrivateKey;
+		DisposePublicKey   = dDisposePublicKey;
+		DisposePrivateKey = dDisposePrivateKey;
+#else
+        EncryptMessage = dEncryptMessage;
+        DecryptMessage = dDecryptMessage;
+        ReleaseCert = dReleaseCert;
+        SHAHashCreate = dSHAHashCreate;
+        AESEncrypt = dAESEncrypt;
+        AESDecrypt = dAESDecrypt;
+        GenerateCertificate = dGenerateCertificate;
+        AESDeriveKeyContext = dAESDeriveKeyContext;
+        AESUpdateKeyContext = dAESUpdateKeyContext;
+        AESDisposeKeyContext = dAESDisposeKeyContext;
+        PreparePrivateKey   = dPreparePrivateKey;
+        DisposePublicKey   = dDisposePublicKey;
+        DisposePrivateKey = dDisposePrivateKey;
+#endif
+#endif
+        return true;
+    }
     
 }

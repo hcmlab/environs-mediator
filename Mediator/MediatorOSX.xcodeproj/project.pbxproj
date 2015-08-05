@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7E0028231B725AB900AB783F /* Dyn.Lib.Crypto.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E0028211B725AB900AB783F /* Dyn.Lib.Crypto.cpp */; };
+		7E0028261B725C5500AB783F /* Export.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E0028241B725C5500AB783F /* Export.cpp */; };
 		7E3A884618DDAAB60063BAED /* MediatorOSX.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7E3A884518DDAAB60063BAED /* MediatorOSX.1 */; };
 		7E3A885118DDAB2D0063BAED /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A884C18DDAB2D0063BAED /* main.cpp */; };
 		7E3A885318DDAB2D0063BAED /* stdafx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A884F18DDAB2D0063BAED /* stdafx.cpp */; };
@@ -14,7 +16,6 @@
 		7E3A885E18DDAB640063BAED /* Environs.Utils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A885818DDAB640063BAED /* Environs.Utils.cpp */; };
 		7E3A885F18DDAB640063BAED /* Mediator.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A885B18DDAB640063BAED /* Mediator.cpp */; };
 		7E3A886218DDAEB60063BAED /* Threads.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A886018DDAEB50063BAED /* Threads.cpp */; };
-		7E3A886418DDAF020063BAED /* libcrypto.1.0.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E3A886318DDAF020063BAED /* libcrypto.1.0.0.dylib */; };
 		7E3A886718DDAF290063BAED /* Environs.Types.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A886518DDAF290063BAED /* Environs.Types.cpp */; };
 		7E3A886918DDAF3B0063BAED /* libcurl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E3A886818DDAF3B0063BAED /* libcurl.dylib */; };
 		7ED0D37A1AFDAEAA00342B64 /* Mediator.Daemon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7ED0D3781AFDAEAA00342B64 /* Mediator.Daemon.cpp */; };
@@ -34,6 +35,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		7E0028211B725AB900AB783F /* Dyn.Lib.Crypto.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Dyn.Lib.Crypto.cpp; path = ../../3rd/DynLib/Dyn.Lib.Crypto.cpp; sourceTree = "<group>"; };
+		7E0028221B725AB900AB783F /* Dyn.Lib.Crypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Dyn.Lib.Crypto.h; path = ../../3rd/DynLib/Dyn.Lib.Crypto.h; sourceTree = "<group>"; };
+		7E0028241B725C5500AB783F /* Export.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Export.cpp; path = ../../Common/Interop/Export.cpp; sourceTree = "<group>"; };
+		7E0028251B725C5500AB783F /* Export.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Export.h; path = ../../Common/Interop/Export.h; sourceTree = "<group>"; };
 		7E2220BB1B517D66003E2D9C /* Log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Log.h; path = ../../Common/Log.h; sourceTree = "<group>"; };
 		7E3A884018DDAAB60063BAED /* MediatorOSX */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MediatorOSX; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E3A884518DDAAB60063BAED /* MediatorOSX.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = MediatorOSX.1; sourceTree = "<group>"; };
@@ -50,7 +55,6 @@
 		7E3A885C18DDAB640063BAED /* Mediator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Mediator.h; path = ../../Common/Mediator.h; sourceTree = "<group>"; };
 		7E3A886018DDAEB50063BAED /* Threads.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Threads.cpp; path = ../../Common/Interop/Threads.cpp; sourceTree = "<group>"; };
 		7E3A886118DDAEB60063BAED /* Threads.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Threads.h; path = ../../Common/Interop/Threads.h; sourceTree = "<group>"; };
-		7E3A886318DDAF020063BAED /* libcrypto.1.0.0.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.1.0.0.dylib; path = ../../../../../../opt/local/lib/libcrypto.1.0.0.dylib; sourceTree = "<group>"; };
 		7E3A886518DDAF290063BAED /* Environs.Types.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Environs.Types.cpp; path = ../../Common/Environs.Types.cpp; sourceTree = "<group>"; };
 		7E3A886618DDAF290063BAED /* Environs.Types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Environs.Types.h; path = ../../Common/Environs.Types.h; sourceTree = "<group>"; };
 		7E3A886818DDAF3B0063BAED /* libcurl.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcurl.dylib; path = usr/lib/libcurl.dylib; sourceTree = SDKROOT; };
@@ -67,7 +71,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				7E3A886918DDAF3B0063BAED /* libcurl.dylib in Frameworks */,
-				7E3A886418DDAF020063BAED /* libcrypto.1.0.0.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,7 +81,6 @@
 			isa = PBXGroup;
 			children = (
 				7E3A886818DDAF3B0063BAED /* libcurl.dylib */,
-				7E3A886318DDAF020063BAED /* libcrypto.1.0.0.dylib */,
 				7E3A884218DDAAB60063BAED /* MediatorOSX */,
 				7E3A884118DDAAB60063BAED /* Products */,
 			);
@@ -96,6 +98,8 @@
 			isa = PBXGroup;
 			children = (
 				7ED0D37B1AFDAEBA00342B64 /* Device.Instance.h */,
+				7E0028211B725AB900AB783F /* Dyn.Lib.Crypto.cpp */,
+				7E0028221B725AB900AB783F /* Dyn.Lib.Crypto.h */,
 				7E3A885518DDAB640063BAED /* Environs.Crypt.cpp */,
 				7E3A885618DDAB640063BAED /* Environs.Crypt.h */,
 				7E3A885718DDAB640063BAED /* Environs.Native.h */,
@@ -105,6 +109,8 @@
 				7E3A886618DDAF290063BAED /* Environs.Types.h */,
 				7E3A885818DDAB640063BAED /* Environs.Utils.cpp */,
 				7E3A885918DDAB640063BAED /* Environs.Utils.h */,
+				7E0028241B725C5500AB783F /* Export.cpp */,
+				7E0028251B725C5500AB783F /* Export.h */,
 				7E3A885A18DDAB640063BAED /* Interop.h */,
 				7E2220BB1B517D66003E2D9C /* Log.h */,
 				7E3A884C18DDAB2D0063BAED /* main.cpp */,
@@ -177,7 +183,9 @@
 				7ED0D37A1AFDAEAA00342B64 /* Mediator.Daemon.cpp in Sources */,
 				7E3A886718DDAF290063BAED /* Environs.Types.cpp in Sources */,
 				7E3A885318DDAB2D0063BAED /* stdafx.cpp in Sources */,
+				7E0028261B725C5500AB783F /* Export.cpp in Sources */,
 				7E3A886218DDAEB60063BAED /* Threads.cpp in Sources */,
+				7E0028231B725AB900AB783F /* Dyn.Lib.Crypto.cpp in Sources */,
 				7E3A885118DDAB2D0063BAED /* main.cpp in Sources */,
 				7E3A885D18DDAB640063BAED /* Environs.Crypt.cpp in Sources */,
 			);
@@ -280,10 +288,18 @@
 		7E3A884A18DDAAB60063BAED /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+					/opt/local/include,
+					"$(SRCROOT)/../3rd",
+					"$(SRCROOT)/../Common",
+				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/opt/local/lib,
 				);
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -291,10 +307,18 @@
 		7E3A884B18DDAAB60063BAED /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
+					/opt/local/include,
+					"$(SRCROOT)/../3rd",
+					"$(SRCROOT)/../Common",
+				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					/opt/local/lib,
 				);
+				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

@@ -235,7 +235,7 @@ private:
 	void									HandleCertSign ( ThreadInstance * client, char * msg );
 	
     bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
-	bool									HandleSTUNRequest ( ThreadInstance * destClient, unsigned int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+	bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 
 	bool									HandleQueryDevices ( ThreadInstance * client, char * msg );
 	bool									HandleShortMessage ( ThreadInstance * client, char * msg );

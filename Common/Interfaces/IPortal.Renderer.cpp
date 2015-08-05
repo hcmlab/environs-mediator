@@ -25,7 +25,7 @@
 
 namespace environs
 {	
-	bool IPortalRenderer::Init ( unsigned int _deviceID, void * _parent, void * appWindow ) {
+	bool IPortalRenderer::Init ( int _deviceID, void * _parent, void * appWindow ) {
 		deviceID		= _deviceID;
 		parent			= _parent;
 		hAppWindow		= appWindow;

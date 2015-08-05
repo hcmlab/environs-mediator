@@ -24,6 +24,10 @@
 #import "Environs.iOSX.Imp.h"
 #include "Portal.Info.Base.h"
 
+#if (!defined(ENVIRONS_IOS) && !defined(ENVIRONS_OSX))
+#define id  void *
+#endif
+
 /* Namespace: environs -> */
 namespace environs
 {
@@ -47,18 +51,20 @@ namespace environs
         id  portal;
 #endif
         
-        virtual void NotifyObservers(int notification);
+        virtual void NotifyObservers ( int notification );
         
-        virtual void SetSize(int width, int height);
+        virtual void SetSize ( int width, int height );
         
-        virtual void SetOrientation(float angle);
+        virtual void SetOrientation ( float angle );
         
-        virtual void SetLocation(int centerX, int centerY);
-        virtual void SetLocation(int centerX, int centerY, float angle);
+        virtual void SetLocation ( int centerX, int centerY );
+        virtual void SetLocation ( int centerX, int centerY, float angle );
         
-        virtual void Set(int centerX, int centerY, float angle, int width, int height);
+        virtual void Set ( int centerX, int centerY, float angle, int width, int height );
         
-        virtual bool Update(int notification, PortalInfoBase * info);
+        virtual id ToString ( );
+        
+        virtual bool Update ( int notification, PortalInfoBase * info) ;
 	};
 
 } /* namepace Environs */

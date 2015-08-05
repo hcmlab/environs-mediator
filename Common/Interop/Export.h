@@ -25,24 +25,24 @@
 
 #include "Interop.h"
 
-#ifdef ENVIRONS_CORE_LIB
+#if (defined(ENVIRONS_CORE_LIB) || defined(MEDIATORDAEMON))
 
 // Declaration for environs core library
-extern HMODULE LocateLoadEnvModule ( const char * module, unsigned int deviceID );
+extern HMODULE LocateLoadEnvModule ( const char * module, int deviceID );
 
 #define LocateLoadModule(module,deviceID)   LocateLoadEnvModule ( module, deviceID )
 
-#define CreateEnvInstance(module,index,deviceID)  CreateInstance ( module, index, deviceID )
+#define CreateEnvInstance(module,index,type,deviceID)  CreateInstance ( module, index, type, deviceID )
 
 #else
 // Declaration for external modules
 #define LocateLoadModule(module,deviceID)   ((environs::EnvironsLib *)pEnvirons)->LocateLoadEnvModule ( module, deviceID )
 
-#define CreateEnvInstance(module,index,deviceID)  ((environs::EnvironsLib *)pEnvirons)->CreateInstance ( module, index, deviceID )
+#define CreateEnvInstance(module,index,type,deviceID)  ((environs::EnvironsLib *)pEnvirons)->CreateInstance ( module, index, type, deviceID )
 
 #endif
 
-typedef HMODULE ( *pLocateLoadModule )( COBSTR module, unsigned int deviceID );
+typedef HMODULE ( *pLocateLoadModule )( COBSTR module, int deviceID );
 
 #define	ENVMODPREFIX					"libEnv-"
 

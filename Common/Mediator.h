@@ -496,8 +496,8 @@ namespace environs	/// Namespace: environs ->
 		char			ident [2];
 		char			channel;
 
-		unsigned short	port;
-		unsigned short	portUdp;
+        unsigned short	porti;
+        unsigned short	porte;
 		unsigned int	ip; // 12
 		unsigned int	ipe; // 16
 	}
@@ -513,7 +513,8 @@ namespace environs	/// Namespace: environs ->
 		int				deviceID;
 		unsigned int	ip;
 		unsigned int	ipe;
-		unsigned int	port;
+        unsigned short	porti;
+        unsigned short	porte;
 
 		/** The area name of the application environment. */
 		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
@@ -553,8 +554,10 @@ namespace environs	/// Namespace: environs ->
 		char			ident [4];
 
 		int				deviceID;
-		unsigned int	IP;
-		unsigned int	Port;
+        unsigned int	IPi;
+        unsigned int	IPe;
+        unsigned short	Porti;
+        unsigned short	Porte;
 
 		/** The area name of the application environment. */
 		char			areaName [MAX_NAMEPROPERTY + 1]; // 31

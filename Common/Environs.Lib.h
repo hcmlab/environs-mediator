@@ -261,7 +261,7 @@ namespace environs
 			LIBEXPORT void CallConv			SetNetworkStatus ( int netStat );
 			LIBEXPORT int CallConv			GetNetworkStatus ( );
             
-            LIBEXPORT EBOOL CallConv        ApplyModuleToSettings ( const char * moduleName, char ** target, bool testInstance = true );
+            LIBEXPORT EBOOL CallConv        ApplyModuleToSettings ( const char * moduleName, char ** target, int environs_InterfaceType, bool testInstance = true );
 
 			/**
 			* Use default encoder, decoder, capture, render modules.

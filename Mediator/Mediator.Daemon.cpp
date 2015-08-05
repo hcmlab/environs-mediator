@@ -1592,7 +1592,7 @@ void MediatorDaemon::ReleaseDevices ()
 					while ( device ) {
 						DeviceInstanceList * toDelete = device;
 						device = device->next;
-						CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", toDelete->info.id );
+						CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", toDelete->info.deviceID );
 
 						ReleaseClient ( toDelete->client );
 
@@ -1751,7 +1751,7 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * areaName, const c
 			}
 			else {
 				if ( device->next ) {
-					CVerbArg ( "[0x%X].RemoveDevice: relinking client to previous client [0x%X]", device->next->info.id, prevDevice->info.deviceID );
+					CVerbArg ( "[0x%X].RemoveDevice: relinking client to previous client [0x%X]", device->next->info.deviceID, prevDevice->info.deviceID );
 					prevDevice->next = device->next;
 				}
 				else {
@@ -4141,13 +4141,13 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 			areaName = query->areaName;
 			appName = query->appName;
 
-			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] [%s/%s]", deviceIDReq, pareaName, appName );
+			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] [%s/%s]", deviceIDReq, areaName, appName );
 		}
 		else {
 			areaName = sourceClient->device->info.areaName;
 			appName = sourceClient->device->info.appName;
 
-			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] of default appEnv [%s/%s]", deviceIDReq, pareaName, appName );
+			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] of default appEnv [%s/%s]", deviceIDReq, areaName, appName );
 		}
 	}
 
@@ -4407,7 +4407,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 		}
 		return false;
 	}
-
+    
 	buffer [ 4 ] = 'y';
 	buffer [ 5 ] = ';';
 	buffer [ 6 ] = ';';
@@ -4452,12 +4452,10 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 }
 
 
-bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, unsigned int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port )
+bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IPe, unsigned int Porte )
 {
 	STUNReqReqPacket	request;
 	Zero ( request );
-
-	//char buffer [ 48 ];
 
 	CVerbArg ( "[0x%X].HandleSTUNRequest: UDPrec -> TCPsend [0x%X]", sourceID, destClient->deviceID );
 
@@ -4465,27 +4463,19 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, unsigned i
 	memcpy ( request.ident, "y;;;", 4 );
 
 	request.deviceID = sourceID;
-	request.IP = IP;
-	request.Port = Port;
+	request.IPe = IPe;
+    request.Porte = (unsigned short)Porte;
+    
+    
+    if ( destClient->device ) {
+        request.IPi = destClient->device->info.ip;
+        request.Porti = destClient->device->info.udpPort;
+    }
 	
 	strcpy_s ( request.areaName, sizeof(request.areaName), areaName );
 	strcpy_s ( request.appName, sizeof(request.appName), appName );
-
-	/*unsigned int * pUI = (unsigned int *) buffer;
-	*pUI = MEDIATOR_STUN_RESP_SIZE;
-
-	buffer [ 4 ] = 'y';
-	buffer [ 5 ] = ';';
-	buffer [ 6 ] = ';';
-	buffer [ 7 ] = ';';
-	pUI += 2;
-
-	*pUI = sourceID; pUI++;
-	*pUI = IP; pUI++;
-	*pUI = Port; pUI++;*/
 	
-	CLogArg ( "[0x%X].HandleSTUNRequest: Send STUN request to device IP [%s] Port [%u]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ), Port );
-	
+	CLogArg ( "[0x%X].HandleSTUNRequest: Send STUN request to device IP [%s] Port [%u/%u]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ), Porte, request.Porti );
 	
 	int sentBytes = SendBuffer ( destClient, &request, sizeof(request) );
 	if ( sentBytes != sizeof(request) ) 
@@ -4655,7 +4645,8 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	response.deviceID = sourceClient->deviceID;
 	response.ip = IP;
 	response.ipe = IPe;
-	response.port = portSource;
+    response.porti = sourceDevice->info.tcpPort;
+    response.porte = portSource;
 
     strcpy_s ( response.areaName, sizeof(response.areaName), sourceClient->device->info.areaName );
     strcpy_s ( response.appName, sizeof(response.appName), sourceClient->device->info.appName );
@@ -4675,8 +4666,9 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 
 	reqResponse->respCode = 'p';
 
-	reqResponse->port = portDest;
-	reqResponse->portUdp = destClient->portUdp;
+    reqResponse->porte = portDest;
+    reqResponse->porti = device->info.tcpPort;
+	//reqResponse->portUdp = destClient->portUdp;
 	
 	if ( extResp ) {
 		reqResponse->ip = destClient->device->info.ip;
@@ -5305,7 +5297,7 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 				padLen = GetPad ( length, MEDIATOR_MESSAGE_UNIT_ALIGN );
 			}
 
-			if ( length >= recvLength ) {
+			if ( length >= recvLength || length <= 0 ) {
 				CErrArg ( "SecureChannelAuth: Invalid length of username [%i]!", length ); break;
 			}
 
@@ -6339,7 +6331,7 @@ void getTimeString ( char * timeBuffer, unsigned int bufferSize )
 	strftime ( timeBuffer, bufferSize, "%a %b %d %H:%M:%S: ", &timeInfo );
 }
 
-
+    
 void MLogArg ( const char * format, ... )
 {
 	char timeString [ 256 ];

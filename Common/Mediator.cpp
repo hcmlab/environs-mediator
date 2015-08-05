@@ -970,7 +970,17 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 #ifndef MEDIATORDAEMON
 			&& !strncmp ( device->info.areaName, areaName, sizeof ( device->info.areaName ) ) && !strncmp ( device->info.appName, appName, sizeof ( device->info.appName ) )
 #endif
-		) {			
+		) {
+            if ( strncmp ( device->info.deviceName, deviceName, sizeof(device->info.deviceName) ) )
+            {
+                // Another device with the same identifiers has already been registered. Let's ignore this.
+                
+                if ( pthread_mutex_unlock ( mutex ) ) {
+                    CErr ( "UpdateDevices: Failed to unlock mutex!" );
+                }
+                goto Finish;
+            }
+            
 			found = true; device->info.unavailable = true;
 			break;
 		}

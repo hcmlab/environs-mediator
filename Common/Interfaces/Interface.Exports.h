@@ -19,7 +19,7 @@
  * --------------------------------------------------------------------
  */
 #include "Interop/Export.h"
-#include "Core/Byte.Buffer.h"
+//#include "Core/Byte.Buffer.h"
 #include "Log.h"
 
 #ifndef INCLUDE_HCM_ENVIRONS_EXT_INTERFACE_EXPORTS_H
@@ -45,12 +45,12 @@ extern "C"
 	*
 	*/
 	#define	MODULE_EXPORT_GETINAMES		"GetINames"
-	typedef const char ** ( *pGetINames )( unsigned int * size );
+	typedef const char ** ( *pGetINames )( int * size );
 
-	LIBEXPORT const char **	CallConv	GetINames ( unsigned int * size );
+	LIBEXPORT const char **	CallConv	GetINames ( int * size );
 
 #define BUILD_INT_GETINAMES(arr)	\
-	extern "C" const char ** CallConv GetINames ( unsigned int * size ) { \
+	extern "C" const char ** CallConv GetINames ( int * size ) { \
 		if ( size ) *size = sizeof(arr) / sizeof(arr [0]); \
 			return (const char **)arr; \
 		}
@@ -64,12 +64,12 @@ extern "C"
 	*
 	*/
 	#define	MODULE_EXPORT_GETITYPES				"GetITypes"
-	typedef const unsigned int * ( *pGetITypes )( unsigned int * size );
+	typedef const unsigned int * ( *pGetITypes )( int * size );
 
-	LIBEXPORT const	unsigned int * CallConv		GetITypes ( unsigned int * size );
+	LIBEXPORT const	unsigned int * CallConv		GetITypes ( int * size );
 
 #define BUILD_INT_GETITYPES(arr)	\
-	extern "C" const unsigned int * CallConv GetITypes ( unsigned int * size ) { \
+	extern "C" const unsigned int * CallConv GetITypes ( int * size ) { \
 		if ( size ) *size = sizeof(arr) / sizeof(arr [0]); \
 			return (unsigned int *)arr; \
 		}

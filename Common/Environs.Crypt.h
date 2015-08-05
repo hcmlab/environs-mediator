@@ -34,7 +34,10 @@
 #define ENVIRONS_CERT_SIGNED_FLAG       0x80000000
 
 
-#ifndef ANDROID
+#ifdef ANDROID
+#define USE_OPENSSL
+#define USE_OPENSSL_AES
+#else
 
 //#if ( defined(MEDIATORDAEMON) )
     #if ( defined(MEDIATORDAEMON) || defined(ENVIRONS_OSX) )
@@ -61,7 +64,7 @@ namespace environs
 		pthread_mutex_t	decMutex;
 		unsigned int	size;
         unsigned int    version;
-		unsigned int	deviceID;
+		int				deviceID;
 	}
 	AESContext;
 
@@ -79,7 +82,11 @@ namespace environs
 	/// - remaining bytes contains the certificate
 	/// </summary>
 	extern bool LoadPublicCertificate ( const char * pathFile, char ** cert );
-	extern void DisposePublicKey ( void * key );
+    
+    typedef void (CallConv * pDisposePublicKey)(void * key);
+    
+    extern pDisposePublicKey DisposePublicKey;
+	extern void dDisposePublicKey ( void * key );
 
 	/// <summary>
 	/// The private key file format is as follows: 
@@ -88,26 +95,67 @@ namespace environs
 	/// - remaining bytes contains the private key in binary format (DER)
 	/// </summary>
 	extern bool LoadPrivateKey ( const char * pathFile, char ** keyDER, unsigned int * keyDERSize );
-	extern void DisposePrivateKey ( void ** key );
+    
+    typedef void (CallConv * pDisposePrivateKey)(void ** key);
+    
+    extern pDisposePrivateKey DisposePrivateKey;
+	extern void dDisposePrivateKey ( void ** key );
 
     extern bool SignCertificate ( char * key, unsigned int keySize, char * pub, char ** cert );
-    extern bool GenerateCertificate ( char ** priv, char ** pub );
     
-    extern bool PreparePrivateKey ( char ** privKey );
+    typedef bool (CallConv * pGenerateCertificate)(char ** priv, char ** pub);
+    
+    extern pGenerateCertificate GenerateCertificate;
+    extern bool dGenerateCertificate ( char ** priv, char ** pub );
+    
+    typedef bool (CallConv * pPreparePrivateKey)(char ** privKey);
+    
+    extern pPreparePrivateKey PreparePrivateKey;
+    extern bool dPreparePrivateKey ( char ** privKey );
+    
     extern bool UpdateKeyAndCert ( char * priv, char * cert );
 
-	extern bool EncryptMessage ( unsigned int deviceID, char * cert, char * msg, unsigned int * msgLen );
-	extern bool DecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize );
-	extern void ReleaseCert ( unsigned int deviceID );
+    
+    typedef bool (CallConv * pEncryptMessage)(int deviceID, char * cert, char * msg, unsigned int * msgLen);
+    
+    extern pEncryptMessage EncryptMessage;
+	extern bool dEncryptMessage ( int deviceID, char * cert, char * msg, unsigned int * msgLen );
+    
+    typedef bool (CallConv * pDecryptMessage)(char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize);
+    
+    extern pDecryptMessage DecryptMessage;
+	extern bool dDecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize );
+    
+    typedef void (CallConv * pReleaseCert)(int deviceID);
+    
+    extern pReleaseCert ReleaseCert;
+	extern void dReleaseCert ( int deviceID );
 
     
-	extern bool SHAHashCreate ( const char * msg, char ** hash, unsigned int * hashLen );
+    typedef bool (CallConv * pSHAHashCreate)(const char * msg, char ** hash, unsigned int * hashLen);
+    
+    extern pSHAHashCreate SHAHashCreate;
+	extern bool dSHAHashCreate ( const char * msg, char ** hash, unsigned int * hashLen );
+    
 	extern bool SHAHashPassword ( const char * msg, char ** hash, unsigned int * hashLen );
+    
 	extern bool BuildEnvironsResponse ( unsigned int response, const char * userName, const char * userPass, char ** hash, unsigned int * hashLen );
-
-	extern bool AESDeriveKeyContext ( char * key, unsigned int keyLen, AESContext * ctx );
-	extern void AESUpdateKeyContext ( AESContext * ctx, unsigned int deviceID );
-	extern void AESDisposeKeyContext ( AESContext * ctx );
+    
+    
+    typedef bool (CallConv * pAESDeriveKeyContext)(char * key, unsigned int keyLen, AESContext * ctx);
+    
+    extern pAESDeriveKeyContext AESDeriveKeyContext;
+	extern bool dAESDeriveKeyContext ( char * key, unsigned int keyLen, AESContext * ctx );
+    
+    typedef void (CallConv * pAESUpdateKeyContext)(AESContext * ctx, int deviceID);
+    
+    extern pAESUpdateKeyContext AESUpdateKeyContext;
+	extern void dAESUpdateKeyContext ( AESContext * ctx, int deviceID );
+    
+    typedef void (CallConv * pAESDisposeKeyContext)(AESContext * ctx);
+    
+    extern pAESDisposeKeyContext AESDisposeKeyContext;
+	extern void dAESDisposeKeyContext ( AESContext * ctx );
     
 
 #define BUILD_IV_128(pUS)     { unsigned short * dpUS = (unsigned short *)(pUS);\
@@ -115,8 +163,16 @@ namespace environs
                                 *dpUS = (unsigned short) rand ( ); dpUS++;\
                               } }
 
-	extern bool AESEncrypt ( AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** cipher );
-	extern bool AESDecrypt ( AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** decrypted );
+    typedef bool (CallConv * pAESEncrypt)(AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** cipher);
+
+    extern pAESEncrypt AESEncrypt;
+	extern bool dAESEncrypt ( AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** cipher );
+
+
+    typedef bool (CallConv * pAESDecrypt)(AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** decrypted);
+
+    extern pAESDecrypt AESDecrypt;
+	extern bool dAESDecrypt ( AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** decrypted );
 	
 	extern const char * ConvertToHexString ( const char * src, unsigned int length );
 	extern const char * ConvertToHexSpaceString ( const char * src, unsigned int length );

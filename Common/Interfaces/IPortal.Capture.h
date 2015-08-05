@@ -54,22 +54,26 @@ namespace environs
 			squareLength ( 0 ), buffersInitialized ( false ), dataAccessed ( 1 ), data ( 0 ), dataHandle ( 0 ),
             dataSize ( 0 ), dataStride ( 0 ),
 			renderOverlayMutex ( 0 ), renderOverlays ( 0 ),
-			osLevel ( 0 ), hAppWindow ( 0 ), stages ( 0 )
+			osLevel ( 0 ), hAppWindow ( 0 ), stages ( 0 ), portalID ( 0 )
 		{};
 
 		virtual ~IPortalCapture () {};
 
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
-		int										Init ( int deviceID, void * appWindow, PortalStreamOptions * opts ) {
+		int										PreInit ( int deviceID, void * appWindow, PortalStreamOptions * opts ) {
 													this->deviceID	= deviceID;
 													hAppWindow  = appWindow;
 													this->width = opts->streamWidth;
 													this->height = opts->streamHeight;
                                                     this->minFPS = opts->streamMinFPS;
-													return Init ( );
+													return PreInit ();
 												}
 
 		virtual int								Init ( ) = 0;
+
+		// Preinit is intended to update input/output buffer types, e.g. to adapt to the actual hardware
+		virtual int								PreInit ( ) { return 1; };
+
 		virtual void							Release ( ) = 0;
 		virtual int								Start ( ) { return 0; };
 		virtual int								Stop ( ) { return 0; };
@@ -94,7 +98,7 @@ namespace environs
 		void								*	portalCaptureEvent;
 		void								*	portalWorkerEventLock;
 
-
+		int										portalID;
 		CaptureBufferType::CaptureBufferType	bufferType;
 
         float                                   minFPS;

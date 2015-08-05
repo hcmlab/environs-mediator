@@ -34,7 +34,7 @@ namespace environs
 {
 	bool ConnectModules ( IEnvironsBase * src, IEnvironsBase * dst )
 	{
-		unsigned int deviceID = src->deviceID;
+		int deviceID = src->deviceID;
 
 		CVerbID ( "Connect" );
 

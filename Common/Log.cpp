@@ -38,6 +38,7 @@
 #include "Core/Callbacks.h"
 using namespace environs;
 
+
 #define CLASS_NAME   "Log"
 
 #define ENVIRONS_LOGFILE_TEMP_MAXSIZE               200000
@@ -75,7 +76,7 @@ namespace environs
             if ( fileSize > 10000000 ) {
                 if ( unlink ( fileName ) ) {
                     if ( environsLogFileErrCount < 10 ) {
-                        CLogN ( "OpenLog: ERROR ---> Failed to remove old logfile." );
+                        printf ( "OpenLog: ERROR ---> Failed to remove old logfile." );
                         environsLogFileErrCount++;
                     }
                     return false;
@@ -87,7 +88,7 @@ namespace environs
         FILE * fp = fopen ( fileName, "a" );
         if ( !fp ) {
             if ( environsLogFileErrCount < 10 ) {
-                CLogN ( "OpenLog: ERROR ---> Failed to open/create logfile." );
+                printf ( "OpenLog: ERROR ---> Failed to open/create logfile." );
                 //CVerbArgN ( "OpenLog: Error %d", errno );
                 environsLogFileErrCount++;
             }
@@ -121,7 +122,7 @@ namespace environs
         CVerbN ( "CloseLog" );
         
 		if ( useLock && pthread_mutex_lock ( &environsLogMutex ) ) {
-            CLogN ( "CloseLog: ERROR ---> Failed to lock mutex." );
+            printf ( "CloseLog: ERROR ---> Failed to lock mutex." );
         }
         
         if ( environsLogFileHandle ) {
@@ -130,7 +131,7 @@ namespace environs
         }
         
 		if ( useLock && pthread_mutex_unlock ( &environsLogMutex ) ) {
-            CLogN ( "CloseLog: ERROR ---> Failed to unlock mutex." );
+            printf ( "CloseLog: ERROR ---> Failed to unlock mutex." );
         }
         CVerbN ( "CloseLog done" );
     }
@@ -141,7 +142,7 @@ namespace environs
         CVerbN ( "DisposeLog" );
         
 		if ( pthread_mutex_lock ( &environsLogMutex ) ) {
-            CLogN ( "DisposeLog: ERROR ---> Failed to lock mutex." );
+            printf ( "DisposeLog: ERROR ---> Failed to lock mutex." );
         }
         
         CloseLog ( false );
@@ -153,7 +154,7 @@ namespace environs
         }
         
 		if ( pthread_mutex_unlock ( &environsLogMutex ) ) {
-            CLogN ( "DisposeLog: ERROR ---> Failed to unlock mutex." );
+            printf ( "DisposeLog: ERROR ---> Failed to unlock mutex." );
         }
         CVerbN ( "DisposeLog done" );
     }
@@ -165,12 +166,20 @@ namespace environs
     void COutLog ( const char * msg, int length, bool useLock )
 #endif
     {
-		if ( useLock && pthread_mutex_lock ( &environsLogMutex ) ) {
+        if ( length <= 0 ) {
+            length = (int)strlen ( msg );
+            printf ( "COutLog: Length [%i].", length );
+        }
+        
+        if ( length <= 0 ) {
+            printf ( "COutLog: ERROR ---> Invalid length [%i].", length );
             return;
         }
         
-        if ( !length )
-            length = (int)strlen ( msg );
+        if ( useLock && pthread_mutex_lock ( &environsLogMutex ) ) {
+            printf ( "COutLog: ERROR ---> Failed to lock mutex." );
+            return;
+        }
         
         if ( environs.opt_useLogFile ) {
             if ( !environsLogFileHandle && !OpenLog () ) {
@@ -189,9 +198,6 @@ namespace environs
                 }
             }
             else {
-                if ( length <= 0 )
-                    length = (int)strlen ( msg );
-                
                 fwrite ( msg, 1, length, environsLogFileHandle );
             }
         }
@@ -207,7 +213,9 @@ namespace environs
         
         
 #if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
+        
         printf ( "%s", msg );
+        
 #endif  // -> end-_ANDROID
         
         if ( environs.opt_useNotifyDebugMessage ) {
@@ -215,8 +223,11 @@ namespace environs
 				environs.callbacks.OnStatusMessage ( msg );
         }
         
-        if ( useLock )
-			pthread_mutex_unlock ( &environsLogMutex );
+        if ( useLock ) {
+            if ( pthread_mutex_unlock ( &environsLogMutex ) ) {
+                printf ( "COutLog: ERROR ---> Failed to unlock mutex." );
+            }
+        }
     }
     
     
@@ -229,7 +240,8 @@ namespace environs
         char buffer [1024];
         va_list marker;
         
-		if ( pthread_mutex_lock ( &environsLogMutex ) ) {
+        if ( pthread_mutex_lock ( &environsLogMutex ) ) {
+            printf ( "COutArgLog: ERROR ---> Failed to lock mutex." );
             return;
         }
         
@@ -243,30 +255,11 @@ namespace environs
 #endif
         va_end ( marker );
         
-		pthread_mutex_unlock ( &environsLogMutex );
+        if ( pthread_mutex_unlock ( &environsLogMutex ) ) {
+            printf ( "COutArgLog: ERROR ---> Failed to unlock mutex." );
+        }
     }
     
-    
-    
-    /*
-     #if defined(_WIN32) && !defined(MEDIATORDAEMON)
-     #pragma warning( push )
-     #pragma warning( disable: 4996 )
-     
-     void COutArg ( const char * format, ... )
-     {
-     char buffer [1024];
-     va_list marker;
-     
-     va_start ( marker, format );
-     vsnprintf ( buffer, 1024, format, marker );
-     OutputDebugStringA ( buffer );
-     va_end ( marker );
-     }
-     
-     #pragma warning( pop )
-     #endif
-     */
 }
 
 

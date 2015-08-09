@@ -87,6 +87,7 @@
 #define ENVIRONS_DEVICE_KEY_EXT
 #endif
 
+//#define USE_NSLOG
 //#define USE_PORTAL_THREADS_FOR_IOSX_CAM
 
 #define ENABLE_IOS_NATIVE_H264_ONLY
@@ -269,8 +270,13 @@ namespace environs {
 #define ENVIRONS_LOG_NRCMD(tag,expression)			OutputDebugStringA ( expression )
 #define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	OutputDebugStringA ( expression ); //, __VA_ARGS__ )
 #else
+#if (defined(__APPLE__) && defined(USE_NSLOG))
+#define ENVIRONS_LOG_NRCMD(tag,expression)			NSLog ( @"%s", expression )
+#define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	NSLog ( @expression, __VA_ARGS__ )
+#else
 #define ENVIRONS_LOG_NRCMD(tag,expression)			printf ( expression )
 #define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	printf ( expression, __VA_ARGS__ )
+#endif
 #endif
 #endif
 
@@ -303,11 +309,11 @@ extern void MLogArg ( const char * msg, ... );
 #else
 
 #ifdef ANDROID
-#define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::EnvironsLib *) pEnvirons)->COutLog ( tag, expression, 0, true )
-#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::EnvironsLib *) pEnvirons)->COutArgLog ( tag, expression, __VA_ARGS__ )
+#define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::EnvironsLib *) pEnvirons)->cOutLog ( tag, expression, 0, true )
+#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::EnvironsLib *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ )
 #else
-#define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::EnvironsLib *) pEnvirons)->COutLog ( expression, 0, true )
-#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::EnvironsLib *) pEnvirons)->COutArgLog ( expression, __VA_ARGS__ )
+#define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::EnvironsLib *) pEnvirons)->cOutLog ( expression, 0, true )
+#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::EnvironsLib *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ )
 #endif
 
 #endif

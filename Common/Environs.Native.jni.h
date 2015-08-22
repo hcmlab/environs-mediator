@@ -193,6 +193,14 @@ JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetMediatorUserName1
 
 /*
  * Class:     hcm_environs_Environs
+ * Method:    SetUseMediatorAnonymousLogon
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseMediatorAnonymousLogon
+  (JNIEnv *, jclass, jboolean);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    SetMediatorPassword1
  * Signature: (Ljava/lang/String;)Z
  */

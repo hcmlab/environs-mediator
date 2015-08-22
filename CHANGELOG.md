@@ -1,6 +1,9 @@
-### v 0.8.0
+### v 0.8.6
 
 ---------------------------
+
+* Added: Anonymous logon to Mediator (reduced privileges to one application environment).
+* Extended: User database and encryption.
 
 * Updated: to version 0.8.0
 * Changed: ProjectName to AreaName

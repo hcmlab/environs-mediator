@@ -170,6 +170,13 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 + (NSString *) GetMediatorUserName;
 
 /**
+ * Enable or disable anonymous logon to the Mediator.
+ *
+ * @param 	enable A boolean that determines the target state.
+ */
++ (void) SetUseMediatorAnonymousLogon: (bool) enable;
+
+/**
  * Set the user password for authentication with a Mediator service.&nbsp;The password is stored as a hashed token within Environs.
  *
  * @param 	password

@@ -112,6 +112,9 @@ using namespace environs;
 @property (nonatomic) id						appContext1;
 @property (nonatomic) id						appContext2;
 
+/** An identifier that is unique for this object. */
+@property (nonatomic) long						objID;
+
 @property (readonly, nonatomic) NSString * ToString;
 
 /**

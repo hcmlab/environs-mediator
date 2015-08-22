@@ -39,6 +39,9 @@
 
 @property (readonly, nonatomic) bool disposed;
 
+/** An array with the devices in the list. */
+@property (readonly, nonatomic) NSArray *   devices;
+
 - (void) SetListType:(int)listType;
 
 - (DeviceInstance *) GetItem:(int) position;
@@ -46,9 +49,6 @@
 
 - (void) AddObserver:(id<ListObserver>) observer;
 - (void) RemoveObserver:(id<ListObserver>) observer;
-
-/** An array with the devices in the list. */
-@property (readonly, nonatomic) NSArray *   devices;
 
 
 + (DeviceInstance *) RefreshItem:(DeviceInstance *) source Observer:(id<ListObserver>)observer;

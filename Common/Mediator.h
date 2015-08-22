@@ -36,6 +36,9 @@
 #define MESSAGE_BUFFER_SIZE						512
 #define	IP_MAX_SIZE								22
 
+#define MEDIATOR_ANONYMOUS_USER					"anonymous"
+#define MEDIATOR_ANONYMOUS_PASSWORD				"secret"
+
 #define	MAX_MEDIATOR_PORTS						4	// We allow max. 4 ports for connections to the mediator
 
 #define MEDIATOR_MESSAGE_UNIT_ALIGN				4
@@ -140,6 +143,7 @@ namespace environs	/// Namespace: environs ->
 		AESContext				aes;
 		DeviceInstanceList	*	device;
 
+        int                     authLevel;
 		bool					createAuthToken;
 		char					uid [ MAX_NAMEPROPERTY * 6 ];
 	}

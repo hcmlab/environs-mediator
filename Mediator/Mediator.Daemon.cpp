@@ -117,6 +117,9 @@ MediatorDaemon::MediatorDaemon ()
 
 	g_mediator				= this;
 	allocated				= false;
+    anonymousLogon          = true;
+    *anonymousUser          = 0;
+    *anonymousPassword      = 0;
 	
 	input					= inputBuffer;
 
@@ -285,7 +288,12 @@ bool MediatorDaemon::InitMediator ()
 			return false;
 		}
 
-		allocated = true;
+        allocated = true;
+        
+        strcpy_s ( anonymousUser, sizeof(anonymousUser), MEDIATOR_ANONYMOUS_USER );
+        
+        Zero ( anonymousPassword );        
+        strcpy_s ( anonymousPassword, sizeof(anonymousPassword), MEDIATOR_ANONYMOUS_PASSWORD );
 	}
 
 	return true;
@@ -339,7 +347,10 @@ bool MediatorDaemon::LoadConfig ()
     char * aesCryptKey = 0;
     
     string line;
-	ifstream conffile;
+    string prefix;
+    string svalue;
+    ifstream conffile;
+    unsigned int value;
     
 	conffile.open ( CONFFILE );
     
@@ -348,6 +359,7 @@ bool MediatorDaemon::LoadConfig ()
 
 	// Adapt default configuration
 
+    
 	while ( getline ( conffile, line ) )
 	{
 		const char * str = line.c_str ();
@@ -357,59 +369,73 @@ bool MediatorDaemon::LoadConfig ()
 		std::istringstream iss ( line );
 		
 		if ( str [ 0 ] == 'M' && str [ 1 ] == ':' ) {
-			string prefix;
-			unsigned int ip;
 			unsigned short port;
 
-			if (!(iss >> prefix >> ip >> port)) { 
+			if (!(iss >> prefix >> value >> port)) {
 				CLogArg ( "LoadConfig: Invalid config line: %s", str );
 			}
 			else {
-				AddMediator ( ip, port );
+				AddMediator ( value, port );
 			}
 		}
 		else if ( str [ 0 ] == 'B' && str [ 1 ] == ':' ) {
-			string prefix;
-			unsigned int ip;
 			std::time_t dateTime;
 
-			if (!(iss >> prefix >> ip >> dateTime)) { 
+			if (!(iss >> prefix >> value >> dateTime)) {
 				CLogArg ( "LoadConfig: Invalid config line: %s", str );
 			}
 			else {
-				bannedIPs [ ip ] = dateTime;
+				bannedIPs [ value ] = dateTime;
 			}
         }
         else if ( str [ 0 ] == 'C' && str [ 1 ] == 'V' && str [ 2 ] == ':' ) {
-            string prefix;
-            unsigned int tries;
-            
-            if (!(iss >> prefix >> tries )) {
+            if (!(iss >> prefix >> value )) {
                 CLogArg ( "LoadConfig: Invalid config line: %s", str );
             }
             else {
-                if ( tries < 100 ) {
-                    bannAfterTries = tries;
+                if ( value < 100 ) {
+                    bannAfterTries = value;
                 }
                 else {
-                    CVerbArg ( "LoadConfig: Invalid try value for bann: %u", tries );
+                    CVerbArg ( "LoadConfig: Invalid try value for bann: %u", value );
                 }
+            }
+        }
+        else if ( str [ 0 ] == 'A' && str [ 1 ] == 'N' && str [ 2 ] == ':' ) {
+            if (!(iss >> prefix >> value )) {
+                CLogArg ( "LoadConfig: Invalid config line: %s", str );
+            }
+            else {
+                anonymousLogon = value ? true : false;
+            }
+        }
+        else if ( str [ 0 ] == 'A' && str [ 1 ] == 'U' && str [ 2 ] == ':' ) {
+            if (!(iss >> prefix >> svalue )) {
+                CLogArg ( "LoadConfig: Invalid config line: %s", str );
+            }
+            else {
+                strcpy_s ( anonymousUser, sizeof(anonymousUser), svalue.c_str() );
+            }
+        }
+        else if ( str [ 0 ] == 'A' && str [ 1 ] == 'P' && str [ 2 ] == ':' ) {
+            if (!(iss >> prefix >> svalue )) {
+                CLogArg ( "LoadConfig: Invalid config line: %s", str );
+            }
+            else {
+                strcpy_s ( anonymousPassword, sizeof(anonymousPassword), svalue.c_str() );
             }
         }
         else if ( str [ 0 ] == 'C' && str [ 1 ] == ':' ) {
-            string prefix;
-            unsigned int ip;
             unsigned int tries;
             
-            if (!(iss >> prefix >> ip >> tries)) {
+            if (!(iss >> prefix >> value >> tries)) {
                 CLogArg ( "LoadConfig: Invalid config line: %s", str );
             }
             else {
-                bannedIPConnects [ ip ] = tries;
+                bannedIPConnects [ value ] = tries;
             }
         }
 		else if ( str [ 0 ] == 'A' && str [ 1 ] == 'E' && str [ 2 ] == 'S' && str [ 3 ] == ':' ) {
-			string prefix;
 			string aesString;
 
 			if (!(iss >> prefix >> aesString)) {
@@ -440,8 +466,7 @@ bool MediatorDaemon::LoadConfig ()
                 }
 			}
 		}
-		else if ( str [ 0 ] == 'P' && str [ 1 ] == 'o' && str [ 2 ] == 'r' && str [ 3 ] == 't' && str [ 4 ] == 's' && str [ 5 ] == ' ' ) {
-			string prefix;
+		else if ( str [ 0 ] == 'P' && str [ 1 ] == 'o' && str [ 2 ] == 'r' && str [ 3 ] == 't' && str [ 4 ] == 's' && str [ 5 ] == ':' ) {
 			unsigned short port = DEFAULT_MEDIATOR_PORT;
 
 			if (!(iss >> prefix >> port)) { 
@@ -487,22 +512,23 @@ bool MediatorDaemon::SaveConfig ()
 	if ( !conffile.good() )
 		return false;
 	
-	stringstream line;
-
+	stringstream configs;
+    
+    configs << "Ports: ";
+    
 	// Save 
 	if ( ports.size() > 0 )
-	{	
-		line << "Ports ";
+	{
 
 		for ( unsigned int pos = 0; pos < ports.size(); pos++ ) {
 			int port = ports[pos];
-			line << port << " ";
+			configs << port << " ";
 		}
 	}
 	else
-		line << "Ports 5899";
+		configs << "5899";
 
-	conffile << line.str() << endl;
+	configs << endl;
 	
 	
 	if ( pthread_mutex_lock ( &mediatorMutex ) ) {
@@ -512,11 +538,9 @@ bool MediatorDaemon::SaveConfig ()
 		MediatorInstance * net = &mediator;
 
 		while ( net && net->ip ) {
-			line.clear();
-			line.str("");
-			line << "M: " << net->ip << " " << net->port ;
+			configs << "M: " << net->ip << " " << net->port ;
 			
-			conffile << line.str() << endl;
+			configs << endl;
 			net = net->next;
 		}
 	
@@ -525,13 +549,14 @@ bool MediatorDaemon::SaveConfig ()
 		}
     }
     
-    line.clear();
-    line.str("");
-    line << "CV: " << bannAfterTries << endl;
-    
-    conffile << line.str() << endl;
-    
+    configs << "CV: " << bannAfterTries << endl;
+    configs << "AN: " << (int)anonymousLogon << endl;
 	
+    if ( strncmp ( anonymousUser, MEDIATOR_ANONYMOUS_USER, MAX_NAMEPROPERTY ) ) {
+        configs << "AU: " << anonymousUser << endl;
+        configs << "AP: " << anonymousPassword << endl;
+    }
+    
     char aesCryptKey [ 514 ];
     memcpy ( aesCryptKey, aesKey, sizeof(aesKey) );
     
@@ -544,12 +569,9 @@ bool MediatorDaemon::SaveConfig ()
         
         const char * hexStr = ConvertToHexString ( aesCryptKey, length );
         if ( hexStr ) {
-			line.clear();
-			line.str("");
-			line << "AES: " << hexStr << " ";
+			configs << "AES: " << hexStr << " ";
 			
-			conffile << line.str() << endl;
-            
+			configs << endl;
         }
     }
     
@@ -558,29 +580,24 @@ bool MediatorDaemon::SaveConfig ()
 		CErr ( "SaveConfig: Failed to aquire mutex on banned IPs!" );
 	}
 	else {
-		line.clear();
-		line.str("");
 		std::map<unsigned int, std::time_t>::iterator iter;
 
 		for ( iter = bannedIPs.begin(); iter != bannedIPs.end(); ++iter ) {
-			line << "B: " << iter->first << " " << iter->second << endl ;
+			configs << "B: " << iter->first << " " << iter->second << endl ;
         }
-        conffile << line.str() << endl;
         
-        line.clear();
-        line.str("");
         std::map<unsigned int, unsigned int>::iterator itert;
         
         for ( itert = bannedIPConnects.begin(); itert != bannedIPConnects.end(); ++itert ) {
-            line << "C: " << itert->first << " " << itert->second << endl ;
+            configs << "C: " << itert->first << " " << itert->second << endl ;
         }
-        conffile << line.str() << endl;
 	
 		if ( pthread_mutex_unlock ( &bannedIPsMutex ) ) {
 			CErr ( "SaveConfig: Failed to release mutex on banned IPs!" );
 		}
 	}
-
+    
+    conffile << configs.str() << endl;
 
 	conffile.close();
 	return true;
@@ -770,47 +787,53 @@ bool MediatorDaemon::LoadDeviceMappingsEnc ()
 	conffile.open ( DEVMAPFILE );
 	if ( !conffile.good() )
         return false;
-	
-	if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-		CErr ( "LoadDeviceMappingsEnc: Failed to aquire mutex!" );
-        return false;
-	}	
-	
-	string line;
-	while ( getline ( conffile, line ) )
-	{		
-		std::istringstream iss ( line );
-		string deviceUID;
-		unsigned deviceID;
-		string authToken;
-
-		if ( !(iss >> deviceUID >> deviceID) ) {
-			//CErrArg ( "LoadDeviceMappings: Failed to read key/value (%s)!", line.c_str() );
-			
-			if ( !(iss >> deviceUID >> deviceID >> authToken) ) {
-				CErrArg ( "LoadDeviceMappingsEnc: Failed to read key/value (%s)!", line.c_str() );
-				break;
-			}
-		}
-		
-		DeviceMapping * mapping = (DeviceMapping *) calloc ( 1, sizeof(DeviceMapping) );
-		if ( !mapping )
-			break;
-
-		mapping->deviceID = deviceID;
-		if (authToken.length() > 0 )
-			memcpy ( mapping->authToken, authToken.c_str(), authToken.length() );
-
-		deviceMappings [ deviceUID ] = mapping;
-    }
-
-	if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-		CErr ( "LoadDeviceMappingsEnc: Failed to release mutex!" );
-	}
-
+    
+    LoadDeviceMappings ( conffile );
+    
 	conffile.close();
 
 	return true;
+}
+
+
+bool MediatorDaemon::LoadDeviceMappings ( istream& instream )
+{
+    if ( pthread_mutex_lock ( &usersDBMutex ) ) {
+        CErr ( "LoadDeviceMappings: Failed to aquire mutex!" );
+        return false;
+    }
+    
+    string line;
+    while ( getline ( instream, line ) )
+    {
+        std::istringstream iss ( line );
+        string deviceUID;
+        unsigned deviceID;
+        int authLevel = 0;
+        string authToken;
+        
+        if ( !(iss >> deviceUID >> deviceID >> authLevel >> authToken ) ) {
+            CErrArg ( "LoadDeviceMappings: Failed to read device mapping (%s)!", line.c_str() );
+            continue;
+        }
+        
+        DeviceMapping * mapping = (DeviceMapping *) calloc ( 1, sizeof(DeviceMapping) );
+        if ( !mapping )
+            break;
+        
+        mapping->deviceID = deviceID;
+        mapping->authLevel = authLevel;
+        if (authToken.length() > 0 )
+            memcpy ( mapping->authToken, authToken.c_str(), authToken.length() );
+        
+        deviceMappings [ deviceUID ] = mapping;
+    }
+    
+    if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
+        CErr ( "LoadDeviceMappings: Failed to release mutex!" );
+    }
+    
+    return true;
 }
 
 
@@ -825,50 +848,16 @@ bool MediatorDaemon::LoadDeviceMappings ()
     if ( !ciphers )
         return false;
     
-	if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-        CErr ( "LoadDeviceMappings: Failed to aquire mutex!" ); return false;
-	}
-    
     while ( size ) {
         if ( !AESDecrypt ( &aesCtx, ciphers, &size, &decrypted ) || !size || !decrypted )
             break;
         
         istringstream text ( (string ( decrypted )) );
         
-        string line;
-        while ( getline ( text, line ) )
-        {
-            std::istringstream iss ( line );
-            string deviceUID;
-            unsigned deviceID;
-            string authToken;
-            
-            if ( !(iss >> deviceUID >> deviceID >> authToken) ) {
-                //CErrArg ( "LoadDeviceMappings: Failed to read key/value (%s)!", line.c_str() );
-
-				if ( !(iss >> deviceUID >> deviceID) ) {
-					CErrArg ( "LoadDeviceMappings: Failed to read key/value (%s)!", line.c_str() );
-					break;
-				}
-            }
-            
-            DeviceMapping * mapping = (DeviceMapping *) calloc ( 1, sizeof(DeviceMapping) );
-            if ( !mapping )
-                break;
-            
-            mapping->deviceID = deviceID;
-            if (authToken.length() > 0 )
-                memcpy ( mapping->authToken, authToken.c_str(), authToken.length() );
-            
-            deviceMappings [ deviceUID ] = mapping;
-        }
+        LoadDeviceMappings ( text );
         
         break;
     }
-    
-	if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-		CErr ( "LoadDeviceMappings: Failed to release mutex!" );
-	}
 	
 	if ( decrypted )
 		free ( decrypted );
@@ -890,14 +879,13 @@ bool MediatorDaemon::SaveDeviceMappings ( )
 		ret = false;
 	}
 	else {
-		// Save areas
+		// Save devcie mappings
 		for ( map<string, DeviceMapping *>::iterator it = deviceMappings.begin(); it != deviceMappings.end(); it++ )
 		{
 			if ( !it->second )
 				continue;
 
-			//conffile << it->first << " " << it->second->deviceID << " " << it->second->authToken << endl;
-			plainstream << it->first << " " << it->second->deviceID << " " << it->second->authToken << endl;
+			plainstream << it->first << " " << it->second->deviceID << " " << it->second->authLevel << " " << it->second->authToken << endl;
 		}
         
 		if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
@@ -926,13 +914,16 @@ bool MediatorDaemon::SaveDeviceMappings ( )
             }
             else CErr ( "SaveDeviceMappings: AESEncrypt failed." );
         }
+        else {
+            unlink ( DEVMAPFILE );
+        }
     }
     
 	return ret;
 }
 
 
-bool MediatorDaemon::AddUser ( const char * userName, const char * pass )
+bool MediatorDaemon::AddUser ( int authLevel, const char * userName, const char * pass )
 {
 	CLog ( "AddUser" );
     
@@ -945,9 +936,14 @@ bool MediatorDaemon::AddUser ( const char * userName, const char * pass )
 	
 	char * hash = 0;
 	unsigned int len = 0;
+    UserItem * item = 0;
 
 	do
 	{
+        item = new UserItem ();
+        if ( !item )
+            break;
+        
 		ret = SHAHashPassword ( pass, &hash, &len );
 		if ( !ret ) {
 			CErrArg ( "AddUser: Failed to create pass hash for [%s]", userName ); break;
@@ -960,20 +956,26 @@ bool MediatorDaemon::AddUser ( const char * userName, const char * pass )
 		string user = userName;
 		std::transform ( user.begin(), user.end(), user.begin(), ::tolower );
 
-		map<string, string>::iterator iter = usersDB.find ( user );
+		map<string, UserItem *>::iterator iter = usersDB.find ( user );
 		if ( iter != usersDB.end () ) {
 			CLogArg ( "AddUser: Updating password of user [%s]", userName );
 			printf ( "\nAddUser: Updating password of user [%s]\n", userName );
 		}
 		
-		//string pw = hash;
-		usersDB [ user ] = string ( hash );
+        item->authLevel = authLevel;
+        item->pass = string ( hash );
+        
+		usersDB [ user ] = item;
 		ret = true;
+        item = 0;
 	}
 	while ( 0 );
 
 	if ( hash )
 		free ( hash );
+    
+    if ( item )
+        delete item;
     
 	if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
 		CErr ( "AddUser: Failed to release mutex on usersDB!" );
@@ -996,44 +998,56 @@ bool MediatorDaemon::LoadUserDBEnc ()
 	usersfile.open ( USERSDBFILE );
 	if ( !usersfile.good() )
 		return false;
-
-	bool hasUserName = false;
-
-	string userName;
-	string userPassword;
-	string line;
-	while ( getline ( usersfile, line ) )
-	{
-		const char * str = line.c_str ();
-		if ( strlen ( str ) < 3 )
-			continue;
-
-		std::istringstream iss ( line );
-		
-		if ( !hasUserName ) {
-			if ( line.find ( '@', 0 ) == string::npos )
-				continue;
-			iss >> userName;
-			hasUserName = true;
-			continue;
-		}
-
-		hasUserName = false;
-		iss >> userPassword;
-		if ( userPassword.length() < 64 ) {
-			continue;
-		}
-
-		const char * pwStr = ConvertToBytes ( userPassword.c_str(), (unsigned int)userPassword.length() );
-		if ( pwStr ) {
-			string pw = pwStr;
-			usersDB [ userName ] = pw;
-		}
-	}
+    
+    LoadUserDB ( usersfile );
 	
 	usersfile.close();
 	
 	return true;
+}
+
+
+bool MediatorDaemon::LoadUserDB ( istream& instream )
+{
+    string userName;
+    string userPassword;
+    string line;
+    string pre1, pre2;
+    int authLevel = 0;
+    
+    while ( getline ( instream, line ) )
+    {
+        std::istringstream iss ( line );
+        
+        if ( !(iss >> userName >> pre1 >> authLevel >> pre2 >> userPassword) ) {
+            CErrArg ( "LoadUserDB: Failed to read user entry (%s)!", line.c_str() );
+            continue;
+        }
+        
+        if ( userName.find ( '@', 0 ) == string::npos )
+            continue;
+        
+        if ( userPassword.length() < 64 ) {
+            continue;
+        }
+        
+        if ( authLevel < 0 || authLevel > 10 )
+            authLevel = 3;
+        
+        const char * pwStr = ConvertToBytes ( userPassword.c_str(), (unsigned int)userPassword.length() );
+        if ( pwStr ) {
+            
+            UserItem * item = new UserItem ();
+            if ( item ) {
+                string pw = pwStr;
+                item->pass = pw;
+                item->authLevel = authLevel;
+                
+                usersDB [ userName ] = item;
+            }
+        }
+    }
+    return true;
 }
 
 
@@ -1054,40 +1068,7 @@ bool MediatorDaemon::LoadUserDB ()
         
         istringstream text ( (string ( decrypted )) );
         
-        bool hasUserName = false;
-        
-        string userName;
-        string userPassword;
-        string line;
-        
-        while ( getline ( text, line ) )
-        {
-            const char * str = line.c_str ();
-            if ( strlen ( str ) < 3 )
-                continue;
-            
-            std::istringstream iss ( line );
-            
-            if ( !hasUserName ) {
-                if ( line.find ( '@', 0 ) == string::npos )
-                    continue;
-                iss >> userName;
-                hasUserName = true;
-                continue;
-            }
-            
-            hasUserName = false;
-            iss >> userPassword;
-            if ( userPassword.length() < 64 ) {
-                continue;
-            }
-            
-            const char * pwStr = ConvertToBytes ( userPassword.c_str(), (unsigned int)userPassword.length() );
-            if ( pwStr ) {
-                string pw = pwStr;
-                usersDB [ userName ] = pw;
-            }
-        }
+        LoadUserDB ( text );
         break;
     }
 	
@@ -1112,21 +1093,19 @@ bool MediatorDaemon::SaveUserDB ()
 	}
 	else {
 		// Save areas
-		for ( map<string, string>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
+		for ( map<string, UserItem *>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
 		{
 			//CVerbArg ( "SaveUserDB: try saving [%s]", it->first.c_str() );
 
-			if ( it->second.length () )
+			if ( it->second )
 			{
-				const char * pwStr = ConvertToHexString ( it->second.c_str(), ENVIRONS_USER_PASSWORD_LENGTH );
+                UserItem * item = it->second;
+                
+				const char * pwStr = ConvertToHexString ( item->pass.c_str(), ENVIRONS_USER_PASSWORD_LENGTH );
 				if ( pwStr ) {
 					//CVerbArg ( "SaveUserDB: Saving pass [%s]", pwStr );
 
-					//usersfile << it->first << endl;
-					//usersfile << pwStr << endl;
-
-					plainstream << it->first << endl;
-					plainstream << pwStr << endl;
+                    plainstream << it->first << " :: " << item->authLevel << " :: " << pwStr << endl;
 				}
 			}
 		}
@@ -1419,6 +1398,16 @@ void MediatorDaemon::Dispose ()
 	}
 
 	ReleaseDeviceMappings ();
+    
+    
+    for ( map<string, UserItem *>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
+    {
+        if ( !it->second ) {
+            continue;
+        }
+        delete ( it->second );
+    }
+    usersDB.clear ();
 }
 
 
@@ -2034,7 +2023,8 @@ void printDeviceList ( DeviceInstanceList * device )
 {
 	while ( device ) 
 	{
-		CLogArg ( "Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+        CLogArg ( "Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+        CLogArg ( "UID         = [%d / %s]", device->client ? device->client->authLevel : -1, device->client ? device->client->uid : ".-." );
 		if ( device->info.ip != device->info.ipe ) {
 			CLogArg ( "Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
 		}
@@ -2063,6 +2053,7 @@ void MediatorDaemon::Run ()
 	bool hideInput = false;
 	string userName;
 	string passPhrase;
+    int accessLevel = 0;
 	
 	do
 	{
@@ -2238,11 +2229,13 @@ void MediatorDaemon::Run ()
                     CErr ( "Failed to aquire mutex on usersDB!" );
                 }
                 else {
-                    for ( map<string, string>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
+                    for ( map<string, UserItem *>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
                     {
-                        if ( it->second.length () )
+                        if ( it->second )
                         {
-                            const char * pwStr = ConvertToHexString ( it->second.c_str(), ENVIRONS_USER_PASSWORD_LENGTH );
+                            UserItem * item = it->second;
+                            
+                            const char * pwStr = ConvertToHexString ( item->pass.c_str(), ENVIRONS_USER_PASSWORD_LENGTH );
                             if ( pwStr ) {
                                 CLogArg ( "User: %s\t[%s]", it->first.c_str(), pwStr );
                                 
@@ -2307,35 +2300,13 @@ void MediatorDaemon::Run ()
 				CLog ( "Add new user:" );
 				printf ( "Add new user:\n" );
 				printf ( "----------------------------------------------------------------\n" );
-				CLog ( "Please enter the username (email):" );
-				printf ( "Please enter the username (email): " );
+				CLog ( "Please enter an access level (0 - 10). Default [3]:" );
+				printf ( "Please enter an access level (0 - 10). Default [3]: " );
 				command = 'a';
+                accessLevel = -1;
 				userName = "a";
 				continue;
 			}
-			
-			//else if ( c == 't' ) {
-			//	char keys [ 256 ];
-			//	char values [ 256 ];
-			//	sprintf_s ( keys, 256, "key_%i", ++keyCount );
-			//	sprintf_s ( values, 256, "value_%i", ++valueCount );
-			//	SetParam ( "test", keys, values );
-			//	continue;
-			//}	
-			//else if ( c == 'u' ) {
-			//	char keys [ 256 ];
-			//	char values [ 256 ];
-			//	sprintf_s ( keys, 256, "key_%i", keyCount );
-			//	sprintf_s ( values, 256, "value_%i", valueCount );
-			//	SetParam ( "test", keys, values );
-			//	continue;
-			//}	
-			//else if ( c == 'v' ) {
-			//	char keys [ 256 ];
-			//	sprintf_s ( keys, 256, "key_%i", keyCount );
-			//	GetParam ( "test", keys );
-			//	continue;
-			//}			
 		}
 		if (c == 13 || c == 10 ) { // Return key
 			// Close input string
@@ -2343,7 +2314,15 @@ void MediatorDaemon::Run ()
 
 			// Analyse input string
 			if ( command == 'a' ) {
-				if ( userName.c_str()[0] == 'a' && userName.length() == 1 ) {
+                if ( accessLevel < 0 ) {
+                    if ( sscanf_s ( inputBuffer, "%d", &accessLevel ) <= 0 || accessLevel < 0 || accessLevel > 10 )
+                        accessLevel = 3;
+                    input = inputBuffer;
+                    
+                    CLog ( "Please enter the username (email):" );
+                    printf ( "\nPlease enter the username (email): " );
+                }
+				else if ( userName.c_str()[0] == 'a' && userName.length() == 1 ) {
 					userName = inputBuffer;
 					if ( userName.find ( '@', 0 ) == string::npos ) {
 						command = 0;
@@ -2361,7 +2340,7 @@ void MediatorDaemon::Run ()
 				}
 				else {
 					hideInput = false;
-					if ( AddUser ( userName.c_str(), inputBuffer ) ) {
+					if ( AddUser ( accessLevel, userName.c_str(), inputBuffer ) ) {
 						CLogArg ( "User: [%s] successfully added.", userName.c_str() );
 						printf ( "\nUser: [%s] successfully added.\n", userName.c_str() );
 					}
@@ -3541,9 +3520,11 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			}
 			// COMMAND: 
 			else if ( command == MEDIATOR_CMD_SET_FILTERMODE )
-			{
-				MediatorMsg * medMsg = (MediatorMsg *) msgDec;
-				UpdateNotifyTargets ( client, medMsg->ids.id2.msgID );
+            {
+                if ( client->authLevel >= 3 ) {
+                    MediatorMsg * medMsg = (MediatorMsg *) msgDec;
+                    UpdateNotifyTargets ( client, medMsg->ids.id2.msgID );
+                }
 			}
 			// COMMAND: 
 			else if ( command == MEDIATOR_CMD_HEARTBEAT ) 
@@ -4089,7 +4070,10 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 
 	if ( subCmd != MEDIATOR_OPT_NULL ) {
 		filterMode = subCmd;
-	}
+    }
+    
+    if ( sourceClient->authLevel < 3 )
+        filterMode = MEDIATOR_FILTER_AREA_AND_APP;
 
     if ( filterMode != sourceClient->filterMode )
         UpdateNotifyTargets ( sourceClient, filterMode );
@@ -4098,14 +4082,14 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 	if ( query->opt0 == MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT ) {
 		CVerbID ( "HandleQueryDevices: requested count" );
 		
-		length = MEDIATOR_CMD_GET_DEVICES_COUNT_RESP_LEN;
+        length = MEDIATOR_CMD_GET_DEVICES_COUNT_RESP_LEN;
 
 		if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION ) {
 			/// Deprecated, to be removed as soon as the public tree has been updated
 			response->size = length;
 			response->cmd0 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
 			response->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT;
-
+            
 			response->deviceHead.deviceCountAvailable = CollectDevicesCount ( sourceClient->device, filterMode );
 		}
 		else {
@@ -5122,6 +5106,8 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
                 regMsg.opt1 = MEDIATOR_OPT_NULL;
                 
                 memcpy ( regMsg.areaName, mapping->authToken, tokCount );
+                
+                mapping->authLevel = client->authLevel;
             }
 
 			deviceMappings [ string ( client->uid ) ] = mapping;
@@ -5306,38 +5292,52 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 			msgLen = *pUI; /// length of the hash
 			//*pUI = 0; 
 			userName [ length ] = 0;
-			pUI++;
-					
+            pUI++;
+            
             /// Look in db for user
-			if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-				CErr ( "SecureChannelAuth: Failed to aquire mutex on usersDB!" ); break;
-			}		
-
-			string user = userName;
-
-			std::transform ( user.begin(), user.end(), user.begin(), ::tolower );
-
-			map<string, string>::iterator iter = usersDB.find ( user );
-			if ( iter == usersDB.end () ) {
-				CLogArg ( "SecureChannelAuth: User [%s] not found.", userName );
-			}
-			else {
-				pass = iter->second.c_str ();
-				client->createAuthToken = true;
-			}
-
-			if ( !pass ) {
-				CVerbArg ( "SecureChannelAuth: No password for User [%s] available. Treating username as deviceUID and looking for authToken.", userName );
-                
-				string deviceUID = userName;
-                map<string, DeviceMapping *>::iterator devIt = deviceMappings.find ( deviceUID );
-                
-                if ( devIt != deviceMappings.end ( ) ) {
-                    pass = devIt->second->authToken;
-					if ( !*pass )
-						pass = 0;
+            if ( pthread_mutex_lock ( &usersDBMutex ) ) {
+                CErr ( "SecureChannelAuth: Failed to aquire mutex on usersDB!" ); break;
+            }
+            
+            string user = userName;
+            
+            if (anonymousLogon) {
+                if ( !strncmp ( user.c_str(), anonymousUser, MAX_NAMEPROPERTY ) ) {
+                    CLog ( "SecureChannelAuth: Anonymous logon." );
+                    pass = anonymousPassword;
+                    client->authLevel = 0;
                 }
-			}
+            }
+            
+            if ( !pass ) {
+                std::transform ( user.begin(), user.end(), user.begin(), ::tolower );
+                
+                map<string, UserItem *>::iterator iter = usersDB.find ( user );
+                if ( iter == usersDB.end () ) {
+                    CLogArg ( "SecureChannelAuth: User [%s] not found.", userName );
+                }
+                else {
+                    UserItem * item = iter->second;
+                    
+                    pass = item->pass.c_str ();
+                    client->createAuthToken = true;
+                    client->authLevel = item->authLevel;
+                }
+                
+                if ( !pass ) {
+                    CVerbArg ( "SecureChannelAuth: No password for User [%s] available. Treating username as deviceUID and looking for authToken.", userName );
+                    
+                    string deviceUID = userName;
+                    map<string, DeviceMapping *>::iterator devIt = deviceMappings.find ( deviceUID );
+                    
+                    if ( devIt != deviceMappings.end ( ) ) {
+                        pass = devIt->second->authToken;
+                        if ( !*pass )
+                            pass = 0;
+                        client->authLevel = devIt->second->authLevel;
+                    }
+                }
+            }
             
             if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
                 CErr ( "SecureChannelAuth: Failed to release mutex on usersDB!" ); break;

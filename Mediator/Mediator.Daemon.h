@@ -79,10 +79,18 @@ AppsList;
 typedef struct _DeviceMapping
 {
 	unsigned int	deviceID;
-
+    int             authLevel;
 	char			authToken [ MAX_NAMEPROPERTY + 1 ];
 }
 DeviceMapping;
+
+
+typedef struct _UserItem
+{
+    int             authLevel;
+    string			pass;
+}
+UserItem;
 
 
 class MediatorDaemon : public environs::Mediator
@@ -103,15 +111,17 @@ public:
 	bool									LoadProjectValues ( );
 	bool									LoadUserDBEnc ( );
 	bool									LoadUserDB ( );
+    bool                                    LoadUserDB ( istream& instream );
 	bool									LoadKeys ( );
 	void									ReleaseKeys ( );
 	bool									SaveConfig ( );
 	bool									SaveProjectValues ( );
 	bool									SaveUserDB ( );
-	bool									AddUser ( const char * userName, const char * pass );
+	bool									AddUser ( int authLevel, const char * userName, const char * pass );
 	
 	bool									LoadDeviceMappingsEnc ();
 	bool									LoadDeviceMappings ();
+    bool                                    LoadDeviceMappings ( istream& instream );
 	bool									SaveDeviceMappings ();
 
 	bool									CreateThreads ( );
@@ -153,10 +163,14 @@ private:
 
 	bool									reqAuth;
 	pthread_mutex_t							usersDBMutex;
-	map<string, string>						usersDB;
+	map<string, UserItem *>                 usersDB;
 
 	map<string, DeviceMapping *>			deviceMappings;
-
+    
+    bool									anonymousLogon;
+    char                                    anonymousUser [ MAX_NAMEPROPERTY + 1 ];
+    char                                    anonymousPassword [ ENVIRONS_USER_PASSWORD_LENGTH + 1 ];
+    
 	char									inputBuffer [MEDIATOR_CLIENT_MAX_BUFFER_SIZE];
 	char	*								input;
 		
@@ -258,4 +272,6 @@ private:
 };
 
 
-#endif	// ENVIRONS_CMOBILECLIENT_H
+#endif	// ENVIRONS_MEDIATOR_H
+
+

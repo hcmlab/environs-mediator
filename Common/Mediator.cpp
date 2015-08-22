@@ -24,7 +24,7 @@
 #ifndef NDEBUG
 //#define DEBUGVERB
 //#define DEBUGVERBVerb
-#define DEBUGVERBList
+//#define DEBUGVERBList
 #endif
 
 #include "Mediator.h"
@@ -71,6 +71,8 @@ Mediator::Mediator ( )
 
 	Zero ( localNets );
 	Zero ( mediator );
+    mediator.connection.instance.socket = -1;
+    mediator.connection.instance.spareSocket = -1;
     
     allocated               = false;
 	

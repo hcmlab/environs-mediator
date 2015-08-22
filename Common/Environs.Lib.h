@@ -198,8 +198,15 @@ namespace environs
 			LIBEXPORT EBOOL CallConv		RegisterAtMediators ();
 
 			LIBEXPORT EBOOL CallConv		SetMediator ( const char * ip, int port );
-			LIBEXPORT const char * CallConv GetMediatorIP ();
-
+            LIBEXPORT const char * CallConv GetMediatorIP ();
+            
+            /**
+             * Enable or disable anonymous logon to the Mediator.
+             *
+             * @param 	enable A boolean that determines the target state.
+             */
+            LIBEXPORT void CallConv			SetUseMediatorAnonymousLogon ( EBOOL usage );
+            
 			/**
 			* Set the user name for authentication with a mediator service.&nbsp;Usually the user's email address is used as the user name.
 			*

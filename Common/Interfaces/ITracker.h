@@ -47,8 +47,9 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Tracker ),
 
 			/** Default initialization */
-			trackerID ( -1 ), dataSize ( 0 ), bpP ( 1 ), width ( 0 ), height ( 0 ), channels ( 0 ), stride ( 0 ), 
-			buffersInitialized ( false ), initialized ( false ), started ( false ), tracking ( false )
+            trackerID ( -1 ), initialized ( false ), buffersInitialized ( false ),
+            started ( false ), tracking ( false ),
+            dataSize ( 0 ), bpP ( 1 ), width ( 0 ), height ( 0 ), channels ( 0 ), stride ( 0 )
 		{};
 
 		virtual ~ITracker ( ) {};

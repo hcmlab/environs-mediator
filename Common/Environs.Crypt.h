@@ -34,7 +34,7 @@
 #define ENVIRONS_CERT_SIGNED_FLAG       0x80000000
 
 
-#ifdef ANDROID
+#if ( defined(ANDROID) || defined(LINUX) )
 #define USE_OPENSSL
 #define USE_OPENSSL_AES
 #else

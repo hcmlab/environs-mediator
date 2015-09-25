@@ -1,10 +1,11 @@
 ### v 0.8.6
 
 ---------------------------
+* Added: yml configuration for gitlab CI.
+* Updated: Include files to latest naming conventions.
 
 * Added: Anonymous logon to Mediator (reduced privileges to one application environment).
 * Extended: User database and encryption.
-
 * Updated: to version 0.8.0
 * Changed: ProjectName to AreaName
 

@@ -50,7 +50,7 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Render ),
 
 			/** Default initialization */
-            squareLength ( 0 ), buffersInitialized ( false ), parent ( 0 ), filledContexts ( 0 ), hAppWindow ( 0 ), stages ( 0 )
+            squareLength ( 0 ), buffersInitialized ( false ), rendered ( false ), stages ( 0 ), parent ( 0 ), filledContexts ( 0 ), hAppWindow ( 0 )
             // , capture ( 0 )
 		{};
 

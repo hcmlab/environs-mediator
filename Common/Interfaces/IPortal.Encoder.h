@@ -49,8 +49,9 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Encoder ),
 
 			/** Default initialization */
-			inBufferType ( EncoderBufferType::ARGB ), width ( 0 ), height ( 0 ), avContext ( 0 ), encodedType ( 0 ),
-            iFrameFPSMode ( false ), iFrameRequest ( false ), frameCounter ( 0 ), stages ( 0 ), sendID ( -1 ), requireSendID ( false )
+			inBufferType ( EncoderBufferType::ARGB ), stages ( 0 ), iFrameFPSMode ( false ), iFrameRequest ( false ),
+            width ( 0 ), height ( 0 ), frameCounter ( 0 ), avContext ( 0 ), encodedType ( 0 ),
+            requireSendID ( false ), sendID ( -1 )
             { };
     
 		virtual ~IPortalEncoder () {};

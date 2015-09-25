@@ -49,9 +49,12 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Decoder ),
 
 			/** Default initialization */
-			avContext ( 0 ), avContextTemp ( 0 ), decodeImage ( true ), outputRGBA ( true), width ( 0 ), height ( 0 ), stride ( 0),
-			avContextType ( DECODER_AVCONTEXT_TYPE_PIXELS ), avContextSubType ( ENVIRONS_AVCONTEXT_SUBTYPE_RGB ), avContextSize ( 0 ),
-            renderCallback ( 0 ), renderCallbackType ( 0 )
+            renderCallback ( 0 ), renderCallbackType ( 0 ),
+            width ( 0 ), stride ( 0), height ( 0 ),
+			avContext ( 0 ), avContextTemp ( 0 ),
+            avContextType ( DECODER_AVCONTEXT_TYPE_PIXELS ), avContextSubType ( ENVIRONS_AVCONTEXT_SUBTYPE_RGB ), avContextSize ( 0 ),
+            decodeImage ( true ), outputRGBA ( true)
+    
 		{};
 
 		virtual ~IPortalDecoder () { ReleaseAVContext (); };

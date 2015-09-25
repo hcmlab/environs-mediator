@@ -123,7 +123,7 @@ namespace environs {                                    \
     extern "C" void CallConv SetEnvironsObject ( void * envObj ) { \
         environs::pEnvirons             = envObj;	\
     }
-    //CVerbVerb ( "SetEnvironsObject: Set ByteBuffer methods" );		\
+    //CVerbVerb ( "SetEnvironsObject: Set ByteBuffer methods" );		
 
 #ifdef __cplusplus
 }

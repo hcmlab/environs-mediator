@@ -50,11 +50,11 @@ namespace environs
 			/** Default initialization */
 			captureType ( CaptureType::Unknown ),
             portalWorkerEvent ( 0 ), portalCaptureEvent ( 0 ), portalWorkerEventLock ( 0 ),
-			bufferType ( CaptureBufferType::Unknown ), width ( 0 ), height ( 0 ), minFPS ( 30 ),
+			portalID ( 0 ), bufferType ( CaptureBufferType::Unknown ), minFPS ( 30 ), width ( 0 ), height ( 0 ),
 			squareLength ( 0 ), buffersInitialized ( false ), dataAccessed ( 1 ), data ( 0 ), dataHandle ( 0 ),
             dataSize ( 0 ), dataStride ( 0 ),
 			renderOverlayMutex ( 0 ), renderOverlays ( 0 ),
-			osLevel ( 0 ), hAppWindow ( 0 ), stages ( 0 ), portalID ( 0 )
+			stages ( 0 ), osLevel ( 0 ), hAppWindow ( 0 )
 		{};
 
 		virtual ~IPortalCapture () {};

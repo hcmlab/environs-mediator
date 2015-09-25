@@ -44,7 +44,7 @@ namespace environs
 			/** Base class initialization */
 			IEnvironsIdent ( InterfaceType::InputRecognizer ),
 			/** Default initialization */
-			triggerTouchCount ( 0 ), deviceBase ( 0 )
+			deviceBase ( 0 ), triggerTouchCount ( 0 )
 		{};
 
 		virtual ~IInputRecognizer ( ) {};

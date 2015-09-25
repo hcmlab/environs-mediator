@@ -44,7 +44,7 @@
         #else
 
             #if ( defined(TARGET_OS_MAC) && TARGET_OS_MAC == 1 )
-                #ifndef ENVIRONS_OSX
+                #if  ( !defined(ENVIRONS_OSX) && !defined(LINUX) )
                 #define ENVIRONS_OSX
                 #endif
             #endif

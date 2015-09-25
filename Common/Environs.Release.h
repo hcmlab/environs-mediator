@@ -54,32 +54,7 @@
 #else
 #define	BUILD_TYPE	" Debug"
 
-#ifdef _WIN32
-#ifdef MEDIATORDAEMON
-#define _USE_VLD
-#endif
-//#define _USE_VLD
-//#define USE_CRT_MLC
-
-#ifdef _USE_VLD
-#define _C_X64
-#endif
-
-#ifdef _USE_VLD
-#ifdef _C_X64
-#include "C:/Program Files (x86)/Visual Leak Detector/include/vld.h"
-#else
-#include "C:/Program Files/Visual Leak Detector/include/vld.h"
-#endif
-#endif
-
-#ifdef USE_CRT_MLC
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-#endif
-
-#endif
+#include "Environs.Build.Opts.h"
 
 #endif
 

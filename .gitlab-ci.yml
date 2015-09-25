@@ -3,8 +3,8 @@ MediatorLinux:
     - linux
   stage: build
   script: 
-    - "chmod ogu+x Tools/download.sh"
-    - "./Tools/download.sh"
+    - "chmod ogu+x 3rd/download.sh"
+    - "./3rd/download.sh"
     - "chmod ogu+x Tools/download.tools.upd.sh"
     - "./Tools/download.tools.upd.sh"
     - "chmod ogu+x Tools/build.mediator.linux.sh"

@@ -1,0 +1,31 @@
+MediatorLinux:
+  tags:
+    - linux
+  stage: build
+  script: 
+    - "chmod ogu+x 3rd/download.sh"
+    - "./3rd/download.sh"
+    - "chmod ogu+x Tools/download.tools.upd.sh"
+    - "./Tools/download.tools.upd.sh"
+    - "chmod ogu+x Tools/build.mediator.linux.sh"
+    - "./Tools/build.mediator.linux.sh"
+     
+MediatorWindowsDebug:
+  tags:
+    - windows
+  stage: build
+  script: 
+    - "cd 3rd && bash --login -i .\\download.sh && cd .."
+    - "cd Tools && bash --login -i .\\download.tools.upd.sh && cd .."
+    - "cd Tools && bash --login -i .\\build.mediator.win32.sh d p && cd .."
+    
+MediatorWindowsRelease:
+  tags:
+    - windows
+  stage: build
+  script: 
+    - "cd 3rd && bash --login -i .\\download.sh && cd .."
+    - "cd Tools && bash --login -i .\\download.tools.upd.sh && cd .."
+    - "cd Tools && bash --login -i .\\build.mediator.win32.sh r p && cd .."
+    
+        

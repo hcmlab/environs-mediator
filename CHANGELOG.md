@@ -1,6 +1,9 @@
-### v 0.8.6
+### v 0.8.7
 
 ---------------------------
+
+
+* Release: 0.8.6
 * Added: yml configuration for gitlab CI.
 * Updated: Include files to latest naming conventions.
 

@@ -29,8 +29,6 @@ MediatorWindowsRelease:
     - "cd Tools && bash --login -i .\\build.mediator.win32.sh r p && cd .."
     
 MediatorOSXRelease:
-  only:
-    - master
   tags:
     - osx
   stage: build
@@ -43,8 +41,6 @@ MediatorOSXRelease:
     - "./Tools/build.mediator.osx.sh unattended"
 
 MediatorOSXDebug:
-  only:
-    - master
   tags:
     - osx
   stage: build

@@ -15,7 +15,9 @@ if [[ -z "${TOOLSDIR}" ]]; then
 fi
 
 toolsDir="$TOOLSDIR/../ToolsTmp"
+
 toolsUrl="https://hcm-lab.de/downloads/environs/EnvBuildTools.tar.gz"
+[[ "$ENVIRONSTOOLSUSER" != "" ]] && toolsUrl="https://${ENVIRONSTOOLSUSER}:${ENVIRONSTOOLSPASS}@hcm-lab.de/downloads/environs/EnvBuildTools.tar.gz"
 
 source "${TOOLSDIR}"/download.tools.sh
 

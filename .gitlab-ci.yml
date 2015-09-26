@@ -28,4 +28,31 @@ MediatorWindowsRelease:
     - "cd Tools && bash --login -i .\\download.tools.upd.sh && cd .."
     - "cd Tools && bash --login -i .\\build.mediator.win32.sh r p && cd .."
     
-        
+MediatorOSXRelease:
+  only:
+    - master
+  tags:
+    - osx
+  stage: build
+  script:
+    - "chmod ogu+x 3rd/download.sh"
+    - "./3rd/download.sh"
+    - "chmod ogu+x Tools/download.tools.upd.sh"
+    - "./Tools/download.tools.upd.sh"
+    - "chmod ogu+x Tools/build.mediator.osx.sh"
+    - "./Tools/build.mediator.osx.sh unattended"
+
+MediatorOSXDebug:
+  only:
+    - master
+  tags:
+    - osx
+  stage: build
+  script:
+    - "chmod ogu+x 3rd/download.sh"
+    - "./3rd/download.sh"
+    - "chmod ogu+x Tools/download.tools.upd.sh"
+    - "./Tools/download.tools.upd.sh"
+    - "chmod ogu+x Tools/build.mediator.osx.sh"
+    - "./Tools/build.mediator.osx.sh unattended d"
+            

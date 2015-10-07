@@ -1,34 +1,72 @@
-MediatorLinux:
+LinuxMediatorRelease:
   tags:
     - linux
   stage: build
   script: 
-    - "chmod ogu+x 3rd/download.sh"
-    - "./3rd/download.sh"
     - "chmod ogu+x Tools/download.tools.upd.sh"
     - "./Tools/download.tools.upd.sh"
+    - "chmod ogu+x 3rd/download.sh"
+    - "./3rd/download.sh"
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "./Tools/build.mediator.linux.sh"
-     
-MediatorWindowsDebug:
+
+LinuxMediatorDebug:
+  tags:
+    - linux
+  stage: build
+  script: 
+    - "chmod ogu+x Tools/download.tools.upd.sh"
+    - "./Tools/download.tools.upd.sh"
+    - "chmod ogu+x 3rd/download.sh"
+    - "./3rd/download.sh"
+    - "chmod ogu+x Tools/build.mediator.linux.sh"
+    - "export DEBUG=1 && ./Tools/build.mediator.linux.sh"
+
+
+OSXMakeMediatorRelease:
+  tags:
+    - osx
+  stage: build
+  script: 
+    - "chmod ogu+x Tools/download.tools.upd.sh"
+    - "./Tools/download.tools.upd.sh"
+    - "chmod ogu+x 3rd/download.sh"
+    - "3rd/download.sh"    
+    - "chmod ogu+x Tools/build.mediator.linux.sh"
+    - "./Tools/build.mediator.linux.sh"
+
+OSXMakeMediatorDebug:
+  tags:
+    - osx
+  stage: build
+  script: 
+    - "chmod ogu+x Tools/download.tools.upd.sh"
+    - "./Tools/download.tools.upd.sh"
+    - "chmod ogu+x 3rd/download.sh"
+    - "3rd/download.sh" 
+    - "chmod ogu+x Tools/build.mediator.linux.sh"
+    - "export DEBUG=1 && ./Tools/build.mediator.linux.sh"
+
+
+WindowsMediatorDebug:
   tags:
     - windows
   stage: build
   script: 
-    - "cd 3rd && bash --login -i .\\download.sh && cd .."
-    - "cd Tools && bash --login -i .\\download.tools.upd.sh && cd .."
-    - "cd Tools && bash --login -i .\\build.mediator.win32.sh d p && cd .."
+    - "bash ./3rd/download.sh"
+    - "bash ./Tools/download.tools.upd.sh"
+    - "bash ./Tools/build.mediator.win32.sh d p"
     
-MediatorWindowsRelease:
+WindowsMediatorRelease:
   tags:
     - windows
   stage: build
   script: 
-    - "cd 3rd && bash --login -i .\\download.sh && cd .."
-    - "cd Tools && bash --login -i .\\download.tools.upd.sh && cd .."
-    - "cd Tools && bash --login -i .\\build.mediator.win32.sh r p && cd .."
-    
-MediatorOSXRelease:
+    - "bash ./3rd/download.sh"
+    - "bash ./Tools/download.tools.upd.sh"
+    - "bash ./Tools/build.mediator.win32.sh r p"
+
+OSXMediatorRelease:
   tags:
     - osx
   stage: build
@@ -40,7 +78,7 @@ MediatorOSXRelease:
     - "chmod ogu+x Tools/build.mediator.osx.sh"
     - "./Tools/build.mediator.osx.sh unattended"
 
-MediatorOSXDebug:
+OSXMediatorDebug:
   tags:
     - osx
   stage: build
@@ -51,4 +89,5 @@ MediatorOSXDebug:
     - "./Tools/download.tools.upd.sh"
     - "chmod ogu+x Tools/build.mediator.osx.sh"
     - "./Tools/build.mediator.osx.sh unattended d"
+    
             

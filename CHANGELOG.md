@@ -1,6 +1,8 @@
 ### v 0.8.7
 
 ---------------------------
+* Updated: CI yml.
+* Updated: Mediator Linux makefile (include paths).
 * Fixed: Mediator Linux makefile to include current directory as last header search path.
 * Fixed: Mediator OSX compile error due to missing openssl headers in OSX El Capitan.
 

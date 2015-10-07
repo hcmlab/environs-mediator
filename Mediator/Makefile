@@ -18,11 +18,19 @@ endif
 
 # For release builds add -DNDEBUG to suppress debug messages
 
-CFLAGS	= -Os -DNDEBUG -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -I$(INCS) -g -I$(3RD) -I/opt/ssl/include/ -I/opt/local/include -Wno-deprecated
+CFLAGS	= -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -g -I$(INCS) -I$(3RD) -I/opt/ssl/include/ -I/opt/local/include -I$(3RD)inc -Wno-deprecated
 LDFLAGS	= -lm -lpthread -lcurses -lcurl -ldl -L/opt/local/lib 
 #-lcrypto
 OTHER_C_FLAGS = -isystem /opt/local/include
 
+ifndef DEBUG
+   CFLAGS += -Os -DNDEBUG
+endif
+
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+   CFLAGS += -Wno-unused-but-set-variable
+endif
 
 OBJ	= main.o stdafx.o Mediator.o Mediator.Daemon.o Threads.o Environs.Types.o Environs.Utils.o Environs.Crypt.o Export.o Dyn.Lib.Crypto.o
 

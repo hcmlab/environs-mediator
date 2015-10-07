@@ -1,7 +1,8 @@
 ### v 0.8.7
 
 ---------------------------
-
+* Fixed: Mediator Linux makefile to include current directory as last header search path.
+* Fixed: Mediator OSX compile error due to missing openssl headers in OSX El Capitan.
 
 * Release: 0.8.6
 * Added: yml configuration for gitlab CI.

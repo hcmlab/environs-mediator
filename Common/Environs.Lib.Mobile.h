@@ -35,9 +35,6 @@ namespace environs
 		extern "C"
 		{
 #endif
-			LIBEXPORT void CallConv			NextOrientations ( float x, float y, float z );
-			LIBEXPORT void CallConv			NextAccelerometers ( float x, float y, float z );
-
 			LIBEXPORT void CallConv			TouchDispatch ( int portalID, void * buffer, int count, EBOOL init );
 			LIBEXPORT void CallConv			touch1 ( int deviceID, int id, int x, int y, unsigned char event );
 			LIBEXPORT void CallConv			touch2 ( int deviceID, int id, int x, int y, float angle, float size, float axisx, float axisy, unsigned char event );

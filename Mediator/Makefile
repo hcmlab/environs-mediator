@@ -18,7 +18,7 @@ endif
 
 # For release builds add -DNDEBUG to suppress debug messages
 
-CFLAGS	= -Os -DNDEBUG -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -I$(INCS) -I. -g -I$(3RD) -I/opt/ssl/include/  -I/opt/local/include -Wno-deprecated
+CFLAGS	= -Os -DNDEBUG -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -I$(INCS) -g -I$(3RD) -I/opt/ssl/include/ -I/opt/local/include -Wno-deprecated
 LDFLAGS	= -lm -lpthread -lcurses -lcurl -ldl -L/opt/local/lib 
 #-lcrypto
 OTHER_C_FLAGS = -isystem /opt/local/include

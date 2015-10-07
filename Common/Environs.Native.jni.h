@@ -257,6 +257,22 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_ResetIdentKeys
 
 /*
  * Class:     hcm_environs_Environs
+ * Method:    SetSensorEventSender1
+ * Signature: (IIZ)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetSensorEventSender1
+  (JNIEnv *, jclass, jint, jint, jboolean);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetSensorEventSenderCount1
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetSensorEventSenderCount1
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    IsNativeAllocated
  * Signature: ()Z
  */

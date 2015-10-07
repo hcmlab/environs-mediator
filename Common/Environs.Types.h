@@ -1044,6 +1044,15 @@ namespace environs {
 #define	ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   		(8)
 
 
+/**
+ * Environs SENSOR_TYPES
+ * Type: int
+ */
+#define	ENVIRONS_SENSOR_TYPE_ACCELEROMETER                		(0)
+#define	ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                		(1)
+#define	ENVIRONS_SENSOR_TYPE_ORIENTATION                  		(2)
+
+
 
 
 

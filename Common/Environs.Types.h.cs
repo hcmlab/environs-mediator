@@ -1097,6 +1097,17 @@ namespace hcm.environs
 		public const int ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   =	(7);
 		public const int ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   =	(8);
 		
+		
+		/**
+		 * Environs SENSOR_TYPES
+		 * Environs SENSOR_TYPES
+		 * Type: int
+		 * Type: int
+		 */
+		public const int ENVIRONS_SENSOR_TYPE_ACCELEROMETER                =	(0);
+		public const int ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                =	(1);
+		public const int ENVIRONS_SENSOR_TYPE_ORIENTATION                  =	(2);
+		
 
 
 		public static readonly string 	[] 	MSG_PORTAL_Descriptions = {

@@ -257,6 +257,14 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_ResetIdentKeys
 
 /*
  * Class:     hcm_environs_Environs
+ * Method:    PushSensorData
+ * Signature: (IFFF)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_PushSensorData
+  (JNIEnv *, jclass, jint, jfloat, jfloat, jfloat);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    SetSensorEventSender1
  * Signature: (IIZ)Z
  */
@@ -902,22 +910,6 @@ JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_ReceivePortalUnit
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendFile
   (JNIEnv *, jclass, jint, jint, jint, jstring, jstring);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    NextOrientations
- * Signature: (FFF)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_NextOrientations
-  (JNIEnv *, jclass, jfloat, jfloat, jfloat);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    NextAccelerometers
- * Signature: (FFF)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_NextAccelerometers
-  (JNIEnv *, jclass, jfloat, jfloat, jfloat);
 
 /*
  * Class:     hcm_environs_Environs

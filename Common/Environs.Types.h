@@ -1050,7 +1050,8 @@ namespace environs {
  */
 #define	ENVIRONS_SENSOR_TYPE_ACCELEROMETER                		(0)
 #define	ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                		(1)
-#define	ENVIRONS_SENSOR_TYPE_ORIENTATION                  		(2)
+#define	ENVIRONS_SENSOR_TYPE_GYROSCOPE                    		(2)
+#define	ENVIRONS_SENSOR_TYPE_ORIENTATION                  		(3)
 
 
 

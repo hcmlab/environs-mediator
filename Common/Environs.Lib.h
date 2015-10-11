@@ -37,7 +37,7 @@ namespace environs
 		 *	API exports that are used for every platform
 		 *
          * */
-        ENVIRONSAPI LIBEXPORT void CallConv SetCallbacks ( long TouchCallback, long MessageCallback, long MessageExtCallback, long NotifyCallback, long NotifyExtCallback, long DataCallback, long StatusMessageCallback );
+		ENVIRONSAPI LIBEXPORT void CallConv SetCallbacks ( long HumanInputCallback, long SensorInputCallback, long MessageCallback, long MessageExtCallback, long NotifyCallback, long NotifyExtCallback, long DataCallback, long StatusMessageCallback );
 
 		ENVIRONSAPI LIBEXPORT EBOOL CallConv GetPortalInfo1 ( void * portalInfo );
 		ENVIRONSAPI LIBEXPORT EBOOL CallConv SetPortalInfo1 ( void * portalInfo );

@@ -1,6 +1,8 @@
-### v 0.8.7
+### v 0.8.9
 
 ---------------------------
+
+* Release: 0.8.8
 * Updated: CI yml.
 * Updated: Mediator Linux makefile (include paths).
 * Fixed: Mediator Linux makefile to include current directory as last header search path.

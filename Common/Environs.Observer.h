@@ -20,6 +20,7 @@
  */
 #import <Foundation/Foundation.h>
 #import "Device.Observer.iOSX.h"
+#include "Environs.Msg.Types.h"
 
 
 @protocol EnvironsObserver <NSObject>
@@ -122,6 +123,20 @@
 
 
 
+@protocol EnvironsSensorDataObserver <NSObject>
+/**
+ * OnData is called whenever new binary data (files, buffers) has been received.
+ * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
+ *
+ * @param nativeID      The native identifier that targets the device.
+ * @param pack          The frame containing the sensor data
+ */
+- (void) OnSensorData:(int) nativeID Frame:(environs::SensorFrame *) pack;
+@end
+
+
+
+
 @protocol PortalObserver <NSObject>
 /**
  * OnPortalChanged is called when the portal status has changed, e.g. stream has started, stopped, disposed, etc..
@@ -155,3 +170,15 @@
 - (void) OnData:(id) fileInstance;
 
 @end
+
+
+@protocol SensorObserver <NSObject>
+/**
+ * OnSensorData is called whenever new sensor data has been received.
+ *
+ * @param fileInst     The corresponding file object of type FileInstance
+ */
+- (void) OnSensorData:(environs::SensorFrame *) frame;
+
+@end
+

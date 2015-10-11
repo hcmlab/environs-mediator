@@ -21,6 +21,7 @@ toolsUrl="https://hcm-lab.de/downloads/environs/EnvBuildTools.tar.gz"
 
 source "${TOOLSDIR}"/download.tools.sh
 
+delDir "${toolsDir}"
 prepareDir "${toolsDir}"
 
 cd "${toolsDir}"

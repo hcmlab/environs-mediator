@@ -1106,7 +1106,8 @@ namespace hcm.environs
 		 */
 		public const int ENVIRONS_SENSOR_TYPE_ACCELEROMETER                =	(0);
 		public const int ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                =	(1);
-		public const int ENVIRONS_SENSOR_TYPE_ORIENTATION                  =	(2);
+		public const int ENVIRONS_SENSOR_TYPE_GYROSCOPE                    =	(2);
+		public const int ENVIRONS_SENSOR_TYPE_ORIENTATION                  =	(3);
 		
 
 

@@ -139,11 +139,25 @@ using namespace environs;
 - (void) AddObserverForData:(id<DataObserver>) observer;
 
 /**
-* Remove an observer (DataObserver) that was added before.
+* Remove an observer (SensorObserver) that was added before.
 *
 * @param observer A DataObserver
 */
-- (void) RemoveObserverForData:(id<DataObserver>) observer;
+- (void) RemoveObserverForData:(id<SensorObserver>) observer;
+
+/**
+ * Add an observer (SensorObserver) that notifies about data received or sent through the DeviceInstance.
+ *
+ * @param observer A DataObserver
+ */
+- (void) AddObserverForSensors:(id<SensorObserver>) observer;
+
+/**
+ * Remove an observer (DataObserver) that was added before.
+ *
+ * @param observer A DataObserver
+ */
+- (void) RemoveObserverForSensors:(id<SensorObserver>) observer;
 
 /**
 * Add an observer (MessageObserver) that notifies about messages received or sent through the DeviceInstance.

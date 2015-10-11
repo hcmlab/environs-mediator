@@ -3,6 +3,7 @@ CC	= g++
 INCS	= ../Common/
 3RD	= ../3rd/
 
+ACFLAGS =
 OUTF	= Mediator
 ifeq ($(OS),Windows_NT)
     OUTF = Mediator.Win.exe
@@ -13,6 +14,7 @@ else
     endif
     ifeq ($(UNAME_S),Darwin)
 	OUTF = Mediator.OSX
+	ACFLAGS = -I.
     endif
 endif
 
@@ -26,6 +28,8 @@ OTHER_C_FLAGS = -isystem /opt/local/include
 ifndef DEBUG
    CFLAGS += -Os -DNDEBUG
 endif
+
+CFLAGS += $(ACFLAGS)
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)

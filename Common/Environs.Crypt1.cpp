@@ -22,8 +22,8 @@
 
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG
-//#define DEBUGVERB
-//#define DEBUGVERBVerb
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
 #endif
 
 

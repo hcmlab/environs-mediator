@@ -18,10 +18,17 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
+
+/// Compiler flag that enables verbose debug output
+#ifndef NDEBUG
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
+#endif
+
 #include "Environs.Native.h"
 
 #ifndef MEDIATORDAEMON
-#include "Environs.h"
+#   include "Environs.Obj.h"
 #endif
 
 #include "Interop.h"
@@ -35,7 +42,7 @@ using namespace environs;
 #define USE_DYNAMIC_LIB
 //#endif
 
-#define CLASS_NAME	"dynLibOpenSSL"
+#define CLASS_NAME	"Dyn.Lib.OpenSSL. . . . ."
 
 #define	MODLIBNAME	"libcrypto"
 
@@ -197,7 +204,7 @@ namespace environs
 #ifdef USE_DYNAMIC_LIB
 
 
-	bool InitLibOpenSSL ()
+	bool InitLibOpenSSL ( Instance * env )
 	{
 		CVerb ( "InitLibOpenSSL" );
 
@@ -209,7 +216,7 @@ namespace environs
 		HMODULE				hLib	= 0;
 		bool				ret = false;
 
-		hLib = LocateLoadModule ( MODLIBNAME, 0 );
+		hLib = LocateLoadModule ( MODLIBNAME, 0, env );
 		if ( !hLib ) {
 #ifdef _WIN32
 			CWarnArg ( "InitLibOpenSSL: Loading of " MODLIBNAME " FAILED with error [0x%.8x]", GetLastError () );
@@ -319,7 +326,7 @@ namespace environs
 #pragma comment ( lib, "libcrypto.lib" )
 #endif
 
-	bool InitLibOpenSSL ()
+	bool InitLibOpenSSL ( Instance * env )
 	{
 		CVerb ( "InitLibOpenSSL" );
 

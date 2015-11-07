@@ -163,6 +163,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\Common\Device.Instance.h" />
+    <ClInclude Include="..\Common\Environs.Build.Opts.h" />
     <ClInclude Include="..\Common\Environs.Crypt.h" />
     <ClInclude Include="..\Common\Environs.Native.h" />
     <ClInclude Include="..\Common\Environs.Release.h" />

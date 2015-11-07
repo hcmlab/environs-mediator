@@ -20,7 +20,7 @@ endif
 
 # For release builds add -DNDEBUG to suppress debug messages
 
-CFLAGS	= -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -g -I$(INCS) -I$(3RD) -I/opt/ssl/include/ -I/opt/local/include -I$(3RD)inc -Wno-deprecated
+CFLAGS	= -std=gnu++11 -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -g -I$(INCS) -I$(3RD) -I/opt/ssl/include/ -I/opt/local/include -I$(3RD)inc -Wno-deprecated
 LDFLAGS	= -lm -lpthread -lcurses -lcurl -ldl -L/opt/local/lib 
 #-lcrypto
 OTHER_C_FLAGS = -isystem /opt/local/include
@@ -68,6 +68,8 @@ Dyn.Lib.Crypto.o: $(3RD)DynLib/Dyn.Lib.Crypto.cpp
 	
 clean:
 	rm *.o $(OUTF)
+
+new: clean all
 
 #prepare: 
 #	@if [ -d "/opt/local/include/openssl" ]; then export CFLAGS += -I/opt/local/include/openssl; fi

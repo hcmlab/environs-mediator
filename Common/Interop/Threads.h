@@ -22,9 +22,9 @@
 #define INCLUDE_HCM_ENVIRONS_INTEROP_THREADS_H
 #include "Interop.h"
 
-/* 
- *	USE_PTHREADS_FOR_WINDOWS
- *	Enable this flag to replace windows threads with posix threads
+/*
+*	USE_PTHREADS_FOR_WINDOWS
+*	Enable this flag to replace windows threads with posix threads
 */
 //#define USE_PTHREADS_FOR_WINDOWS
 
@@ -101,14 +101,19 @@
 
 
 /**
- *	Declarations inside of namespace environs
- *	- Include files
- */
+*	Declarations inside of namespace environs
+*	- Include files
+*/
+/** Place declarations to global namespace for plain C */
+#ifdef __cplusplus
+
 namespace environs
 {
+#endif
 
+    
 	extern bool InitInteropThread ();
-    extern void DisposeInteropThread ();
+	extern void DisposeInteropThread ();
 
 #ifdef _WIN32  // _WIN32
 	/*
@@ -118,7 +123,7 @@ namespace environs
 #ifdef USE_PTHREADS_FOR_WINDOWS
 #define pthread_reset(thread)			memset(&thread,0,sizeof(pthread_t))
 #define pthread_close(threadID)			
-//#define pthread_mutex_valid(m)			true	
+	//#define pthread_mutex_valid(m)			true	
 #define pthread_wait_fail(val)			(val != 0)
 #else
 
@@ -181,7 +186,7 @@ namespace environs
 #endif
 
 #define pthread_cond_mutex_init(e,d)	false
-//#define pthread_cond_mutex_valid(m)		false	
+	//#define pthread_cond_mutex_valid(m)		false	
 
 #define pthread_cond_mutex_destroy(m)	false
 
@@ -199,7 +204,7 @@ namespace environs
 	* Semaphore
 	*/
 #define sem_tp							HANDLE
-//#define sem_fail(exp)					((exp) == 0)
+	//#define sem_fail(exp)					((exp) == 0)
 #define env_sem_post(sem)				ReleaseSemaphore ( sem, 1, 0 )
 #define env_sem_posts(sem)				env_sem_post ( sem )
 #ifdef WINDOWS_PHONE
@@ -207,7 +212,7 @@ namespace environs
 #else
 #define env_sem_wait(sem)				(WaitForSingleObject ( sem, INFINITE ) == WAIT_OBJECT_0)
 #endif
-//#define sem_trywait(sem)				(WaitForSingleObject ( sem, 0 ) == WAIT_OBJECT_0)
+	//#define sem_trywait(sem)				(WaitForSingleObject ( sem, 0 ) == WAIT_OBJECT_0)
 
 #define env_sem_dispose(sem)			CloseHandle ( sem )
 
@@ -220,22 +225,22 @@ namespace environs
 	*/
 
 #define pthread_mutex_t					CRITICAL_SECTION
-//#define pthread_mutex_valid(m)			true	
+	//#define pthread_mutex_valid(m)			true	
 
 #ifdef WINDOWS_PHONE
-	#define pthread_mutex_init(m,d)			
+#define pthread_mutex_init(m,d)			
 #else
 	extern INCLINEFUNC bool pthread_mutex_init ( CRITICAL_SECTION  * critSEc, void * arg );
 	//#define pthread_mutex_init(m,d)			InitializeCriticalSection(m)
 #endif
 
 	extern INCLINEFUNC bool pthread_mutex_destroy ( CRITICAL_SECTION  * critSEc );
-//#define pthread_mutex_destroy(m)		DeleteCriticalSection(m))
+	//#define pthread_mutex_destroy(m)		DeleteCriticalSection(m))
 
 #ifdef WINDOWS_PHONE
-	#define pthread_cond_wait(e,m)			LeaveCriticalSection(m); WaitForSingleObjectEx ( *e, INFINITE, TRUE ); EnterCriticalSection (m);
+#define pthread_cond_wait(e,m)			LeaveCriticalSection(m); WaitForSingleObjectEx ( *e, INFINITE, TRUE ); EnterCriticalSection (m);
 #else
-	#define pthread_cond_wait(e,m)			LeaveCriticalSection(m); WaitForSingleObject ( *e, INFINITE ); EnterCriticalSection (m);
+#define pthread_cond_wait(e,m)			LeaveCriticalSection(m); WaitForSingleObject ( *e, INFINITE ); EnterCriticalSection (m);
 #endif
 
 	extern INCLINEFUNC int pthread_mutex_lock ( pthread_mutex_t * lock );
@@ -269,11 +274,11 @@ namespace environs
 #define pthread_csec_trylock(m)         TryEnterCriticalSection (m)
 #define pthread_csec_unlock(m)          LeaveCriticalSection(m)
 
-    
+
 #endif // USE_PTHREADS_FOR_WINDOWS
 
 #else 	 // _WIN32 - Section for __APPLE__, ANDROID, _GNUC_
-    extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
+	extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
 	extern INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
 
 	/*
@@ -326,11 +331,11 @@ namespace environs
 #define pthread_csec_trylock(m)         !pthread_mutex_trylock (m)
 #define pthread_csec_unlock(m)          pthread_mutex_unlock(m)
 
-/*
-* Semaphore
-*/
+	/*
+	* Semaphore
+	*/
 
-//#define sem_fail(exp)					((exp) == -1)
+	//#define sem_fail(exp)					((exp) == -1)
 
 #ifdef __APPLE__
 #define sem_tp							sem_t *
@@ -346,24 +351,54 @@ namespace environs
 #define env_sem_wait(sem)				(sem_wait ( &(sem) ) != -1)
 #define env_sem_dispose(sem)			(sem_destroy ( &(sem) ) != -1)
 #endif
-    
-    
+
+
 #endif	 // _WIN32
-	
-/*
-* pthread Extensions for Environs.
-*/
-extern INCLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t &lock );
-extern INCLINEFUNC bool pthread_is_self_thread ( pthread_t thread );
-extern INCLINEFUNC bool pthread_valid ( pthread_t thread );        
-	
-/*
-* POSIX Semaphore extensions for Environs.
-*/
-extern bool env_sem_create ( sem_tp * sem, int iniVal, const char * name, unsigned int name1, int name2, int name3 );
+
+#ifdef __cplusplus
+	/*
+	* pthread Extensions for Environs.
+	*/
+	extern INCLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t &lock );
+	extern INCLINEFUNC bool pthread_is_self_thread ( pthread_t thread );
+	extern INCLINEFUNC bool pthread_valid ( pthread_t thread );
+
+	/*
+	* POSIX Semaphore extensions for Environs.
+	*/
+	extern bool env_sem_create ( sem_tp * sem, int iniVal, const char * name, unsigned int name1, int name2, int name3 );
 
 
-extern void DisposeThread ( pthread_t &threadID, const char * threadName );
+	extern void DisposeThread ( pthread_t &threadID, const char * threadName );
+#endif
+    
+#define MutexInit(m)		MutexInitBool(m,#m)
+	extern bool MutexInitBool ( pthread_mutex_t * mtx, const char * name );
+
+#define MutexDispose(m)		MutexDisposeBool(m,#m)
+	extern bool MutexDisposeBool ( pthread_mutex_t * mtx, const char * name );
+
+#define MutexLockV(m,f)		MutexLockVoid(m,#m,CLASS_NAME,f)
+	extern void MutexLockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
+
+#define MutexUnlockV(m,f)		MutexUnlockVoid(m,#m,CLASS_NAME,f)
+	extern void MutexUnlockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
+
+#define MutexLock(m,f)		MutexLockBool(m,#m,CLASS_NAME,f)
+	extern bool MutexLockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
+
+#define MutexUnlock(m,f)		MutexUnlockBool(m,#m,CLASS_NAME,f)
+	extern bool MutexUnlockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
+    
+    
+#define CondInit(m)		CondInitBool(m,#m)
+    extern bool CondInitBool ( pthread_cond_t * mtx, const char * name );
+    
+#define CondDispose(m)		CondDisposeBool(m,#m)
+    extern bool CondDisposeBool ( pthread_cond_t * mtx, const char * name );
+
+    
+#ifdef __cplusplus
 }
-
+#endif
 #endif // INCLUDE_HCM_ENVIRONS_INTEROP_H

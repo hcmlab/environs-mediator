@@ -86,6 +86,7 @@ extern "C"
 	#define	MODULE_EXPORT_CREATE	"CreateInstance"
 	typedef void * ( *pCreateInstance )( int index, int deviceID );
 
+#ifndef ENVIRONS_CORE_LIB
 	LIBEXPORT void *	CallConv	CreateInstance ( int index, int deviceID );
 
 #define BUILD_INT_CREATEOBJ(objType)	\
@@ -102,6 +103,7 @@ extern "C"
 		} \
 		return 0; \
     }
+#endif
     
     
     /**

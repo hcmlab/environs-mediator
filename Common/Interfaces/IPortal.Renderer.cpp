@@ -18,6 +18,13 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
+
+/// Compiler flag that enables verbose debug output
+#ifndef NDEBUG
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
+#endif
+
 #include "Interfaces/IPortal.Renderer.h"
 
 // The TAG for prepending in log messages

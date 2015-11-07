@@ -21,37 +21,48 @@
 #ifndef INCLUDE_HCM_ENVIRONS_NATIVE_PLATFORMS_H
 #define INCLUDE_HCM_ENVIRONS_NATIVE_PLATFORMS_H
 
+#ifdef _WIN32
+#   if defined(ENVIRONS_CORE_LIB)
+#       define ENVIRONS_LIB_API   __declspec(dllexport)
+#   else
+#       define ENVIRONS_LIB_API   __declspec(dllimport)
+#   endif
+#else
+#   define ENVIRONS_LIB_API
+#endif
+
+
 
 /**
  * Platform detectors
  */
 #ifndef ENVIRONS_IOS
 
-    #if ( defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE == 1 )
+#   ifdef _WIN32
+#       include "WinDef.h"
+#   else
+#       define APIENTRY
+#   endif
 
-        #ifndef ENVIRONS_IOS
-        #define ENVIRONS_IOS
-        #endif
-
-    #else
-
-        #if ( defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR == 1 )
-
-            #ifndef ENVIRONS_IOS
-            #define ENVIRONS_IOS
-            #endif
-
-        #else
-
-            #if ( defined(TARGET_OS_MAC) && TARGET_OS_MAC == 1 )
-                #if  ( !defined(ENVIRONS_OSX) && !defined(LINUX) )
-                #define ENVIRONS_OSX
-                #endif
-            #endif
-
-        #endif
-    #endif
-
+#   ifndef LINUX
+#       if ( defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE == 1 )
+#           ifndef ENVIRONS_IOS
+#               define ENVIRONS_IOS
+#           endif
+#       else
+#           if ( defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR == 1 )
+#               ifndef ENVIRONS_IOS
+#                   define ENVIRONS_IOS
+#               endif
+#           else
+#               if ( defined(TARGET_OS_MAC) && TARGET_OS_MAC == 1 )
+#                   if  ( !defined(ENVIRONS_OSX) && !defined(LINUX) )
+#                       define ENVIRONS_OSX
+#                   endif
+#               endif
+#           endif
+#       endif
+#   endif
 #endif
 
 

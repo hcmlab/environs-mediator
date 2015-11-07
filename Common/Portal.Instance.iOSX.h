@@ -21,11 +21,16 @@
 #ifndef INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_IOSX_H
 #define INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_IOSX_H
 
-#import "Portal.Info.h"
+#import "Environs.iOSX.Imp.h"
+
+#import "Environs.Observer.iOSX.h"
+
+#ifdef __cplusplus
+
+#include "Portal.Info.h"
 #include "Environs.Types.h"
 
-#import "Environs.Observer.h"
-using namespace environs;
+#endif
 
 
 /**
@@ -57,7 +62,6 @@ using namespace environs;
 
 /** A DeviceInstance object that this portal relates to. */
 @property (readonly, nonatomic) id                      device;
-@property (readonly, nonatomic) PortalInfo *            info;
 
 @property (readonly, nonatomic) int                     status;
 @property (readonly, nonatomic) bool                    disposeOngoing;
@@ -70,13 +74,22 @@ using namespace environs;
 @property (readonly, nonatomic) bool                    isIncoming;
 @property (readonly, nonatomic) bool                    isOutgoing;
 
-@property (nonatomic) PortalType::PortalType  portalType;
-
 /** Application defined contexts for arbitrary use. */
 @property (nonatomic) id							appContext1;
 @property (nonatomic) id							appContext2;
 @property (nonatomic) id							appContext3;
 @property (nonatomic) id							appContext4;
+
+// Exclude cpp related code from objective c headers
+#ifdef __cplusplus
+
+@property (readonly, nonatomic) environs::PortalInfo *  info;
+@property (nonatomic) environs::PortalType_t  portalType;
+
+- (environs::PortalInfoBase *) GetPortalInfo:(int)portalID;
+- (bool) SetPortalInfo:(environs::PortalInfoBase *)infoBase;
+
+#endif
 
 
 - (void) AddObserver:(id<PortalObserver>) observer;
@@ -91,10 +104,7 @@ using namespace environs;
 - (bool) SetRenderSurface:(id)surface Width:(int)width Height:(int)height;
 - (bool) ReleaseRenderSurface;
 
-+ (PortalInfoBase *) GetPortalInfo:(int)portalID;
-+ (bool) SetPortalInfo:(PortalInfoBase *)infoBase;
-
-+ (PortalInstance *) GetPortal:(int)nativeID  PortalID:(int)portalID;
+- (PortalInstance *) GetPortal:(int)nativeID  PortalID:(int)portalID;
 
 @end
 

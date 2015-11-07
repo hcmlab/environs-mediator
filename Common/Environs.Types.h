@@ -30,7 +30,10 @@
 #ifndef INCLUDE_HCM_ENVIRONS_TYPES
 #define INCLUDE_HCM_ENVIRONS_TYPES
 
+#ifdef __cplusplus
 namespace environs {
+#endif
+
 
 	extern const char * resolveName ( int constToResolve );
 
@@ -60,29 +63,47 @@ namespace environs {
 /** 
  * Environs Status enumeration. Represents the same values as for NATIVE_STATUS_* 
  * */
-	namespace Status {
-		enum Status {
+	typedef enum Status_t {
 			/** Uninitialized. Usually after creation of an Environs object. */
-			Uninitialized       	=	STATUS_UNINITIALIZED,
+			Status_Uninitialized       	=	STATUS_UNINITIALIZED,
 			/** Environs is about to be disposed. */
-			Disposing           	=	STATUS_DISPOSING,
+			Status_Disposing           	=	STATUS_DISPOSING,
 			/** Environs is initializing. */
-			Initializing        	=	STATUS_INITIALIZING,
+			Status_Initializing        	=	STATUS_INITIALIZING,
 			/** Environs is initialized. Usually after a call to Environs.Init() */
-			Initialized         	=	STATUS_INITIALIZED,
+			Status_Initialized         	=	STATUS_INITIALIZED,
 			/** Environs is stopped. Usually after a call to Environs.Stop() */
-			Stopped             	=	STATUS_STOPPED,
+			Status_Stopped             	=	STATUS_STOPPED,
 			/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
-			Stopping            	=	STATUS_STOPPING,
+			Status_Stopping            	=	STATUS_STOPPING,
 			/** Environs is about to Start. Thread are being started and resources are being allocated. */
-			Starting            	=	STATUS_STARTING,
+			Status_Starting            	=	STATUS_STARTING,
 			/** Environs is started. Usually after a call to Environs.Start() */
-			Started             	=	STATUS_STARTED,
+			Status_Started             	=	STATUS_STARTED,
 			/** Environs is in connected state and connected to at least one device. */
-			Connected           	=	STATUS_CONNECTED,
-		};
-	};
+			Status_Connected           	=	STATUS_CONNECTED,
+		} Status_t;
 
+#ifdef __cplusplus
+	namespace Status {
+			const Status_t Uninitialized       	=	Status_Uninitialized       ;
+			const Status_t Disposing           	=	Status_Disposing           ;
+			const Status_t Initializing        	=	Status_Initializing        ;
+			const Status_t Initialized         	=	Status_Initialized         ;
+			const Status_t Stopped             	=	Status_Stopped             ;
+			const Status_t Stopping            	=	Status_Stopping            ;
+			const Status_t Starting            	=	Status_Starting            ;
+			const Status_t Started             	=	Status_Started             ;
+			const Status_t Connected           	=	Status_Connected           ;
+	};
+#endif
+
+
+
+/**
+ * Max supported instances of Environs objects that each application can run at the same time.
+ * */
+#define	ENVIRONS_MAX_ENVIRONS_INSTANCES                   		(10)
 
 
 /** Deleteable. Device object has been disabled.&nbsp; 
@@ -99,20 +120,27 @@ namespace environs {
 /** 
  * Device Connect Status enumeration. Represents the same values as for DEVICE_STATUS_* 
  * */
-	namespace DeviceStatus {
-		enum DeviceStatus {
+	typedef enum DeviceStatus_t {
 		/** Deleteable. Device object has been disabled.&nbsp; 
 		 * "Garbage Collection" should dispose and delete the object on the next occasion. 
 		 * */
-			Deleteable          	=	DEVICE_STATUS_DELETEABLE,
+			DeviceStatus_Deleteable          	=	DEVICE_STATUS_DELETEABLE,
 			/** Device object has just been created. */
-			Created             	=	DEVICE_STATUS_CREATED,
+			DeviceStatus_Created             	=	DEVICE_STATUS_CREATED,
 			/** Connect in progress. Device object has been created and the connecting task is in progress. */
-			ConnectInProgress   	=	DEVICE_STATUS_CONNECT_IN_PROGRESS,
+			DeviceStatus_ConnectInProgress   	=	DEVICE_STATUS_CONNECT_IN_PROGRESS,
 			/** Connected. Device object is connected to the destination device and active. */
-			Connected           	=	DEVICE_STATUS_CONNECTED,
-		};
+			DeviceStatus_Connected           	=	DEVICE_STATUS_CONNECTED,
+		} DeviceStatus_t;
+
+#ifdef __cplusplus
+	namespace DeviceStatus {
+			const DeviceStatus_t Deleteable          	=	DeviceStatus_Deleteable          ;
+			const DeviceStatus_t Created             	=	DeviceStatus_Created             ;
+			const DeviceStatus_t ConnectInProgress   	=	DeviceStatus_ConnectInProgress   ;
+			const DeviceStatus_t Connected           	=	DeviceStatus_Connected           ;
 	};
+#endif
 
 
 	
@@ -132,23 +160,31 @@ namespace environs {
  * Environs source values which determines the source of an event, data, or message.&nbsp;
  * Represents the same values as for ENVIRONS_SOURCE_* 
  * */
-	namespace Source {
-		enum Source {
+	typedef enum Source_t {
 			/** Sent by native layer. */
-			Native              	=	SOURCE_NATIVE,
+			Source_Native              	=	SOURCE_NATIVE,
 			/** Sent by platform specific layer. */
-			Platform            	=	SOURCE_PLATFORM,
+			Source_Platform            	=	SOURCE_PLATFORM,
 			/** Sent by another device within the environment.  */
-			Device              	=	SOURCE_DEVICE,
+			Source_Device              	=	SOURCE_DEVICE,
 			/** Sent by the app layer. */
-			Application         	=	SOURCE_APPLICATION,
-		};
+			Source_Application         	=	SOURCE_APPLICATION,
+		} Source_t;
+
+#ifdef __cplusplus
+	namespace Source {
+			const Source_t Native              	=	Source_Native              ;
+			const Source_t Platform            	=	Source_Platform            ;
+			const Source_t Device              	=	Source_Device              ;
+			const Source_t Application         	=	Source_Application         ;
 	};
+#endif
 
 
 
 
 #define	ENVIRONS_OBJECT_DISPOSED                          		(-1)
+#define	ENVIRONS_OBJECT_DISPOSED_PLATFORM                 		(-2)
 
 /*
  * Native payload type class is determined by the upper byte of payload
@@ -255,20 +291,27 @@ namespace environs {
 /** 
  * Portal Source Status enumeration.
  * */
-	namespace PortalStatus {
-		enum PortalStatus {
+	typedef enum PortalStatus_t {
 		/** Deleteable. The portal object has been disabled.&nbsp; 
 		 * "Garbage Collection" should dispose and delete the object on the next occasion. 
 		 * */
-			Deleteable          	=	0,
+			PortalStatus_Deleteable          	=	0,
 			/** The portal has just been created. */
-			Created             	=	1,
+			PortalStatus_Created             	=	1,
 			/** Initialized. The portal is initialized, that is the resources (threads, plugins, the pipeline) has been established or are ready to use */
-			Initialized         	=	2,
+			PortalStatus_Initialized         	=	2,
 			/** Active. The portal is initialized and actively streaming. */
-			Active              	=	3,
-		};
+			PortalStatus_Active              	=	3,
+		} PortalStatus_t;
+
+#ifdef __cplusplus
+	namespace PortalStatus {
+			const PortalStatus_t Deleteable          	=	PortalStatus_Deleteable          ;
+			const PortalStatus_t Created             	=	PortalStatus_Created             ;
+			const PortalStatus_t Initialized         	=	PortalStatus_Initialized         ;
+			const PortalStatus_t Active              	=	PortalStatus_Active              ;
 	};
+#endif
 
 
 
@@ -299,19 +342,26 @@ namespace environs {
 /** 
  * Portal types enumeration. Represents the same values as for PORTAL_TYPE_* 
  * */
-	namespace PortalType {
-		enum PortalType {
+	typedef enum PortalType_t {
 		/** Any type. The requested portal can be of any type. Which one depends on the application logic.
 		 * */
-			Any                 	=	PORTAL_TYPE_ANY,
+			PortalType_Any                 	=	PORTAL_TYPE_ANY,
 			/** The devices screen. */
-			Screen              	=	PORTAL_TYPE_SCREEN,
+			PortalType_Screen              	=	PORTAL_TYPE_SCREEN,
 			/** The back facing camera. */
-			BackCam             	=	PORTAL_TYPE_BACK_CAM,
+			PortalType_BackCam             	=	PORTAL_TYPE_BACK_CAM,
 			/** The front facing camera. */
-			FrontCam            	=	PORTAL_TYPE_FRONT_CAM,
-		};
+			PortalType_FrontCam            	=	PORTAL_TYPE_FRONT_CAM,
+		} PortalType_t;
+
+#ifdef __cplusplus
+	namespace PortalType {
+			const PortalType_t Any                 	=	PortalType_Any                 ;
+			const PortalType_t Screen              	=	PortalType_Screen              ;
+			const PortalType_t BackCam             	=	PortalType_BackCam             ;
+			const PortalType_t FrontCam            	=	PortalType_FrontCam            ;
 	};
+#endif
 
 
 
@@ -335,21 +385,30 @@ namespace environs {
 /** 
  * Portal stream type enumeration. Represents the same values as for STREAMTYPE_*
  * */
-	namespace PortalStreamType {
-		enum PortalStreamType {
-			Unknown             	=	STREAMTYPE_UNKNOWN,
+	typedef enum PortalStreamType_t {
+			PortalStreamType_Unknown             	=	STREAMTYPE_UNKNOWN,
 			/** Sequence of jpeg images. 	*/
-			Images              	=	STREAMTYPE_IMAGES,
+			PortalStreamType_Images              	=	STREAMTYPE_IMAGES,
 			/** Sequence of jpeg images. 	*/
-			ImagesJPEG          	=	STREAMTYPE_IMAGES_JPEG,
+			PortalStreamType_ImagesJPEG          	=	STREAMTYPE_IMAGES_JPEG,
 			/** Sequence of png images. 	*/
-			ImagesPNG           	=	STREAMTYPE_IMAGES_PNG,
+			PortalStreamType_ImagesPNG           	=	STREAMTYPE_IMAGES_PNG,
 			/** Video stream. 						*/
-			Video               	=	STREAMTYPE_VIDEO,
+			PortalStreamType_Video               	=	STREAMTYPE_VIDEO,
 			/** Video stream H264. 						*/
-			VideoH264           	=	STREAMTYPE_VIDEO_H264,
-		};
+			PortalStreamType_VideoH264           	=	STREAMTYPE_VIDEO_H264,
+		} PortalStreamType_t;
+
+#ifdef __cplusplus
+	namespace PortalStreamType {
+			const PortalStreamType_t Unknown             	=	PortalStreamType_Unknown             ;
+			const PortalStreamType_t Images              	=	PortalStreamType_Images              ;
+			const PortalStreamType_t ImagesJPEG          	=	PortalStreamType_ImagesJPEG          ;
+			const PortalStreamType_t ImagesPNG           	=	PortalStreamType_ImagesPNG           ;
+			const PortalStreamType_t Video               	=	PortalStreamType_Video               ;
+			const PortalStreamType_t VideoH264           	=	PortalStreamType_VideoH264           ;
 	};
+#endif
 
 
 
@@ -631,12 +690,24 @@ namespace environs {
 #define	MEDIATOR_BROADCAST_PORTS_START                    		(20)
 #define	MEDIATOR_BROADCAST_PLATFORM_START                 		(24)
 #define	MEDIATOR_BROADCAST_DESC_START                     		(28)
+
+/**
+ * Environs mediator broadcast message constants
+ */
+#define	TYPES_SEPERATOR_1_ENVIRONS                        		(28)
 #define	MEDIATOR_BROADCAST_SPARE_ID_LEN                   		(28)
 
 /**
  * Environs DeviceInstance struct Start bytes
  */
 #define	MAX_NAMEPROPERTY                                  		(30)
+/** Ignore: for Resolver */
+#define	MAX_LENGTH_AREA_NAME                              		(MAX_NAMEPROPERTY + 1)
+/** Ignore: for Resolver */
+#define	MAX_LENGTH_APP_NAME                               		(MAX_NAMEPROPERTY + 1)
+/** Ignore: for Resolver */
+#define	MAX_LENGTH_DEVICE_NAME                            		(MAX_NAMEPROPERTY + 1)
+
 #define	DEVICEINFO_DEVICEID_START                         		(0)
 #define	DEVICEINFO_NATIVE_ID_START                        		(4)
 #define	DEVICEINFO_IP_START                               		(DEVICEINFO_NATIVE_ID_START + 4)
@@ -759,109 +830,155 @@ namespace environs {
 /** 
  * Extension plugin interface type enumeration.
  * */
-	namespace InterfaceType {
-		enum InterfaceType {
-			Unknown             	=	0,
+	typedef enum InterfaceType_t {
+			InterfaceType_Unknown             	=	0,
 			/** A Capture plugin grabs images from a capture source and provides the image buffer to the pipeline. */
-			Capture             	=	1,
+			InterfaceType_Capture             	=	1,
 			/** A Render plugin renders a capture image (compare, rotate, scale, etc.). */
-			Render              	=	2,
+			InterfaceType_Render              	=	2,
 			/** An Encoder encodes the rendered image to a target format / stream. */
-			Encoder             	=	3,
+			InterfaceType_Encoder             	=	3,
 			/** A Decoder decodes stream packets to images */
-			Decoder             	=	4,
+			InterfaceType_Decoder             	=	4,
 			/** A Tracker that analyzes raw images for objects, touches, etc. */
-			Tracker             	=	5,
+			InterfaceType_Tracker             	=	5,
 			/** A InputRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
-			InputRecognizer     	=	10,
+			InterfaceType_InputRecognizer     	=	10,
 			/** A TouchRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
-			OrientationRecognizer          	=	11,
-		};
+			InterfaceType_OrientationRecognizer          	=	11,
+		} InterfaceType_t;
+
+#ifdef __cplusplus
+	namespace InterfaceType {
+			const InterfaceType_t Unknown             	=	InterfaceType_Unknown             ;
+			const InterfaceType_t Capture             	=	InterfaceType_Capture             ;
+			const InterfaceType_t Render              	=	InterfaceType_Render              ;
+			const InterfaceType_t Encoder             	=	InterfaceType_Encoder             ;
+			const InterfaceType_t Decoder             	=	InterfaceType_Decoder             ;
+			const InterfaceType_t Tracker             	=	InterfaceType_Tracker             ;
+			const InterfaceType_t InputRecognizer     	=	InterfaceType_InputRecognizer     ;
+			const InterfaceType_t OrientationRecognizer          	=	InterfaceType_OrientationRecognizer          ;
 	};
+#endif
 
 
 
 /** 
  * Capture subtype enumeration.
  * */
-	namespace CaptureType {
-		enum CaptureType {
-			Unknown             	=	0,
+	typedef enum CaptureType_t {
+			CaptureType_Unknown             	=	0,
 		/** A screen such as the dekstop window, 
 		 *  where the device may cover only part of the display.
 		 *  The screen size must not be changed as long as the grabber class is used by at least one instance. */
-			Screen              	=	1,
+			CaptureType_Screen              	=	1,
 			/** An application window, where each device may have a different app window and may cover only part of the window. */
-			AppWindow           	=	2,
+			CaptureType_AppWindow           	=	2,
 			/** Camera */
-			Camera              	=	6,
-		};
+			CaptureType_Camera              	=	6,
+		} CaptureType_t;
+
+#ifdef __cplusplus
+	namespace CaptureType {
+			const CaptureType_t Unknown             	=	CaptureType_Unknown             ;
+			const CaptureType_t Screen              	=	CaptureType_Screen              ;
+			const CaptureType_t AppWindow           	=	CaptureType_AppWindow           ;
+			const CaptureType_t Camera              	=	CaptureType_Camera              ;
 	};
+#endif
 
 
 
 /** 
  * Capture plugin data buffer type enumeration.
  * */
-	namespace CaptureBufferType {
-		enum CaptureBufferType {
-			Unknown             	=	0,
+	typedef enum CaptureBufferType_t {
+			CaptureBufferType_Unknown             	=	0,
 			/** The data is stored as pixel data usually in rgba order. */
-			PixelBuffer         	=	1,
+			CaptureBufferType_PixelBuffer         	=	1,
 			/** The data follows either D3D or OpenGL texture format. */
-			Texture3D           	=	10,
+			CaptureBufferType_Texture3D           	=	10,
 			/** The data follows either D3D or OpenGL buffer format. */
-			PixelBuffer3D       	=	11,
-		};
+			CaptureBufferType_PixelBuffer3D       	=	11,
+		} CaptureBufferType_t;
+
+#ifdef __cplusplus
+	namespace CaptureBufferType {
+			const CaptureBufferType_t Unknown             	=	CaptureBufferType_Unknown             ;
+			const CaptureBufferType_t PixelBuffer         	=	CaptureBufferType_PixelBuffer         ;
+			const CaptureBufferType_t Texture3D           	=	CaptureBufferType_Texture3D           ;
+			const CaptureBufferType_t PixelBuffer3D       	=	CaptureBufferType_PixelBuffer3D       ;
 	};
+#endif
 
 
 
 /** 
  * Portal stage buffer data type enumeration.
  * */
-	namespace PortalBufferType {
-		enum PortalBufferType {
-			Unknown             	=	0,
+	typedef enum PortalBufferType_t {
+			PortalBufferType_Unknown             	=	0,
 			/** Windows ARGB. */
-			ARGB                	=	0x1,
+			PortalBufferType_ARGB                	=	0x1,
 			/** Windows ARGB and the associated HBITMAP handle. */
-			ARGBHandle          	=	0x2,
+			PortalBufferType_ARGBHandle          	=	0x2,
 			/** iOS ARGB. */
-			BGRA                	=	0x3,
+			PortalBufferType_BGRA                	=	0x3,
 			/** RGB 24bit. */
-			RGB                 	=	0x4,
+			PortalBufferType_RGB                 	=	0x4,
 			/** I420. */
-			YUV420              	=	0x10,
+			PortalBufferType_YUV420              	=	0x10,
 			/** YV12. */
-			YV12                	=	0x12,
+			PortalBufferType_YV12                	=	0x12,
 			/** YUY2. */
-			YUY2                	=	0x14,
+			PortalBufferType_YUY2                	=	0x14,
 			/** GDIBitmap. */
-			GDIBitmap           	=	0x100,
+			PortalBufferType_GDIBitmap           	=	0x100,
 			/** The data follows either D3D or OpenGL texture format. */
-			Texture3D           	=	0x1000,
+			PortalBufferType_Texture3D           	=	0x1000,
 			/** The data follows either D3D or OpenGL buffer format. */
-			PixelBuffer3D       	=	0x2000,
+			PortalBufferType_PixelBuffer3D       	=	0x2000,
 			/** CVPixelBufferRef of apple platforms. */
-			CVPixelBufferIOSX   	=	0x3000,
-		};
+			PortalBufferType_CVPixelBufferIOSX   	=	0x3000,
+		} PortalBufferType_t;
+
+#ifdef __cplusplus
+	namespace PortalBufferType {
+			const PortalBufferType_t Unknown             	=	PortalBufferType_Unknown             ;
+			const PortalBufferType_t ARGB                	=	PortalBufferType_ARGB                ;
+			const PortalBufferType_t ARGBHandle          	=	PortalBufferType_ARGBHandle          ;
+			const PortalBufferType_t BGRA                	=	PortalBufferType_BGRA                ;
+			const PortalBufferType_t RGB                 	=	PortalBufferType_RGB                 ;
+			const PortalBufferType_t YUV420              	=	PortalBufferType_YUV420              ;
+			const PortalBufferType_t YV12                	=	PortalBufferType_YV12                ;
+			const PortalBufferType_t YUY2                	=	PortalBufferType_YUY2                ;
+			const PortalBufferType_t GDIBitmap           	=	PortalBufferType_GDIBitmap           ;
+			const PortalBufferType_t Texture3D           	=	PortalBufferType_Texture3D           ;
+			const PortalBufferType_t PixelBuffer3D       	=	PortalBufferType_PixelBuffer3D       ;
+			const PortalBufferType_t CVPixelBufferIOSX   	=	PortalBufferType_CVPixelBufferIOSX   ;
 	};
+#endif
 
 
 
 /** 
  * Encoder buffer data type enumeration.
  * */
-	namespace EncoderBufferType {
-		enum EncoderBufferType {
-			Unknown             	=	0,
+	typedef enum EncoderBufferType_t {
+			EncoderBufferType_Unknown             	=	0,
 			/** Windows ARGB. */
-			ARGB                	=	1,
+			EncoderBufferType_ARGB                	=	1,
 			/** I420. */
-			YUV420              	=	10,
-		};
+			EncoderBufferType_YUV420              	=	10,
+		} EncoderBufferType_t;
+
+#ifdef __cplusplus
+	namespace EncoderBufferType {
+			const EncoderBufferType_t Unknown             	=	EncoderBufferType_Unknown             ;
+			const EncoderBufferType_t ARGB                	=	EncoderBufferType_ARGB                ;
+			const EncoderBufferType_t YUV420              	=	EncoderBufferType_YUV420              ;
 	};
+#endif
 
 
 
@@ -894,7 +1011,7 @@ namespace environs {
 #define	DEVICE_INFO_ATTR_IDENTITY                         		(0x20)
 
 #define	DEVICE_INFO_ATTR_DEVICE_PLATFORM                  		(0x40)
-#define	DEVICE_INFO_ATTR_DEVICE_TYPE                      		(0x40)
+#define	DEVICE_INFO_ATTR_DEVICE_TYPE                      		(0x41)
 #define	DEVICE_INFO_ATTR_NATIVEID                         		(0x80)
 #define	DEVICE_INFO_ATTR_IP                               		(0x100)
 #define	DEVICE_INFO_ATTR_IPE                              		(0x200)
@@ -907,8 +1024,11 @@ namespace environs {
 
 #define	DEVICE_INFO_ATTR_PORTAL_CREATED                   		(0x10000)
 
-#define	FILE_INFO_ATTR_SEND_PROGRESS                      		(0x20000)
-#define	FILE_INFO_ATTR_RECEIVE_PROGRESS                   		(0x40000)
+#define	FILE_INFO_ATTR_CREATED                            		(0x20000)
+#define	FILE_INFO_ATTR_SEND_PROGRESS                      		(0x40000)
+#define	FILE_INFO_ATTR_RECEIVE_PROGRESS                   		(0x80000)
+
+#define	MESSAGE_INFO_ATTR_CREATED                         		(0x200000)
 
 #define	APP_STATUS_ACTIVE                                 		(0)
 #define	APP_STATUS_SLEEPING                               		(1)
@@ -919,63 +1039,99 @@ namespace environs {
 /**
  * Environs detectable platforms.
  * */
-	namespace Platforms {
-		enum Platforms {
-			Unknown             	=	0,
+	typedef enum Platforms_t {
+			Platforms_Unknown             	=	0,
 			/** MS Surface Tabletops */
-			MSSurface_Flag      	=	0x1000,
+			Platforms_MSSurface_Flag      	=	0x1000,
 			/** Samsung SUR40 */
-			MSSUR01             	=	0x1001,
+			Platforms_MSSUR01             	=	0x1001,
 			/** Samsung SUR40 */
-			SAMSUR40            	=	0x1002,
+			Platforms_SAMSUR40            	=	0x1002,
 
 			/** iPad */
-			iPad_Flag           	=	0x2000,
-			iPad1               	=	0x2011,
-			iPad2               	=	0x2021,
-			iPad2Mini           	=	0x2022,
-			iPad3               	=	0x2031,
-			iPad4               	=	0x2041,
-			iPad4Air            	=	0x2042,
-			iPad4Mini           	=	0x2043,
-			iPad4Mini3          	=	0x2044,
-			iPad5Air2           	=	0x2051,
+			Platforms_iPad_Flag           	=	0x2000,
+			Platforms_iPad1               	=	0x2011,
+			Platforms_iPad2               	=	0x2021,
+			Platforms_iPad2Mini           	=	0x2022,
+			Platforms_iPad3               	=	0x2031,
+			Platforms_iPad4               	=	0x2041,
+			Platforms_iPad4Air            	=	0x2042,
+			Platforms_iPad4Mini           	=	0x2043,
+			Platforms_iPad4Mini3          	=	0x2044,
+			Platforms_iPad5Air2           	=	0x2051,
 
 			/** iPhones */
-			iPhone_Flag         	=	0x4000,
-			iPhone4             	=	0x4041,
-			iPhone5             	=	0x4051,
-			iPhone6             	=	0x4061,
-			iPhone6p            	=	0x4062,
+			Platforms_iPhone_Flag         	=	0x4000,
+			Platforms_iPhone4             	=	0x4041,
+			Platforms_iPhone5             	=	0x4051,
+			Platforms_iPhone6             	=	0x4061,
+			Platforms_iPhone6p            	=	0x4062,
 
 			/** MultiTaction Cells */
-			MultiTaction_Flag   	=	0x8000,
+			Platforms_MultiTaction_Flag   	=	0x8000,
 			/** MultiTaction Cell 55. */
-			MultiTaction55      	=	0x8055,
+			Platforms_MultiTaction55      	=	0x8055,
 
-			OSX_Flag            	=	0x10000,
-			MacBook_Flag        	=	0x10010,
-			MacMini_Flag        	=	0x10020,
+			Platforms_OSX_Flag            	=	0x10000,
+			Platforms_MacBook_Flag        	=	0x10010,
+			Platforms_MacMini_Flag        	=	0x10020,
 
-			Windows_Flag        	=	0x20000,
-			WindowsVista        	=	0x20050,
-			WindowsXP           	=	0x20060,
-			Windows7            	=	0x20070,
-			Windows8            	=	0x20080,
+			Platforms_Windows_Flag        	=	0x20000,
+			Platforms_WindowsVista        	=	0x20050,
+			Platforms_WindowsXP           	=	0x20060,
+			Platforms_Windows7            	=	0x20070,
+			Platforms_Windows8            	=	0x20080,
 
-			Tablet_Flag         	=	0x100000,
-			Smartphone_Flag     	=	0x200000,
-			Tabletop_Flag       	=	0x400000,
-			Display_Flag        	=	0x800000,
-
-
+			Platforms_Tablet_Flag         	=	0x100000,
+			Platforms_Smartphone_Flag     	=	0x200000,
+			Platforms_Tabletop_Flag       	=	0x400000,
+			Platforms_Display_Flag        	=	0x800000,
 
 
 
 
 
-		};
+
+
+		} Platforms_t;
+
+#ifdef __cplusplus
+	namespace Platforms {
+			const Platforms_t Unknown             	=	Platforms_Unknown             ;
+			const Platforms_t MSSurface_Flag      	=	Platforms_MSSurface_Flag      ;
+			const Platforms_t MSSUR01             	=	Platforms_MSSUR01             ;
+			const Platforms_t SAMSUR40            	=	Platforms_SAMSUR40            ;
+			const Platforms_t iPad_Flag           	=	Platforms_iPad_Flag           ;
+			const Platforms_t iPad1               	=	Platforms_iPad1               ;
+			const Platforms_t iPad2               	=	Platforms_iPad2               ;
+			const Platforms_t iPad2Mini           	=	Platforms_iPad2Mini           ;
+			const Platforms_t iPad3               	=	Platforms_iPad3               ;
+			const Platforms_t iPad4               	=	Platforms_iPad4               ;
+			const Platforms_t iPad4Air            	=	Platforms_iPad4Air            ;
+			const Platforms_t iPad4Mini           	=	Platforms_iPad4Mini           ;
+			const Platforms_t iPad4Mini3          	=	Platforms_iPad4Mini3          ;
+			const Platforms_t iPad5Air2           	=	Platforms_iPad5Air2           ;
+			const Platforms_t iPhone_Flag         	=	Platforms_iPhone_Flag         ;
+			const Platforms_t iPhone4             	=	Platforms_iPhone4             ;
+			const Platforms_t iPhone5             	=	Platforms_iPhone5             ;
+			const Platforms_t iPhone6             	=	Platforms_iPhone6             ;
+			const Platforms_t iPhone6p            	=	Platforms_iPhone6p            ;
+			const Platforms_t MultiTaction_Flag   	=	Platforms_MultiTaction_Flag   ;
+			const Platforms_t MultiTaction55      	=	Platforms_MultiTaction55      ;
+			const Platforms_t OSX_Flag            	=	Platforms_OSX_Flag            ;
+			const Platforms_t MacBook_Flag        	=	Platforms_MacBook_Flag        ;
+			const Platforms_t MacMini_Flag        	=	Platforms_MacMini_Flag        ;
+			const Platforms_t Windows_Flag        	=	Platforms_Windows_Flag        ;
+			const Platforms_t WindowsVista        	=	Platforms_WindowsVista        ;
+			const Platforms_t WindowsXP           	=	Platforms_WindowsXP           ;
+			const Platforms_t Windows7            	=	Platforms_Windows7            ;
+			const Platforms_t Windows8            	=	Platforms_Windows8            ;
+			const Platforms_t Tablet_Flag         	=	Platforms_Tablet_Flag         ;
+			const Platforms_t Smartphone_Flag     	=	Platforms_Smartphone_Flag     ;
+			const Platforms_t Tabletop_Flag       	=	Platforms_Tabletop_Flag       ;
+			const Platforms_t Display_Flag        	=	Platforms_Display_Flag        ;
 	};
+#endif
 
 
 
@@ -1043,6 +1199,7 @@ namespace environs {
 #define	ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   		(7)
 #define	ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   		(8)
 
+#define	TYPES_SEPERATOR_2_ENVIRONS                        		(0)
 
 /**
  * Environs SENSOR_TYPES
@@ -1054,33 +1211,85 @@ namespace environs {
 #define	ENVIRONS_SENSOR_TYPE_ORIENTATION                  		(3)
 
 
+/**
+ * Environs Option keys
+ * Type: String
+ */
+/** Ignore: for Resolver */
+#define	APPENV_MAPPINGS                                   		("mappings")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT             		("optDefaultMedToken")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM              		("optCustomMedToken")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT_N           		("optDNefaultMedToken")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM_N            		("optCNustomMedToken")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_TOKEN_MEDIATOR_USERNAME            		("optMediatorUsername")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_INITIALS                           		("optInitialSettings")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_GL_USE_NATIVE_DECODER              		("optUseNativeDecoder")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_GL_USE_HARDWARE_DECODER            		("optUseHardwareEncoder")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_GL_USE_SHOW_DEBUG_LOGS             		("useShowDebugStatus")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_GL_USE_LOG_FILE                    		("useLogFile")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_GL_USE_PUSH_NOTIFS                 		("optUsePushNotifications")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_GL_USE_SENSORS                     		("optUseSensors")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_PORTAL_AUTOSTART               		("optPortalAutoStart")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_DEFAULT_MEDIATOR               		("optUseDefaultMediator")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_CUSTOM_MEDIATOR                		("optUseCustomMediator")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_PORTAL_TCP                     		("optPortalTCP")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_NATIVE_RESOLUTION              		("optNativeResolution")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_STREAM                         		("optUseStream")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_CLS_MEDIATOR                   		("useCLSMediator")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_CLS_DEVICE                     		("useCLSDevice")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_CLS_DEV_ENFORCE                		("useCLSDevEnforce")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_AUTH                           		("useAuth")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_ANONYMOUS                      		("useAnonymous")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_PORTAL_AUTOACCEPT              		("portalAutoAccept")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_DEVICE_ID                          		("optDeviceID")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_DEVICE_UID                         		("uid")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_DEVICE_NAME                        		("optDeviceName")
+
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_MEDIATOR_LOGIN_DLG             		("useMediatorLoginDialog")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_CUSTOMMEDIATOR_PORT            		("optMediatorPort")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_CUSTOMMEDIATOR_IP              		("optMediatorIP")
+/** Ignore: for Resolver */
+#define	APPENV_SETTING_USE_PORTALVIEW_DIMS_AUTO           		("optUsePortalViewDimsAuto")
 
 
 
-	static const char *	MSG_PORTAL_Descriptions 	[] = {
-		"Portal requested",
-		"Portal provided",
-		"Stream portal provided",
-		"Image portal provided",
-		"Portal request failed",
-		"Portal Stop",
-		"Portal Stop ack",
-		"Portal Stop failed",
-		"Portal Start",
-		"Portal Start ack",
-		"Portal Start failed",
-		"Portal pause",
-		"Portal pause ack",
-		"Portal pause failed",
-		"Portal buffer full",
-		"Portal buffer available again",
-		"Portal i-frame requested",
-	};
 
 
 
-
+#ifdef __cplusplus
 } /// -> namespace environs
+#endif
+
 
 
 #endif /// -> INCLUDE_HCM_ENVIRONS_TYPES

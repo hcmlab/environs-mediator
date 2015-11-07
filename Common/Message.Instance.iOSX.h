@@ -45,7 +45,7 @@
  * created is a posix timestamp that determines the time and date that this MessageInstance
  * has been received or sent.
  * */
-@property (readonly, nonatomic) long created;
+@property (readonly, nonatomic) unsigned long long created;
 
 /**
  * The length of the text message in bytes (characters).

@@ -47,7 +47,7 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Tracker ),
 
 			/** Default initialization */
-            trackerID ( -1 ), initialized ( false ), buffersInitialized ( false ),
+            hEnvirons ( 0 ), trackerID ( -1 ), initialized ( false ), buffersInitialized ( false ),
             started ( false ), tracking ( false ),
             dataSize ( 0 ), bpP ( 1 ), width ( 0 ), height ( 0 ), channels ( 0 ), stride ( 0 )
 		{};
@@ -92,6 +92,7 @@ int							Init ( unsigned int Width, unsigned int Height, unsigned int Channels,
 		*/
 		virtual int			Perform ( void * rawImage, unsigned int size ) = 0;
 				
+        int                 hEnvirons;
 		int					trackerID;
 		bool                initialized;
 		bool				buffersInitialized;

@@ -23,10 +23,15 @@
 
 #include "Interop/Export.h"
 
+/** Place declarations to global namespace for plain C */
+#ifdef __cplusplus
+
 namespace environs
 {
+#endif
+    
     void DisposeLog ();
-    void CloseLog ( bool useLock = true );
+    void CloseLog ( bool useLock );
     
     
 #ifdef ANDROID
@@ -60,8 +65,9 @@ namespace environs
 
 #endif
     
-}
-
+#ifdef __cplusplus
+} /* namespace */
+#endif
 
 
 #endif	/// INCLUDE_HCM_ENVIRONS_LOG_HELPER_H

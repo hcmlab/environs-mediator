@@ -1,6 +1,10 @@
-### v 0.8.9
+### v 0.9.1
 
 ---------------------------
+
+* Release: 0.9.0
+* Updated: Notification thread for device list changes
+
 
 * Release: 0.8.8
 * Updated: CI yml.

@@ -21,29 +21,29 @@
 
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG
-//#define DEBUGVERB
-//#define DEBUGVERBVerb
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
 #endif
 
 #include "Interop/Export.h"
-#include <stdio.h>
 #include "Environs.Native.h"
-#include "Interop/Stat.h"
 #include "Interfaces/Interface.Exports.h"
 
-#ifndef MEDIATORDAEMON
-#include "Environs.h"
+#if (!defined(MEDIATORDAEMON))
+#	include "Environs.Obj.h"
 #endif
 using namespace environs;
 
 #ifdef WINDOWS_PHONE
-#include "winbase.h"
+#	include "winbase.h"
 #endif
 
-#define CLASS_NAME	"Export"
+#include <stdio.h>
+
+#define CLASS_NAME	"Export . . . . . . . . ."
 
 
-HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID )
+HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID, Instance * obj )
 {
 	CVerbID ( "LocateLoadModule" );
     
@@ -87,9 +87,9 @@ HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID )
 				break;
             
 #ifndef MEDIATORDAEMON
-            const char * libDir = environs::environs.libDir;
+            const char * libDir = environs::native.libDir;
             if ( !libDir )
-                libDir = environs::environs.workDir;
+                libDir = environs::native.workDir;
             
             if ( !libDir ) {
 				CVerbArgID ( "LocateLoadModule: [%s" LIBEXTENSION "] not available in search path. No working directory available.", module );
@@ -102,7 +102,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID )
 #endif
 
 #ifdef _WIN32
-			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, environs::environs.workDir, module );
+			sprintf ( absPath, "%s" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, environs::native.workDir, module );
 
 			CVerbArgID ( "LocateLoadModule: Trying [%s].", absPath );
 
@@ -152,7 +152,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID )
         if ( SetEnvironsObject ) {
             CVerbID ( "LocateLoadModule: injecting Environs methods." );
             
-            SetEnvironsObject ( (void *)&environs::environs );
+            SetEnvironsObject ( (void *) obj );
         }
 		else {
 			CVerbID ( "LocateLoadModule: Cannot find SetEnvironsObject in module. Assuming a 3rd party module." );

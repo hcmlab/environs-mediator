@@ -24,17 +24,17 @@
 #include <stdlib.h>
 
 #ifdef _WIN32
-#include "windows.h"
+#   include "windows.h"
 #endif
 
 #ifdef ANDROID
-#include <android/log.h>
+#   include <android/log.h>
 #endif
 
 #include "Environs.Native.h"
 #include "Interop/Threads.h"
 #include "Interop/Stat.h"
-#include "Environs.h"
+#include "Environs.Obj.h"
 #include "Core/Callbacks.h"
 using namespace environs;
 
@@ -43,8 +43,6 @@ using namespace environs;
 
 #define ENVIRONS_LOGFILE_TEMP_MAXSIZE               200000
 
-char            *   environsTemporaryLogBuffer      = 0;
-size_t              environsTemporaryLogBufferSize  = 0;
 FILE            *   environsLogFileHandle           = 0;
 int                 environsLogFileErrCount         = 0;
 
@@ -58,18 +56,15 @@ namespace environs
     {
         CVerbN ( "OpenLog" );
         
-        if ( !environs.workDir || !*environs.workDir )
+        if ( !native.workDir || !*native.workDir )
             return false;
         
         char fileName [ 1024 ];
         
-        sprintf ( fileName, "%s/environs.log", environs.workDir );
-        
-#ifdef _WIN32
-        struct _stat st;
-#else
-        struct stat st;
-#endif
+        sprintf ( fileName, "%s/environs.log", native.workDir );
+
+		STAT_STRUCT ( st );
+
         if ( stat ( fileName, &st ) == 0 )
         {
             size_t fileSize = (size_t) st.st_size;
@@ -93,26 +88,13 @@ namespace environs
                 environsLogFileErrCount++;
             }
             else
-                environs.opt_useLogFile = false;
+                native.useLogFile = false;
             
             return false;
         }
         
         environsLogFileHandle = fp;
         
-        if ( environsTemporaryLogBuffer ) {
-            fwrite ( environsTemporaryLogBuffer, 1, environsTemporaryLogBufferSize, fp );
-            /*
-            if ( opt_useNotifyDebugMessage ) {
-                if ( Callbacks.doOnStatusMessage )
-                    Callbacks.OnStatusMessage ( environsTemporaryLogBuffer );
-            }
-            */
-            
-            free ( environsTemporaryLogBuffer );
-            environsTemporaryLogBuffer = 0;
-            environsTemporaryLogBufferSize = 0;
-        }
         return true;
     }
     
@@ -141,21 +123,12 @@ namespace environs
     {
         CVerbN ( "DisposeLog" );
         
-		if ( pthread_mutex_lock ( &environsLogMutex ) ) {
-            printf ( "DisposeLog: ERROR ---> Failed to lock mutex." );
-        }
+		MutexLockV ( &environsLogMutex, "DisposeLog" );
         
         CloseLog ( false );
         
-        if ( environsTemporaryLogBuffer ) {
-            free ( environsTemporaryLogBuffer );
-            environsTemporaryLogBuffer = 0;
-            environsTemporaryLogBufferSize = 0;
-        }
-        
-		if ( pthread_mutex_unlock ( &environsLogMutex ) ) {
-            printf ( "DisposeLog: ERROR ---> Failed to unlock mutex." );
-        }
+		MutexUnlockV ( &environsLogMutex, "DisposeLog" );
+
         CVerbN ( "DisposeLog done" );
     }
     
@@ -168,7 +141,7 @@ namespace environs
     {
         if ( length <= 0 ) {
             length = (int)strlen ( msg );
-            printf ( "COutLog: Length [%i].", length );
+            //printf ( "COutLog: Length [%i].", length );
         }
         
         if ( length <= 0 ) {
@@ -181,23 +154,8 @@ namespace environs
             return;
         }
         
-        if ( environs.opt_useLogFile ) {
-            if ( !environsLogFileHandle && !OpenLog () ) {
-                if ( !environsTemporaryLogBuffer ) {
-                    environsTemporaryLogBuffer = (char *) malloc ( ENVIRONS_LOGFILE_TEMP_MAXSIZE );
-                    
-                    if ( environsTemporaryLogBuffer ) {
-                        *environsTemporaryLogBuffer = 0;
-                        environsTemporaryLogBufferSize = 0;
-                    }
-                }
-                
-                if ( environsTemporaryLogBuffer ) {
-                    strcat_s ( environsTemporaryLogBuffer, ENVIRONS_LOGFILE_TEMP_MAXSIZE, msg );
-                    environsTemporaryLogBufferSize += length;
-                }
-            }
-            else {
+        if ( native.useLogFile ) {
+            if ( environsLogFileHandle || OpenLog () ) {
                 fwrite ( msg, 1, length, environsLogFileHandle );
             }
         }
@@ -218,9 +176,16 @@ namespace environs
         
 #endif  // -> end-_ANDROID
         
-        if ( environs.opt_useNotifyDebugMessage ) {
-			if ( environs.callbacks.doOnStatusMessage )
-				environs.callbacks.OnStatusMessage ( msg );
+        if ( native.useNotifyDebugMessage ) {
+            for ( int i=1; i<ENVIRONS_MAX_ENVIRONS_INSTANCES; ++i )
+            {
+                Instance * env = instances[i];
+                if ( !env )
+                    break;
+                
+                if ( env->callbacks.doOnStatusMessage )
+                    env->callbacks.OnStatusMessage ( i, msg );
+            }
         }
         
         if ( useLock ) {

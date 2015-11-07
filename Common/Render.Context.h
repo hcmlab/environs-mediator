@@ -48,7 +48,7 @@ namespace environs
 		// This flag is true, if there is no renderer. In this case, the renderedData pointers may be used by the capturer and encoder arbitrarily.
 		bool					renderSkipped;
 
-		PortalBufferType::PortalBufferType	renderedDataType;
+		PortalBufferType_t		renderedDataType;
 		void				*	renderedData;
 		int						renderedDataCapacity;
 		void				*	renderedDataHandle;

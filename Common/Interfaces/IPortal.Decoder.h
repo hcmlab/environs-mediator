@@ -60,12 +60,12 @@ namespace environs
 		virtual ~IPortalDecoder () { ReleaseAVContext (); };
 
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
-		int										Init ( int deviceID ) {
-													this->deviceID	= deviceID;
+		int										Init ( int deviceIDa ) {
+													deviceID	= deviceIDa;
 													return Init ( );
         }
 
-        virtual void                            SetWidthHeight ( int width, int stride, int height ) { this->width = width; this->height = height; this->stride = stride; };
+        virtual void                            SetWidthHeight ( int widtha, int stridea, int heighta ) { width = widtha; height = heighta; stride = stridea; };
     
         virtual bool                            InitType ( int type ) = 0;
     

@@ -25,6 +25,8 @@
 namespace environs
 {
 	extern void refactorBuffer ( char * &curStart, char * bufferStart, unsigned int remainingMsg, char * &curEnd );
+    
+	extern size_t GetSizeOfFile ( const char * filePath );
 	extern char * LoadBinary ( const char * fileName, int * size );
 
 	extern char * LoadPrivateBinary ( const char * fileName, int * size );
@@ -34,8 +36,25 @@ namespace environs
 	
 	INCLINEFUNC INTEROPTIMEVAL GetEnvironsTickCount ();
     extern unsigned long long   GetUnixEpoch ();
+    
+#ifdef _WIN32
+    struct ::timeval;
+    
+    int gettimeofday ( struct timeval *tv, void * );
+#endif
+    
     extern bool CreateDataDirectory ( char * dir );
 	extern void CreateCopyString ( const char * src, char ** dest );
+    
+#ifndef _WIN32
+#   ifndef ANDROID
+#       ifndef __APPLE__
+			size_t strlcpy ( char *d, char const *s, size_t n );
+#       endif
+    // <- Linux/iOS includes
+#   endif
+    // <- POSIX includes
+#endif
 }
 
 

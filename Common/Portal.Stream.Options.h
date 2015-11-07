@@ -22,8 +22,13 @@
 #define INCLUDE_HCM_ENVIRONS_PORTAL_STREAM_OPTIONS_DECLARATIONS_H_
 
 
+/** Place declarations to global namespace for plain C */
+#ifdef __cplusplus
+
 namespace environs
 {
+#endif
+    
 	typedef struct _PortalStreamOptions
 	{
 		bool	usePNG;
@@ -39,7 +44,11 @@ namespace environs
         int     streamType;
 	}
 	PortalStreamOptions;
+
+    
+#ifdef __cplusplus
 }
+#endif
 
 
 #endif /* INCLUDE_HCM_ENVIRONS_PORTAL_STREAM_OPTIONS_DECLARATIONS_H_ */

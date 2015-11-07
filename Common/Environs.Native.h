@@ -24,9 +24,12 @@
  */
 //#define DEBUGVERB
 //#define DEBUGVERBVerb
+//#define DEBUGVERBLocks
+//#define DEBUGCIPHERS
 
 #include "Environs.Release.h"
 #include "Environs.Platforms.h"
+#include "Environs.Build.Opts.h"
 
 /**
  * Include native type and data structure declarations
@@ -37,16 +40,15 @@
 /**
  * Log macros and forwards
  *
- * */
+ **/
 #include "Log.h"
 
 #ifdef ANDROID
-#include <android/log.h>
+#	include <android/log.h>
 #else
 // Logging/Tracing/Debug defines for Windows/Linux/iOS devices
-#include <stdlib.h>
-#include <string.h>
-
+#	include <stdlib.h>
+#	include <string.h>
 #endif
 
 
@@ -55,20 +57,20 @@
 
 
 #ifdef DISPLAYDEVICE
-#define MAX_PORTAL_INSTANCES				40
+#	define MAX_PORTAL_INSTANCES				40
 #else
-#define MAX_PORTAL_INSTANCES				10
+#	define MAX_PORTAL_INSTANCES				10
 #endif
 
 #define ENVIRONS_USER_PASSWORD_LENGTH		64
 #define ENVIRONS_MAX_KEYSIZE				4096
 
 #ifdef __APPLE__
-#define ENVIRONS_PRIVATE_KEYNAME			"env.4321a.bin"
-#define ENVIRONS_PUBLIC_CERTNAME			"env.1234a.bin"
+#	define ENVIRONS_PRIVATE_KEYNAME			"env.4321a.bin"
+#	define ENVIRONS_PUBLIC_CERTNAME			"env.1234a.bin"
 #else
-#define ENVIRONS_PRIVATE_KEYNAME			"env.4321.bin"
-#define ENVIRONS_PUBLIC_CERTNAME			"env.1234.bin"
+#	define ENVIRONS_PRIVATE_KEYNAME			"env.4321.bin"
+#	define ENVIRONS_PUBLIC_CERTNAME			"env.1234.bin"
 #endif
 
 #define ENVIRONS_MEDIATOR_MAX_TRYS          10
@@ -82,9 +84,9 @@
 //#define USE_MEDIATOR_OPT_KEY_MAPS_COMP
 
 #ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
-#define ENVIRONS_DEVICE_KEY_EXT +4
+#	define ENVIRONS_DEVICE_KEY_EXT +4
 #else
-#define ENVIRONS_DEVICE_KEY_EXT
+#	define ENVIRONS_DEVICE_KEY_EXT
 #endif
 
 //#define USE_NSLOG
@@ -121,7 +123,7 @@
 #define ENABLE_NATIVE_H264DECODER
 
 #ifdef _WIN32
-//#define PERFORMANCE_MEASURE
+//#	define PERFORMANCE_MEASURE
 #endif
 
 // NAT behaviour compiler flags
@@ -148,10 +150,13 @@
 //#define FAKE42
 
 
+#ifdef __cplusplus
+
 namespace environs {
     extern void   *   pEnvirons;
 }
 
+#endif
 
 /**
 * Helper, Wrapper
@@ -178,7 +183,7 @@ namespace environs {
 
 #define     IsStatus(n)                         (n < 0 && (n & 0xF))
 #define     IsNotStatus(n)                      (n > 0 || (n & 0xF) == 0)
-#define     GetStatus(n)                         (0 - n)
+#define     GetStatusValue(n)                         (0 - n)
 
 #define		ClearBit(val,mask)					(val &= ~mask)
 #define		AddBit(val,mask)					(val |= mask)
@@ -212,7 +217,7 @@ namespace environs {
 
 
 #ifndef PI
-#define PI 3.14159265
+#	define PI 3.14159265
 #endif
 
 #define		ASSERT_OBJ							environs::kernel
@@ -255,29 +260,29 @@ namespace environs {
 
 
 #ifdef ANDROID
-#define	ENVIRONS_LOG_NL
+#	define	ENVIRONS_LOG_NL
 #else
-#define	ENVIRONS_LOG_NL								"\n"
+#	define	ENVIRONS_LOG_NL								"\n"
 #endif
 
 
 
 #ifdef ANDROID
-#define ENVIRONS_LOG_NRCMD(tag,expression)          __android_log_print ( tag,	ENVIRONS_LOG_TAG_ID, "%s", expression )
-#define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	__android_log_print ( expression, __VA_ARGS__ )
+#	define ENVIRONS_LOG_NRCMD(tag,expression)					__android_log_print ( tag,	ENVIRONS_LOG_TAG_ID, "%s", expression )
+#	define ENVIRONS_LOGARG_NRCMD(tag,expression,...)			__android_log_print ( expression, __VA_ARGS__ )
 #else
-#ifdef _WIN32
-#define ENVIRONS_LOG_NRCMD(tag,expression)			OutputDebugStringA ( expression )
-#define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	OutputDebugStringA ( expression ); //, __VA_ARGS__ )
-#else
-#if (defined(__APPLE__) && defined(USE_NSLOG))
-#define ENVIRONS_LOG_NRCMD(tag,expression)			NSLog ( @"%s", expression )
-#define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	NSLog ( @expression, __VA_ARGS__ )
-#else
-#define ENVIRONS_LOG_NRCMD(tag,expression)			printf ( expression )
-#define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	printf ( expression, __VA_ARGS__ )
-#endif
-#endif
+#	ifdef _WIN32
+#		define ENVIRONS_LOG_NRCMD(tag,expression)				OutputDebugStringA ( expression )
+#		define ENVIRONS_LOGARG_NRCMD(tag,expression,...)		OutputDebugStringA ( expression ) //, __VA_ARGS__ )
+#	else
+#		if (defined(__APPLE__) && defined(USE_NSLOG))
+#			define ENVIRONS_LOG_NRCMD(tag,expression)			NSLog ( @"%s", expression )
+#			define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	NSLog ( @expression, __VA_ARGS__ )
+#		else
+#			define ENVIRONS_LOG_NRCMD(tag,expression)			printf ( expression )
+#			define ENVIRONS_LOGARG_NRCMD(tag,expression,...)	printf ( expression, __VA_ARGS__ )
+#		endif
+#	endif
 #endif
 
 
@@ -285,37 +290,30 @@ namespace environs {
 
 
 #ifdef ANDROID
-
-#define ENVIRONS_LOG_RCMD(tag,expression)			environs::COutLog ( tag, expression, 0, true )
-#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	environs::COutArgLog ( tag, expression, __VA_ARGS__ )
-
+#	define ENVIRONS_LOG_RCMD(tag,expression)			environs::COutLog ( tag, expression, 0, true )
+#	define ENVIRONS_LOGARG_RCMD(tag,expression,...)		environs::COutArgLog ( tag, expression, __VA_ARGS__ )
 #else
-
-#define ENVIRONS_LOG_RCMD(tag,expression)			environs::COutLog ( expression, 0, true )
-#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	environs::COutArgLog ( expression, __VA_ARGS__ )
-
+#	define ENVIRONS_LOG_RCMD(tag,expression)			environs::COutLog ( expression, 0, true )
+#	define ENVIRONS_LOGARG_RCMD(tag,expression,...)		environs::COutArgLog ( expression, __VA_ARGS__ )
 #endif
 
 #else // not environs core lib follows
 
 
 #ifdef MEDIATORDAEMON
-extern void MLog ( const char * msg );
-extern void MLogArg ( const char * msg, ... );
+	extern void MLog ( const char * msg );
+	extern void MLogArg ( const char * msg, ... );
 
-#define ENVIRONS_LOG_RCMD(tag,expression)			MLog ( expression )
-#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	MLogArg ( expression, __VA_ARGS__ )
-
+#	define ENVIRONS_LOG_RCMD(tag,expression)			MLog ( expression )
+#	define ENVIRONS_LOGARG_RCMD(tag,expression,...)	MLogArg ( expression, __VA_ARGS__ )
 #else
-
-#ifdef ANDROID
-#define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::EnvironsLib *) pEnvirons)->cOutLog ( tag, expression, 0, true )
-#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::EnvironsLib *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ )
-#else
-#define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::EnvironsLib *) pEnvirons)->cOutLog ( expression, 0, true )
-#define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::EnvironsLib *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ )
-#endif
-
+#	ifdef ANDROID
+#		define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::Instance *) pEnvirons)->cOutLog ( tag, expression, 0, true )
+#		define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::Instance *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ )
+#	else
+#		define ENVIRONS_LOG_RCMD(tag,expression)           ((environs::Instance *) pEnvirons)->cOutLog ( expression, 0, true )
+#		define ENVIRONS_LOGARG_RCMD(tag,expression,...)	((environs::Instance *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ )
+#	endif
 #endif
 
 #endif // <-- ENVIRONS_CORE_LIB
@@ -336,8 +334,8 @@ extern void MLogArg ( const char * msg, ... );
 #define	ENVIRONS_LOGTAG_ERROR						ANDROID_LOG_ERROR
 #define	ENVIRONS_LOGTAG_VERBOSE						ANDROID_LOG_VERBOSE
 
-#define	ENVIRONS_MAKE_BODY(tag,msg)					tag CLASS_NAME "." msg ENVIRONS_LOG_NL
-#define	ENVIRONS_MAKE_BODY_ID(tag,msg)				tag "[0x%X]." CLASS_NAME "." msg ENVIRONS_LOG_NL
+#define	ENVIRONS_MAKE_BODY(tag,msg)					tag " " CLASS_NAME " " msg ENVIRONS_LOG_NL
+#define	ENVIRONS_MAKE_BODY_ID(tag,msg)				tag " " CLASS_NAME " [0x%X] " msg ENVIRONS_LOG_NL
 
 
 #define ENVIRONS_VERB_NCMD(expression)				ENVIRONS_LOG_NRCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
@@ -347,6 +345,7 @@ extern void MLogArg ( const char * msg, ... );
 #define ENVIRONS_INFO_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_INFO,		expression )
 #define ENVIRONS_WARN_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_WARN,		expression )
 #define ENVIRONS_ERR_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_ERROR,		expression )
+#define ENVIRONS_ERR_NCMD(expression)				ENVIRONS_LOG_NRCMD ( ENVIRONS_LOGTAG_ERROR,		expression )
 
 #define ENVIRONS_VERBRG_CMD(expression,...)			ENVIRONS_LOGARG_RCMD ( ENVIRONS_LOGTAG_VERBOSE, expression, __VA_ARGS__ )
 #define ENVIRONS_VERBRG_NCMD(expression,...)		ENVIRONS_LOGARG_NRCMD ( ENVIRONS_LOGTAG_VERBOSE, expression, __VA_ARGS__ )
@@ -358,22 +357,24 @@ extern void MLogArg ( const char * msg, ... );
 #define CVerb(msg)									ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
 #define CVerbN(msg)									ENVIRONS_VERB_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
 #define CVerbVerb(msg)								ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
+#define CVerbVerbN(msg)								ENVIRONS_VERB_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
 #define CLog(msg)									ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg ) )
 #define CListLog(msg)								ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg ) )
 #define CLogN(msg)									ENVIRONS_LOG_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg ) )
 #define CInfo(msg)									ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg ) )
 #define CWarn(msg)									ENVIRONS_WARN_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg ) )
 #define CErr(msg)									ENVIRONS_ERR_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg ) )
+#define CErrN(msg)									ENVIRONS_ERR_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg ) )
 
-#define CVerbArg(msg,...)							ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
+#define CVerbArg(msg,...)							ENVIRONS_VERBRG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
 #define CVerbArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
-#define CVerbVerbArg(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
-#define CLogArg(msg,...)							ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
-#define CListLogArg(msg,...)						ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
+#define CVerbVerbArg(msg,...)						ENVIRONS_VERBRG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
+#define CLogArg(msg,...)							ENVIRONS_LOGARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
+#define CListLogArg(msg,...)						ENVIRONS_LOGARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
 #define CLogArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
-#define CInfoArg(msg,...)							ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg), __VA_ARGS__ )
-#define CWarnArg(msg,...)							ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg), __VA_ARGS__ )
-#define CErrArg(msg,...)							ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg), __VA_ARGS__ )
+#define CInfoArg(msg,...)							ENVIRONS_INFOARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg), __VA_ARGS__ )
+#define CWarnArg(msg,...)							ENVIRONS_WARNARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg), __VA_ARGS__ )
+#define CErrArg(msg,...)							ENVIRONS_ERRARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg), __VA_ARGS__ )
 
 #define CVerbID(msg)								ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), deviceID )
 #define CVerbVerbID(msg)							ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), deviceID )
@@ -412,55 +413,57 @@ extern void MLogArg ( const char * msg, ... );
 
 
 #ifndef DEBUGVERBList
-#undef	CListLog
-#define CListLog(msg)
-#undef	CListLogArg
-#define CListLogArg(msg,...)
+#	undef	CListLog
+#	define CListLog(msg)
+#	undef	CListLogArg
+#	define CListLogArg(msg,...)
 #endif
 
 #ifndef DEBUGVERB
-#undef	CVerbN
-#define CVerbN(msg)
-#undef	CVerb
-#define CVerb(msg)
-#undef	CVerbArg
-#define CVerbArg(msg,...)
-#undef	CVerbArgN
-#define CVerbArgN(msg,...)
-#undef	CVerbID
-#define CVerbID(msg)
-#undef	CVerbIDN
-#define CVerbIDN(msg)
-#undef	CVerbArgID
-#define CVerbArgID(msg,...)
-#undef	CVerbArgIDN
-#define CVerbArgIDN(msg,...)
+#	undef	CVerbN
+#	define CVerbN(msg)
+#	undef	CVerb
+#	define CVerb(msg)
+#	undef	CVerbArg
+#	define CVerbArg(msg,...)
+#	undef	CVerbArgN
+#	define CVerbArgN(msg,...)
+#	undef	CVerbID
+#	define CVerbID(msg)
+#	undef	CVerbIDN
+#	define CVerbIDN(msg)
+#	undef	CVerbArgID
+#	define CVerbArgID(msg,...)
+#	undef	CVerbArgIDN
+#	define CVerbArgIDN(msg,...)
 #endif
 
 #ifndef DEBUGVERBVerb
-#undef	CVerbVerb
-#define CVerbVerb(msg)
-#undef	CVerbVerbArg
-#define CVerbVerbArg(msg,...)
-#undef	CVerbVerbID
-#define CVerbVerbID(msg)
-#undef	CVerbVerbIDN
-#define CVerbVerbIDN(msg)
-#undef	CVerbVerbArgID
-#define CVerbVerbArgID(msg,...)
-#undef	CVerbVerbArgIDN
-#define CVerbVerbArgIDN(msg,...)
+#	undef	CVerbVerb
+#	define CVerbVerb(msg)
+#	undef	CVerbVerbN
+#	define CVerbVerbN(msg)
+#	undef	CVerbVerbArg
+#	define CVerbVerbArg(msg,...)
+#	undef	CVerbVerbID
+#	define CVerbVerbID(msg)
+#	undef	CVerbVerbIDN
+#	define CVerbVerbIDN(msg)
+#	undef	CVerbVerbArgID
+#	define CVerbVerbArgID(msg,...)
+#	undef	CVerbVerbArgIDN
+#	define CVerbVerbArgIDN(msg,...)
 #endif
 
 #ifndef DEBUGVERBLocks
-#undef	CVerbLock
-#define CVerbLock(msg)
-#undef	CVerbUnLock
-#define CVerbUnLock(msg)
-#undef	CVerbLockPortalRecRes
-#define CVerbLockPortalRecRes(msg)
-#undef	CVerbUnLockPortalRecRes
-#define CVerbUnLockPortalRecRes(msg)
+#	undef	CVerbLock
+#	define CVerbLock(msg)
+#	undef	CVerbUnLock
+#	define CVerbUnLock(msg)
+#	undef	CVerbLockPortalRecRes
+#	define CVerbLockPortalRecRes(msg)
+#	undef	CVerbUnLockPortalRecRes
+#	define CVerbUnLockPortalRecRes(msg)
 #endif
 
 #endif  /// end-INCLUDE_HCM_ENVIRONS_NATIVE_COMMON_H

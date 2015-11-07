@@ -20,46 +20,44 @@
 #ifndef INCLUDE_HCM_ENVIRONS_RELEASE_NATIVE_COMMON_H
 #define INCLUDE_HCM_ENVIRONS_RELEASE_NATIVE_COMMON_H
 
-#define ENABLE_GPL
+#include "Environs.Revision.h"
+#include "Environs.Build.Macros.h"
+
 
 #define	BUILD_MAJOR_VERSION		0
-#define	BUILD_MINOR_VERSION		8
-#define	BUILD_RELEASE_COUNTER	9
+#define	BUILD_MINOR_VERSION		9
+#define	BUILD_RELEASE_COUNTER	0
 
-#include "Environs.Revision.h"
 
 #define BUILD_ATTR1
 
 #ifdef __APPLE__
-#include "TargetConditionals.h"
+#	include "TargetConditionals.h"
 #endif
 
 //// Declare the symbol NDEBUG for release builds (either in the project settings or as compile C_FLAGS, i.e. -DNDEBUG)
 #ifndef NDEBUG
-//#define NDEBUG
+//#	define NDEBUG
 #endif
 
 
 #ifdef NDEBUG
-#define	BUILD_TYPE	" Release"
+#	define	BUILD_TYPE	" Release"
 
-#ifdef DEBUGVERB
-#undef DEBUGVERB
-#endif
+#	ifdef DEBUGVERB
+#		undef DEBUGVERB
+#	endif
 
-#ifdef DEBUGVERBVerb
-#undef DEBUGVERBVerb
-#endif
+#	ifdef DEBUGVERBVerb
+#		undef DEBUGVERBVerb
+#	endif
 
 #else
-#define	BUILD_TYPE	" Debug"
+#	define	BUILD_TYPE	" Debug"
 
-#include "Environs.Build.Opts.h"
+#	include "Environs.Build.Opts.h"
 
 #endif
-
-#define ENVIRONS_TTOSTRING(t)	#t
-#define ENVIRONS_TOSTRING(val)	ENVIRONS_TTOSTRING(val)
 
 #define ENVIRONS_VERSION_STRING	ENVIRONS_TOSTRING(BUILD_MAJOR_VERSION) "." ENVIRONS_TOSTRING(BUILD_MINOR_VERSION) "." ENVIRONS_TOSTRING(BUILD_RELEASE_COUNTER) "." ENVIRONS_TOSTRING(BUILD_REVISION) BUILD_TYPE
 

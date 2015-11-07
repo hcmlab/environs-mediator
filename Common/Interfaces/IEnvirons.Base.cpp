@@ -19,10 +19,10 @@
  */
 #include "stdafx.h"
 /// Compiler flag that enables verbose debug output
-//#define DEBUGVERB
-//#define DEBUGVERBVerb
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
 
-#include "Environs.h"
+#include "Environs.Obj.h"
 #include "Environs.Native.h"
 #include "Interop.h"
 #include "Interfaces/IEnvirons.Base.h"

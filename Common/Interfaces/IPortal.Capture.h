@@ -31,6 +31,9 @@
 
 namespace environs 
 {
+	class Instance;
+
+
 	/**
 	*	Interface for a capture / grabber extension
 	*
@@ -54,18 +57,18 @@ namespace environs
 			squareLength ( 0 ), buffersInitialized ( false ), dataAccessed ( 1 ), data ( 0 ), dataHandle ( 0 ),
             dataSize ( 0 ), dataStride ( 0 ),
 			renderOverlayMutex ( 0 ), renderOverlays ( 0 ),
-			stages ( 0 ), osLevel ( 0 ), hAppWindow ( 0 )
+			stages ( 0 ), osLevel ( 0 ), hAppWindow ( 0 ), env ( 0 )
 		{};
 
 		virtual ~IPortalCapture () {};
 
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
-		int										PreInit ( int deviceID, void * appWindow, PortalStreamOptions * opts ) {
-													this->deviceID	= deviceID;
+		int										PreInit ( int deviceIDa, void * appWindow, PortalStreamOptions * opts ) {
+													deviceID	= deviceID;
 													hAppWindow  = appWindow;
-													this->width = opts->streamWidth;
-													this->height = opts->streamHeight;
-                                                    this->minFPS = opts->streamMinFPS;
+													width = opts->streamWidth;
+													height = opts->streamHeight;
+                                                    minFPS = opts->streamMinFPS;
 													return PreInit ();
 												}
 
@@ -90,7 +93,7 @@ namespace environs
 		*/
 		virtual int								Perform ( RenderDimensions * dims, RenderContext * context ) = 0;
 		
-		CaptureType::CaptureType				captureType;
+		CaptureType_t							captureType;
 
 		/// If the extension is a camera capture, then the following trigger sink may be used with the camera as a trigger source.
 		/// If they are not used, then the Init() method must clear them (set to 0), in order to instruct the PortalSource to create its own frame trigger source
@@ -99,7 +102,7 @@ namespace environs
 		void								*	portalWorkerEventLock;
 
 		int										portalID;
-		CaptureBufferType::CaptureBufferType	bufferType;
+		CaptureBufferType_t						bufferType;
 
         float                                   minFPS;
 		int										width;
@@ -120,7 +123,8 @@ namespace environs
 		virtual void							ReleaseOverlayBuffers ( RenderOverlay  * overlay ) {};
     
         void								*	stages;
-		int										osLevel;
+        int										osLevel;
+        Instance							*	env;
 
 	protected:
 		void *									hAppWindow;

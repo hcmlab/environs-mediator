@@ -21,9 +21,9 @@
 
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG
-//#define DEBUGVERB
-//#define DEBUGVERBVerb
-//#define DEBUGCIPHERS
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
+//#   define DEBUGCIPHERS
 #endif
 
 #include "Environs.Crypt.h"
@@ -32,29 +32,28 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include "Environs.Utils.h"
-#include "Device.Instance.h"
+#include "Device.Info.h"
 #include "Interop.h"
 
 #ifndef ANDROID1
-#ifdef USE_OPENSSL
-#include "DynLib/Dyn.Lib.Crypto.h"
-#endif
+#   ifdef USE_OPENSSL
+#       include "DynLib/Dyn.Lib.Crypto.h"
+#   endif
 
-#ifdef _WIN32
-#include <Wincrypt.h>
-#include <Strsafe.h>
+#   ifdef _WIN32
+#       include <Wincrypt.h>
+#       include <Strsafe.h>
 
-#pragma comment ( lib, "Crypt32.lib" )
-#define USE_CACHED_HKEY
-#endif
-
+#       pragma comment ( lib, "Crypt32.lib" )
+#       define USE_CACHED_HKEY
+#   endif
 #endif
 
 #if !defined(ANDROID)
-#define ENABLE_DUMMY_CRYPT
+#   define ENABLE_DUMMY_CRYPT
 #endif
 
-#define CLASS_NAME	"Environs.crypt"
+#define CLASS_NAME	"Environs.Crypt . . . . ."
 
 
 namespace environs
@@ -86,10 +85,9 @@ namespace environs
 	void ReleaseEnvironsCrypt ()
 	{
         if ( allocated ) {
-            if ( pthread_mutex_destroy ( &privKeyMutex ) ) {
-                CErr ( "ReleaseEnvironsCrypt: Failed to destroy privKeyMutex." );
-            }
-            else allocated = false;
+            MutexDispose ( &privKeyMutex );
+            
+            allocated = false;
         }
         
 #ifdef USE_OPENSSL
@@ -973,8 +971,8 @@ namespace environs
             }
             
 			int pad = 0;
-			if ( certProp & ENVIRONS_CRYPT_PAD_OAEP )
-				pad = RSA_PKCS1_OAEP_PADDING;
+			//if ( certProp & ENVIRONS_CRYPT_PAD_OAEP )
+			//	pad = RSA_PKCS1_OAEP_PADDING;
 			if ( certProp & ENVIRONS_CRYPT_PAD_PKCS1 )
                 pad = RSA_PKCS1_PADDING;
             else
@@ -1314,9 +1312,9 @@ namespace environs
 
 		if ( !ctx->encCtx )
 			return;
-
-		pthread_mutex_destroy ( &ctx->encMutex );
-		pthread_mutex_destroy ( &ctx->decMutex );
+        
+        MutexDispose ( &ctx->encMutex );
+        MutexDispose ( &ctx->decMutex );
 
 #ifdef USE_OPENSSL_AES
 		if ( ctx->encCtx ) {
@@ -1356,18 +1354,12 @@ namespace environs
 		}
 
 		char		*	blob		= 0;
-
-		Zero ( ctx->encMutex );
-		if ( pthread_mutex_init ( &ctx->encMutex, 0 ) ) {
-			CErr ( "AESDeriveKeyContexts: Failed to init encMutex." );
-			return false;
-		}
-
-		Zero ( ctx->decMutex );
-		if ( pthread_mutex_init ( &ctx->decMutex, 0 ) ) {
-			CErr ( "AESDeriveKeyContexts: Failed to init decMutex." );
-			return false;
-		}
+        
+        if ( !MutexInit ( &ctx->encMutex ) )
+            return false;
+        
+        if ( !MutexInit ( &ctx->decMutex ) )
+            return false;
 
 		bool ret = false;
 
@@ -1385,7 +1377,10 @@ namespace environs
 			EVP_CIPHER_CTX * e = (EVP_CIPHER_CTX *) malloc ( sizeof(EVP_CIPHER_CTX) );
 			EVP_CIPHER_CTX * d = (EVP_CIPHER_CTX *) malloc ( sizeof(EVP_CIPHER_CTX) );
 			if ( !e || !d ) {
-				CErr ( "AESDeriveKeyContexts: Failed to allocate memory for enc/dec contexts." ); break;
+				CErr ( "AESDeriveKeyContexts: Failed to allocate memory for enc/dec contexts." );
+                if ( e ) free ( e );
+                if ( d ) free ( d );
+                break;
 			}
 
 			ctx->encCtx = (char *)e;
@@ -1861,7 +1856,7 @@ namespace environs
 
 		if ( pthread_mutex_unlock ( &ctx->decMutex ) ) {
 			CErrID ( "AESDecrypt: Failed to release mutex." );
-			return false;
+			ret = false;
 		}
 
 		if ( decrypt ) free ( decrypt );
@@ -2344,18 +2339,15 @@ namespace environs
     
     bool InitEnvironsCrypt ()
     {
-        if ( !allocated ) {
-            Zero ( privKeyMutex );
-            if ( pthread_mutex_init ( &privKeyMutex, 0 ) ) {
-                CErr ( "InitEnvironsCrypt: Failed to initialize privKeyMutex." );
+        if ( !allocated ) {            
+            if ( !MutexInit ( &privKeyMutex ) )
                 return false;
-            }
             allocated = true;
         }
         
 #ifdef USE_OPENSSL
         
-        if ( InitLibOpenSSL () ) {
+        if ( InitLibOpenSSL ( 0 ) ) {
             CInfo ( "InitEnvironsCrypt: Successfuly loaded libcrypto!" );
             
             EncryptMessage = cryptEncryptMessage;

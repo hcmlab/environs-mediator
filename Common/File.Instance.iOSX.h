@@ -60,7 +60,7 @@
  * created is a posix timestamp that determines the time and date that this FileInstance
  * has been received or sent.
  * */
-@property (readonly, nonatomic) long created;
+@property (readonly, nonatomic) unsigned long long created;
 
 /**
  * The size in bytes of a buffer to send or data received.
@@ -75,7 +75,7 @@
 /**
  * sendProgress is a value between 0-100 (percentage) that reflects the percentage of the
  * file or buffer that has already been sent.
- * If this value changes, then the corresponding device's ChangeObserver is notified
+ * If this value changes, then the corresponding device's DeviceObserver is notified
  * with this FileInstance object as the sender
  * and the change-flag FILE_INFO_ATTR_SEND_PROGRESS
  * */
@@ -84,7 +84,7 @@
 /**
  * receiveProgress is a value between 0-100 (percentage) that reflects the percentage of the
  * file or buffer that has already been received.
- * If this value changes, then the corresponding device's ChangeObserver is notified
+ * If this value changes, then the corresponding device's DeviceObserver is notified
  * with this FileInstance object as the sender
  * and the change-flag FILE_INFO_ATTR_RECEIVE_PROGRESS
  * */

@@ -24,8 +24,13 @@
 #include "Environs.Types.h"
 
 
+/** Place declarations to global namespace for plain C */
+#ifdef __cplusplus
+
 namespace environs
 {
+#endif
+    
 #ifndef PI
 #define PI 3.14159265
 #endif
@@ -137,9 +142,10 @@ namespace environs
 		int			x_old;
 		int			y_old;
 
+#ifdef __cplusplus
 		Input () {}
 
-		Input ( InputPackRaw * in, int ints ) {
+        Input ( InputPackRaw * in, int ints ) {
 			pack.uniqueID = 0;
 
 			int * src = (int *)in;
@@ -178,8 +184,15 @@ namespace environs
 			while ( ints-- )
 				*dst++ = *src++;
 		}
-	} 
+#endif
+	}
 	Input;
 
+
+    /** Place declarations to global namespace for plain C */
+#ifdef __cplusplus
 }
+#endif
+
+
 #endif /* INCLUDE_HCM_ENVIRONS_HUMAN_INPUT_DECLARATIONS_H_ */

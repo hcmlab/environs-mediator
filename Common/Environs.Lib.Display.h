@@ -41,14 +41,6 @@ namespace environs
 
 			LIBEXPORT void CallConv			SetUseTouchInjection ( EBOOL enabled );
 
-            LIBEXPORT int CallConv			SetUseTracker ( int async, const char * moduleName );
-            LIBEXPORT int CallConv			GetUseTracker ( const char * moduleName );
-            LIBEXPORT EBOOL CallConv		DisposeTracker ( int async, const char * moduleName );
-            
-            LIBEXPORT EBOOL CallConv		GetTrackerEnabled ( int index );
-            LIBEXPORT EBOOL CallConv		SetTrackerParams ( int index, int channels, int width, int height, int stride );
-            LIBEXPORT EBOOL CallConv		SetTrackerImage ( int index, void * rawImage, int size );
-            LIBEXPORT EBOOL CallConv		PushTrackerCommand ( int async, int index, int command );
 
 #ifdef __cplusplus
 		}

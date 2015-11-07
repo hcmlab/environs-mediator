@@ -22,9 +22,13 @@
 #define INCLUDE_HCM_ENVIRONS_PORTALINFO_BASE_H
 
 
+/** Place declarations to global namespace for plain C */
+#ifdef __cplusplus
+
 /* Namespace: environs -> */
 namespace environs
 {
+#endif
 	/**
 	*	A PortalInfoBase object serves as container for raw portal information.
     *   Environs makes use of such objects to get/set portal details.
@@ -47,7 +51,9 @@ namespace environs
 	}
 	PortalInfoBase;
 
+    
+#ifdef __cplusplus
 } /* namepace Environs */
-
+#endif
 
 #endif // INCLUDE_HCM_ENVIRONS_PORTALINFO_BASE_H

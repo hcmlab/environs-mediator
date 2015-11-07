@@ -22,8 +22,8 @@
 
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG
-//#define DEBUGVERB
-//#define DEBUGVERBVerb
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
 #endif
 
 #include <stdio.h>
@@ -34,24 +34,24 @@
 #include "Interop.h"
 
 #if defined(_WIN32)
-#include "windows.h"
+#   include "windows.h"
 #else // <- _WIN32 ->
 
-#if defined(__APPLE__) || defined(ANDROID)
-#include <time.h>
-#else  // <- __APPLE__ | ANDROID ->
-#include <time.h>
-#include <sys/times.h>
-#endif
+#   if defined(__APPLE__) || defined(ANDROID)
+#       include <time.h>
+#   else  // <- __APPLE__ | ANDROID ->
+#       include <time.h>
+#       include <sys/times.h>
+#   endif
 
-#include <errno.h>
+#   include <errno.h>
 #endif // <-- end of _WIN32
 
 #ifdef __APPLE__
-#include <mach/mach_time.h>
+#   include <mach/mach_time.h>
 #endif
 
-#define CLASS_NAME	"Environs.utils"
+#define CLASS_NAME	"Environs.Utils . . . . ."
 
 
 namespace environs
@@ -92,63 +92,55 @@ namespace environs
 
 
 #ifdef _WIN32
-#pragma warning( push )
-#pragma warning( disable: 4996 )
+#	pragma warning( push )
+#	pragma warning( disable: 4996 )
 #endif
     
-    
-    /*
-    size_t FileSize ( FILE * fp )
-    {
-        size_t fileSize = 0;
-        
-        size_t init = (size_t) ftell ( fp );
-        
-        fseek ( fp, 0L, SEEK_END );
-        
-        fileSize = (size_t) ftell ( fp );
-        
-        fseek ( fp, init, SEEK_SET );
-        
-        return fileSize;
+    size_t GetSizeOfFile ( const char * filePath )
+	{
+		STAT_STRUCT ( st );
+
+        if ( stat ( filePath, &st ) != 0 )
+            return 0;
+        return (size_t) st.st_size;
     }
-    */
     
-	char * LoadBinary ( const char * fileName, int * size )
+    
+	char * LoadBinary ( const char * filePath, int * size )
 	{
 		// Get filesize if it exists 
 		size_t fileSize = 0;
 		int bytesRead = 0;
 		bool ret = false;
 
-#ifdef _WIN32
-		struct _stat st;
-#else
-		struct stat st;
-#endif
-		if ( stat ( fileName, &st ) != 0 )
-			return 0;
-
-		fileSize = (size_t) st.st_size;
-		if ( fileSize < 1 )
-			return 0;
+        fileSize = GetSizeOfFile ( filePath );
+        CVerbVerbArg ( "LoadBinary: Filesize [%d]", fileSize );
+        
+        if ( fileSize < 1 )
+            return 0;
 
 		char * binary = (char *) malloc ( fileSize + 2 );
-		if ( !binary ) {
+        if ( !binary ) {
+            CVerbVerb ( "LoadBinary: malloc failed" );
 			return 0;
 		}
 
-		FILE * fp = fopen ( fileName, "rb" );
+        FILE * fp = fopen ( filePath, "rb" );
+        CVerbVerbArg ( "LoadBinary: Opening [%s]", filePath );
+        
 		if ( !fp )
-			goto Finish;
+            goto Finish;
+        CVerbVerbArg ( "LoadBinary: Opened [%s]", filePath );
 
 		//rewind ( fp );
 		bytesRead = (unsigned int) fread ( binary, 1, fileSize, fp );
 		if ( bytesRead != (int) fileSize ){
-			CErrArg ( "LoadBinary: Read file [%s] failed read [%i] != expected [%i].", fileName, bytesRead, (int) fileSize );
+			CErrArg ( "LoadBinary: Read file [%s] failed read [%i] != expected [%i].", filePath, bytesRead, (int) fileSize );
 			goto Finish;
-		}
+        }
+        CVerbVerb ( "LoadBinary: Read" );
 
+		binary [fileSize] = 0;
 		if ( size )
 			*size = (int) fileSize;
 		ret = true;
@@ -202,7 +194,7 @@ namespace environs
 	}
 
 #ifdef _WIN32
-#pragma warning( pop )
+#   pragma warning( pop )
 #endif
 
     
@@ -211,13 +203,60 @@ namespace environs
 #endif
 
     
+    
+#ifndef _WIN32    
+#   ifndef ANDROID
+#       ifndef __APPLE__
+    size_t strlcpy ( char *d, char const *s, size_t n )
+    {
+        return snprintf ( d, n, "%s", s );
+    }
+#       endif
+    // <- Linux/iOS includes
+#   endif
+    // <- POSIX includes
+#endif
+    
 #ifdef _WIN32
     // return milliseconds
     INTEROPTIMEVAL GetEnvironsTickCount ()
     {
         return ( INTEROPTIMEVAL ) GetTickCount64 ();
     }
+    
+#pragma warning(push)
+#pragma warning(disable:4310)
+    
+    int gettimeofday ( struct timeval *tv, void * )
+    {
+        if ( !tv )
+            return 0;
+        
+        static const LONGLONG        UNIX_DELTA_IN_MICSECS = 116444736000000000;
+        
+        ULARGE_INTEGER  ul, bunix;
+        FILETIME        ft;
+        LONGLONG        usecs;
+        
+        GetSystemTimeAsFileTime ( &ft );
+        ul.LowPart  = ft.dwLowDateTime;
+        ul.HighPart = ft.dwHighDateTime;
+        
+        bunix.LowPart = (DWORD)UNIX_DELTA_IN_MICSECS;
+        bunix.HighPart = UNIX_DELTA_IN_MICSECS >> 32;
+        
+        usecs = (LONGLONG)((ul.QuadPart - bunix.QuadPart) / 10);
+        
+        tv->tv_sec = (long)(usecs /   1000000);
+        tv->tv_usec = (long)(usecs % 1000000);
+        
+        return 0;
+    }
+    
+#pragma warning(pop) 
+    
 #endif
+    
     
 #ifdef __APPLE__
     // return milliseconds
@@ -254,7 +293,8 @@ namespace environs
         GetSystemTime( &st );
         
         FILETIME ft;
-        SystemTimeToFileTime( &st, &ft );
+		if ( !SystemTimeToFileTime ( &st, &ft ) )
+			return 0;
         
         unsigned long long ticks = (((unsigned long long) ft.dwHighDateTime) << 32) + ft.dwLowDateTime;
         

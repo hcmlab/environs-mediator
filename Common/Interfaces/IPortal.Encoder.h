@@ -62,7 +62,7 @@ namespace environs
         virtual int								Perform ( RenderContext * context ) = 0;
         virtual int								Perform () { return 0; };
 
-		EncoderBufferType::EncoderBufferType	inBufferType;
+		EncoderBufferType_t						inBufferType;
     
         void								*	stages;
 

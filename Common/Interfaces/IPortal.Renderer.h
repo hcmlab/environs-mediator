@@ -30,6 +30,7 @@ namespace environs
 {
 
 	class IPortalRenderer;
+	class Instance;
 
 	/**
 	*	Interface for a renderer extension
@@ -50,7 +51,7 @@ namespace environs
 			IEnvironsBase ( InterfaceType::Render ),
 
 			/** Default initialization */
-            squareLength ( 0 ), buffersInitialized ( false ), rendered ( false ), stages ( 0 ), parent ( 0 ), filledContexts ( 0 ), hAppWindow ( 0 )
+			useRenderCache ( true ), squareLength ( 0 ), buffersInitialized ( false ), rendered ( false ), stages ( 0 ), env ( 0 ), parent ( 0 ), filledContexts ( 0 ), hAppWindow ( 0 )
             // , capture ( 0 )
 		{};
 
@@ -79,6 +80,7 @@ namespace environs
 		virtual bool		Compare ( unsigned int &equal ) = 0;
 #endif
 
+		bool				useRenderCache;
 		int					squareLength;
 		bool				buffersInitialized;
 
@@ -89,6 +91,7 @@ namespace environs
     
         void			*	stages;
 		//void			*	capture;
+		Instance		*	env;
 
 	private:
 		virtual bool		Init ( ) = 0;
@@ -109,7 +112,7 @@ namespace environs
 	unsigned int v; \
 	if ( Compare ( equal ) ) { \
 		if ( equal ) { \
-			if ( opt_useRenderCache ) { \
+			if ( useRenderCache ) { \
 				filledContexts++; \
 				if ( filledContexts > MAX_PORTAL_CONTEXT_WORKERS ) { \
 					context->hasChanged = false; \

@@ -18,10 +18,11 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
+
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG
-//#define DEBUGVERB
-//#define DEBUGVERBVerb
+#	define DEBUGVERB
+#	define DEBUGVERBVerb
 #endif
 
 #include "Mediator.Daemon.h"
@@ -30,50 +31,41 @@
 using namespace environs;
 
 #ifndef _WIN32
-#if defined(OutputDebugStringA)
-#undef OutputDebugStringA
-#endif
-#define OutputDebugStringA(msg)		fputs(msg,stdout)
+#	if defined(OutputDebugStringA)
+#		undef OutputDebugStringA
+#	endif
+#	define OutputDebugStringA(msg)		fputs(msg,stdout)
 #endif
 
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <queue>
 using namespace std;
 
 #ifdef WIN32
-#include <conio.h>
-#include "windows.h"
-#include <ws2tcpip.h>
-#include <Winhttp.h>
-
-#ifndef NDEBUG
-#ifdef _USE_VLD
-#ifdef _C_X64
-#pragma comment(lib, "C:/Program Files (x86)/Visual Leak Detector/lib/Win64/vld.lib")
-#else
-#pragma comment(lib, "C:/Program Files/Visual Leak Detector/lib/Win32/vld.lib")
-#endif
-#endif
-#endif
+#	include <conio.h>
+#	include "windows.h"
+#	include <ws2tcpip.h>
+#	include <Winhttp.h>
+#	include "Environs.Build.Lnk.h"
 
 // Link to winsock library
-#pragma comment ( lib, "Ws2_32.lib" )
+#	pragma comment ( lib, "Ws2_32.lib" )
 
 // Link to winsock library
-#pragma comment ( lib, "Winhttp.lib" )
-
+#	pragma comment ( lib, "Winhttp.lib" )
 #else
-#include <string.h>
+#	include <string.h>
 
-#include "stdio.h"
-#include "errno.h"
-#include <cerrno>
+#	include "stdio.h"
+#	include "errno.h"
+#	include <cerrno>
 
-#include <termios.h>
-#include <curl/curl.h>
-#include <unistd.h>
+#	include <termios.h>
+#	include <curl/curl.h>
+#	include <unistd.h>
 
 int _getch ( )
 {
@@ -104,18 +96,18 @@ int _getch ( )
 
 
 // Forward declarations
-MediatorDaemon	*	g_mediator = 0;
 
 bool				logging;
 ofstream			logfile;
 pthread_mutex_t     logMutex;
+
+static queue<NotifyQueueContext *> notifyQueue;
 
 
 MediatorDaemon::MediatorDaemon ()
 {
 	CVerb ( "Construct" );
 
-	g_mediator				= this;
 	allocated				= false;
     anonymousLogon          = true;
     *anonymousUser          = 0;
@@ -134,23 +126,29 @@ MediatorDaemon::MediatorDaemon ()
     bannedIPConnects    .clear ();
     bannAfterTries      = 3;
 	
-	areasList        .clear ();
+	areasList           .clear ();
 	
-	areasCounter      = 0;
-	areaIDs          .clear ();
+	areasCounter        = 0;
+	areaIDs             .clear ();
 
 	appsCounter         = 0;
 	appIDs              .clear ();
     
     notifyTargets       .clear ();
 
+	networkOK			= 0xFFFFFFFF;
 	checkLast			= 0;
+
+	usersDBDirty		= false;
+	configDirty			= false;
     
     Zero ( aesKey );
     Zero ( aesCtx );
     
 	privKey				= 0;
 	privKeySize			= 0;
+	
+	Zero ( notifyThreadID );
 
 	srand ( getRandomValue ( (void *) &checkLast ) );
 
@@ -168,9 +166,6 @@ MediatorDaemon::MediatorDaemon ()
     /// n = no padding: -openssl, -win32
     encPadding              = ENVIRONS_DEFAULT_CRYPT_PAD;
 
-	notifyDeviceID			= 0;
-	notifyAreaName          = 0;
-	notifyAppName			= 0;
 	spareID					= 0;
 
 	sessionCounter			= 1;
@@ -189,8 +184,8 @@ MediatorDaemon::~MediatorDaemon ()
 
 	Dispose ();
 
-    notifyTargets    .clear ();
-	areaIDs		      .clear ();
+    notifyTargets   .clear ();
+	areaIDs		    .clear ();
 	appIDs          .clear ();
 
 	CloseLog ();
@@ -198,23 +193,16 @@ MediatorDaemon::~MediatorDaemon ()
     AESDisposeKeyContext ( &aesCtx );
 
 	ReleaseEnvironsCrypt ();
-	
-	if ( notifyAreaName ) {
-		free ( notifyAreaName );
-		notifyAreaName = 0;
-	}
-	if ( notifyAppName ) {
-		free ( notifyAppName );
-		notifyAppName = 0;
-	}
 
 	if ( allocated ) {
-		pthread_mutex_destroy ( &usersDBMutex );
-		pthread_mutex_destroy ( &bannedIPsMutex );
-		pthread_mutex_destroy ( &acceptClientsMutex );
-		pthread_mutex_destroy ( &areasMutex );
-		pthread_mutex_destroy ( &thread_mutex );
-		pthread_mutex_destroy ( &logMutex );
+		MutexDispose ( &usersDBMutex );
+		MutexDispose ( &bannedIPsMutex );
+		MutexDispose ( &acceptClientsMutex );
+		MutexDispose ( &areasMutex );
+		MutexDispose ( &thread_mutex );
+        MutexDispose ( &notifyMutex );
+        MutexDispose ( &notifyTargetsMutex );
+		MutexDispose ( &logMutex );
 	}
 }
 
@@ -234,7 +222,8 @@ void MediatorDaemon::PrintHelp ()
 	printf ( "m - print mediators\n" );
 	printf ( "c - print configuration\n" );
 	printf ( "d - print database\n" );
-	printf ( "p - print active devices\n" );
+    printf ( "p - print active devices\n" );
+    printf ( "g - print client resources\n" );
 	printf ( "l - toggle authentication\n" );
 	printf ( "a - add/update user\n" );
 	printf ( "z - clear bann list\n" );
@@ -248,45 +237,44 @@ bool MediatorDaemon::InitMediator ()
 	CVerb ( "InitMediator" );
 
 	if ( !allocated ) {
-		if ( pthread_mutex_init		( &thread_mutex, NULL ) ) {
-			CErr ( "InitMediator: Failed to init thread_mutex." );
-			return false;
-		}
+        if ( !MutexInit ( &thread_mutex ) )
+            return false;
 
 		if ( pthread_cond_init		( &thread_condition, NULL ) ) {
 			CErr ( "InitMediator: Failed to init thread_condition." );
 			return false;
-		}
+        }
+        
+        if ( pthread_cond_init		( &notifyEvent, NULL ) ) {
+            CErr ( "InitMediator: Failed to init notifyEvent." );
+            return false;
+        }
 
 		if ( pthread_cond_init		( &hWatchdogEvent, NULL ) ) {
 			CErr ( "InitMediator: Failed to init hWatchdogEvent." );
 			return false;
-		}
-
-		if ( pthread_mutex_init		( &areasMutex, NULL ) ) {
-			CErr ( "InitMediator: Failed to init areasMutex." );
-			return false;
-		}
-		
-		if ( pthread_mutex_init		( &bannedIPsMutex, NULL ) ) {
-			CErr ( "InitMediator: Failed to init bannedIPsMutex." );
-			return false;
-		}
-
-		if ( pthread_mutex_init		( &usersDBMutex, NULL ) ) {
-			CErr ( "InitMediator: Failed to allinitocated usersDBMutex." );
-			return false;
-		}
-
-		if ( pthread_mutex_init		( &acceptClientsMutex, NULL ) ) {
-			CErr ( "InitMediator: Failed to init acceptClientsMutex." );
-			return false;
-		}
-
-		if ( pthread_mutex_init		( &logMutex, NULL ) ) {
-			CErr ( "InitMediator: Failed to init logMutex." );
-			return false;
-		}
+        }
+        
+        if ( !MutexInit ( &areasMutex ) )
+            return false;
+        
+        if ( !MutexInit ( &bannedIPsMutex ) )
+            return false;
+        
+        if ( !MutexInit ( &usersDBMutex ) )
+            return false;
+        
+        if ( !MutexInit ( &acceptClientsMutex ) )
+            return false;
+        
+        if ( !MutexInit ( &notifyMutex ) )
+            return false;
+        
+        if ( !MutexInit ( &notifyTargetsMutex ) )
+            return false;
+        
+        if ( !MutexInit ( &logMutex ) )
+            return false;
 
         allocated = true;
         
@@ -376,6 +364,16 @@ bool MediatorDaemon::LoadConfig ()
 			}
 			else {
 				AddMediator ( value, port );
+			}
+		}
+		else if ( str [ 0 ] == 'N' && str [ 1 ] == ':' ) {
+			if ( !( iss >> prefix >> svalue  ) ) {
+				CLogArg ( "LoadConfig: Invalid config line: %s", str );
+			}
+			else {
+				struct sockaddr_in addr;
+				inet_pton ( AF_INET, svalue.c_str (), &( addr.sin_addr ) );
+				networkOK = ( unsigned int ) addr.sin_addr.s_addr;
 			}
 		}
 		else if ( str [ 0 ] == 'B' && str [ 1 ] == ':' ) {
@@ -486,8 +484,16 @@ NoConfFile:
     if ( !aesCryptKey ) {
         BUILD_IV_128 ( aesKey );
         BUILD_IV_128 ( aesKey + 16 );
-        
-        SaveConfig ();
+
+		if ( MutexLock ( &thread_mutex, "LoadConfig" ) ) {
+
+			configDirty = true;
+			if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+				CErr ( "LoadConfig: Error to signal watchdog event" );
+			}
+
+			MutexUnlock ( &thread_mutex, "LoadConfig" );
+		}
     }
     
     AESDisposeKeyContext ( &aesCtx );
@@ -527,14 +533,10 @@ bool MediatorDaemon::SaveConfig ()
 	}
 	else
 		configs << "5899";
-
-	configs << endl;
+	configs << endl;	
 	
-	
-	if ( pthread_mutex_lock ( &mediatorMutex ) ) {
-		CErr ( "SaveConfig: Failed to aquire mutex on mediator!" );
-	}
-	else {
+	if ( MutexLock ( &mediatorMutex, "SaveConfig" ) ) 
+	{
 		MediatorInstance * net = &mediator;
 
 		while ( net && net->ip ) {
@@ -544,10 +546,19 @@ bool MediatorDaemon::SaveConfig ()
 			net = net->next;
 		}
 	
-		if ( pthread_mutex_unlock ( &mediatorMutex ) ) {
-			CErr ( "SaveConfig: Failed to release mutex on mediator!" );
-		}
+		MutexUnlock ( &mediatorMutex, "SaveConfig" );
     }
+
+	if ( networkOK != 0xFFFFFFFF ) 
+	{
+		struct sockaddr_in addr;
+		char ipStr [ INET_ADDRSTRLEN ];
+
+		addr.sin_addr.s_addr = networkOK;
+		inet_ntop ( AF_INET, &( addr.sin_addr ), ipStr, INET_ADDRSTRLEN );
+
+		configs << "N: " << ipStr << endl;
+	}
     
     configs << "CV: " << bannAfterTries << endl;
     configs << "AN: " << (int)anonymousLogon << endl;
@@ -574,12 +585,9 @@ bool MediatorDaemon::SaveConfig ()
 			configs << endl;
         }
     }
-    
-	
-	if ( pthread_mutex_lock ( &bannedIPsMutex ) ) {
-		CErr ( "SaveConfig: Failed to aquire mutex on banned IPs!" );
-	}
-	else {
+    	
+	if ( MutexLock ( &bannedIPsMutex, "SaveConfig" ) ) 
+	{
 		std::map<unsigned int, std::time_t>::iterator iter;
 
 		for ( iter = bannedIPs.begin(); iter != bannedIPs.end(); ++iter ) {
@@ -592,9 +600,7 @@ bool MediatorDaemon::SaveConfig ()
             configs << "C: " << itert->first << " " << itert->second << endl ;
         }
 	
-		if ( pthread_mutex_unlock ( &bannedIPsMutex ) ) {
-			CErr ( "SaveConfig: Failed to release mutex on banned IPs!" );
-		}
+		MutexUnlock ( &bannedIPsMutex, "SaveConfig" );
 	}
     
     conffile << configs.str() << endl;
@@ -613,11 +619,9 @@ bool MediatorDaemon::LoadProjectValues ()
 	if ( !conffile.good() )
 		return false;
 	
-	if ( pthread_mutex_lock ( &areasMutex ) ) {
-		CErr ( "LoadProjectValues: Failed to aquire mutex on areas/values!" );
-	}	
+	MutexLockV ( &areasMutex, "LoadProjectValues" );
 
-	AppsList					*	apps	= 0;
+	sp ( AppsList )					apps;
 	map<string, ValuePack*>		*	app		= 0;
 	
 	string line;
@@ -630,7 +634,7 @@ bool MediatorDaemon::LoadProjectValues ()
 		if ( str [ 0 ] == 'P' && str [ 1 ] == ':' ) {
 			CVerbArg ( "Loading area [%s]", str );
 
-			apps = new AppsList ();
+			apps = make_shared < AppsList > ();
 			if ( !apps ) {
 				CErrArg ( "LoadProjectValues: Failed to create new area [%s].", str + 2 );
 				break;
@@ -682,7 +686,7 @@ bool MediatorDaemon::LoadProjectValues ()
 	}
 	
 	/// Sanitinize database
-	map<string, AppsList*>::iterator it = areas.begin();
+	msp ( string, AppsList )::iterator it = areas.begin();
 	
 	while ( it != areas.end() )
 	{		
@@ -717,10 +721,8 @@ bool MediatorDaemon::LoadProjectValues ()
 
 		it++;
 	}
-
-	if ( pthread_mutex_unlock ( &areasMutex ) ) {
-		CErr ( "LoadProjectValues: Failed to release mutex on areas/values!" );
-	}
+	
+	MutexUnlockV ( &areasMutex, "LoadProjectValues" );
 
 	conffile.close();
 
@@ -739,16 +741,27 @@ bool MediatorDaemon::SaveProjectValues ()
 	if ( !conffile.good() )
 		return false;
 	
-	if ( pthread_mutex_lock ( &areasMutex ) ) {
-		CErr ( "SaveProjectValues: Failed to aquire mutex on areas/values!" );
+	if ( !MutexLock ( &devicesMutex, "SaveProjectValues" ) )
+		return false;
+
+	if ( !MutexLock ( &areasMutex, "SaveProjectValues" ) ) {
 		ret = false;
 	}
 	else {
+		sp ( AreaApps )						areaApps;
+		sp ( ApplicationDevices )			appDevices;
+
 		// Save areas
-		for ( map<string, AppsList * >::iterator it = areas.begin(); it != areas.end(); it++ )
+		for ( msp ( string, AppsList )::iterator it = areas.begin(); it != areas.end(); it++ )
 		{
 			if ( !it->second )
 				continue;
+
+			msp ( string, AreaApps )::iterator areaIt = areasList.find ( it->first );
+			if ( areaIt != areasList.end () )
+				areaApps = areaIt->second;
+			else
+				areaApps = 0;
 
 			conffile << "P:" << it->first << endl;
 
@@ -757,22 +770,42 @@ bool MediatorDaemon::SaveProjectValues ()
 				if ( !ita->second ) 
 					continue;
 
+				unsigned int maxID = 0;
+
+				/// Find the appList
+				if ( areaApps ) {
+					msp ( string, ApplicationDevices )::iterator appsIt = areaApps->apps.find ( ita->first );
+					if ( appsIt != areaApps->apps.end () )
+					{
+						appDevices = appsIt->second;
+						if ( appDevices )
+							maxID = (unsigned int) appDevices->latestAssignedID;
+					}
+				}
+
 				conffile << "A:" << ita->first << endl;
+
+				if ( maxID > 0 )
+					conffile << "0_maxID " << maxID << " ids" << endl;
 
 				for ( map<string, ValuePack*>::iterator itv = ita->second->begin(); itv != ita->second->end(); ++itv )
 				{
 					if ( itv->second ) {
+						if ( maxID > 0 && itv->first.c_str() [0] == '0' )
+							continue;
 						conffile << itv->first << " " << itv->second->size << " " << itv->second->value << endl;
 					}
 				}
+
 			}
 		}
-			
-		if ( pthread_mutex_unlock ( &areasMutex ) ) {
-			CErr ( "SaveProjectValues: Failed to release mutex on areas/values!" );
+
+		if ( !MutexUnlock ( &areasMutex, "SaveProjectValues" ) ) {
 			ret = false;
 		}
 	}
+
+	MutexLockV ( &devicesMutex, "SaveProjectValues" );
 
 	conffile.close();
 	return ret;
@@ -798,10 +831,8 @@ bool MediatorDaemon::LoadDeviceMappingsEnc ()
 
 bool MediatorDaemon::LoadDeviceMappings ( istream& instream )
 {
-    if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-        CErr ( "LoadDeviceMappings: Failed to aquire mutex!" );
-        return false;
-    }
+	if ( !MutexLock ( &usersDBMutex, "LoadDeviceMappings" ) )
+		return false;
     
     string line;
     while ( getline ( instream, line ) )
@@ -817,21 +848,20 @@ bool MediatorDaemon::LoadDeviceMappings ( istream& instream )
             continue;
         }
         
-        DeviceMapping * mapping = (DeviceMapping *) calloc ( 1, sizeof(DeviceMapping) );
+        sp ( DeviceMapping ) mapping = sp ( DeviceMapping ) ( new DeviceMapping ); // calloc ( 1, sizeof(DeviceMapping) );
         if ( !mapping )
             break;
+		memset ( mapping.get (), 0, sizeof(DeviceMapping) );
         
         mapping->deviceID = deviceID;
         mapping->authLevel = authLevel;
-        if (authToken.length() > 0 )
+        if ( authToken.length() > 0 )
             memcpy ( mapping->authToken, authToken.c_str(), authToken.length() );
         
         deviceMappings [ deviceUID ] = mapping;
     }
     
-    if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-        CErr ( "LoadDeviceMappings: Failed to release mutex!" );
-    }
+	MutexUnlock ( &usersDBMutex, "LoadDeviceMappings" );
     
     return true;
 }
@@ -873,14 +903,13 @@ bool MediatorDaemon::SaveDeviceMappings ( )
 	CVerb ( "SaveDeviceMappings" );
 
     stringstream plainstream;
-    
-	if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-		CErr ( "SaveDeviceMappings: Failed to aquire mutex!" );
+
+	if ( !MutexLock ( &usersDBMutex, "SaveDeviceMappings" ) ) {
 		ret = false;
 	}
 	else {
 		// Save devcie mappings
-		for ( map<string, DeviceMapping *>::iterator it = deviceMappings.begin(); it != deviceMappings.end(); it++ )
+		for ( msp ( string, DeviceMapping )::iterator it = deviceMappings.begin(); it != deviceMappings.end(); it++ )
 		{
 			if ( !it->second )
 				continue;
@@ -888,8 +917,7 @@ bool MediatorDaemon::SaveDeviceMappings ( )
 			plainstream << it->first << " " << it->second->deviceID << " " << it->second->authLevel << " " << it->second->authToken << endl;
 		}
         
-		if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-			CErr ( "SaveDeviceMappings: Failed to release mutex!" );
+		if ( !MutexUnlock ( &usersDBMutex, "SaveDeviceMappings" ) ) {
 			ret = false;
 		}
 	}
@@ -926,11 +954,9 @@ bool MediatorDaemon::SaveDeviceMappings ( )
 bool MediatorDaemon::AddUser ( int authLevel, const char * userName, const char * pass )
 {
 	CLog ( "AddUser" );
-    
-	if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-		CErr ( "AddUser: Failed to aquire mutex on usersDB!" );
+
+	if ( !MutexLock ( &usersDBMutex, "AddUser" ) )
 		return false;
-	}
 	
 	bool ret = false;
 	
@@ -975,15 +1001,22 @@ bool MediatorDaemon::AddUser ( int authLevel, const char * userName, const char 
 		free ( hash );
     
     if ( item )
-        delete item;
-    
-	if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-		CErr ( "AddUser: Failed to release mutex on usersDB!" );
-		return false;
-	}
+		delete item;
 
-	if ( ret )
-		ret = SaveUserDB ();
+	if ( !MutexUnlock ( &usersDBMutex, "AddUser" ) )
+		return false;
+
+	if ( ret ) {
+		if ( MutexLock ( &thread_mutex, "AddUser" ) ) {
+
+			usersDBDirty = true;
+			if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+				CErr ( "AddUser: Error to signal watchdog event" );
+			}
+
+			MutexUnlock ( &thread_mutex, "AddUser" );
+		}
+	}
 
 	return ret;
 }
@@ -1086,11 +1119,9 @@ bool MediatorDaemon::SaveUserDB ()
 	CLog ( "SaveUserDB" );
     
     stringstream plainstream;
-    
-	if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-		CErr ( "SaveUserDB: Failed to aquire mutex on usersDB!" );
+
+	if ( !MutexLock ( &usersDBMutex, "SaveUserDB" ) )
 		ret = false;
-	}
 	else {
 		// Save areas
 		for ( map<string, UserItem *>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
@@ -1110,10 +1141,8 @@ bool MediatorDaemon::SaveUserDB ()
 			}
 		}
         
-		if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-			CErr ( "SaveUserDB: Failed to release mutex on usersDB!" );
+		if ( !MutexUnlock ( &usersDBMutex, "SaveUserDB" ) )
 			ret = false;
-		}
 	}
     
     if ( ret ) {
@@ -1148,14 +1177,12 @@ bool MediatorDaemon::IsIpBanned ( unsigned int ip )
 
 	bool banned = false;
 
-	if ( (ip & 0x00FFFFFF) == 0xABFA89 ) {
-		CVerb ( "IsIpBanned: IP is one of the allowed networks!" );
+	if ( (ip & 0x00FFFFFF) == networkOK ) {
+		CVerb ( "IsIpBanned: IP is OK!" );
 		return false;
 	}
 
-	if ( pthread_mutex_lock ( &bannedIPsMutex ) ) {
-		CErr ( "IsIpBanned: Failed to acquire mutex!" );
-	}
+    MutexLockV ( &bannedIPsMutex, "IsIpBanned" );
 
 	std::map<unsigned int, std::time_t>::iterator iter = bannedIPs.find ( ip );
 	if ( iter != bannedIPs.end () )
@@ -1182,9 +1209,7 @@ bool MediatorDaemon::IsIpBanned ( unsigned int ip )
 	}
 	
 Finish:
-	if ( pthread_mutex_unlock ( &bannedIPsMutex ) ) {
-		CErr ( "IsIpBanned: Failed to release mutex!" );
-	}
+    MutexUnlockV ( &bannedIPsMutex, "IsIpBanned" );
 
 	return banned;
 }
@@ -1197,12 +1222,10 @@ void MediatorDaemon::BannIP ( unsigned int ip )
 	if ( (ip & 0x00FFFFFF) == 0xABFA89 ) {
 		CVerb ( "BannIP: IP is one of the allowed networks!" );
 		return;
-	}
-
-	if ( pthread_mutex_lock ( &bannedIPsMutex ) ) {
-		CErr ( "BannIP: Failed to aquire mutex!" );
-		return;
-	}
+    }
+    
+    if ( !MutexLock ( &bannedIPsMutex, "BannIP" ) )
+        return;
     
     unsigned int tries = bannedIPConnects [ ip ];
     if ( tries < bannAfterTries ) {
@@ -1214,12 +1237,18 @@ void MediatorDaemon::BannIP ( unsigned int ip )
         
         bannedIPs [ ip ] = t;
     }
+    
+    MutexUnlockV ( &bannedIPsMutex, "IsIpBanned" );
 
-	if ( pthread_mutex_unlock ( &bannedIPsMutex ) ) {
-		CErr ( "BannIP: Failed to release mutex!" );
+	if ( MutexLock ( &thread_mutex, "LoadConfig" ) ) {
+
+		configDirty = true;
+		if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+			CErr ( "LoadConfig: Error to signal watchdog event" );
+		}
+
+		MutexUnlock ( &thread_mutex, "LoadConfig" );
 	}
-
-	SaveConfig ();
 }
 
 
@@ -1227,12 +1256,10 @@ void MediatorDaemon::BannIPRemove ( unsigned int ip )
 {
     CVerb ( "BannIPRemove" );
     
-	bool ret = false;
-
-    if ( pthread_mutex_lock ( &bannedIPsMutex ) ) {
-        CErr ( "BannIPRemove: Failed to aquire mutex!" );
+    bool ret = false;
+    
+    if ( !MutexLock ( &bannedIPsMutex, "BannIPRemove" ) )
         return;
-    }
     
     std::map<unsigned int, std::time_t>::iterator iter = bannedIPs.find ( ip );
     if ( iter != bannedIPs.end () )
@@ -1247,12 +1274,19 @@ void MediatorDaemon::BannIPRemove ( unsigned int ip )
             bannedIPConnects.erase ( itert );
     }
     
-    if ( pthread_mutex_unlock ( &bannedIPsMutex ) ) {
-        CErr ( "BannIPRemove: Failed to release mutex!" );
-    }
+    MutexUnlockV ( &bannedIPsMutex, "IsIpBanned" );
     
-	if ( ret )
-		SaveConfig ();
+	if ( ret ) {
+		if ( MutexLock ( &thread_mutex, "IsIpBanned" ) ) {
+
+			configDirty = true;
+			if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+				CErr ( "IsIpBanned: Error to signal watchdog event" );
+			}
+
+			MutexUnlock ( &thread_mutex, "IsIpBanned" );
+		}
+	}
 }
 
 
@@ -1269,13 +1303,17 @@ bool MediatorDaemon::CreateThreads ()
 
 	for ( unsigned int pos = 0; pos < ports.size(); pos++ )
 	{
-		MediatorThreadInstance * listener = new MediatorThreadInstance ();
-		if ( !listener ) {
-			CErrArg ( "CreateThreads: Error - Failed to allocate memory for new Listener (Nr. %i). Probably low memory.", pos );
+		sp ( MediatorThreadInstance ) listenerSP = sp ( MediatorThreadInstance ) ( new MediatorThreadInstance ); // make_shared < MediatorThreadInstance > ();
+		if ( !listenerSP ) {
+			CErrArg ( "CreateThreads: Error - Failed to allocate memory for new Listener [Nr. %i]", pos );
 			return false;
 		}
+        MediatorThreadInstance * listener = listenerSP.get();
+        
 		memset ( listener, 0, sizeof(MediatorThreadInstance) );
+        
 		listener->socketUdp = -1;
+		listener->instance.daemon = this;
 
 		ThreadInstance * inst = &listener->instance;
 		inst->socket = -1;
@@ -1318,7 +1356,7 @@ bool MediatorDaemon::CreateThreads ()
             return false;
         }
 #endif
-		pthread_mutex_lock ( &thread_mutex );
+		MutexLockV ( &thread_mutex, "CreateThreads" );
 
 		s = pthread_create ( &inst->threadID, 0, &MediatorDaemon::AcceptorStarter, (void *)listener );
 		if ( s != 0 ) {
@@ -1328,27 +1366,32 @@ bool MediatorDaemon::CreateThreads ()
 		}
 
 		pthread_cond_wait ( &thread_condition, &thread_mutex );
-		pthread_mutex_unlock ( &thread_mutex );
+		MutexUnlockV ( &thread_mutex, "CreateThreads" );
 
-		pthread_mutex_lock ( &thread_mutex );
+		MutexLockV ( &thread_mutex, "CreateThreads" );
 
 		s = pthread_create ( &listener->threadIDUdp, 0, &MediatorDaemon::MediatorUdpThreadStarter, (void *)listener );
 		if ( s != 0 ) {
 			CErrArg ( "CreateThreads: Error creating udp thread for port %i (pthread_create:%i)", inst->port, s );
-			pthread_mutex_unlock ( &thread_mutex );
+			MutexUnlockV ( &thread_mutex, "CreateThreads" );
 			return false;
 		}
 
 		pthread_cond_wait ( &thread_condition, &thread_mutex );
-		pthread_mutex_unlock ( &thread_mutex );
+		MutexUnlockV ( &thread_mutex, "CreateThreads" );
 
 		s = pthread_create ( &listener->threadIDWatchdog, 0, &MediatorDaemon::WatchdogThreadStarter, (void *)this );
 		if ( s != 0 ) {
 			CErrArg ( "CreateThreads: Error creating clients alive status checker port %i (pthread_create:%i)", inst->port, s );
 		}
 		
-		listeners.push_back ( listener );
-	}
+		listeners.push_back ( listenerSP );
+    }
+    
+    s = pthread_create ( &notifyThreadID, 0, &MediatorDaemon::NotifyClientsStarter, this );
+    if ( s != 0 ) {
+        CErrArg ( "CreateThreads: Error creating notifier thread (pthread_create:%i)", s );
+    }
 	
 	Start ();
 	
@@ -1367,11 +1410,9 @@ void MediatorDaemon::Dispose ()
 	
 	ReleaseDevices ();
 
-	if ( pthread_mutex_lock ( &areasMutex ) ) {
-		CErr ( "Dispose: Failed to aquire mutex on area/values!" );
-	}
+    MutexLockV ( &areasMutex, "Dispose" );
 		
-	for ( map<string, AppsList * >::iterator it = areas.begin(); it != areas.end(); it++ )
+	for ( msp ( string, AppsList )::iterator it = areas.begin(); it != areas.end(); it++ )
 	{
 		if ( !it->second )
 			continue;
@@ -1389,13 +1430,11 @@ void MediatorDaemon::Dispose ()
 			}
 			delete ita->second;
 		}
-		delete it->second;
+		//delete it->second;
 	}
-	areas.clear ();
-
-	if ( pthread_mutex_unlock ( &areasMutex ) ) {
-		CErr ( "Dispose: Failed to release mutex on areas/values!" );
-	}
+    areas.clear ();
+    
+    MutexUnlockV ( &areasMutex, "Dispose" );
 
 	ReleaseDeviceMappings ();
     
@@ -1443,6 +1482,8 @@ void MediatorDaemon::ReleaseClient ( ThreadInstance * client )
 
 	if ( !isRunning ) 
 	{		
+		client->deviceSP = 0;
+
 		if ( pthread_valid ( thrd ) ) 
 		{
 			int s = pthread_join ( thrd, &res );
@@ -1455,11 +1496,7 @@ void MediatorDaemon::ReleaseClient ( ThreadInstance * client )
 		if ( client->aes.encCtx )
 			AESDisposeKeyContext ( &client->aes );
 		 
-		if ( pthread_mutex_destroy ( &client->accessMutex ) ) {
-			CVerb ( "ReleaseClient: Failed to destroy mutex." );
-		}
-
-		delete client;
+        MutexDispose ( &client->accessMutex );
 	}
 }
 
@@ -1480,8 +1517,36 @@ bool MediatorDaemon::ReleaseThreads ()
 	
 	Mediator::ReleaseThreads ();
 
+	// Release notifier thread
+	pthread_t notifThreadID = notifyThreadID;
+
+    if ( pthread_valid ( notifThreadID ) ) {
+		Zero ( notifyThreadID );
+
+        if ( pthread_cond_signal ( &notifyEvent ) ) {
+            CErr ( "ReleaseThreads: Error to signal notifier event" );
+        }
+        
+		CVerb ( "ReleaseThreads: Waiting for notifier thread" );
+
+		s = pthread_join ( notifThreadID, &res );
+		if ( s != 0 ) {
+			CErrArg ( "ReleaseThreads: Error waiting for notifier thread (pthread_join:%i)", s );
+			ret = false;
+		}
+		pthread_close ( notifThreadID );
+	}
+    
+    while ( !notifyQueue.empty () )
+    {
+        NotifyQueueContext * ctx = notifyQueue.front ();
+        notifyQueue.pop ();
+        if ( ctx )
+            delete ctx;
+    }
+
 	for ( unsigned int pos = 0; pos < listeners.size(); pos++ ) {
-		MediatorThreadInstance * listener = listeners [ pos ];
+		sp ( MediatorThreadInstance ) listener = listeners [ pos ];
 		if ( !listener )
 			continue;
 
@@ -1532,24 +1597,18 @@ bool MediatorDaemon::ReleaseThreads ()
 			}
 			pthread_close ( listener->threadIDWatchdog );
 		}
-
-		delete listener;
 	}
 	listeners.clear();
 		
-		
-	if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-		CErr ( "ReleaseThreads: Failed to aquire mutex on clients!" );
-	}
+
+	MutexLockV ( &acceptClientsMutex, "ReleaseThreads" );
 
 	for ( unsigned int pos = 0; pos < acceptClients.size(); pos++ ) {
-		ReleaseClient ( acceptClients [ pos ] );
+		ReleaseClient ( acceptClients [ pos ].get () );
 	}
 	acceptClients.clear();
 
-	if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-		CErr ( "ReleaseThreads: Failed to release mutex on clients!" );
-	}
+	MutexUnlockV ( &acceptClientsMutex, "ReleaseThreads" );
 
 	return ret;
 }
@@ -1559,75 +1618,69 @@ void MediatorDaemon::ReleaseDevices ()
 {
 	CLog ( "ReleaseDevices" );
 
-	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErr ( "ReleaseDevices: Failed to aquire mutex on area/values!" );
-	}
+    MutexLockV ( &devicesMutex, "ReleaseDevices" );
 
-	for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end(); ++it )
+	for ( msp ( string, AreaApps )::iterator it = areasList.begin(); it != areasList.end(); ++it )
 	{
 		if ( it->second ) {
-			AreaApps * areaApps = it->second;
+			sp ( AreaApps ) areaApps = it->second;
 
-			for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end(); ++ita )
+			for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end(); ++ita )
 			{
-				ApplicationDevices * appDevices = ita->second;
+				sp ( ApplicationDevices ) appDevices = ita->second;
 				if ( appDevices ) 
-				{					
-					if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
-						CErr ( "ReleaseDevices: Failed to aquire mutex on application device list!" );
-					}
-					DeviceInstanceList * device = appDevices->devices;
+				{
+					MutexLockV ( &appDevices->mutex, "ReleaseDevices" );
+
+					DeviceInstanceNode * device = appDevices->devices;
 			
 					while ( device ) {
-						DeviceInstanceList * toDelete = device;
+						DeviceInstanceNode * toDispose = device;
 						device = device->next;
-						CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", toDelete->info.deviceID );
 
-						ReleaseClient ( toDelete->client );
+						CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", toDispose->info.deviceID );
 
-						free ( toDelete );
+						ReleaseClient ( toDispose->clientSP.get () );
+
+
+						toDispose->myself = 0;
 					}	
 
-					if ( pthread_mutex_unlock ( &appDevices->mutex ) ) {
-						CErr ( "ReleaseDevices: Failed to aquire mutex on application device list!" );
-					}
+					appDevices->devices = 0;
 
-					pthread_mutex_destroy ( &appDevices->mutex );
-					free ( appDevices );
+					MutexUnlockV ( &appDevices->mutex, "ReleaseDevices" );
+
+					MutexDispose ( &appDevices->mutex );
+
+					ita->second = 0;
 				}
 			}
 
-			delete areaApps;
+			it->second = 0;
 		}
 	}
-	areasList.clear ();
-
-	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-		CErr ( "ReleaseDevices: Failed to release mutex on area/values!" );
-	}
+    areasList.clear ();
+    
+    MutexUnlockV ( &devicesMutex, "ReleaseDevices" );
 }
 
 
 void MediatorDaemon::ReleaseDeviceMappings ()
 {
     CVerb ( "ReleaseDeviceMappings" );
-
-	if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-		CErr ( "ReleaseDeviceMappings: Failed to aquire mutex (devMap)!" );
-	}
+    
+    MutexLockV ( &usersDBMutex, "ReleaseDeviceMappings" );
 	
-	for ( map<string, DeviceMapping *>::iterator it = deviceMappings.begin(); it != deviceMappings.end(); ++it ) 
+	for ( msp ( string, DeviceMapping )::iterator it = deviceMappings.begin(); it != deviceMappings.end(); ++it ) 
 	{
 		if ( !it->second ) {
 			continue;
 		}
-		free ( it->second );
+		it->second = 0;
 	}
-	deviceMappings.clear ();
+    deviceMappings.clear ();
     
-	if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-		CErr ( "ReleaseDeviceMappings: Failed to release mutex (devMap)!" );
-	}
+    MutexUnlockV ( &usersDBMutex, "ReleaseDeviceMappings" );
 }
 
 
@@ -1640,25 +1693,22 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * areaName, const c
 		return;
 	}
 	
-	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErrID ( "RemoveDevice: Failed to acquire mutex on area list!" );
-		return;
-	}
+	if ( !MutexLock ( &devicesMutex, "RemoveDevice" ) )
+        return;
 
-	bool				found	= false;
-	bool				unlock	= true;
-	DeviceInstanceList	*	device	= 0;
-	DeviceInstanceList	*	prevDevice = 0;
+	bool					found	= false;
+	DeviceInstanceNode	*	device	= 0;
+	DeviceInstanceNode	*	prevDevice = 0;
 	
 	string appsName ( appName );
-	ApplicationDevices					* appDevices = 0;
+	sp ( ApplicationDevices )			appDevices = 0;
 
 	string pareaName ( areaName );
-	AreaApps							* areaApps	= 0;
+	sp ( AreaApps )						areaApps;
 
-	map<string, ApplicationDevices * >::iterator appsIt;
+	msp ( string, ApplicationDevices )::iterator appsIt;
 
-    map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );
+    msp ( string, AreaApps )::iterator areaIt = areasList.find ( pareaName );
 	if ( areaIt != areasList.end ( ) )
 		areaApps = areaIt->second;
     
@@ -1675,10 +1725,8 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * areaName, const c
 		CErrArg ( "RemoveDevice: appName [%s] not found.", appName );
 		goto Finish;
 	}
-	
-	if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
-		CErr ( "RemoveDevice: Failed to acquire mutex on app devices!" );
-	}
+
+	MutexLockV ( &appDevices->mutex, "RemoveDevice" );
 	
 	device = appDevices->devices;	
 
@@ -1695,88 +1743,85 @@ void MediatorDaemon::RemoveDevice ( int deviceID, const char * areaName, const c
 		device = device->next;
 	}
 
-	if ( found ) {
-		if ( device == appDevices->devices ) {
-			if ( device->next ) {		
-				CVerbArg ( "[0x%X].RemoveDevice: relocating client to root of list", device->next->info.deviceID );
-			
-				DeviceInstanceList * toDelete = device;
-
-				appDevices->devices = device->next;
-				appDevices->count--;
-			
-				CVerbArg ( "[0x%X].RemoveDevice: deleting temporary prior occupied memory for client", toDelete->info.deviceID );
-				free ( toDelete );
-			}
-			else {
-				free ( device );
-
-#ifdef ENABLE_LIST_CLEANER
-				appDevices->devices = 0;
-				appDevices->count = 0;
-#else
-				/*if ( appDevices->access ) 
-				{
-					/// We need to wait until no one has a lock anymore...
-				}*/
-				pthread_mutex_unlock ( &appDevices->mutex );
-				unlock = false;
-
-				areaApps->erase ( appsIt );
-
-				pthread_mutex_destroy ( &appDevices->mutex );
-				free ( appDevices );
-
-				if ( areaApps->size() == 0 ) {
-					areasList.erase ( areaIt );
-					delete areaApps;
-				}
-#endif
-			}
-		}
-		else {
-			if ( !prevDevice ) {
-				CVerbArgID ( "RemoveDevice: Failed to lookup device list. Missing previous device for ID [0x%X]", device->info.deviceID );
-			}
-			else {
-				if ( device->next ) {
-					CVerbArg ( "[0x%X].RemoveDevice: relinking client to previous client [0x%X]", device->next->info.deviceID, prevDevice->info.deviceID );
-					prevDevice->next = device->next;
-				}
-				else {
-					CVerbArg ( "[0x%X].RemoveDevice: finish list since client was the last one", prevDevice->info.deviceID );
-					prevDevice->next = 0;
-				}
-				
-				appDevices->count--;
-
-				CVerbArg ( "[0x%X].RemoveDevice: deleting memory occupied by client", device->info.deviceID );
-				free ( device );
-			}
-		}
-	}
+	if ( found && device )
+		RemoveDevice ( device, false );
 	
-	if ( unlock && pthread_mutex_unlock ( &appDevices->mutex ) ) {
-		CErr ( "RemoveDevice: Failed to release mutex on app devices!" );
-	}
-	
-	NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED, pareaName.c_str(), appsName.c_str(), deviceID );
+	MutexUnlockV ( &appDevices->mutex, "RemoveDevice" );
 
 Finish:
-	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-		CErr ( "RemoveDevice: Failed to release mutex on project list!" );
-	}
+	MutexUnlockV ( &devicesMutex, "RemoveDevice" );
 }
 
 
-void MediatorDaemon::RemoveDevice ( DeviceInstanceList * device, bool useLock )
+void MediatorDaemon::RemoveDevice ( DeviceInstanceNode * device, bool useLock )
 {
 	CVerbVerb ( "RemoveDevice" );
 
-	if ( !device )
+	if ( !device || ( useLock && !MutexLock ( &devicesMutex, "RemoveDevice" ) ) )
 		return;
-	
-	RemoveDevice ( device->info.deviceID, device->info.areaName, device->info.appName );
+
+	sp ( ApplicationDevices ) appDevices = device->rootSP;
+
+	if ( useLock )
+		MutexLockV ( &appDevices->mutex, "RemoveDevice" );
+
+	if ( device == appDevices->devices ) {
+		if ( device->next ) {
+			CVerbArg ( "[0x%X].RemoveDevice: relocating client to root of list", device->next->info.deviceID );
+
+			appDevices->devices = device->next;
+			appDevices->devices->prev = 0;
+			appDevices->count--;
+		}
+		else {
+			appDevices->devices = 0;
+			appDevices->count = 0;
+		}
+	}
+	else {
+		if ( !device->prev ) {
+			CErrArg ( "RemoveDevice: Serious inconsistency error!!! Failed to lookup device list. Missing previous device for ID [0x%X]", device->info.deviceID );
+
+			/// Best thing we can do is to assume that we are the root node of the list
+			if ( device->next ) {
+				CVerbArg ( "[0x%X].RemoveDevice: relocating client to root of list", device->next->info.deviceID );
+
+				device->next->prev = 0;
+				appDevices->devices = device->next;
+				appDevices->count--;
+			}
+			else {
+				appDevices->devices = 0;
+				appDevices->count = 0;
+			}
+		}
+		else {
+			if ( device->next ) {
+				CVerbArg ( "[0x%X].RemoveDevice: relinking client to previous client [0x%X]", device->next->info.deviceID, device->prev->info.deviceID );
+				device->prev->next = device->next;
+				device->next->prev = device->prev;
+			}
+			else {
+				CVerbArg ( "[0x%X].RemoveDevice: finish list as the client was the last one", device->prev->info.deviceID );
+				device->prev->next = 0;
+			}
+
+			appDevices->count--;
+
+		}
+	}
+
+	if ( useLock)
+		MutexUnlockV ( &appDevices->mutex, "RemoveDevice" );
+
+	NotifyClients ( NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED, device->info.areaName, device->info.appName, device->info.deviceID );
+    
+    
+    CVerbArg ( "[0x%X].RemoveDevice: Disposing device", device->info.deviceID );
+	device->myself = 0;
+
+	if ( useLock )
+		MutexUnlockV ( &devicesMutex, "RemoveDevice" );
 }
 
 
@@ -1819,76 +1864,90 @@ void MediatorDaemon::RemoveDevice ( unsigned int ip, char * msg )
 }
 
 
-void MediatorDaemon::UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed )
+void MediatorDaemon::UpdateDeviceInstance ( DeviceInstanceNode * device, bool added, bool changed )
 {
 	if ( added )
-		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_ADDED, device->info.areaName, device->info.appName, device->info.deviceID );
+		NotifyClients ( NOTIFY_MEDIATOR_SRV_DEVICE_ADDED, device->info.areaName, device->info.appName, device->info.deviceID );
 	else if ( changed )
-		NotifyClientsStart ( NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED, device->info.areaName, device->info.appName, device->info.deviceID );
+		NotifyClients ( NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED, device->info.areaName, device->info.appName, device->info.deviceID );
 }
 
 
 /// 0 no filter
-/// 1 show only within same area
+/// 1 show all within the same area
 /// 2 show only within same area and apps
 
-void MediatorDaemon::UpdateNotifyTargets ( ThreadInstance * client, int filterMode )
-{
-    map<long long, ThreadInstance *>::iterator notifyIt;
-    
-    if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErr ( "UpdateNotifyTargets: Failed to acquire mutex!" );
+void MediatorDaemon::UpdateNotifyTargets ( const sp ( ThreadInstance ) &clientSP, int filterMode )
+{	
+	if ( !clientSP || !MutexLock ( &notifyTargetsMutex, "UpdateNotifyTargets" ) )
 		return;
-	}
+
+    msp ( long long, ThreadInstance )::iterator notifyIt;
 	
+    ThreadInstance * client = clientSP.get ();
+    
+    sp ( DeviceInstanceNode ) deviceSP = client->deviceSP;
+    
+    DeviceInstanceNode * device = deviceSP.get ( );
+
     /// Check whether we need to remove the client from a targetlist
-    if ( client->filterMode == MEDIATOR_FILTER_NONE )
+    if ( client->filterMode != filterMode )
     {
-        /// Remove from project notifiers
-		CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in NONE-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : "" );
-
-        notifyIt = notifyTargets.find ( client->sessionID );
-        if ( notifyIt != notifyTargets.end () ) {
-			CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from NONE-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
-            notifyTargets.erase ( notifyIt );
-        }
-    }
-    else if ( client->filterMode == MEDIATOR_FILTER_AREA ) {
-        while ( client->device && client->device->root )
+        if ( client->filterMode == MEDIATOR_FILTER_NONE )
         {
-            /// Search for area
-            map<unsigned int, string>::iterator areaIdsIt = areaIDs.find ( client->device->root->areaId );
+            /// Remove from NoRestrict notifiers
+            CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in NONE-filter", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
             
-            if ( areaIdsIt == areaIDs.end () ) {
-                CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", client->device->root->areaId );
+            notifyIt = notifyTargets.find ( client->sessionID );
+            
+            if ( notifyIt != notifyTargets.end () )
+            {
+                CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from NONE-filter", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
+                
+                notifyTargets.erase ( notifyIt );
+            }
+        }
+        else if ( client->filterMode == MEDIATOR_FILTER_AREA ) 
+		{            
+            while ( device && device->rootSP )
+            {
+                /// Search for area
+                map<unsigned int, string>::iterator areaIdsIt = areaIDs.find ( device->rootSP->areaId );
+                
+                if ( areaIdsIt == areaIDs.end () ) {
+                    CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", device->rootSP->areaId );
+                    break;
+                }
+                
+                msp ( string, AreaApps )::iterator areaIt = areasList.find ( areaIdsIt->second );
+                
+                if ( areaIt == areasList.end ( ) ) {
+                    CWarnArg ( "UpdateNotifyTargets: Failed to find area [%s]", areaIdsIt->second.c_str () );
+                    break;
+                }
+                
+                sp ( AreaApps ) areaApps = areaIt->second;
+                if ( areaApps ) {
+                    CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in Area-filter", client->deviceID, device->info.areaName, device->info.appName );
+                    
+                    notifyIt = areaApps->notifyTargets.find ( client->sessionID );
+                    
+                    if ( notifyIt != areaApps->notifyTargets.end () )
+                    {
+                        CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from Area-filter", client->deviceID, device->info.areaName, device->info.appName );
+                        
+                        areaApps->notifyTargets.erase ( notifyIt );
+                    }
+                }
                 break;
             }
-            
-            map<string, AreaApps *>::iterator areaIt = areasList.find ( areaIdsIt->second );
-            
-            if ( areaIt == areasList.end ( ) ){
-                CWarnArg ( "UpdateNotifyTargets: Failed to find area [%s]", areaIdsIt->second.c_str () );
-                break;
-            }
-            
-            AreaApps * areaApps = areaIt->second;
-            
-			CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in Area-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
-
-            notifyIt = areaApps->notifyTargets.find ( client->sessionID );
-            if ( notifyIt != areaApps->notifyTargets.end () ) {
-				CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from Area-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
-                areaApps->notifyTargets.erase ( notifyIt );
-            }
-            
-            break;
         }
     }
+    
+    client->filterMode = (short) filterMode;
     
     if ( filterMode < MEDIATOR_FILTER_NONE )
         goto Finish;
-    
-    client->filterMode = (unsigned short)filterMode;
     
 	if ( filterMode == MEDIATOR_FILTER_ALL ) {
         goto Finish;
@@ -1896,64 +1955,69 @@ void MediatorDaemon::UpdateNotifyTargets ( ThreadInstance * client, int filterMo
     
     if ( filterMode == MEDIATOR_FILTER_NONE )
     {
-		CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to NONE-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
-        notifyTargets [ client->sessionID ] = client;
+		CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to NoRestrict-targets", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
+        
+        notifyTargets [ client->sessionID ] = clientSP;
     }
-    else if ( filterMode == MEDIATOR_FILTER_AREA ) {
-        while ( client->device && client->device->root )
+    else if ( filterMode == MEDIATOR_FILTER_AREA ) 
+	{
+        while ( device && device->rootSP )
         {
             /// Search for area
-            map<unsigned int, string>::iterator areaIDsIt = areaIDs.find ( client->device->root->areaId );
+            map<unsigned int, string>::iterator areaIDsIt = areaIDs.find ( device->rootSP->areaId );
             
             if ( areaIDsIt == areaIDs.end () ) {
-                CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", client->device->root->areaId );
+                CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", device->rootSP->areaId );
                 break;
             }
             
-            map<string, AreaApps *>::iterator areaIt = areasList.find ( areaIDsIt->second );
+            msp ( string, AreaApps )::iterator areaIt = areasList.find ( areaIDsIt->second );
             
-            if ( areaIt == areasList.end ( ) ){
+            if ( areaIt == areasList.end () ){
                 CWarnArg ( "UpdateNotifyTargets: Failed to find area [%s]", areaIDsIt->second.c_str () );
                 break;
             }
             
-			CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to Area-filter", client->deviceID, client->device ? client->device->info.areaName : "", client->device ? client->device->info.appName : ""  );
-            AreaApps * areaApps = areaIt->second;
-            areaApps->notifyTargets [ client->sessionID ] = client;
+			CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to Area-filter", client->deviceID, device->info.areaName, device->info.appName );
+            sp ( AreaApps ) areaApps = areaIt->second;
             
+            if ( areaApps )
+                areaApps->notifyTargets [ client->sessionID ] = clientSP;
             break;
         }
     }
     
 Finish:
-    if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-		CErr ( "UpdateNotifyTargets: Failed to release mutex!" );
-		return;
-	}
+	MutexUnlockV ( &notifyTargetsMutex, "UpdateNotifyTargets" );
 }
 
 
-DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** pappDevices )
+DeviceInstanceNode ** MediatorDaemon::GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, void * pappDevices )
 {
-	DeviceInstanceList ** list = 0;
+	DeviceInstanceNode ** list = 0;
 
-	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErr ( "GetDeviceList: Failed to acquire mutex!" );
+	if ( !MutexLock ( &devicesMutex, "GetDeviceList" ) )
 		return 0;
-	}	
 
-	ApplicationDevices	*				appDevices	= 0;
-	AreaApps			*				areaApps	= 0;
-	map<string, ApplicationDevices * >::iterator appsIt;
-	
+	sp ( ApplicationDevices	)			appDevices;
+	sp ( AreaApps )						areaApps;
+	msp ( string, ApplicationDevices )::iterator appsIt;
+
+
+	map<string, ValuePack*> *			values = 0;
+	sp ( AppsList )						apps;
+	map<string, map<string, ValuePack*>*>::iterator appsVPIt;
+	map<string, ValuePack*>::iterator	valueIt;
+	msp ( string, AppsList )::iterator areaVPIt;
+
 	string appsName ( appName );
 	string pareaName ( areaName );
 
-    map<string, AreaApps *>::iterator areaIt = areasList.find ( pareaName );	
+    msp ( string, AreaApps )::iterator areaIt = areasList.find ( pareaName );	
 
 	if ( areaIt == areasList.end ( ) ) {
 		/// Create a new one...
-		areaApps = new AreaApps ();
+		areaApps = make_shared < AreaApps > ();
 		if ( areaApps ) {
 			areasCounter++;
 			areaIDs [ areasCounter ] = pareaName;
@@ -1978,9 +2042,11 @@ DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * areaName, char * ap
 				
 	if ( appsIt == areaApps->apps.end ( ) ) {
 		/// Create a new one...
-		appDevices = (ApplicationDevices *) calloc ( 1, sizeof(ApplicationDevices) );
+		appDevices = sp ( ApplicationDevices ) ( new ApplicationDevices ); // make_shared < ApplicationDevices > ();
 		if ( appDevices ) {
-			pthread_mutex_init ( &appDevices->mutex, 0 );
+			memset ( appDevices.get (), 0, sizeof(ApplicationDevices) );
+
+			MutexInit ( &appDevices->mutex );
 
 			appDevices->access = 1;			
 			areaApps->apps [ appsName ] = appDevices;
@@ -1989,6 +2055,22 @@ DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * areaName, char * ap
 			appDevices->id = appsCounter;
 			appDevices->areaId = areaApps->id;
 			appIDs [ appsCounter ] = appsName;
+
+			// Query maxIDs from value packs			
+			areaVPIt = areas.find ( pareaName );
+			if ( areaVPIt != areas.end () ) {
+				apps = areaVPIt->second;
+
+				appsVPIt = apps->apps.find ( appsName );
+				if ( appsVPIt != apps->apps.end () ) {
+					values = appsVPIt->second;
+
+					valueIt = values->find ( string ( "0_maxID" ) );
+					if ( valueIt != values->end () ) {
+						appDevices->latestAssignedID = valueIt->second->size;
+					}
+				}
+			}
 		}
 		else { CErrArg ( "GetDeviceList: Failed to create new application devicelist [%s] Low memory problem?!", appName ); }
 	}
@@ -2005,32 +2087,36 @@ DeviceInstanceList ** MediatorDaemon::GetDeviceList ( char * areaName, char * ap
 	if ( pDevicesAvailable )
 		*pDevicesAvailable = &appDevices->count;
 	if ( pappDevices )
-		*pappDevices = appDevices;
+		*((sp ( ApplicationDevices ) *)pappDevices) = appDevices;
 
 	list = &appDevices->devices;
 
 Finish:
-	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-		CErr ( "GetDeviceList: Failed to release mutex!" );
+	if ( !MutexUnlock ( &devicesMutex, "GetDeviceList" ) )
 		return 0;
-	}
 
 	return list;
 }
 
 
-void printDeviceList ( DeviceInstanceList * device )
+void printDevice ( DeviceInstanceNode * device )
+{
+    CLogArg ( "Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+    CLogArg ( "UID         = [%d / %s]", device->clientSP ? device->clientSP->authLevel : -1, device->clientSP ? device->clientSP->uid : ".-." );
+    if ( device->info.ip != device->info.ipe ) {
+        CLogArg ( "Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
+    }
+    CLogArg ( "Area/App = [%s / %s]", device->info.areaName, device->info.appName );
+    CLogArg ( "Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ), device->info.tcpPort, device->info.udpPort );
+}
+
+
+void printDeviceList ( DeviceInstanceNode * device )
 {
 	while ( device ) 
 	{
-        CLogArg ( "Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
-        CLogArg ( "UID         = [%d / %s]", device->client ? device->client->authLevel : -1, device->client ? device->client->uid : ".-." );
-		if ( device->info.ip != device->info.ipe ) {
-			CLogArg ( "Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
-		}
-		CLogArg ( "Area/App = [%s / %s]", device->info.areaName, device->info.appName );
-		CLogArg ( "Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ), device->info.tcpPort, device->info.udpPort );
-
+        printDevice ( device );
+        
 		device = device->next;
 	}
 }
@@ -2113,25 +2199,19 @@ void MediatorDaemon::Run ()
 				continue;
 			}
 			else if ( c == 'z' ) {
-				if ( pthread_mutex_lock ( &bannedIPsMutex ) ) {
-					CErr ( "Failed to aquire mutex on banned IPs!" );
-				}
-				else {
+				if ( MutexLock ( &bannedIPsMutex, "Run" ) ) {
 					printf ( "Run: Clearing bannlist with [%u] entries.\n", (unsigned int)bannedIPs.size() );
 					CLogArg ( "Run: Clearing bannlist with [%u] entries.\n", (unsigned int)bannedIPs.size() );
                     bannedIPs.clear ();
                     bannedIPConnects.clear ();
-					if ( pthread_mutex_unlock ( &bannedIPsMutex ) ) {
-						CErr ( "Failed to release mutex on banned IPs!" );
-					}
+
+					MutexUnlockV ( &bannedIPsMutex, "Run" );
 				}
 				continue;
 			}
 			else if ( c == 'i' ) {	
-				if ( pthread_mutex_lock ( &localNetsMutex ) ) {
-					CErr ( "Run: Failed to aquire mutex on localNets!" );
+				if ( !MutexLock ( &localNetsMutex, "Run" ) )
 					continue;
-				}
 				
 				NetPack * net = &localNets;
 				while ( net ) {
@@ -2140,10 +2220,7 @@ void MediatorDaemon::Run ()
 					net = net->next;
 				}
 	
-				if ( pthread_mutex_unlock ( &localNetsMutex ) ) {
-					CErr ( "Run: Failed to release mutex on localNets!" );
-				}
-
+				MutexUnlockV ( &localNetsMutex, "Run" );
 				continue;
 			}
 			else if ( c == 'm' ) {
@@ -2152,10 +2229,8 @@ void MediatorDaemon::Run ()
 					continue;
 				}
 				else {
-					if ( pthread_mutex_lock ( &mediatorMutex ) ) {
-						CErr ( "Run: Failed to aquire mutex on mediator!" );
+					if ( !MutexLock ( &mediatorMutex, "Run" ) )
 						continue;
-					}
 					
 					CLog ( "Mediators:" );
 					CLog ( "----------------------------------------------------------------" );
@@ -2174,10 +2249,8 @@ void MediatorDaemon::Run ()
 						net = net->next;
 					}
 					printf ( "----------------------------------------------------------------\n" );
-	
-					if ( pthread_mutex_unlock ( &mediatorMutex ) ) {
-						CErr ( "Run: Failed to release mutex on mediator!" );
-					}
+
+					MutexUnlockV ( &mediatorMutex, "Run" );
 				}
 				continue;
 			}
@@ -2195,11 +2268,9 @@ void MediatorDaemon::Run ()
 			else if ( c == 'd' ) {
 				CLog ( "Database:" );
 				printf ( "----------------------------------------------------------------\n" );
-				if ( pthread_mutex_lock ( &areasMutex ) ) {
-					CErr ( "Failed to aquire mutex on area/values!" );
-				}
-				else {		
-					for ( map<string, AppsList * >::iterator it = areas.begin(); it != areas.end(); it++ )
+				if ( MutexLock ( &areasMutex, "Run" ) ) 
+				{		
+					for ( msp ( string, AppsList )::iterator it = areas.begin(); it != areas.end(); it++ )
 					{
 						if ( !it->second )
 							continue;
@@ -2219,16 +2290,12 @@ void MediatorDaemon::Run ()
 							}
 						}
 					}
-			
-					if ( pthread_mutex_unlock ( &areasMutex ) ) {
-						CErr ( "Failed to release mutex on area/values!" );
-					}
+
+					MutexUnlockV ( &areasMutex, "Run" );
 				}
                 printf ( "----------------------------------------------------------------\n" );
-                if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-                    CErr ( "Failed to aquire mutex on usersDB!" );
-                }
-                else {
+				if ( MutexLock ( &usersDBMutex, "Run" ) )
+				{
                     for ( map<string, UserItem *>::iterator it = usersDB.begin(); it != usersDB.end(); ++it )
                     {
                         if ( it->second )
@@ -2242,10 +2309,8 @@ void MediatorDaemon::Run ()
                             }
                         }
                     }
-                    
-                    if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-                        CErr ( "Failed to release mutex on usersDB!" );
-                    }
+
+					MutexUnlockV ( &usersDBMutex, "Run" );
                 }
                 printf ( "----------------------------------------------------------------\n" );
 				continue;
@@ -2254,48 +2319,71 @@ void MediatorDaemon::Run ()
 				CLog ( "Active devices:" );
 				CLog ( "----------------------------------------------------------------" );
 				
-
-				if ( pthread_mutex_lock ( &devicesMutex ) ) {
-					CErr ( "Failed to aquire mutex on devices!" );
-				}
-				else {
-					for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end(); ++it )
+				if ( MutexLock ( &devicesMutex, "Run" ) )
+				{
+					for ( msp ( string, AreaApps )::iterator it = areasList.begin(); it != areasList.end(); ++it )
 					{
 						if ( it->second ) {
-							AreaApps * areaApps = it->second;
+							sp ( AreaApps ) areaApps = it->second;
 							CLogArg ( "P: [%s]", it->first.c_str () );
 
-							for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end(); ++ita )
+							for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end(); ++ita )
 							{
-								ApplicationDevices * appDevices = ita->second;
+								sp ( ApplicationDevices ) appDevices = ita->second;
 								if ( appDevices ) 
 								{					
-									CLog ( "----------------------------------------------------------------" );
-									CLogArg ( "A: [%s]", ita->first.c_str () );
+									if ( appDevices->devices ) 
+									{
+										CLog ( "----------------------------------------------------------------" );
+										CLogArg ( "A: [%s]", ita->first.c_str () );
 
-									if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
-										CErr ( "Failed to aquire mutex on application device list!" );
+										// Deadlock here
+										if ( MutexLock ( &appDevices->mutex, "Run" ) )
+										{
+											printDeviceList ( appDevices->devices );
+
+											MutexUnlockV ( &appDevices->mutex, "Run" );
+										}
+										CLog ( "----------------------------------------------------------------" );
 									}
 									else {
-										printDeviceList ( appDevices->devices );
-
-										if ( pthread_mutex_unlock ( &appDevices->mutex ) ) {
-											CErr ( "Failed to rlease mutex on application device list!" );
-										}
+										CLogArg ( "A: No devices in [%s]", ita->first.c_str () );
 									}
-									CLog ( "----------------------------------------------------------------" );
 								}
 							}
 						}
 					}
 
-					if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-						CErr ( "Failed to release mutex on area/values!" );
-					}
+					MutexUnlockV ( &devicesMutex, "Run" );
 				}
 				CLog ( "----------------------------------------------------------------" );
 				continue;
-			}
+            }
+            else if ( c == 'g' ) {
+                CLog ( "Active clients:" );
+                CLog ( "----------------------------------------------------------------" );
+                
+                if ( MutexLock ( &acceptClientsMutex, "Run" ) )
+                {
+                    for ( size_t i = 0; i < acceptClients.size(); i++ )
+                    {
+                        sp ( ThreadInstance ) client = acceptClients [i];
+                        if ( client && client->deviceSP )
+                        {
+                            CLogArg ( "[%i]: [%i]", i, client->deviceID );
+                            
+                            printDevice ( client->deviceSP.get () );
+                        }
+                        else {
+                            CErrArg ( "[%i]: **** Invalid Client\n\n", i );
+                        }
+                        CLog ( "----------------------------------------------------------------" );
+                    }
+                    MutexUnlock ( &acceptClientsMutex, "Run" );
+                }
+                CLog ( "----------------------------------------------------------------" );
+                continue;
+            }
 			else if ( c == 'a' ) {
 				CLog ( "Add new user:" );
 				printf ( "Add new user:\n" );
@@ -2381,13 +2469,13 @@ void MediatorDaemon::Run ()
 
 void * MediatorDaemon::MediatorUdpThreadStarter ( void * arg )
 {
-	if ( !arg  ) {
-		CErr ( "MediatorUdpThreadStarter: Called with (NULL) argument." );
-		return 0;
-	}
-	
-	// Execute thread
-	return g_mediator->MediatorUdpThread ( arg );
+	if ( arg  ) {
+		ThreadInstance * listener = (ThreadInstance *) arg;
+		if ( listener->daemon )
+			// Execute thread
+			return ((MediatorDaemon *)listener->daemon)->MediatorUdpThread ( arg );
+	}	
+	return 0;
 }
 
 
@@ -2406,7 +2494,7 @@ void * MediatorDaemon::MediatorUdpThread ( void * arg )
     char				*	msgDec			= 0;
 	unsigned int			msgDecLength;
 	unsigned int			msgLength;
-	ThreadInstance		*	client;
+	sp ( ThreadInstance	)	client;
 
 	struct 	sockaddr_in		listenAddr;
 	MediatorThreadInstance * listener = (MediatorThreadInstance *) arg;
@@ -2417,13 +2505,13 @@ void * MediatorDaemon::MediatorUdpThread ( void * arg )
 	CVerbArg ( "MediatorUdpThread for port [%d] started.", port );
 
 	// Send started signal
-	pthread_mutex_lock ( &thread_mutex );
+	MutexLockV ( &thread_mutex, "Udp" );
 
 	if ( pthread_cond_signal ( &thread_condition ) ) {
 		CErr ( "MediatorUdpThread: Error to signal event" );
 	}
 
-	pthread_mutex_unlock ( &thread_mutex );
+	MutexUnlockV ( &thread_mutex, "Udp" );
 
 	memset ( &listenAddr, 0, sizeof(listenAddr) );
 	
@@ -2505,33 +2593,32 @@ void * MediatorDaemon::MediatorUdpThread ( void * arg )
 			}
 			
 			// Find source device and check validity of IP
-			ThreadInstance * client = 0;			
-			
+			sp ( ThreadInstance ) clientSP;
+
 			if ( bytesReceived >= (int)sizeof(STUNReqPacket) ) 
 			{
 				msgDec [ msgDecLength ] = 0;
 				const char * areaName;
 				const char * appName;
 
-				ApplicationDevices * appDevices	= GetApplicationDevices ( stunPacket->areaName, stunPacket->appName );
+				sp ( ApplicationDevices ) appDevices	= GetApplicationDevices ( stunPacket->areaName, stunPacket->appName );
 			
 				if ( !appDevices )
 					continue;
-					
-				if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
-					CVerb ( "Udp: Failed to aquire mutex!" );
-					UnlockApplicationDevices ( appDevices );
+
+				if ( !MutexLock ( &appDevices->mutex, "Udp" ) ) {
+					UnlockApplicationDevices ( appDevices.get () );
 					continue;
 				}
 
-				DeviceInstanceList * device = GetDeviceInstance ( destID, appDevices->devices );
+				DeviceInstanceNode * device = GetDeviceInstance ( destID, appDevices->devices );
 				if ( !device ) {
 					CErrArg ( "Udp: requested STUN device [%d] does not exist", destID );
 					goto Continue;
 				}
 
-				client = device->client;
-				if ( !client ) {
+				clientSP = device->clientSP;
+				if ( !clientSP ) {
 					CErrArg ( "Udp: requested client of STUN device [%d] does not exist", destID );
 					goto Continue;
 				}
@@ -2550,14 +2637,12 @@ void * MediatorDaemon::MediatorUdpThread ( void * arg )
 				if ( *stunPacket->appNameSrc )
 					appName = stunPacket->appNameSrc;
 
-				HandleSTUNRequest ( client, sourceID, areaName, appName, (unsigned int) addr.sin_addr.s_addr, ntohs ( addr.sin_port ) );
+				HandleSTUNRequest ( clientSP.get (), sourceID, areaName, appName, (unsigned int) addr.sin_addr.s_addr, ntohs ( addr.sin_port ) );
 					
 Continue:
-				UnlockApplicationDevices ( appDevices );
+				UnlockApplicationDevices ( appDevices.get () );
 
-				if ( pthread_mutex_unlock ( &appDevices->mutex ) ) {
-					CVerb ( "Udp: Failed to release mutex!" );
-				}
+				MutexUnlockV ( &appDevices->mutex, "Udp" );
 			}
 		}	
 
@@ -2578,13 +2663,13 @@ ContinueRec:
 
 void * MediatorDaemon::AcceptorStarter ( void * arg )
 {
-	if ( !arg  ) {
-		CErr ( "AcceptorStarter: Called with (NULL) argument." );
-		return 0;
+	if ( arg  ) {
+		ThreadInstance * listener = (ThreadInstance *) arg;
+		if ( listener->daemon )
+			// Execute thread
+			return ((MediatorDaemon *)listener->daemon)->Acceptor ( arg );
 	}
-	
-	// Execute thread
-	return g_mediator->Acceptor ( arg );
+	return 0;
 }
 
 
@@ -2607,13 +2692,13 @@ void * MediatorDaemon::Acceptor ( void * arg )
 	CVerbArg ( "Acceptor for port %d started.", port );
 
 	// Send started signal
-	pthread_mutex_lock ( &thread_mutex );
+	MutexLockV ( &thread_mutex, "Acceptor" );
 
 	if ( pthread_cond_signal ( &thread_condition ) ) {
 		CErr ( "Acceptor: Error to signal event" );
 	}
 
-	pthread_mutex_unlock ( &thread_mutex );
+	MutexUnlockV ( &thread_mutex, "Acceptor" );
 
 	memset ( &listenAddr, 0, sizeof(listenAddr) );
 	
@@ -2651,17 +2736,22 @@ void * MediatorDaemon::Acceptor ( void * arg )
 			break;
 		}		
 
-		CLogArg ( "Acceptor: New socket [%i] connection with IP [%s], Port [%d]", sock, inet_ntoa ( addr.sin_addr ), ntohs ( addr.sin_port ) );
+		CLog ( "\n" );
+        const char * ips = inet_ntoa ( addr.sin_addr );
+        
+		CLogArg ( "Acceptor: New socket [%i] connection with IP [%s], Port [%d]", sock, ips, ntohs ( addr.sin_port ) );
+		CLog ( "\n" );
 		
-		ThreadInstance * client = new ThreadInstance();
+		sp ( ThreadInstance ) client = sp ( ThreadInstance ) ( new ThreadInstance ); //make_shared < ThreadInstance > ();
 		if ( !client ) {
-			CErr ( "Acceptor: Failed to allocate memory for client request! Low memory issue?!" );
+			CErr ( "Acceptor: Failed to allocate memory for client request!" );
 			continue;
 		}
-		
-		memset ( client, 0, sizeof(ThreadInstance) );
+		memset ( client.get (), 0, sizeof ( ThreadInstance ) - ( sizeof ( sp ( DeviceInstanceNode ) ) + sizeof ( sp ( ThreadInstance ) ) ) );
 
-		pthread_mutex_init ( &client->accessMutex, 0 );
+		if ( !MutexInit ( &client->accessMutex ) )
+			goto NextClient;
+		
 		//pthread_cond_init ( &client->socketSignal, NULL );
 		
 		client->socket		= sock;
@@ -2669,32 +2759,32 @@ void * MediatorDaemon::Acceptor ( void * arg )
 		client->port		= port;
 		client->filterMode	= 2;
 		client->aliveLast	= checkLast;
+		client->daemon		= this;
 
 		memcpy ( &client->addr, &addr, sizeof(addr) );
-				
-		if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-			CErr ( "Acceptor: Failed to aquire mutex on clients!" );
+        
+        strcpy_s ( client->ips, sizeof(client->ips), ips );
+
+        
+		if ( !MutexLock ( &acceptClientsMutex, "Acceptor" ) )
 			goto NextClient;
-		}
+
+		client->clientSP = client;
+		
+		pthread_reset ( client->threadID );
 
 		// Create client thread	
-		s = pthread_create ( &client->threadID, 0, &MediatorDaemon::ClientThreadStarter, (void *)client );
+		s = pthread_create ( &client->threadID, 0, &MediatorDaemon::ClientThreadStarter, (void *)client.get () );
 		if ( s != 0 ) {
 			CWarnArg ( "Acceptor: pthread_create failed [%i]", s );
+			client->clientSP = 0;
 			goto NextClient;
 		}
 
-		acceptClients.push_back ( client );
-		client = 0;
-
+		acceptClients.push_back ( client->clientSP );
+        
 NextClient:
-		if ( client ) {
-			delete client;
-		}
-		
-		if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-			CErr ( "Acceptor: Failed to release mutex on clients!" );
-		}
+		MutexUnlockV ( &acceptClientsMutex, "Acceptor" );
 	}
    
 	CLogArg ( "Acceptor: Thread for port %d terminated.", port );
@@ -2705,13 +2795,16 @@ NextClient:
 
 void * MediatorDaemon::ClientThreadStarter ( void *arg )
 {
-	if ( !arg  ) {
-		CErr ( "ClientThreadStarter: Called with (NULL) argument." );
-		return 0;
+    if ( arg  ) {
+		ThreadInstance * client = ( ThreadInstance * ) arg;
+
+		CVerbArg ( "ClientThreadStarter: Address of arg [0x%p].", &client );
+
+		if ( client && client->daemon )
+			// Execute thread
+			return ((MediatorDaemon *)client->daemon)->ClientThread ( client );
 	}
-	
-	// Execute thread
-	return g_mediator->ClientThread ( arg );
+	return 0;
 }
 
 
@@ -2721,7 +2814,7 @@ bool MediatorDaemon::addToArea ( const char * area, const char * app, const char
 
 	// Search for the area at first
 	map<string, ValuePack*>							*	values	= 0;
-	AppsList										*	apps	= 0;
+	sp ( AppsList )										apps;
 	map<string, map<string, ValuePack*>*>::iterator		appsIt;
 		
 	if ( !area || !app ) {
@@ -2729,19 +2822,17 @@ bool MediatorDaemon::addToArea ( const char * area, const char * app, const char
 		return false;
 	}
 
-	if ( pthread_mutex_lock ( &areasMutex ) ) {
-		CErr ( "addToArea: Failed to aquire mutex on area/values!" );
+	if ( !MutexLock ( &areasMutex, "addToArea" ) )
 		return false;
-	}
 	
 	string areaName ( area );
 	string appName ( app );
 
-	map<string, AppsList * >::iterator areaIt = areas.find ( areaName );			
+	msp ( string, AppsList )::iterator areaIt = areas.find ( areaName );			
 
 	if ( areaIt == areas.end () )
 	{		
-		apps = new AppsList ();
+		apps = make_shared < AppsList > ();
 		if ( !apps ) {
 			CErrArg ( "addToArea: Failed to create new area [%s].", area );
 			goto EndWithStatus;
@@ -2768,11 +2859,8 @@ bool MediatorDaemon::addToArea ( const char * area, const char * app, const char
 	ret = addToArea ( values, pKey, pValue, (unsigned int) strlen(pValue) );
 
 EndWithStatus:
-	if ( pthread_mutex_unlock ( &areasMutex ) ) {
-		CErr ( "addToArea: Failed to release mutex on area/values!" );
+	if ( !MutexUnlock ( &areasMutex, "addToArea" ) )
 		return false;
-	}
-
 	return ret;
 }
 
@@ -2898,6 +2986,8 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 	CLogArg ( "HandleRequest: [%s]", buffer + 4 );
 
 	// Scan parameters
+    char empty [2] = {0};
+    
 	char * params [ 4 ];
 	memset ( params, 0, sizeof(params) );
 	
@@ -2913,28 +3003,26 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 		
 	if ( *(params [ 0 ]) == ' ' ) {
 		/// Use area name of the client
-		params [ 0 ] = client->device->info.areaName;
+		params [ 0 ] = client->deviceSP.get() ? client->deviceSP->info.areaName : empty;
 	}
 		
 	if ( *(params [ 1 ]) == ' ' ) {
 		/// Use app name of the client
-		params [ 1 ] = client->device->info.appName;
+		params [ 1 ] = client->deviceSP.get ( ) ? client->deviceSP->info.appName : empty;
 	}
 		
 	// Search for the area at first
 	map<string, ValuePack*> *				values	= 0;
-	AppsList							*	apps	= 0;
+	sp ( AppsList )							apps;
 	map<string, map<string, ValuePack*>*>::iterator appsIt;
 	map<string, ValuePack*>::iterator valueIt;
-		
-	if ( pthread_mutex_lock ( &areasMutex ) ) {
-		CErr ( "HandleRequest: Failed to aquire mutex on areas/values! Skipping client request!" );
+
+	if ( !MutexLock ( &areasMutex, "HandleRequest" ) )
 		return false;
-	}
 
 	string areaName ( params [ 0 ] );
 
-	map<string, AppsList * >::iterator areaIt = areas.find ( areaName );			
+	msp ( string, AppsList )::iterator areaIt = areas.find ( areaName );			
 
 	// COMMAND: Set New Value
 	if ( query->cmd == MEDIATOR_CMD_SET )
@@ -2942,7 +3030,7 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 		if ( areaIt == areas.end() )
 		{
 			// Create a new map for the area
-			apps = new AppsList ();
+			apps = make_shared < AppsList > ();
 			if ( !apps ) {
 				CErrArg ( "HandleRequest: Failed to create new area [%s].", params [ 0 ] );
 				goto Continue;
@@ -3053,65 +3141,33 @@ bool MediatorDaemon::HandleRequest ( char * buffer, ThreadInstance * client )
 	CWarnArg ( "HandleRequest: command [%c] not supported anymore", query->cmd );
 					
 Continue:
-	if ( pthread_mutex_unlock ( &areasMutex ) ) {
-		CErr ( "HandleRequest: Failed to release mutex on areas/values!" );
-	}
+	MutexUnlock ( &areasMutex, "HandleRequest" );
 	return ret;
 }
 
 
-ThreadInstance * MediatorDaemon::GetSessionClient ( long long sessionID )
+sp ( ThreadInstance ) MediatorDaemon::GetSessionClient ( long long sessionID )
 {
+	CVerbVerbArg ( "GetSessionClient [%d]", sessionID );
+
 	//sid |= ((long long)((client->device->root->id << 16) | client->device->root->areaId)) << 32;
 			
-	map<long long, ThreadInstance *>::iterator sessionIt = sessions.find ( sessionID );
-	if ( sessionIt != sessions.end () ) {
+	msp ( long long, ThreadInstance )::iterator sessionIt = sessions.find ( sessionID );
+	if ( sessionIt != sessions.end () ) 
+	{
+		CVerbVerbArg ( "GetSessionClient: Found [%s]", sessionIt->second->uid );
+
 		return sessionIt->second;
 	}
+
+	CVerbVerb ( "GetSessionClient: NOT found." );
 	return 0;
-	/*
-	unsigned int id = (unsigned int)((sessionID >> 32) & 0xFFFF);
-
-	map<unsigned int, string>::iterator areaIdsIt = areaIDs.find ( id );
-
-	if ( areaIdsIt == areaIDs.end () ) {
-		CWarnArg ( "GetSessionClient: Failed to find area ID [%u]", id );
-		return 0;
-	}
-
-	map<string, AreaApps *>::iterator areaIt = areasList.find ( areaIdsIt->second );	
-
-	if ( areaIt == areasList.end ( ) ){
-		CWarnArg ( "GetSessionClient: Failed to find area [%s]", areaIdsIt->second.c_str () );
-		return 0;
-	}
-
-	AreaApps * areaApps = areaIt->second;
-
-	id = (unsigned int)((sessionID >> 48) & 0xFFFF);
-	
-	map<unsigned int, string>::iterator appIDsIt = appIDs.find ( id );
-
-	if ( appIDsIt == appIDs.end () ) {
-		CWarnArg ( "GetSessionClient: Failed to find app ID [%u]", id );
-		return 0;
-	}
-		
-	map<string, ApplicationDevices * >::iterator appsIt = areaApps->apps.find ( appIDsIt->second );
-	
-	if ( appsIt == areaApps->apps.end ( ) ){
-		CWarnArg ( "GetSessionClient: Failed to find app [%s]", appIDsIt->second.c_str () );
-		return 0;
-	}
-
-	ApplicationDevices * appDevices = appsIt->second;
-	*/
 }
 
 
-int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client, unsigned int bytesLeft, char * msg, unsigned int msgLen )
+int MediatorDaemon::HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen )
 {
-	CVerb ( "HandleRegistration" );
+	CVerbArg ( "HandleRegistration [ %s ]", client->ips );
 
 	int ret = -1;
 	char * decrypted = 0;
@@ -3120,7 +3176,7 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
 		do
 		{
 			bool					useSession	= true;
-			ThreadInstance		*	relClient	= 0;	
+			sp ( ThreadInstance )	relClient	= 0;	
 			SpareSockDecPack	*	regPack		= (SpareSockDecPack *) msg;
 
 			/// Get the size of the registration packet
@@ -3130,12 +3186,11 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
 			{
 				regLen =  regPack->sizePayload;
 				if ( regLen + 12 > bytesLeft ) {
-					CWarn ( "HandleRegistration: Spare socket registration packet overflow." ); break;
+					CWarnArg ( "HandleRegistration [ %s ]:\tSpare socket registration packet overflow.", client->ips ); break;
 				}
 
-				if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-					CErr ( "HandleRegistration: Failed to acquire mutex!" ); break;
-				}
+				if ( !MutexLock ( &acceptClientsMutex, "HandleRegistration" ) )
+					break;
 				relClient = GetSessionClient ( regPack->sessionID );
 			}
 			else {
@@ -3143,23 +3198,20 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
 
 				regLen = *((unsigned int *)(msg + 12));
 				if ( regLen + 12 > bytesLeft ) {
-					CWarn ( "HandleRegistration: Spare socket registration packet overflow." ); break;
+					CWarnArg ( "HandleRegistration [ %s ]:\tSpare socket registration packet overflow.", client->ips ); break;
 				}
 
 				/// Get the spare id
-				unsigned int spareID = *((unsigned int *)(msg + 8));
+				unsigned int spareIDa = *((unsigned int *) (msg + 8));
 
-				if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-					CErr ( "HandleRegistration: Failed to acquire mutex!" ); break;
-				}
+				if ( !MutexLock ( &acceptClientsMutex, "HandleRegistration" ) )
+					break;
 
-				map<unsigned int, ThreadInstance *>::iterator iter = spareClients.find ( spareID );
+				msp ( unsigned int, ThreadInstance )::iterator iter = spareClients.find ( spareIDa );
 				if ( iter == spareClients.end () ) {
-					CLogArg ( "HandleRegistration: Spare id [%u] not found.", spareID );
+					CLogArg ( "HandleRegistration [ %s ]:\tSpare id [%u] not found.", client->ips, spareIDa );
                 
-					if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-						CErr ( "HandleRegistration: Failed to release mutex!" );
-					}
+					MutexUnlockV ( &acceptClientsMutex, "HandleRegistration" );
 					break;
 				}
 
@@ -3167,12 +3219,11 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
 				spareClients.erase ( iter );
 			}
 
-            if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-                CErr ( "HandleRegistration: Failed to release mutex!" ); break;
-            }
+			if ( !MutexUnlock ( &acceptClientsMutex, "HandleRegistration" ) )
+				break;
 						
 			if ( !relClient ) {
-				CWarn ( "HandleRegistration: Spare socket client does not exist." ); break;
+				CWarnArg ( "HandleRegistration [ %s ]:\tSpare socket client does not exist.", client->ips ); break;
 			}
 
 			//CLogArg ( "HandleRegistration: Encrypted [%s]", ConvertToHexSpaceString ( msg + 16, regLen ) );
@@ -3181,112 +3232,117 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
 				break;
 						
 			if ( regLen != MEDIATOR_BROADCAST_SPARE_ID_LEN ) {
-				CWarn ( "HandleRegistration: Spare socket registration packet is not of correct type." ); break;
+				CWarnArg ( "HandleRegistration [ %s ]:\tSpare socket registration packet is not of correct type.", client->ips ); break;
 			}
 
-			HandleSpareSocketRegistration ( client, relClient, decrypted + 4, regLen );
-			CVerbArg ( "[0x%X].HandleRegistration: Closing spare socket reg. thread.", relClient->deviceID );
+			HandleSpareSocketRegistration ( client.get (), relClient.get (), decrypted + 4, regLen );
+			CVerbArg ( "HandleRegistration [ %s ]:\tClosing spare socket reg. thread [0x%X].", client->ips, relClient->deviceID );
 
 			ret = 0;
 		}
 		while ( 0 );
 	}
 	else if ( msg [ 7 ] == MEDIATOR_OPT_DEVICE_LIST_DEVICE_ID ) {
-		CLog ( "HandleRegistration: Assigning next device ID." );
+		CLogArg ( "HandleRegistration [ %s ]:\tAssigning next device ID.", client->ips );
 
 		msg [ msgLen ] = 0;
 		MediatorReqMsg	* req = (MediatorReqMsg *) msg;
 		
-        ApplicationDevices * appDevices = 0;
+        sp ( ApplicationDevices ) appDevices;
 		int nextID = 0;
 		int mappedID = 0;
-        
-		if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-			CErr ( "HandleRegistration: Failed to aquire mutex (devMap)!" );
-		}
-        else {
-			DeviceMapping * mapping = 0;
 
-			if ( *req->deviceUID ) {
-				map<string, DeviceMapping *>::iterator devIt = deviceMappings.find ( string ( req->deviceUID ) );	
+		if ( MutexLock ( &usersDBMutex, "HandleRegistration" ) )
+		{
+			sp ( DeviceMapping ) mapping;
 
-				if ( devIt != deviceMappings.end ( ) ) {
+            if ( *req->deviceUID ) {
+                CVerbArg ( "HandleRegistration [ %s ]:\tLooking for a mapping to deviceUID [%s].", client->ips, req->deviceUID );
+                
+				msp ( string, DeviceMapping )::iterator devIt = deviceMappings.find ( string ( req->deviceUID ) );	
+
+                if ( devIt != deviceMappings.end ( ) )
+                {
 					mapping = devIt->second;
-					nextID = mappedID = mapping->deviceID;
+                    nextID = mappedID = mapping->deviceID;
+                    
+                    CVerbArg ( "HandleRegistration [ %s ]:\tMapping found deviceID [0x%X] authLevel [%i] authToken [...].", client->ips, nextID, mapping->authLevel );
 				}			
 			}
 
-			if ( !mapping ) {
-				mapping = (DeviceMapping *) calloc ( 1, sizeof(DeviceMapping) );
+            if ( !mapping ) {
+                CVerbArg ( "HandleRegistration [ %s ]:\tNo mapping found. Creating new.", client->ips );
+                
+				mapping = sp ( DeviceMapping ) ( new DeviceMapping ); // calloc ( 1, sizeof(DeviceMapping) );
 				if ( !mapping )
                     goto PreFailExit;
+				memset ( mapping.get (), 0, sizeof(DeviceMapping) );
 			}
 
 			GetDeviceList ( req->areaName, req->appName, 0, 0, &appDevices );
 			if ( appDevices ) 
 			{
 				/// Find the next free deviceID			
-				DeviceInstanceList	*	device				= appDevices->devices;
-		
-				if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
-					CErr ( "HandleRegistration: Failed to aquire mutex!" );
-				}
-				else {
-					bool assigned = true;
-					if ( nextID )
-						assigned = false;
-					else
-						nextID = appDevices->latestAssignedID + 1;
+				DeviceInstanceNode	*	device				= appDevices->devices;
+
+				if ( MutexLock ( &appDevices->mutex, "HandleRegistration" ) )
+				{
+					if ( !nextID )
+						nextID = (int) __sync_add_and_fetch ( &appDevices->latestAssignedID, 1 );
 				
-					while ( device ) {
+					while ( device ) 
+					{
+						if ( device->info.deviceID > appDevices->latestAssignedID ) {
+							___sync_test_and_set ( &appDevices->latestAssignedID, device->info.deviceID );
+						}
+
 						if ( device->info.deviceID == nextID )
-							nextID++;
-						else 
-						if ( device->info.deviceID > nextID )
-							break;
+							nextID = (int) __sync_add_and_fetch ( &appDevices->latestAssignedID, 1 );
+						else {
+							if ( device->info.deviceID > nextID )
+								break;
+						}
 
 						device = device->next;
 					}
 
-					if ( assigned )
-						appDevices->latestAssignedID = nextID;
-
-					if ( pthread_mutex_unlock ( &appDevices->mutex ) ) {
-						CErr ( "HandleRegistration: Failed to release mutex!" );
-					}
+					MutexUnlockV ( &appDevices->mutex, "HandleRegistration" );
 				}
 
-				UnlockApplicationDevices ( appDevices );
+				UnlockApplicationDevices ( appDevices.get () );
 			}
 
 			if ( nextID && (nextID != mappedID) ) {
 				mapping->deviceID = nextID;
+                
+                CVerbArg ( "HandleRegistration [ %s ]:\tCreated a mapping with deviceID [0x%X].", client->ips, nextID );
 
 				deviceMappings [ string ( req->deviceUID ) ] = mapping;
 			}
             
-        PreFailExit:
-			if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-				CErr ( "HandleRegistration: Failed to release mutex (devMap)!" );
-            }
+		PreFailExit:
+			MutexUnlockV ( &usersDBMutex, "HandleRegistration" );
             
-            if ( !mapping )
+            if ( !mapping ) {
+                CErrArg ( "HandleRegistration [ %s ]:\tFailed to find or create a mapping.", client->ips );
                 return false;
+            }
             
             if ( nextID )
                 SaveDeviceMappings ();
 		}	
 				
-		CLogArg ( "HandleRegistration: Assigning device ID [%u] to [%s].", nextID, *req->deviceUID ? req->deviceUID : "Unknown" );
+		CLogArg ( "HandleRegistration [ %s ]:\tAssigning device ID [%u] to [%s].", client->ips, nextID, *req->deviceUID ? req->deviceUID : "Unknown" );
 
-		SendBuffer ( client, &nextID, sizeof(nextID) );
+		SendBuffer ( client.get (), &nextID, sizeof(nextID) );
 		return 1;
 	}
 	else {
-        /// Unencrypted mode
+        /// Message seems to be already decrypted
+        
 		deviceID = *( (unsigned int *) (msg + 16) );
 		
-		CLogArgID ( "HandleRegistration: [%c%c%c%c]", msg [ 4 ], msg [ 5 ], msg [ 6 ], msg [ 7 ] );
+		CLogArgID ( "HandleRegistration [ %s ]:\t[%c%c%c%c]", client->ips, msg [ 4 ], msg [ 5 ], msg [ 6 ], msg [ 7 ] );
 					
 		/*if ( msgLen == MEDIATOR_BROADCAST_SPARE_ID_LEN ) {
 			HandleSpareSocketRegistration ( client, deviceID );
@@ -3298,10 +3354,10 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
 			client->deviceID = deviceID;
 
 			if ( !HandleDeviceRegistration ( client, (unsigned int) client->addr.sin_addr.s_addr, msg + 4 ) ) {
-				CWarnID ( "HandleRegistration: Device registration failed." );
+				CWarnArgID ( "HandleRegistration [ %s ]:\tDevice registration failed.", client->ips );
 			}
 			else {
-				CLogID ( "HandleRegistration: Device registration succeeded." );
+				CLogArgID ( "HandleRegistration [ %s ]:\tDevice registration succeeded.", client->ips );
 				return 1;
 			}
 		}
@@ -3315,34 +3371,45 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, ThreadInstance * client,
 
 void * MediatorDaemon::ClientThread ( void * arg )
 {
-	CLog ( "ClientThread started" );
+	CVerb ( "ClientThread started" );
 
-	ThreadInstance * client = (ThreadInstance *) arg;
+	ThreadInstance * client = ( ThreadInstance * ) arg;
+    
+    CLogArg ( "ClientThread started for [ %s ]", client->ips );
    
-    int deviceID = 0;
+    sp ( ThreadInstance ) clientSP = client->clientSP;
+	client->clientSP = 0;
 
-	char buffer [ MEDIATOR_CLIENT_MAX_BUFFER_SIZE + 1 ];
+	int deviceID = 0;
+	char * buffer = 0;
 
 	socklen_t addrLen = sizeof(client->addr);
 
-	CVerbArg ( "ClientThread started: port [%u]", ntohs ( client->addr.sin_port ) );
+	CVerbArg ( "Client [ %s ]:\tSource port [%u] socket [%i]", client->ips, ntohs ( client->addr.sin_port ), client->socket );
 
 	char		*	msg;
-	char		*	msgEnd			= buffer;
+	char		*	msgEnd;
 	int				bytesReceived, sock = client->socket;
 	unsigned int	remainingSize	= MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
     char		*	msgDec			= 0;
 	unsigned int	msgDecLength;
     char		*	decrypted		= 0;
-	
+	up ( char [ ] ) bufferUP;
+
     bool isBanned = IsIpBanned ( client->addr.sin_addr.s_addr );
 	if ( isBanned )
 		goto ShutdownClient;
 
+	bufferUP = up ( char [ ] ) ( new char [ MEDIATOR_CLIENT_MAX_BUFFER_SIZE + 1 ] );
+	if ( !bufferUP )
+		goto ShutdownClient;
+
+	msgEnd = buffer = bufferUP.get ();
+
 	while ( isRunning ) {
 		bytesReceived = (int)recvfrom ( sock, msgEnd, remainingSize, 0, (struct sockaddr*) &client->addr, &addrLen );
 		if ( bytesReceived <= 0 ) {
-			CVerbArgID ( "Client: connection/socket [%i] closed by someone; Bytes [%i]!", sock, bytesReceived );
+			CVerbArgID ( "Client [ %s ]:\tconnection/socket [%i] closed by someone; Bytes [%i]!", client->ips, sock, bytesReceived );
 			//LogSocketError ();
 			break;
 		}
@@ -3361,9 +3428,16 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			
 			msgLength &= 0xFFFFFFF;
 
+			CVerbVerbArgID ( "Client [ %s ]:\tmsgLength [%d] Bytes left [%i]!", client->ips, msgLength, bytesLeft );
+
 			if ( msgLength > (unsigned int) bytesLeft ) 
 			{
-				if ( msgLength >= MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) goto ShutdownClient;
+				if ( msgLength >= MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) {
+					CErrArgID ( "Client [ %s ]:\tmsgLength [%d] >= [%i]!", client->ips, msgLength, MEDIATOR_CLIENT_MAX_BUFFER_SIZE );
+
+					/// Reset channel until received bytes is 0?
+					goto ShutdownClient;
+				}
 				break;
 			}
             
@@ -3385,14 +3459,14 @@ void * MediatorDaemon::ClientThread ( void * arg )
                     if ( flags == 0x80000000 ) {
                         /// Message is encrypted with public certificate
                         if ( !DecryptMessage ( privKey, privKeySize, msg + 4, msgDecLength, &decrypted, &msgDecLength ) ) {
-                            CWarn ( "Client: Decrypt with privKey failed!" ); goto ShutdownClient;
+                            CWarnArgID ( "Client [ %s ]:\tDecrypt with privKey failed!", client->ips ); goto ShutdownClient;
                         }
                         msgDec = decrypted;
                     }
-                    else {
-                        /// Unknown encryption flags
-                        goto ShutdownClient;
-                    }
+					else {
+						CErrArgID ( "Client [ %s ]:\tUnknown encryption flags", client->ips );
+						goto ShutdownClient; /// Unknown encryption flags
+					}
                 }
             }
             else {
@@ -3402,41 +3476,42 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			if ( msgDec [ 4 ] == 'H' && msgDec [ 5 ] == 'C' && msgDec [ 6 ] == 'L' && msgDec [ 7 ] == 'S' ) 
 			{
 				if ( client->encrypt ) {
-					CWarnID ( "Client: tried to establish a safe channel again. Not allowed." );
+					CWarnArgID ( "Client [ %s ]:\tTried to establish a safe channel again. Not allowed.", client->ips );
 					goto ShutdownClient;
 				}
 
 				if ( !SecureChannelAuth ( client ) ) {
-					CWarnID ( "Client: Establishing Security / Authentication failed." );
+					CWarnArgID ( "Client [ %s ]:\tEstablishing Security / Authentication failed.", client->ips  );
 					goto ShutdownClient;
 				}
-				CLogID ( "Client: Establishing Security / Authentication succeeded." );
+				CLogArgID ( "Client [ %s ]:\tEstablishing Security / Authentication succeeded.", client->ips );
 				goto Continue;
 			}
 
 			if ( msgDec [ 4 ] == 'E' ) {
 				if ( msgDec [ 5 ] == '.' && msgDec [ 6 ] == 'D' )
 				{
-					int ret = HandleRegistration ( deviceID, client, bytesLeft, msgDec, msgDecLength );
+					int ret = HandleRegistration ( deviceID, clientSP, bytesLeft, msgDec, msgDecLength );
                     if ( ret == 1 ) {
                         BannIPRemove ( client->addr.sin_addr.s_addr );
                         goto Continue;
                     }
 					if ( ret == 0 ) {
-						if ( decrypted ) free ( decrypted );
+                        if ( decrypted ) free ( decrypted );
 						return 0;
 					}
+					CVerbArgID ( "Client [ %s ]:\tHandle registration failed.", client->ips );
 					goto ShutdownClient;
 				}
 		
-				CLogArgID ( "Client: Invalid message [%c%c%c%c]. Refusing client.", msgDec [ 4 ], msgDec [ 5 ], msgDec [ 6 ], msgDec [ 7 ] );
+				CLogArgID ( "Client [ %s ]:\tInvalid message [%c%c%c%c]. Refusing client.", client->ips, msgDec [ 4 ], msgDec [ 5 ], msgDec [ 6 ], msgDec [ 7 ] );
 				goto ShutdownClient;
 			}
 
-			CVerbArgID ( "Client: [%c%c%c%c]", msgDec [ 4 ], msgDec [ 5 ], msgDec [ 6 ], msgDec [ 7 ] );
+			CVerbArg ( "Client [ %s ]:\t[%c%c%c%c]", client->ips, msgDec [ 4 ], msgDec [ 5 ], msgDec [ 6 ], msgDec [ 7 ] );
 
 			if ( !client->deviceID ) {
-				CWarnArgID ( "Client: Request has not been identified. kicking connect from [%s]", inet_ntoa ( client->addr.sin_addr ) );
+				CWarnArgID ( "Client [ %s ]:\tRequest has not been identified. kicking connect.", client->ips );
 
 				if ( !client->authenticated )
 					BannIP ( client->addr.sin_addr.s_addr );
@@ -3444,7 +3519,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			}
 
 			if ( msgDec [ 4 ] < MEDIATOR_PROTOCOL_VERSION_MIN ) {
-				CWarnArgID ( "Client: Version [%c] not supported anymore", msgDec [ 4 ] );
+				CWarnArgID ( "Client [ %s ]:\tVersion [%c] not supported anymore", client->ips, msgDec [ 4 ] );
 				goto ShutdownClient;
 			}
 
@@ -3462,7 +3537,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 				int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
 
 				if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
-					CErrArgID ( "Client: Failed to response NAT value [%d]", behindNAT );
+					CErrArgID ( "Client [ %s ]:\tFailed to response NAT value [%d]", client->ips, behindNAT );
 				}
 			}
 			// COMMAND: Return port of destination and request STUNT for client with deviceID (IP, IPe, Port)
@@ -3478,7 +3553,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			// COMMAND: 
 			else if ( command == MEDIATOR_CMD_GET_DEVICES ) 
 			{
-				HandleQueryDevices ( client, msgDec );
+				HandleQueryDevices ( clientSP, msgDec );
 			}
 			// COMMAND: 
 			else if ( command == MEDIATOR_CMD_SHORT_MESSAGE ) 
@@ -3488,18 +3563,15 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			// COMMAND: 
 			else if ( command == MEDIATOR_CMD_REQ_SPARE_ID ) 
 			{
-				if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-					CErrID ( "Client: Failed to aquire mutex on clients!" ); 
-				}
+				MutexLockV ( &acceptClientsMutex, "Client" );
 
-				unsigned int sid = spareID++;
-				
-				if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-					CErrID ( "Client: Failed to release mutex on clients!" ); 
-				}
-				CVerbArgID ( "Client: Assigned spare ID [%u]", sid ); 
+				unsigned int sid = spareID++; // Make use of sync_fetch_and_add?
 
-				spareClients [ sid ] = client;
+				MutexUnlockV ( &acceptClientsMutex, "Client" );
+
+				CVerbArgID ( "Client [ %s ]:\tAssigned spare ID [%u]", client->ips, sid );
+
+				spareClients [ sid ] = clientSP;
 				
 				*((unsigned int *) msgDec) = MEDIATOR_NAT_REQ_SIZE;
 				*((unsigned int *) (msgDec + 4)) = sid;
@@ -3507,7 +3579,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 				int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
 
 				if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
-					CErrArgID ( "Client: Failed to response spare client ID [%u]", sid );
+					CErrArgID ( "Client [ %s ]:\tFailed to response spare client ID [%u]", client->ips, sid );
 				}
 			}
 			// COMMAND:
@@ -3523,7 +3595,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
             {
                 if ( client->authLevel >= 3 ) {
                     MediatorMsg * medMsg = (MediatorMsg *) msgDec;
-                    UpdateNotifyTargets ( client, medMsg->ids.id2.msgID );
+                    UpdateNotifyTargets ( clientSP, medMsg->ids.id2.msgID );
                 }
 			}
 			// COMMAND: 
@@ -3547,7 +3619,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
                 int sentBytes = SendBuffer ( client, versionBuffer, MEDIATOR_MSG_VERSION_SIZE );
                 
                 if ( sentBytes != MEDIATOR_MSG_VERSION_SIZE ) {
-                    CErrID ( "Client: Failed to response Mediator version" );
+                    CErrArgID ( "Client [ %s ]:\tFailed to response Mediator version", client->ips );
                 }
             }
 			else {
@@ -3574,6 +3646,8 @@ Continue:
 		remainingSize = MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
 
 		if ( bytesLeft > 0 ) {
+			msgEnd += bytesReceived;
+
 			refactorBuffer ( msg, buffer, bytesLeft, msgEnd );
 			remainingSize -= bytesLeft;
 		}
@@ -3604,17 +3678,14 @@ ShutdownClient:
 	{
 		if ( !client->deviceID && client->addr.sin_addr.s_addr ) {
             if ( !isBanned ) {
-                CWarnArgID ( "Client: Request has not been identified. kicking connect from [%s]", inet_ntoa ( client->addr.sin_addr ) );
+                CWarnArgID ( "Client [ %s ]:\tRequest has not been identified. kicking connect.", client->ips );
                 BannIP ( client->addr.sin_addr.s_addr );
                 isBanned = true;
             }
 		}
         
         if ( !isBanned )
-            UpdateNotifyTargets ( client, -1 );
-
-		if ( client->device )
-			RemoveDevice ( client->device );
+            UpdateNotifyTargets ( clientSP, -1 );
 
 		pthread_t thrd = client->threadID;
 		if ( pthread_valid ( thrd ) ) 
@@ -3623,50 +3694,53 @@ ShutdownClient:
 			pthread_detach_handle ( thrd );
 		}
 
-		bool useLock = (client->port != 0);
+		CVerbArgID ( "Client [ %s ]:\tDisposing memory for client", client->ips );
 		
-		if ( useLock && pthread_mutex_lock ( &acceptClientsMutex ) ) {
-			// We proceed on the assumption that the main thread keeps the mutex and is responsible for disposing the resources
-			CErrID ( "Client: Failed to aquire mutex!" ); 
+		MutexDispose ( &client->accessMutex );
+
+		if ( client->deviceSP ) {
+			RemoveDevice ( client->deviceSP.get () );
+			client->deviceSP = 0;
 		}
+
+		bool useLock = (client->port != 0);
+		if ( useLock )
+			MutexLockV ( &acceptClientsMutex, "Client" );
 	
 		// find the one in our vector
-		for ( unsigned i = 0; i < acceptClients.size (); i++ ) {
-			if ( acceptClients[i] == client ) {
-				CVerbArgID ( "Client: Erasing [%i] from client list", i );
+		size_t size = acceptClients.size ();
+
+		for ( size_t i = 0; i < size; ++i ) 
+		{
+			if ( acceptClients[i].get () == client ) {
+				CVerbArgID ( "Client [ %s ]:\tErasing [%i] from client list", client->ips, i );
+
 				acceptClients.erase ( acceptClients.begin() + i );
 				break;
 			}
 		}
 		
-		map<long long, ThreadInstance *>::iterator sessionIt = sessions.find ( client->sessionID );
+		msp ( long long, ThreadInstance )::iterator sessionIt = sessions.find ( client->sessionID );
 		if ( sessionIt != sessions.end () ) {
 			sessions.erase ( sessionIt );
 		}
 
-		CVerbID ( "Client: Disposing memory for client" );
-		
-		if ( pthread_mutex_destroy ( &client->accessMutex ) ) {
-			CErrID ( "Client: Failed to desroy mutex!" );
-		}
-
 		if ( client->aes.encCtx )
 			AESDisposeKeyContext ( &client->aes );
-
-		delete client;
 		
-		if ( useLock && pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-			CErrID ( "Client: Failed to release mutex!" );
-		}
+		if ( useLock )
+			MutexUnlockV ( &acceptClientsMutex, "Client" );
 	}
+    else {
+        UpdateNotifyTargets ( clientSP, -1 );
+    }
 
-	CLogID ( "Client: Disconnected" );
-
+	CLogArgID ( "Client [ %s ]:\tDisconnected", client->ips );
 	return 0;
 }
 
 
-DeviceInstanceList * MediatorDaemon::GetDeviceInstance ( int deviceID, DeviceInstanceList * device )
+DeviceInstanceNode * MediatorDaemon::GetDeviceInstance ( int deviceID, DeviceInstanceNode * device )
 {
 	while ( device ) {
 		if ( device->info.deviceID == deviceID ) {
@@ -3698,14 +3772,14 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	const char		*	areaName			= 0;
 	const char		*	appName				= 0;
 	int					sentBytes;
-	DeviceInstanceList	* device;
+	DeviceInstanceNode	* device;
 	    
 	// find the destination client
-	ThreadInstance * destClient = 0;
+	sp ( ThreadInstance ) destClient;
 				
-    DeviceInstanceList * destList		= 0;
-    pthread_mutex_t *	destMutex		= 0;
-    ApplicationDevices * appDevices		= 0;
+	DeviceInstanceNode * destList		= 0;
+    pthread_mutex_t *	 destMutex		= 0;
+    sp ( ApplicationDevices ) appDevices = 0;
 
 	if ( shortMsg->version >= '3' ) {
 		if ( *shortMsg->areaName && *shortMsg->appName ) {
@@ -3713,13 +3787,21 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 			appName = shortMsg->appName;
 		}
 	}
+
+	sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
+
+	DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ( );
+
     
     if ( !areaName || !appName ) {
-        areaName = sourceClient->device->info.areaName;
-        appName = sourceClient->device->info.appName;
+        //areaName = sourceDevice->info.areaName;
+        //appName = sourceDevice->info.appName;
 
-        destMutex = &sourceClient->device->root->mutex;
-        destList = sourceClient->device->root->devices;
+		if ( !sourceDevice )
+			return false;
+
+        destMutex = &sourceDevice->rootSP->mutex;
+        destList = sourceDevice->rootSP->devices;
     }
     else {
         appDevices = GetApplicationDevices ( areaName, appName );
@@ -3730,16 +3812,18 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
         destMutex = &appDevices->mutex;
     }
 
-    
-	if ( pthread_mutex_lock ( destMutex ) ) {
-		CErrID ( "HandleSTUNTRequest: Failed to aquire mutex!" );
+
+	if ( !MutexLock ( destMutex, "HandleShortMessage" ) ) {
+		destMutex = 0;
+		goto SendResponse;
 	}
+
     if ( appDevices )
-        UnlockApplicationDevices ( appDevices );
+		UnlockApplicationDevices ( appDevices.get () );
 	
 	device = GetDeviceInstance ( destID, destList );
 	if ( device )
-		destClient = device->client;
+		destClient = device->clientSP;
 
 	if ( !destClient || destClient->socket == -1 ) {
 		CErrArgID ( "HandleShortMessage: Failed to find device connection for id [0x%X]!", destID );
@@ -3747,25 +3831,24 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	}
 	
 	shortMsg->deviceID = deviceID;
-    if ( sourceClient->device ) {
-        if ( *sourceClient->device->info.areaName )
-            strcpy_s ( shortMsg->areaName, sizeof(shortMsg->areaName), sourceClient->device->info.areaName );
-        if ( *sourceClient->device->info.appName )
-            strcpy_s ( shortMsg->appName, sizeof(shortMsg->appName), sourceClient->device->info.appName );
+    if ( sourceDevice ) {
+        if ( *sourceDevice->info.areaName )
+            strcpy_s ( shortMsg->areaName, sizeof(shortMsg->areaName), sourceDevice->info.areaName );
+        if ( *sourceDevice->info.appName )
+            strcpy_s ( shortMsg->appName, sizeof(shortMsg->appName), sourceDevice->info.appName );
     }
         
 	CLogArgID ( "HandleShortMessage: send message to device [%u] IP [%u bytes -> %s]", destID, length, inet_ntoa ( destClient->addr.sin_addr ) );
 	
-	sentBytes = SendBuffer ( destClient, sendBuffer, length );
+	sentBytes = SendBuffer ( destClient.get (), sendBuffer, length );
 	if ( sentBytes == length ) {
 		CLogID ( "HandleShortMessage: successfully sent message." );
 		sendError = false;
 	}
 
 SendResponse:
-	if ( destMutex && pthread_mutex_unlock ( destMutex ) ) {
-		CErrID ( "HandleShortMessage: Failed to release mutex!" );
-	}
+	if ( destMutex )
+		MutexUnlockV ( destMutex, "HandleShortMessage" );
 
 	length = 12;
 	*((unsigned int *) sendBuffer) = length;
@@ -3793,7 +3876,7 @@ SendResponse:
 
 bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
 	int reqDeviceID, const char * areaName, const char * appName,
-	ApplicationDevices * appDevices, DeviceInstanceList *& resultList, unsigned int &resultCount )
+	ApplicationDevices * appDevices, DeviceInstanceNode *& resultList, unsigned int &resultCount )
 {
 	if ( !appDevices || !appDevices->count )
 		return true;
@@ -3810,15 +3893,12 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
         return false;
     
 	bool                    ret					= true;
-	DeviceInstanceList  *	curDevice			= resultList;
+	DeviceInstanceNode  *	curDevice			= resultList;
 	unsigned int            currentStart;
-	DeviceInstanceList	*	device				= appDevices->devices;
+	DeviceInstanceNode	*	device; //				= appDevices->devices;
 		
-
-	if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
-		CErr ( "CollectDevices: Failed to aquire mutex!" );
+	if ( !MutexLock ( &appDevices->mutex, "CollectDevices" ) )
 		return false;
-	}
 
 	device = appDevices->devices;
 		
@@ -3834,7 +3914,7 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
     }
     startIndex = 0;
     
-    DeviceInstanceList * prev = curDevice;
+	DeviceInstanceNode * prev = curDevice;
 
 	while ( device )
     {
@@ -3842,12 +3922,14 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
             if ( reqDeviceID == device->info.deviceID && !strncmp ( device->info.areaName, areaName, MAX_NAMEPROPERTY )
                 && !strncmp ( device->info.appName, appName, MAX_NAMEPROPERTY ) )
             {
-                DeviceInstanceList * newDevice = (DeviceInstanceList *) malloc ( sizeof(DeviceInstanceList) );
+				DeviceInstanceNode * newDevice = (DeviceInstanceNode *) malloc ( sizeof( DeviceInstanceNode ) );
+                //DeviceInstanceNode * newDevice = new DeviceInstanceNode;
                 if ( !newDevice ) {
 					ret = false; goto Finish;
 				}
                 
                 memcpy ( newDevice, device, sizeof(DeviceInfo) );
+				//*newDevice->userName = 0;
                 newDevice->next = 0;
                 
                 resultList = newDevice;
@@ -3860,12 +3942,14 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
         }
         
         /// We have a device to insert into the result list
-        DeviceInstanceList * newDevice = (DeviceInstanceList *) malloc ( sizeof(DeviceInstanceList) );
+		DeviceInstanceNode * newDevice = (DeviceInstanceNode *) malloc ( sizeof( DeviceInstanceNode ) );
+        //DeviceInstanceNode * newDevice = new DeviceInstanceNode;
         if ( !newDevice ) {
 			ret = false; goto Finish;
 		}
-        
+         
         memcpy ( newDevice, device, sizeof(DeviceInfo) );
+		//*newDevice->userName = 0;
         newDevice->next = 0;
         
         
@@ -3909,45 +3993,41 @@ bool CollectDevices ( ThreadInstance * sourceClient, unsigned int &startIndex,
 	}
     
 Finish:
-	if ( pthread_mutex_unlock ( &appDevices->mutex ) ) {
-		CErr ( "CollectDevices: Failed to release mutex!" );
+	if ( !MutexUnlock ( &appDevices->mutex, "CollectDevices" ) )
 		return false;
-	}
 	return ret;
 }
 
 
-unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstanceList * sourceDevice, int filterMode )
+unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstanceNode * sourceDevice, int filterMode )
 {
-	if ( !sourceDevice || !sourceDevice->root )
+	if ( !sourceDevice || !sourceDevice->rootSP )
 		return 0;
 
-	unsigned int            deviceCount = 0;
-    AreaApps	         *   areaApps;
-    ApplicationDevices  *   appDevices;
+	unsigned int				deviceCount = 0;
+    sp ( AreaApps )				areaApps;
+    sp ( ApplicationDevices )	appDevices;
 
 	/// Get number of devices within the same application environment
-	deviceCount += sourceDevice->root->count;
+	deviceCount += sourceDevice->rootSP->count;
 
 	if ( filterMode < 1 ) { 
-		/// No filtering, get them all				
-		if ( pthread_mutex_lock ( &devicesMutex ) ) {
-			CErr ( "CollectDevicesCount: Failed to acquire mutex!" );
+		/// No filtering, get them all		
+		if ( !MutexLock ( &devicesMutex, "CollectDevices" ) )
 			goto Finish;
-		}
 
 		/// Iterate over all areas
-		for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end (); ++it )
+		for ( msp ( string, AreaApps )::iterator it = areasList.begin(); it != areasList.end (); ++it )
 		{
 			if ( !it->second )
 				continue;
 						
 			areaApps = it->second;
 
-			for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end (); ++ita )
+			for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end (); ++ita )
 			{
 				appDevices = ita->second;
-				if ( !appDevices || appDevices == sourceDevice->root )
+				if ( !appDevices || appDevices.get () == sourceDevice->rootSP.get () )
 					continue;
 
 				deviceCount += appDevices->count;
@@ -3961,39 +4041,34 @@ unsigned int MediatorDaemon::CollectDevicesCount ( DeviceInstanceList * sourceDe
 	else if ( filterMode < 2 ) {
 		/// Get number of devices of other application environments within the same area
 		string areaName ( sourceDevice->info.areaName );
-		
-		if ( pthread_mutex_lock ( &devicesMutex ) ) {
-			CErr ( "CollectDevicesCount: Failed to acquire mutex!" );
-			goto Finish;
-		}
 
-		map<string, AreaApps * >::iterator areaIt = areasList.find ( areaName );
+		if ( !MutexLock ( &devicesMutex, "CollectDevices" ) )
+			goto Finish;
+
+		msp ( string, AreaApps )::iterator areaIt = areasList.find ( areaName );
 
 		if ( areaIt == areasList.end ( ) ) {
 			CLogArg ( "CollectDevicesCount: Area [%s] not found.", sourceDevice->info.areaName );
 			goto FinishLimitApps;
 		}
 	
-		areaApps = areaIt->second;
-    
+		areaApps = areaIt->second;    
 		if ( !areaApps ) {
 			CLog ( "CollectDevicesCount: Invalid area name." );
 			goto FinishLimitApps;
 		}
 				
-		for ( map<string, ApplicationDevices *>::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end (); ++ita )
+		for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end (); ++ita )
 		{
 			appDevices = ita->second;
-			if ( !appDevices || appDevices == sourceDevice->root )
+			if ( !appDevices || appDevices.get () == sourceDevice->rootSP.get () )
 				continue;
 
 			deviceCount += appDevices->count;
 		}
 
-FinishLimitApps:		
-		if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-			CErr ( "CollectDevicesCount: Failed to release mutex!" );
-		}
+	FinishLimitApps:		
+		MutexUnlockV ( &devicesMutex, "CollectDevices" );
 	}
 
 Finish:
@@ -4001,7 +4076,7 @@ Finish:
 }
 
 
-char * FlattenDeviceList ( DeviceInstanceList * devices, unsigned int capacity )
+char * FlattenDeviceList ( DeviceInstanceNode * devices, unsigned int capacity )
 {    
     DeviceInfo * dest = 0;
     char * buffer = (char *) malloc ( (capacity * DEVICE_PACKET_SIZE) + DEVICES_HEADER_SIZE + DEVICES_HEADER_SIZE );
@@ -4015,7 +4090,7 @@ char * FlattenDeviceList ( DeviceInstanceList * devices, unsigned int capacity )
     dest = (DeviceInfo *) (buffer + DEVICES_HEADER_SIZE);
     
     while ( devices ) {
-        DeviceInstanceList * current = devices;
+		DeviceInstanceNode * current = devices;
         devices = devices->next;
 
         memcpy ( dest, current, sizeof(DeviceInfo) );
@@ -4027,7 +4102,7 @@ char * FlattenDeviceList ( DeviceInstanceList * devices, unsigned int capacity )
 Finish:
     if ( devices ) {
         while ( devices ) {
-            DeviceInstanceList * current = devices;
+			DeviceInstanceNode * current = devices;
             
             devices = devices->next;
             free ( current );
@@ -4037,8 +4112,13 @@ Finish:
 }
 
 
-bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * msg )
+bool MediatorDaemon::HandleQueryDevices ( const sp ( ThreadInstance ) &sourceClient, char * msg )
 {
+	sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
+	if ( !sourceDeviceSP )
+		return false;
+	DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ( );
+
 	MediatorQueryResponse * response		= (MediatorQueryResponse *)msg;
 	MediatorQueryMsg *	query				= (MediatorQueryMsg *)msg;
 	char			*	sendBuffer			= msg;
@@ -4050,16 +4130,16 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 	bool				error				= true;
 	unsigned int		startIndex;
 	int					filterMode			= sourceClient->filterMode;
-	const char		*	areaName			= sourceClient->device->info.areaName;
-	const char		*	appName				= sourceClient->device->info.appName;
 	char				subCmd;
-    DeviceInstanceList  *   resultList          = 0;
+	DeviceInstanceNode  *   resultList      = 0;
     unsigned int        resultCount         = 0;
 
-	map<string, ApplicationDevices *> * apps;
+	const char		*	areaName = sourceDevice->info.areaName;
+	const char		*	appName = sourceDevice->info.appName;
+
+	msp ( string, ApplicationDevices ) * apps;
 	 
-	// sourceClient->device may be invalid which causes an exception
-	ApplicationDevices * appDevices = sourceClient->device->root;
+	sp ( ApplicationDevices ) appDevices = sourceDevice->rootSP;
 	
 	/// Take over filterMode	
 	if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION )
@@ -4076,7 +4156,7 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
         filterMode = MEDIATOR_FILTER_AREA_AND_APP;
 
     if ( filterMode != sourceClient->filterMode )
-        UpdateNotifyTargets ( sourceClient, filterMode );
+		UpdateNotifyTargets ( sourceClient, filterMode );
 
 	// Send number of available devices
 	if ( query->opt0 == MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT ) {
@@ -4090,7 +4170,7 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 			response->cmd0 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
 			response->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT;
             
-			response->deviceHead.deviceCountAvailable = CollectDevicesCount ( sourceClient->device, filterMode );
+			response->deviceHead.deviceCountAvailable = CollectDevicesCount ( sourceDevice, filterMode );
 		}
 		else {
 			query->size = length;
@@ -4098,7 +4178,7 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 			query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
 			query->opt0 = MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT;
 
-			query->msgID = CollectDevicesCount ( sourceClient->device, filterMode );
+			query->msgID = CollectDevicesCount ( sourceDevice, filterMode );
 		}
 
 		CVerbArgID ( "HandleQueryDevices: Number of devices [%u]", query->msgID );
@@ -4128,8 +4208,8 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] [%s/%s]", deviceIDReq, areaName, appName );
 		}
 		else {
-			areaName = sourceClient->device->info.areaName;
-			appName = sourceClient->device->info.appName;
+			areaName = sourceDevice->info.areaName;
+			appName = sourceDevice->info.appName;
 
 			CVerbArgID ( "HandleQueryDevices: Query for deviceID [%u] of default appEnv [%s/%s]", deviceIDReq, areaName, appName );
 		}
@@ -4139,34 +4219,32 @@ bool MediatorDaemon::HandleQueryDevices ( ThreadInstance * sourceClient, char * 
 
 	/// Lets start with the devices within the same appEnv	
 
-	if ( appDevices->count && !CollectDevices ( sourceClient, startIndex, deviceIDReq, areaName, appName,
-		appDevices, resultList, resultCount ) ) 
+	if ( appDevices->count && !CollectDevices ( sourceClient.get (), startIndex, deviceIDReq, areaName, appName,
+		appDevices.get (), resultList, resultCount ) ) 
 		goto Finish;
 	
 	if ( filterMode < 1 ) { 
-		/// No filtering, get them all		
-		if ( pthread_mutex_lock ( &devicesMutex ) ) {
-			CErr ( "HandleQueryDevices: Failed to acquire mutex!" );
+		/// No filtering, get them all	
+		if ( !MutexLock ( &devicesMutex, "HandleQueryDevices" ) )
 			goto Finish;
-		}
 
 		/// Iterate over all areas
-		for ( map<string, AreaApps*>::iterator it = areasList.begin(); it != areasList.end (); ++it )
+		for ( msp ( string, AreaApps )::iterator it = areasList.begin(); it != areasList.end (); ++it )
 		{
 			if ( !it->second )
 				continue;
 			apps = &it->second->apps;
 
-			for ( map<string, ApplicationDevices *>::iterator ita = apps->begin(); ita != apps->end (); ita++ )
+			for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin(); ita != apps->end (); ita++ )
 			{
 				appDevices = ita->second;
-				if ( !appDevices || appDevices == sourceClient->device->root || !appDevices->count  )
+				if ( !appDevices || appDevices.get () == sourceDevice->rootSP.get () || !appDevices->count  )
 					continue;
 
 				availableDevices += appDevices->count;
 
-				if ( !CollectDevices ( sourceClient, startIndex, deviceIDReq, areaName, appName,
-					appDevices, resultList, resultCount ) ) {
+				if ( !CollectDevices ( sourceClient.get (), startIndex, deviceIDReq, areaName, appName,
+					appDevices.get (), resultList, resultCount ) ) {
 					goto FinishNoLimit;
 				}
 			}
@@ -4181,13 +4259,11 @@ FinishNoLimit:
 	else if ( filterMode < 2 ) {
 		/// Get number of devices of other application environments within the same area
 		string pareaName ( areaName );
-		
-		if ( pthread_mutex_lock ( &devicesMutex ) ) {
-			CErr ( "HandleQueryDevices: Failed to acquire mutex!" );
-			goto Finish;
-		}
 
-		map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );
+		if ( !MutexLock ( &devicesMutex, "HandleQueryDevices" ) )
+			goto Finish;
+
+		msp ( string, AreaApps )::iterator areaIt = areasList.find ( pareaName );
 
 		if ( areaIt == areasList.end ( ) || !areaIt->second ) {
 			CLogArg ( "HandleQueryDevices: Area [%s] not found.", areaName );
@@ -4196,24 +4272,22 @@ FinishNoLimit:
 
 		apps = &areaIt->second->apps;
 				
-		for ( map<string, ApplicationDevices *>::iterator ita = apps->begin(); ita != apps->end (); ita++ )
+		for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin(); ita != apps->end (); ita++ )
 		{
 			appDevices = ita->second;
-			if ( !appDevices || appDevices == sourceClient->device->root || !appDevices->count )
+			if ( !appDevices || appDevices == sourceDevice->rootSP || !appDevices->count )
 				continue;
 
 			availableDevices += appDevices->count;
 
-			if ( !CollectDevices ( sourceClient, startIndex, deviceIDReq, areaName, appName,
-				appDevices, resultList, resultCount ) ) {
+			if ( !CollectDevices ( sourceClient.get (), startIndex, deviceIDReq, areaName, appName,
+				appDevices.get (), resultList, resultCount ) ) {
 					goto FinishLimitArea;
 			}
 		}
 
-FinishLimitArea:
-		if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-			CErr ( "HandleQueryDevices: Failed to release mutex!" );
-		}
+	FinishLimitArea:
+		MutexUnlockV ( &devicesMutex, "HandleQueryDevices" );
 		goto Finish;
 	}
 
@@ -4265,7 +4339,7 @@ SendResponse:
 
 	CLogArgID ( "HandleQueryDevices: send devicelist%s [%d bytes -> %s]", sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
 	
-	int sentBytes = SendBuffer ( sourceClient, sendBuffer, length );
+	int sentBytes = SendBuffer ( sourceClient.get (), sendBuffer, length );
 
 	if ( sendBuffer != msg )
 		free ( sendBuffer );
@@ -4362,6 +4436,11 @@ void MediatorDaemon::HandleCertSign ( ThreadInstance * client, char * msg )
 bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * msg )
 {
 	char buffer [ 32 ];
+
+	sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
+	if ( !sourceDeviceSP )
+		return false;
+	DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ( );
 	
 	// SourceID -> DestID
 	unsigned int * pUI = (unsigned int *) (msg + 8);
@@ -4371,24 +4450,20 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 	CVerbArg ( "[0x%X].HandleSTUNRequest: TCPrec -> [0x%X]", SourceID, DestID );
 
 	// find the source client
-	ThreadInstance * destClient = 0;
-	
-	if ( pthread_mutex_lock ( &sourceClient->device->root->mutex ) ) {
-		CErr ( "HandleSTUNRequest: Failed to aquire mutex!" ); 
+	sp ( ThreadInstance ) destClient;
+
+	if ( !MutexLock ( &sourceDevice->rootSP->mutex, "HandleSTUNRequest" ) )
 		return false;
-	}
 	
-	DeviceInstanceList * device = GetDeviceInstance ( DestID, sourceClient->device->root->devices );
+	DeviceInstanceNode * device = GetDeviceInstance ( DestID, sourceDevice->rootSP->devices );
 	
 	if ( device )
-		destClient = device->client;
+		destClient = device->clientSP;
 
 	if ( !destClient ) {
 		CWarnArg ( "[0x%X].HandleSTUNRequest -> Destination device -> [0x%X] not found.", SourceID, DestID );
 		
-		if ( pthread_mutex_unlock ( &sourceClient->device->root->mutex ) ) {
-			CWarn ( "HandleSTUNRequest: Failed to release mutex!" );
-		}
+		MutexUnlockV ( &sourceDevice->rootSP->mutex, "HandleSTUNRequest" );
 		return false;
 	}
     
@@ -4406,7 +4481,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 
 	CLogArg ( "[0x%X].HandleSTUNRequest: send STUN request to device IP [%s]!", DestID, inet_ntoa ( destClient->addr.sin_addr ) );
 	
-	int sentBytes = SendBuffer ( destClient, buffer, MEDIATOR_STUN_RESP_SIZE );
+	int sentBytes = SendBuffer ( destClient.get (), buffer, MEDIATOR_STUN_RESP_SIZE );
 	if ( sentBytes != MEDIATOR_STUN_RESP_SIZE ) {
 		CErrArg ( "[0x%X].HandleSTUNRequest: Failed to send STUN request to device IP [%s]!", DestID, inet_ntoa ( destClient->addr.sin_addr ) );
 		//return false;
@@ -4422,10 +4497,8 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 	CLogArg ( "[0x%X].HandleSTUNRequest: send STUN reply to device IP [%s]!", DestID, inet_ntoa ( sourceClient->addr.sin_addr ) );
 	
 	sentBytes = SendBuffer ( sourceClient, buffer, MEDIATOR_STUN_RESP_SIZE );
-	
-	if ( pthread_mutex_unlock ( &sourceClient->device->root->mutex ) ) {
-		CWarn ( "HandleSTUNRequest: Failed to release mutex!" );
-	}
+
+	MutexUnlockV ( &sourceDevice->rootSP->mutex, "HandleSTUNRequest" );
 
 	if ( sentBytes != MEDIATOR_STUN_RESP_SIZE ) {
 		CErrArg ( "[0x%X].HandleSTUNRequest: Failed to send STUN reply to device IP [%s]!", DestID, inet_ntoa ( sourceClient->addr.sin_addr ) );
@@ -4443,26 +4516,26 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, int source
 
 	CVerbArg ( "[0x%X].HandleSTUNRequest: UDPrec -> TCPsend [0x%X]", sourceID, destClient->deviceID );
 
-	request.size = sizeof(request);
+	request.size = sizeof ( request );
 	memcpy ( request.ident, "y;;;", 4 );
 
 	request.deviceID = sourceID;
 	request.IPe = IPe;
-    request.Porte = (unsigned short)Porte;
-    
-    
-    if ( destClient->device ) {
-        request.IPi = destClient->device->info.ip;
-        request.Porti = destClient->device->info.udpPort;
-    }
-	
-	strcpy_s ( request.areaName, sizeof(request.areaName), areaName );
-	strcpy_s ( request.appName, sizeof(request.appName), appName );
-	
+	request.Porte = ( unsigned short ) Porte;
+
+
+	if ( destClient->deviceSP ) {
+		request.IPi = destClient->deviceSP->info.ip;
+		request.Porti = destClient->deviceSP->info.udpPort;
+	}
+
+	strcpy_s ( request.areaName, sizeof ( request.areaName ), areaName );
+	strcpy_s ( request.appName, sizeof ( request.appName ), appName );
+
 	CLogArg ( "[0x%X].HandleSTUNRequest: Send STUN request to device IP [%s] Port [%u/%u]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ), Porte, request.Porti );
-	
-	int sentBytes = SendBuffer ( destClient, &request, sizeof(request) );
-	if ( sentBytes != sizeof(request) ) 
+
+	int sentBytes = SendBuffer ( destClient, &request, sizeof ( request ) );
+	if ( sentBytes != sizeof ( request ) )
 	{
 		CErrArg ( "[0x%X].HandleSTUNRequest: Failed to send STUN request to device IP [%s]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
 		return false;
@@ -4503,8 +4576,12 @@ bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
 
 bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTReqPacket * req )
 {
+	sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
+	if ( !sourceDeviceSP )
+		return false;
+	DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ( );
+
 	int					sentBytes;
-    DeviceInstanceList *	sourceDevice;
 
 	STUNTRespReqPacket	response;
 	Zero ( response );
@@ -4526,13 +4603,13 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	int					status			= 0;
     const char  *		areaName        = 0;
     const char  *		appName         = 0;
-    DeviceInstanceList *	device			= 0;
+	DeviceInstanceNode *	destDevice			= 0;
     
 	// find the destination client
-	ThreadInstance *	destClient		= 0;				
-    DeviceInstanceList *	destList		= 0;
-    pthread_mutex_t *	destMutex		= 0;
-    ApplicationDevices * appDevices		= 0;
+	sp ( ThreadInstance )	destClient		= 0;				
+	DeviceInstanceNode *	destList		= 0;
+    pthread_mutex_t *		destMutex		= 0;
+    sp ( ApplicationDevices ) appDevices	= 0;
     
     if ( req->size >= sizeof(STUNTReqPacket) ) {
         if ( *req->areaName )
@@ -4542,11 +4619,11 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
     }
     
     if ( !areaName || !appName ) {
-        areaName = sourceClient->device->info.areaName;
-        appName = sourceClient->device->info.appName;
+        //areaName = sourceDevice->info.areaName;
+        //appName = sourceDevice->info.appName;
 
-        destMutex = &sourceClient->device->root->mutex;
-        destList = sourceClient->device->root->devices;
+        destMutex = &sourceDevice->rootSP->mutex;
+        destList = sourceDevice->rootSP->devices;
     }
     else {
         appDevices = GetApplicationDevices ( areaName, appName );
@@ -4557,30 +4634,23 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
         destMutex = &appDevices->mutex;
     }
 
-    
-	if ( pthread_mutex_lock ( destMutex ) ) {
-		CErrID ( "HandleSTUNTRequest: Failed to aquire mutex!" );
+	if ( !MutexLock ( destMutex, "HandleSTUNTRequest" ) ) {
+		destMutex = 0; goto UnlockQuit;
 	}
+
     if ( appDevices )
-        UnlockApplicationDevices ( appDevices );
+		UnlockApplicationDevices ( appDevices.get () );
 	
-	device = GetDeviceInstance ( deviceID, destList );
-	if ( device )
-		destClient = device->client;
+	destDevice = GetDeviceInstance ( deviceID, destList );
+	if ( destDevice )
+		destClient = destDevice->clientSP;
 
 	if ( !destClient ) {
-		CErrID ( "HandleSTUNTRequest: Failed to find device connection for id!" ); goto UnlockQuit;
+		CErrArg ( "HandleSTUNTRequest: Failed to find device connection for id [0x%X]!", deviceID ); goto UnlockQuit;
 	}
-
-	sourceDevice = sourceClient->device;
-	if ( !sourceDevice ) {
-		CErrID ( "HandleSTUNTRequest: Failed to find sourceClient device in database!" ); goto UnlockQuit;
-	}
-
+	
 	// Acquire the mutex on sourceClient
-	if ( pthread_mutex_lock ( &sourceClient->accessMutex ) ) {
-		CErrID ( "HandleSTUNTRequest: Failed to acquire mutex on sourceClient." ); goto UnlockQuit;
-	}
+	if ( !MutexLock ( &sourceClient->accessMutex, "HandleSTUNTRequest" ) ) goto UnlockQuit;
 	sourceLocked = true;
 
 	///
@@ -4599,9 +4669,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 
 
 	// Acquire the mutex on destClient
-	if ( pthread_mutex_lock ( &destClient->accessMutex ) ) {
-		CErrID ( "HandleSTUNTRequest: Failed to acquire mutex on destClient." ); goto UnlockQuit;
-	}
+	if ( !MutexLock ( &destClient->accessMutex, "HandleSTUNTRequest" ) ) goto UnlockQuit;
 	destLocked = true;
 	
 	///
@@ -4611,7 +4679,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	if ( !portDest ) {
 		CLogID ( "HandleSTUNTRequest: Destination client has not renewed the spare socket yet!" );
 
-		NotifySTUNTRegRequest ( destClient );  status = -1; goto UnlockQuit;
+		NotifySTUNTRegRequest ( destClient.get () );  status = -1; goto UnlockQuit;
 	}
 	
 	IPe = sourceClient->addr.sin_addr.s_addr;
@@ -4632,12 +4700,12 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
     response.porti = sourceDevice->info.tcpPort;
     response.porte = portSource;
 
-    strcpy_s ( response.areaName, sizeof(response.areaName), sourceClient->device->info.areaName );
-    strcpy_s ( response.appName, sizeof(response.appName), sourceClient->device->info.appName );
+    strcpy_s ( response.areaName, sizeof(response.areaName), sourceDevice->info.areaName );
+    strcpy_s ( response.appName, sizeof(response.appName), sourceDevice->info.appName );
 	
 	CLogArgID ( "STUNTRequest: Send request to device IP [%s], port [%d]", inet_ntoa ( destClient->addr.sin_addr ), portSource );
 	
-	sentBytes = SendBuffer ( destClient, &response, sizeof(response), false );
+	sentBytes = SendBuffer ( destClient.get (), &response, sizeof(response), false );
 
 	if ( sentBytes != sizeof(response) ) {
 		CErrArgID ( "HandleSTUNTRequest: Failed to send STUNT request to device IP [%s]!", inet_ntoa ( destClient->addr.sin_addr ) );
@@ -4651,11 +4719,11 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	reqResponse->respCode = 'p';
 
     reqResponse->porte = portDest;
-    reqResponse->porti = device->info.tcpPort;
+    reqResponse->porti = destDevice ? destDevice->info.tcpPort : 0;
 	//reqResponse->portUdp = destClient->portUdp;
 	
 	if ( extResp ) {
-		reqResponse->ip = destClient->device->info.ip;
+		reqResponse->ip = destDevice->info.ip;
 		reqResponse->ipe = destClient->addr.sin_addr.s_addr;
 	}
 
@@ -4679,18 +4747,15 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 
 UnlockQuit:	
 	/// Release the mutex on destClient
-	if ( destLocked && pthread_mutex_unlock ( &destClient->accessMutex ) ) {
-		CErrID ( "HandleSTUNTRequest: Failed to release mutex on destClient." );
-	}
+	if ( destLocked )
+		MutexUnlockV ( &destClient->accessMutex, "HandleSTUNTRequest" );
 	
 	/// Release the mutex on sourceClient
-	if ( sourceLocked && pthread_mutex_unlock ( &sourceClient->accessMutex ) ) {
-		CErrID ( "HandleSTUNTRequest: Failed to release mutex on sourceClient." );
-	}
+	if ( sourceLocked )
+		MutexUnlockV ( &sourceClient->accessMutex, "HandleSTUNTRequest" );
 	
-	if ( destMutex && pthread_mutex_unlock ( destMutex ) ) {
-		CErrID ( "HandleSTUNTRequest: Failed to release mutex on clients!" );
-	}
+	if ( destMutex )
+		MutexUnlockV ( destMutex, "HandleSTUNTRequest" );
 
 	if ( status > 0 )
 		return true;
@@ -4819,21 +4884,18 @@ void * MediatorDaemon::BroadcastThread ( )
 
 		if ( bytesReceived < 10 || buffer [ 0 ] != 'E' || buffer [ 1 ] != '.' )
 			continue;
-		
-#ifdef DEBUGVERB
-		unsigned int ip = listenAddr.sin_addr.s_addr;
-#endif		
+				
 		buffer [ bytesReceived ] = 0;
 
 		if ( buffer [ 2 ] == 'D' ) {
 			// if message contains EHLO, then broadcast our data
 			if ( buffer [ 4 ] == 'H' ) {
 				SendBroadcast ();
-				CVerbArg ( "BroadcastThread: Replied to client request from %s;\n\t\tMessage: %s", inet_ntoa ( *((struct in_addr *) &ip) ), buffer);
+				CVerbArg ( "BroadcastThread: Replied to client request from %s;\n\t\tMessage: %s", inet_ntoa ( *((struct in_addr *) &(listenAddr.sin_addr.s_addr)) ), buffer);
 			}
 		}
 		else {
-			CVerbArg ( "BroadcastThread: read %d bytes <- IP %s;\n\t\tMessage: %s", bytesReceived, inet_ntoa ( *((struct in_addr *) &ip) ), buffer);
+			CVerbArg ( "BroadcastThread: read %d bytes <- IP %s;\n\t\tMessage: %s", bytesReceived, inet_ntoa ( *((struct in_addr *) &(listenAddr.sin_addr.s_addr)) ), buffer);
 		}
 	}
    
@@ -4843,7 +4905,7 @@ void * MediatorDaemon::BroadcastThread ( )
 }
 
 
-bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigned int ip, char * msg )
+bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceNode * device, unsigned int ip, char * msg )
 {
 	CVerb ( "UpdateDeviceRegistry" );
 
@@ -4855,36 +4917,33 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 	}
 
 	// Update the values in our database
-	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErr ( "UpdateDeviceRegistry: Failed to aquire mutex on devices!" );
+	if ( !MutexLock ( &devicesMutex, "UpdateDeviceRegistry" ) )
 		return false;
-	}
 
 	char * pareaName = device->info.areaName;
 		
-	if ( !pareaName || pthread_mutex_lock ( &areasMutex ) ) {
+	if ( !pareaName || !MutexLock ( &areasMutex, "UpdateDeviceRegistry" ) ) {
 		CErr ( "UpdateDeviceRegistry: Failed to aquire mutex on areas/values (alt: areaName invalid)! Skipping client request!" );
 
-		if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-			CErr ( "UpdateDeviceRegistry: Failed to release mutex on devices!" );
-		}
+		MutexUnlockV ( &devicesMutex, "UpdateDeviceRegistry" );
 		return false;
 	}
 		
 	// Search for the area at first
+	sp ( AppsList )								apps;
+
 	map<string, ValuePack*>					*	values = 0;
-	AppsList								*	apps	= 0;
 	map<string, map<string, ValuePack*>*>::iterator appsIt;
 
 		
 	string areaName ( pareaName );
 	string appName ( device->info.appName );
 
-	map<string, AppsList * >::iterator areaIt = areas.find ( areaName );
+	msp ( string, AppsList )::iterator areaIt = areas.find ( areaName );
 
 	if ( areaIt == areas.end () )
 	{		
-		apps = new AppsList ();
+		apps = make_shared < AppsList > ();
 		if ( !apps ) {
 			CErrArg ( "UpdateDeviceRegistry: Failed to create new area [%s].", pareaName );
 			goto Continue;
@@ -4970,127 +5029,187 @@ bool MediatorDaemon::UpdateDeviceRegistry ( DeviceInstanceList * device, unsigne
 	}
 			
 Continue:
-	if ( pthread_mutex_unlock ( &areasMutex ) ) {
-		CErr ( "UpdateDeviceRegistry: Failed to release mutex on area/values!" );
-	}
+	MutexUnlockV ( &areasMutex, "UpdateDeviceRegistry" );
 
-	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-		CErr ( "UpdateDeviceRegistry: Failed to release mutex on devices!" );
-	}
+	MutexUnlockV ( &devicesMutex, "UpdateDeviceRegistry" );
 
-	//SaveConfig ();
+	if ( MutexLock ( &thread_mutex, "UpdateDeviceRegistry" ) ) {
+
+		configDirty = true;
+		if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+			CErr ( "UpdateDeviceRegistry: Error to signal watchdog event" );
+		}
+
+		MutexUnlock ( &thread_mutex, "UpdateDeviceRegistry" );
+	}
 
 	return true;
 }
 
 
-bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigned int ip, char * msg )
+bool MediatorDaemon::HandleDeviceRegistration ( sp ( ThreadInstance ) clientSP, unsigned int ip, char * msg )
 {
 	CVerb ( "HandleDeviceRegistration" );
 	
     MediatorReqMsg  regMsg;
     int             sentBytes;
     
-	if ( !client )
-		return false;	
-
-	unsigned int deviceID = client->deviceID;
-	if ( !deviceID )
+    if ( !clientSP ) {
+        CErr ( "HandleRegistration:\tInvalid client!." );
 		return false;
+    }
+    
+    ThreadInstance  * client = (ThreadInstance *)clientSP.get();
+
+	int deviceID = client->deviceID;
+    if ( !deviceID ) {
+        CErrArg ( "HandleRegistration [ %s ]:\tInvalid deviceID.", client->ips );
+		return false;
+    }
 
 	// Clear all lingering devices in the list with the same deviceID
 
-	if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-		CErrID ( "HandleDeviceRegistration: Failed to aquire mutex!" );
+	if ( !MutexLock ( &acceptClientsMutex, "HandleDeviceRegistration" ) )
 		return false;
-	}
 	
 	bool found = false;
 
-	for ( unsigned int i = 0; i < acceptClients.size (); i++ ) 
-	{		
-		// find the one in our vector
-		for ( unsigned i = 0; i < acceptClients.size (); i++ ) {
-			if ( acceptClients[i] == client ) {
-				CVerbArgID ( "HandleDeviceRegistration: Erasing [%i] from client list", i );
-				acceptClients.erase ( acceptClients.begin() + i );
+	// find the one in our vector
+	for ( size_t i = 0; i < acceptClients.size(); i++ )
+    {
+		if ( acceptClients [i].get() == client )
+        {
+			CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tErasing [%i] from client list", client->ips, i );
 
-				found = true;
-				break;
-			}
+            acceptClients.erase ( acceptClients.begin() + i );
+
+			found = true;
+			break;
 		}
 	}
 
-	if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-		CErrID ( "HandleDeviceRegistration: Failed to release mutex!" );
+	if ( !MutexUnlock ( &acceptClientsMutex, "HandleDeviceRegistration" ) )
 		return false;
-	}
 
 	if ( !found ) {
-		CErrID ( "HandleDeviceRegistration: Failed to lookup the client in acceptClients." );
+		CErrArgID ( "HandleDeviceRegistration [ %s ]:\tFailed to lookup the client in acceptClients.", client->ips );
 		return false;
 	}
 
 	char		*	uid		= 0;
 	bool			created = false;
 
-	DeviceInstanceList	* device = UpdateDevices ( ip, msg, &uid, &created );
+	DeviceInstanceNode	* device = UpdateDevices ( ip, msg, &uid, &created );
 	if ( !device ) {
-		CErrID ( "HandleDeviceRegistration: Failed to parse registration." );
+		CErrArgID ( "HandleDeviceRegistration [ %s ]:\tFailed to parse registration.", client->ips );
 		return false;
 	}
 	if ( !created ) {
-        /// TODO: to test. seems to be a better solution
-		/// Remove an active session at first
-		if ( device->client ) {
-            int sock = device->client->socket;
-            if ( sock != -1 ) {
-				device->client->socket = -1;
-				try {
-					closesocket ( sock );
-					//shutdown ( sock, 2 );
-				} catch (...) {
-				}
+		MediatorMsg resp;
+		Zero ( resp );
+		
+		resp.size = sizeof(MediatorMsg);
+		resp.cmd1 = MEDIATOR_OPT_NULL;
+		resp.opt0 = MEDIATOR_OPT_NULL;
+		resp.opt1 = MEDIATOR_OPT_NULL;
+		
+		sp ( ThreadInstance ) busySP = device->clientSP;
+		if ( busySP )
+        {
+            // Check socket
+            if ( !IsSocketAlive ( busySP->socket ) ) {
+                VerifySockets ( busySP.get (), false );
+                
+                /// Return try again
+                resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_RETRY;
             }
-//			ReleaseClient ( device->client );
+            else {
+                if ( (checkLast - busySP->aliveLast) > 0 )
+                {
+                    /// Request alive response
+                    resp.cmd0 = MEDIATOR_SRV_CMD_ALIVE_REQUEST;
+                    
+                    busySP->aliveLast -= 2;
+                    SendBuffer ( busySP.get (), &resp, resp.size );
+                    
+                    Sleep ( 100 );
+                    
+                    /// Trigger Watchdog
+                    if ( MutexLock ( &thread_mutex, "Watchdog" ) ) {
+                        
+                        if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+                            CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tWatchdog signal failed.", client->ips );
+                        }
+                        
+                        MutexUnlock ( &thread_mutex, "Watchdog" );
+                    }
+                    /// Return try again
+                    resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_RETRY;
+                }
+                else {
+                    /// Return slot busy
+                    resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_LOCKED;
+                    CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tDevice instance slot locked.", client->ips );
+                }
+            }            
 		}
-		else
+		else {
 			RemoveDevice ( device );
 
-		CErrID ( "HandleDeviceRegistration: A device instance for this registration already exists." );
+			/// Return try again
+			resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_RETRY;
+			CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tDevice instance slot lingering. Responded retry advice.", client->ips );
+		}
+			
+		SendBuffer ( client, &resp, resp.size );
+
+		CErrArgID ( "HandleDeviceRegistration [ %s ]:\tA device instance for this registration already exists.", client->ips );
 		return false;
 	}
 
-	client->device = device;
-	device->client = client;
+	client->deviceSP = device->myself;
+	device->clientSP = clientSP;
 
 	*client->uid = 0;
-	if ( uid && *uid && device->info.deviceID ) {		
-		strcpy_s ( client->uid, sizeof(client->uid), uid );
+	if ( uid && *uid && device->info.deviceID )
+    {
+		// Transfor lowercase of uid
+		string suid ( uid );
+		std::transform ( suid.begin(), suid.end(), suid.begin(), ::tolower );
         
-		if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-			CErr ( "HandleDeviceRegistration: Failed to acquire mutex (devMap)!" );
-		}
-		else {
-			
-            DeviceMapping * mapping = 0;
+        CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tUsing lowercase uid [%s].", client->ips, suid.c_str () );
+
+		strcpy_s ( client->uid, sizeof(client->uid), suid.c_str () );
+        		
+		if ( MutexLock ( &usersDBMutex, "HandleDeviceRegistration" ) )
+		{			
+            sp ( DeviceMapping ) mapping;
             
             Zero ( regMsg );
+            
+            CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tLooking for mapping of uid [%s].", client->ips, client->uid );
+            
+			msp ( string, DeviceMapping )::iterator devIt = deviceMappings.find ( string ( client->uid ) );
 
-			map<string, DeviceMapping *>::iterator devIt = deviceMappings.find ( string ( client->uid ) );	
-
-			if ( devIt != deviceMappings.end ( ) ) {
+            if ( devIt != deviceMappings.end ( ) ) {
+                CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tFound.", client->ips );
 				mapping = devIt->second;
 			}
-			else {
-				mapping = (DeviceMapping *) calloc ( 1, sizeof(DeviceMapping) );
+            else {
+				mapping = sp ( DeviceMapping ) ( new DeviceMapping ); // calloc ( 1, sizeof(DeviceMapping) );
 				if ( !mapping )
 					goto PreFailExit;
+                memset ( mapping.get (), 0, sizeof(DeviceMapping) );
+                
+                CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tNot found. Created new.", client->ips );
 			}
 			mapping->deviceID = device->info.deviceID;
             
             /// Check for authToken
-            if ( !*mapping->authToken || client->createAuthToken ) {
+            if ( !*mapping->authToken || client->createAuthToken )
+            {
+                CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tCreating new auth token.", client->ips );
+                
 				srand ( getRandomValue ( &client ) );
 
                 unsigned int tokCount = sizeof(mapping->authToken) - (rand () % 5);
@@ -5098,6 +5217,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
                 for ( unsigned int i=0; i<tokCount; i++ ) {
                     mapping->authToken [ i ] = (rand () % 93) + 33;
                 }
+				mapping->authToken [ tokCount ] = 0;
                 
                 regMsg.size = sizeof(MediatorMsg) + tokCount - sizeof(long long);
                 regMsg.cmd0 = MEDIATOR_PROTOCOL_VERSION;
@@ -5106,27 +5226,32 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
                 regMsg.opt1 = MEDIATOR_OPT_NULL;
                 
                 memcpy ( regMsg.areaName, mapping->authToken, tokCount );
+				regMsg.areaName [tokCount] = 0;
                 
                 mapping->authLevel = client->authLevel;
+                
+                CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tMapping created deviceID [0x%X] authLevel [%i] authToken [...].", client->ips, deviceID, client->authLevel );
             }
 
 			deviceMappings [ string ( client->uid ) ] = mapping;
 
         PreFailExit:
-			if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-                CErr ( "HandleDeviceRegistration: Failed to release mutex (devMap)!" );
-                return false;
-			}
+			if ( !MutexUnlock ( &usersDBMutex, "HandleDeviceRegistration" ) )
+				return false;
             
-            if ( !mapping )
+            if ( !mapping ) {
+                CErrArgID ( "HandleDeviceRegistration [ %s ]:\tFailed to find or create a mapping.", client->ips );
                 return false;
+            }
             
             if ( regMsg.size ) {
+                CErrArgID ( "HandleDeviceRegistration [ %s ]:\tSending new auth token to client.", client->ips );
+                
                 /// Send authToken to client
-                sentBytes = SendBuffer ( client, &regMsg, regMsg.size );
+				sentBytes = SendBuffer ( clientSP.get (), &regMsg, regMsg.size );
                 
                 if ( sentBytes != (int)regMsg.size ) {
-                    CErrID ( "HandleDeviceRegistration: Failed to assign authtoken!" );
+                    CErrArgID ( "HandleDeviceRegistration [ %s ]:\tFailed to assign authtoken!", client->ips );
                     return false;
                 }
             }
@@ -5141,21 +5266,19 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
 
 	long long sid;
 
-	if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-		CErrID ( "HandleDeviceRegistration: Failed to aquire mutex!" );
+	if ( !MutexLock ( &acceptClientsMutex, "HandleDeviceRegistration" ) )
 		return false;
-	}
 
 	/// Assign a session id
 	sid = sessionCounter++;
-	sid |= ((long long)((client->device->root->id << 16) | client->device->root->areaId)) << 32;
+	sid |= ((long long)((device->rootSP->id << 16) | device->rootSP->areaId)) << 32;
 
-	sessions[sid] = client;
+    sessions [sid] = clientSP;
+    
+    CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tAssinged session id [%i]", client->ips, sid );
 
-	if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-		CErrID ( "HandleDeviceRegistration: Failed to release mutex!" );
+	if ( !MutexUnlock ( &acceptClientsMutex, "HandleDeviceRegistration" ) )
 		return false;
-	}
 
 	client->sessionID = sid;
 
@@ -5168,7 +5291,9 @@ bool MediatorDaemon::HandleDeviceRegistration ( ThreadInstance * client, unsigne
 	sessMsg->opt0 = MEDIATOR_OPT_NULL;
 	sessMsg->opt1 = MEDIATOR_OPT_NULL;
 	sessMsg->ids.sessionID = sid;
-
+    
+    CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tSending session id [%i] to client.", client->ips, sid );
+    
 	sentBytes = SendBuffer ( client, sessMsg, sessMsg->size );
 	if ( sentBytes != (int)sessMsg->size ) {
 		CErrID ( "HandleDeviceRegistration: Failed to assign session id!" );
@@ -5213,13 +5338,13 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
     
     /// Add the padding id
     *pUI |= encPadding;
-	
 
-	pthread_mutex_lock ( &client->accessMutex );
+
+	MutexLockV ( &client->accessMutex, "SecureChannelAuth" );
 
 	sentBytes = (int)sendto ( client->socket, buffer, length, 0, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
 
-	pthread_mutex_unlock ( &client->accessMutex );
+	MutexUnlockV ( &client->accessMutex, "SecureChannelAuth" );
 
 	if ( (int)length != sentBytes ) {
 		CVerbArg ( "SecureChannelAuth: Sending of auth token failed [%u] != [%i].", length, sentBytes );
@@ -5294,10 +5419,8 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 			userName [ length ] = 0;
             pUI++;
             
-            /// Look in db for user
-            if ( pthread_mutex_lock ( &usersDBMutex ) ) {
-                CErr ( "SecureChannelAuth: Failed to aquire mutex on usersDB!" ); break;
-            }
+            /// Look through db for user
+			if ( !MutexLock ( &usersDBMutex, "SecureChannelAuth" ) ) break;
             
             string user = userName;
             
@@ -5314,7 +5437,7 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
                 
                 map<string, UserItem *>::iterator iter = usersDB.find ( user );
                 if ( iter == usersDB.end () ) {
-                    CLogArg ( "SecureChannelAuth: User [%s] not found.", userName );
+					CLogArg ( "SecureChannelAuth: User [%s] not found.", user.c_str () );
                 }
                 else {
                     UserItem * item = iter->second;
@@ -5325,12 +5448,15 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
                 }
                 
                 if ( !pass ) {
-                    CVerbArg ( "SecureChannelAuth: No password for User [%s] available. Treating username as deviceUID and looking for authToken.", userName );
+                    CVerbArg ( "SecureChannelAuth: No password for User [%s] available. Treating username as deviceUID and looking for authToken.", user.c_str () );
                     
                     string deviceUID = userName;
-                    map<string, DeviceMapping *>::iterator devIt = deviceMappings.find ( deviceUID );
+					std::transform ( deviceUID.begin(), deviceUID.end(), deviceUID.begin(), ::tolower );
+
+                    msp ( string, DeviceMapping )::iterator devIt = deviceMappings.find ( deviceUID );
                     
                     if ( devIt != deviceMappings.end ( ) ) {
+						CVerb ( "SecureChannelAuth: Found auth token for the deviceUID." );
                         pass = devIt->second->authToken;
                         if ( !*pass )
                             pass = 0;
@@ -5338,17 +5464,16 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
                     }
                 }
             }
-            
-            if ( pthread_mutex_unlock ( &usersDBMutex ) ) {
-                CErr ( "SecureChannelAuth: Failed to release mutex on usersDB!" ); break;
-            }
+
+			if ( !MutexUnlock ( &usersDBMutex, "SecureChannelAuth" ) ) break;
+
             if ( !pass ) {
                 CVerbArg ( "SecureChannelAuth: No username and deviceUID [%s] found.", userName );
                 break;
             }
 		}
 
-		CVerbVerbArg ( "SecureChannelAuth: Auth user[%s] pass[%s]", userName, ConvertToHexSpaceString ( pass, 64 ) );
+		CVerbVerbArg ( "SecureChannelAuth: Auth user [%s] pass [%s]", userName, ConvertToHexSpaceString ( pass, (int)strlen(pass) ) );
 
 		if ( !BuildEnvironsResponse ( challenge, userName, pass, &hash, &hashLen ) ) {
 			CErr ( "SecureChannelAuth: Failed to build response." ); break;
@@ -5409,12 +5534,12 @@ int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned i
 	}
 
 	if ( useLock )
-		pthread_mutex_lock ( &client->accessMutex );
+		MutexLockV ( &client->accessMutex, "SendBuffer" );
 
 	rc = (int)sendto ( client->socket, (char *)msg, toSendLen, 0, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
 	
 	if ( useLock )
-		pthread_mutex_unlock ( &client->accessMutex );
+		MutexUnlockV ( &client->accessMutex, "SendBuffer" );
 
 	if ( cipher )
 		free ( cipher );
@@ -5430,26 +5555,30 @@ void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClien
 		
 	CVerbID ( "HandleSpareSocketRegistration" );
 		
-	int					sock = -1;
-	DeviceInstanceList *	device;
+	int							sock = -1;
+
+	DeviceInstanceNode *		device;
 	
-	if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-		CErrID ( "HandleSpareSocketRegistration: Failed to aquire mutex!" );
-	}
+	sp ( DeviceInstanceNode )	deviceSP;
+
+
+	MutexLockV ( &acceptClientsMutex, "HandleSpareSocketRegistration" );
 	
 	// find the one in our vector
-	for ( unsigned i = 0; i < acceptClients.size (); i++ ) {
-		if ( acceptClients[i] == spareClient ) {
+	size_t size = acceptClients.size ();
+
+	for ( size_t i = 0; i < size; ++i ) 
+	{
+		if ( acceptClients [ i ].get () == spareClient )
+		{
 			CVerbArgID ( "HandleSpareSocketRegistration: Erasing [%i] from client list", i );
 
-			acceptClients.erase ( acceptClients.begin() + i );
-			break;
+            acceptClients.erase ( acceptClients.begin() + i );
+            break;
 		}
 	}
 
-	if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-		CErrID ( "HandleSpareSocketRegistration: Failed to release mutex!" );
-	}
+	MutexUnlockV ( &acceptClientsMutex, "HandleSpareSocketRegistration" );
 
 	// We need at first the deviceID
 	if ( !deviceID ) {
@@ -5457,8 +5586,8 @@ void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClien
 	}
 
 	/// Verify that the registration is correct
-	device	= orgClient->device;
-	if ( !device ) {
+	deviceSP = orgClient->deviceSP;
+	if ( !deviceSP || ( device = deviceSP.get () ) == 0 ) {
 		CWarnID ( "HandleSpareSocketRegistration: Related client is missing a device instance!" ); goto Finish;
 	}
 	
@@ -5474,25 +5603,24 @@ void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClien
 	}	
 	
 	// Acquire the mutex on orgClient
-	if ( pthread_mutex_lock ( &orgClient->accessMutex ) ) {
-		CErrID ( "HandleSpareSocketRegistration: Failed to aquire mutex on org client!" );
-	}
+	MutexLockV ( &orgClient->accessMutex, "HandleSpareSocketRegistration" );
 
 	// Apply the port
 	sock = orgClient->spareSocket;
 	if ( sock != -1 ) {
+        CVerbVerbArg ( "HandleSpareSocketRegistration: Closing spare soket of org client [%i].", sock );
 		shutdown ( sock, 2 );
 		closesocket ( sock );
-	}
+    }
+    
+    CVerbVerbArg ( "HandleSpareSocketRegistration: Take over spare soket of spare client [%i].", spareClient->socket );
 	orgClient->spareSocket = spareClient->socket;
 	orgClient->sparePort = ntohs ( spareClient->addr.sin_port );
 		
 	//pthread_cond_signal ( &orgClient->socketSignal );
 	
 	// Release the mutex on orgClient
-	if ( pthread_mutex_unlock ( &orgClient->accessMutex ) ) {
-		CErrID ( "HandleSpareSocketRegistration: Failed to release mutex on org client!" );
-	}
+	MutexUnlockV ( &orgClient->accessMutex, "HandleSpareSocketRegistration" );
 
 	sock = 1;
 	
@@ -5502,23 +5630,20 @@ Finish:
 		pthread_detach_handle ( thrd );
 	}
 		
-	if ( pthread_mutex_destroy ( &spareClient->accessMutex ) ) {
-		CErrID ( "HandleSpareSocketRegistration: Failed to destroy mutex!" );
-	}
+	MutexDispose ( &spareClient->accessMutex );
 
 	if ( sock != 1 ) {
 		sock = spareClient->socket;
-		if ( sock != -1 ) {
+        if ( sock != -1 ) {
+            CVerbVerbArg ( "HandleSpareSocketRegistration: Closing spare soket of spare client [%i].", sock );
 			shutdown ( sock, 2 );
 			closesocket ( sock );
 		}
-		CLogID ( "Failed to register spare socket" );
+		CLogID ( "HandleSpareSocketRegistration: Failed to register spare socket" );
 	}
 	else {
-		CLogArgID ( "successfully registered spare socket on port [%d].", orgClient->sparePort );
+		CLogArgID ( "HandleSpareSocketRegistration: Successfully registered spare socket on port [%d].", orgClient->sparePort );
 	}
-
-	delete spareClient;
 	return;
 }
 
@@ -5642,125 +5767,82 @@ Finish:
 	return ret;
 }
 
-static long notifyRunner = 0;
 
-void MediatorDaemon::NotifyClientsStart ( unsigned int notify, const char * areaName, const char * appName, int deviceID )
+void MediatorDaemon::NotifyClients ( unsigned int notifya, const char * areaName, const char * appName, int deviceID )
 {
-	/// If a notification is already running, then spin around, wait and try for max. 5 seconds
-	int trys = 26;
-
-	while ( trys > 0 )
-	{
-		if ( ___sync_val_compare_and_swap ( &notifyRunner, 0, 1 ) == 0 ) {
-			trys = 26;
-			break;
-		}
-
-		Sleep ( 200 );
-		trys--;
-	}
-	
-	if ( trys <= 0 ) {
-		CWarn ( "NotifyClientsStart: Failed to get a notification slot." );
+	NotifyQueueContext * ctx = new NotifyQueueContext;
+	if ( !ctx )
 		return;
-	}
 
-	pthread_t threadID;
+	ctx->notify = notifya;
+	ctx->appName = appName;
+	ctx->areaName = areaName;
+	ctx->deviceID = deviceID;
 
-	this->notify = notify;
+	MutexLockV ( &notifyMutex, "NotifyClients" );
 
-	if ( notifyAreaName ) {
-		free ( notifyAreaName );
-		notifyAreaName = 0;
-	}
-	if ( notifyAppName ) {
-		free ( notifyAppName );
-		notifyAppName = 0;
-	}
-
-	int s;
-	unsigned int len;
-	char * name;
-
-	if ( areaName ) {
-		len = (unsigned int) strlen ( areaName );
-		name = (char *) malloc ( len + 1 );
-		if ( !name ) {
-			CErr ( "NotifyClientsStart: Failed to allocate memory for areaName." );
-			goto Failed;
-		}
-		memcpy ( name, areaName, len );
-		name [ len ] = 0;
-		notifyAreaName = name;
-	}
-
-	if ( appName ) {
-		len = (unsigned int) strlen ( appName );
-		name = (char *) malloc ( len + 1 );
-		if ( !name ) {
-			CErr ( "NotifyClientsStart: Failed to allocate memory for appName." );
-			goto Failed;
-		}
-		memcpy ( name, appName, len );
-		name [ len ] = 0;
-		notifyAppName = name;
-	}
-
-	notifyDeviceID = deviceID;
-	
-	s = pthread_create ( &threadID, 0, &MediatorDaemon::NotifyClientsStarter, (void *)this );
-	if ( s == 0 ) {
-		pthread_detach_handle ( threadID );
-		return;
-	}
-
-	CErr ( "NotifyClientsStart: Error creating thread for notifying..." );
-
-Failed:
-	if ( notifyAreaName ) {
-		free ( notifyAreaName );
-		notifyAreaName = 0;
-	}
-	if ( notifyAppName ) {
-		free ( notifyAppName );
-		notifyAppName = 0;
-	}
-
-	if ( ___sync_val_compare_and_swap ( &notifyRunner, 1, 0 ) != 1 ) {
-		CWarnArg ( "NotifyClientsStart: Something went wrong with modifying the notify runner access lock [%u]", (unsigned int) notifyRunner );
-		notifyRunner = 0;
-	}
+	notifyQueue.push ( ctx );
+	CVerb ( "NotifyClients: Enqueue" );
+    
+    /// Trigger Notifier
+    if ( pthread_cond_signal ( &notifyEvent ) ) {
+        CVerb ( "NotifyClients: Watchdog signal failed." );
+    }
+    
+	MutexUnlockV ( &notifyMutex, "NotifyClients" );
 }
 
 
 void * MediatorDaemon::NotifyClientsStarter ( void * daemon )
 {
-	if ( !daemon )
-		return 0;
+    if ( daemon ) {
+        MediatorDaemon * meddae = ( MediatorDaemon * ) daemon;
+        meddae->NotifyClientsThread ();
+    }
+    return 0;
+}
 
-	MediatorDaemon * meddae = (MediatorDaemon *)daemon;
-	meddae->NotifyClients ( meddae->notify );
-	
-	if ( ___sync_val_compare_and_swap ( &notifyRunner, 1, 0 ) != 1 ) {
-		CWarnArg ( "NotifyClientsStarter: Something went wrong with modifying the notify runner access lock [%u]", (unsigned int) notifyRunner );
-		notifyRunner = 0;
+
+void MediatorDaemon::NotifyClientsThread ()
+{
+	CVerbVerb ( "NotifyClientsThread" );
+
+	NotifyQueueContext * ctx = 0;
+
+	while ( isRunning )
+	{
+		MutexLockV ( &notifyMutex, "NotifyClientsThread" );
+
+    Retry:
+        if ( notifyQueue.empty () )
+        {
+            pthread_cond_wait ( &notifyEvent, &notifyMutex );
+
+            if ( !isRunning ) {
+                MutexUnlockV ( &notifyMutex, "NotifyClientsThread" );
+                return;
+            }
+            goto Retry;
+        }
+        
+        ctx = notifyQueue.front ();
+        notifyQueue.pop ();
+        
+        MutexUnlockV ( &notifyMutex, "NotifyClientsThread" );
+        
+        if ( ctx ) {
+            NotifyClients ( ctx );
+            delete ctx;
+        }
+
+		CVerbVerb ( "NotifyClientsThread: next" );
 	}
 
-	return 0;
+	CVerbVerb ( "NotifyClientsThread: done" );
 }
 
 
-typedef struct _NotifyContext
-{
-	unsigned int		deviceID;
-	int					sock;
-	struct sockaddr		addr;
-//	pthread_mutex_t	*	mutex;
-}
-NotifyContext;
-
-
-ApplicationDevices * MediatorDaemon::GetApplicationDevices ( const char * areaName, const char * appName )
+sp ( ApplicationDevices ) MediatorDaemon::GetApplicationDevices ( const char * areaName, const char * appName )
 {
 	CVerb ( "GetApplicationDevices" );
 	
@@ -5769,19 +5851,17 @@ ApplicationDevices * MediatorDaemon::GetApplicationDevices ( const char * areaNa
 		return 0;
 	}
 	
-	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CErr ( "GetApplicationDevices: Failed to acquire mutex!" );
+	if ( !MutexLock ( &devicesMutex, "GetApplicationDevices" ) )
 		return 0;
-	}	
 
-	ApplicationDevices				*	appDevices	= 0;
-	AreaApps						*	areaApps	= 0;
-	map<string, ApplicationDevices * >::iterator appsIt;
+	sp ( AreaApps )						areaApps;
+	sp ( ApplicationDevices )			appDevices;
+	msp ( string, ApplicationDevices )::iterator appsIt;
 	
 	string appsName ( appName );
 	string pareaName ( areaName );
 
-    map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );	
+    msp ( string, AreaApps )::iterator areaIt = areasList.find ( pareaName );	
 
 	if ( areaIt == areasList.end ( ) ) {
 		CLogArg ( "GetApplicationDevices: Area [%s] not found.", areaName );
@@ -5818,9 +5898,7 @@ ApplicationDevices * MediatorDaemon::GetApplicationDevices ( const char * areaNa
 	__sync_add_and_fetch ( &appDevices->access, 1 );
 	
 Finish:
-	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-		CErr ( "GetApplicationDevices: Failed to release mutex!" );
-	}	
+	MutexUnlockV ( &devicesMutex, "GetApplicationDevices" );
 	return appDevices;
 }
 
@@ -5831,7 +5909,7 @@ void MediatorDaemon::UnlockApplicationDevices ( ApplicationDevices * appDevices 
 }
 
 
-void MediatorDaemon::NotifyClients ( unsigned int notify )
+void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
 {
 	MediatorNotify	msg;
 	Zero ( msg );
@@ -5841,56 +5919,43 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
 	msg.cmd1 = MEDIATOR_CMD_MEDIATOR_NOTIFY;
 	msg.opt0 = MEDIATOR_OPT_NULL;
 	msg.opt1 = MEDIATOR_OPT_NULL;
-	msg.msgID = notify;
-	msg.notifyDeviceID = notifyDeviceID;
+	msg.msgID = nctx->notify;
+	msg.notifyDeviceID = nctx->deviceID;
 
-	unsigned int sendSize = sizeof(MediatorNotify);
+	unsigned int sendSize = sizeof ( MediatorNotify );
 
-	if ( notifyAreaName && notifyAppName ) {
-		strcpy_s ( msg.areaName, sizeof(msg.areaName), notifyAreaName );
-		strcpy_s ( msg.appName, sizeof(msg.appName), notifyAppName );
-		sendSize = sizeof(MediatorNotify);
+	if ( nctx->areaName.length () > 0 && nctx->appName.length () > 0 ) {
+		strcpy_s ( msg.areaName, sizeof ( msg.areaName ), nctx->areaName.c_str () );
+		strcpy_s ( msg.appName, sizeof ( msg.appName ), nctx->appName.c_str () );
+		sendSize = sizeof ( MediatorNotify );
 	}
-	else sendSize = sizeof(MediatorMsg);
+	else sendSize = sizeof ( MediatorMsg );
 
 	msg.size = sendSize;
     
-	vector<NotifyContext *> dests;
-	dests.clear();
+    size_t                      size;
+	vsp ( ThreadInstance )      dests;
+    sp ( ThreadInstance )		clientSP;
+    sp ( ApplicationDevices	)	appDevices;
 
-	CVerbArg ( "NotifyClients: broadcasting notify [%s]", environs::resolveName(notify) );
+	CLogArg ( "NotifyClients: broadcasting notify [%s]", environs::resolveName( nctx->notify ) );
 
 #ifdef NDEBUG
-	CLogArg ( "NotifyClients: broadcasting notify [0x%X]", notify );
+	CLogArg ( "NotifyClients: broadcasting notify [0x%X]", nctx->notify );
 #endif
 
-	ThreadInstance		*	destClient	= 0;
-	ApplicationDevices	*	appDevices	= 0;
-
-	if ( pthread_mutex_lock ( &devicesMutex ) ) {
-		CVerb ( "NotifyClients: Failed to aquire mutex!" );
+	
+	if ( !MutexLock ( &notifyTargetsMutex, "NotifyClients" ) )
 		return;
-	}    
     
     /// Get the no filter clients
     do
     {
-        map<long long, ThreadInstance *>::iterator clientIt = notifyTargets.begin ();
+        msp ( long long, ThreadInstance )::iterator clientIt = notifyTargets.begin ();
         
         while ( clientIt != notifyTargets.end () )
         {
-            destClient = clientIt->second;
-            
-			NotifyContext * ctx = (NotifyContext *) malloc ( sizeof(NotifyContext) );
-			if ( !ctx )
-				break;
-			ctx->deviceID	= destClient->deviceID;
-			ctx->sock		= destClient->socket;
-            //			ctx->mutex		= &destClient->accessMutex;
-			
-			memcpy ( &ctx->addr, &destClient->addr, sizeof(struct sockaddr) );
-			dests.push_back ( ctx );
-            
+			dests.push_back ( clientIt->second );
             clientIt++;
         }
     }
@@ -5898,133 +5963,89 @@ void MediatorDaemon::NotifyClients ( unsigned int notify )
     
     /// Get the AreaApps
     do
-    {
-		map<string, ApplicationDevices * >::iterator appsIt;
-	
-		string pareaName ( notifyAreaName );
-			
-		/*if ( pthread_mutex_lock ( &devicesMutex ) ) {
-            CErr ( "NotifyClients: Failed to acquire mutex!" ); break;
-		}*/
-
-		map<string, AreaApps * >::iterator areaIt = areasList.find ( pareaName );	
+    {	
+		msp ( string, AreaApps )::iterator areaIt = areasList.find ( nctx->areaName );
 
 		if ( areaIt == areasList.end ( ) ) {
-			CLogArg ( "NotifyClients: Area [%s] not found.", notifyAreaName );
-
-			/*if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-				CErr ( "NotifyClients: Failed to release mutex!" );
-			}*/
+			CLogArg ( "NotifyClients: Area [%s] not found.", nctx->areaName.c_str () );
 			break;
 		}
         
-        AreaApps * areaApps = areaIt->second;
+        sp ( AreaApps ) areaApps = areaIt->second;
+        if ( !areaApps )
+            break;
         
-        map<long long, ThreadInstance *>::iterator clientIt = areaApps->notifyTargets.begin ();
+        msp ( long long, ThreadInstance )::iterator clientIt = areaApps->notifyTargets.begin ();
         
         while ( clientIt != areaApps->notifyTargets.end () )
         {
-            destClient = clientIt->second;
-            
-			NotifyContext * ctx = (NotifyContext *) malloc ( sizeof(NotifyContext) );
-			if ( !ctx )
-				break;
-			ctx->deviceID	= destClient->deviceID;
-			ctx->sock		= destClient->socket;
-            //			ctx->mutex		= &destClient->accessMutex;
-			
-			memcpy ( &ctx->addr, &destClient->addr, sizeof(struct sockaddr) );
-			dests.push_back ( ctx );
-            
+            dests.push_back ( clientIt->second );
             clientIt++;
         }
-		/*if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-			CErr ( "NotifyClients: Failed to release mutex!" );
-		}*/
     }
     while ( 0 );
-	
-	CVerbVerb ( "NotifyClients: unlock." );
-	if ( pthread_mutex_unlock ( &devicesMutex ) ) {
-        CErr ( "NotifyClients: Failed to release mutex!" ); goto Finish;
-	}
     
-	appDevices	= GetApplicationDevices ( notifyAreaName, notifyAppName );
+	appDevices	= GetApplicationDevices ( nctx->areaName.c_str (), nctx->appName.c_str () );
 	if ( appDevices )
 	{
-		unsigned int deviceID;
-		DeviceInstanceList * device = appDevices->devices;
-		
-		if ( pthread_mutex_lock ( &appDevices->mutex ) ) {
-			CVerb ( "NotifyClients: Failed to aquire mutex!" );
-		}
-		else {
+		if ( MutexLock ( &appDevices->mutex, "NotifyClients" ) )
+        {
+            DeviceInstanceNode * device = appDevices->devices;
 			while ( device )
 			{		
-				destClient = device->client;
-				if ( !destClient )
-					goto Continue;
-		
-				deviceID = destClient->deviceID;
-				//CLogArg ( "NotifyClients: checking device [0x%X]", deviceID );
-
-				if ( !deviceID || destClient->socket == -1 || destClient->version < '3' )
-					goto Continue;
-
-				if ( !IsSocketAlive ( destClient->socket ) )
-					goto Continue;
-
-				if ( destClient->filterMode == MEDIATOR_FILTER_NONE && destClient->socket != -1 )
-				{
-					NotifyContext * ctx = (NotifyContext *) malloc ( sizeof(NotifyContext) );
-					if ( !ctx )
-						break;
-					ctx->deviceID	= destClient->deviceID;
-					ctx->sock		= destClient->socket;
-		//			ctx->mutex		= &destClient->accessMutex;
-			
-					memcpy ( &ctx->addr, &destClient->addr, sizeof(struct sockaddr) );
-					dests.push_back ( ctx );
-				}
-
-			Continue:
+				clientSP = device->clientSP;
+                
+                if ( clientSP && clientSP->filterMode == MEDIATOR_FILTER_AREA_AND_APP )
+                {
+                    dests.push_back ( clientSP );
+                }
 				device = device->next;
 			}
 
 			CVerbVerb ( "NotifyClients: unlock." );
-			if ( pthread_mutex_unlock ( &appDevices->mutex ) ) {
-				CErr ( "NotifyClients: Failed to release mutex!" );
-			}
+			MutexUnlockV ( &appDevices->mutex, "NotifyClients" );
 		}
 		
-		UnlockApplicationDevices ( appDevices );		
-	}
-
+		UnlockApplicationDevices ( appDevices.get () );		
+    }
+    
+    CVerbVerb ( "NotifyClients: unlock." );
+    if ( !MutexUnlock ( &notifyTargetsMutex, "NotifyClients" ) )
+        goto Finish;
 	
-	for ( unsigned i = 0; i < dests.size(); i++ )
-	{
-		NotifyContext * ctx = dests[i];
-		
-		if ( ctx ) {
-			CLogArg ( "NotifyClients: Notify device [0x%X]", ctx->deviceID );
-			sendto ( ctx->sock, (char *)&msg, sendSize, 0, (struct sockaddr *) &ctx->addr, sizeof(struct sockaddr) );
-			free ( ctx );
-		}
+    size = dests.size();
+    
+	for ( size_t i = 0; i < size; i++ )
+    {
+        const sp ( ThreadInstance ) &destClient = dests [ i ];
+        if ( !destClient )
+            continue;
+        
+        ThreadInstance * dest = destClient.get ();
+        //CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
+        
+        if ( !dest->deviceID || dest->socket == -1 )
+            continue;
+        
+        if ( !IsSocketAlive ( dest->socket ) )
+            continue;
+        
+        CLogArg ( "NotifyClients: Notify device [0x%X]", dest->deviceID );
+        
+        sendto ( dest->socket, (char *)&msg, sendSize, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
 	}
-	dests.clear ();
     
 Finish:
+    dests.clear ();
+    
 	CVerbVerb ( "NotifyClients: done." );
 }
 
 
 void * MediatorDaemon::WatchdogThreadStarter ( void * daemon )
 {
-	if ( !daemon )
-		return 0;
-
-	((MediatorDaemon *)daemon)->WatchdogThread ();
-
+	if ( daemon )
+		((MediatorDaemon *)daemon)->WatchdogThread ();
 	return 0;
 }
 
@@ -6034,8 +6055,10 @@ void MediatorDaemon::WatchdogThread ()
 	CLog ( "Watchdog started..." );
 					
 	int						sock;
+	sp ( ThreadInstance	)	clientSP;
 	ThreadInstance		*	client			= 0;
 	const unsigned int		checkDuration	= 1000 * 60 * 2; // 2 min. (in ms)
+    const unsigned int      maxTimeout      = checkDuration * 3;
 
     
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
@@ -6048,24 +6071,24 @@ void MediatorDaemon::WatchdogThread ()
 	while ( isRunning )
 	{	
 		CVerbVerb ( "Watchdog: checking..." );
-		
-		if ( pthread_mutex_lock ( &acceptClientsMutex ) ) {
-			CErr ( "Watchdog: Failed to aquire mutex!" ); break;
-		}
-		
-		checkLast++;
 
-		map<long long, ThreadInstance *>::iterator sessionIt = sessions.begin();
+		if ( !MutexLock ( &acceptClientsMutex, "Watchdog" ) ) break;
+		
+        checkLast = GetEnvironsTickCount ();
+
+		msp ( long long, ThreadInstance )::iterator sessionIt = sessions.begin();
 		
 		while ( sessionIt != sessions.end () ) 
 		{
-			client = sessionIt->second;
-			if ( client ) {
-				CVerbArg ( "Watchdog: Checking deviceID [%u]", client->deviceID );
+			clientSP = sessionIt->second;
+			if ( clientSP ) {
+				client = clientSP.get ();
 
-				if ( (checkLast - client->aliveLast) > 3 ) 
+				CVerbArg ( "Watchdog: Checking deviceID [0x%X : %s]", client->deviceID, client->ips );
+
+				if ( (checkLast - client->aliveLast) > maxTimeout )
 				{
-					CLogArg ( "Watchdog: Disconnecting [%u] due to expired heartbeat...", client->deviceID );
+					CLogArg ( "Watchdog: Disconnecting [0x%X : %s] due to expired heartbeat...", client->deviceID, client->ips );
 
 					sock = client->spareSocket;
 					if ( sock != -1 ) {
@@ -6090,13 +6113,9 @@ void MediatorDaemon::WatchdogThread ()
 			sessionIt++;
 		}
 
-		if ( pthread_mutex_unlock ( &acceptClientsMutex ) ) {
-			CErr ( "Watchdog: Failed to release mutex!" ); break;
-		}
-		
-		if ( pthread_mutex_lock ( &thread_mutex ) ) {
-			CErr ( "Watchdog: Failed to acquire thread mutex!" ); break;
-		}
+		if ( !MutexUnlock ( &acceptClientsMutex, "Watchdog" ) ) break;
+
+		if ( !MutexLock ( &thread_mutex, "Watchdog" ) ) break;		
 		
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
 #else
@@ -6106,9 +6125,26 @@ void MediatorDaemon::WatchdogThread ()
 		timeout.tv_nsec = now.tv_usec * 1000;
 #endif
 		pthread_cond_timedwait ( &hWatchdogEvent, &thread_mutex, &timeout );
+		
+		if ( usersDBDirty ) {
+			usersDBDirty = false;
 
-		if ( pthread_mutex_unlock ( &thread_mutex ) ) {
-			CErr ( "Watchdog: Failed to release thrad mutex!" ); break;
+			if ( !MutexUnlock ( &thread_mutex, "Watchdog" ) ) break;
+
+			SaveUserDB ();
+
+			if ( !MutexLock ( &thread_mutex, "Watchdog" ) ) break;
+		}
+
+		if ( configDirty ) {
+			configDirty = false;
+
+			if ( !MutexUnlock ( &thread_mutex, "Watchdog" ) ) break;
+
+			SaveConfig ();
+		}
+		else {
+			if ( !MutexUnlock ( &thread_mutex, "Watchdog" ) ) break;
 		}
 	}
 	

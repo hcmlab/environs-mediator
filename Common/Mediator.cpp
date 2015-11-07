@@ -20,32 +20,33 @@
 #include "stdafx.h"
 
 /// Compiler flag that enables verbose debug output
-
 #ifndef NDEBUG
-//#define DEBUGVERB
-//#define DEBUGVERBVerb
-//#define DEBUGVERBList
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
+//#   define DEBUGVERBList
 #endif
 
 #include "Mediator.h"
 #include "Environs.Native.h"
 
 #if !defined(MEDIATORDAEMON)
-#include "Environs.h"
+#   include "Environs.Obj.h"
 #else
-#include <cstdio>
+#   include <cstdio>
 #endif
 
 #include <errno.h>
 #include <fcntl.h>
 
 #ifndef _WIN32
-#include <signal.h>
+#   include <signal.h>
+#   include <unistd.h>
 #endif
+
 #include <map>
 #include <string>
 
-#define	CLASS_NAME 	"Mediator"
+#define	CLASS_NAME 	"Mediator . . . . . . . ."
 
 
 /* Namespace: environs -> */
@@ -96,16 +97,11 @@ Mediator::~Mediator ( )
 
     if ( allocated )
     {
-        if ( pthread_mutex_destroy	( &devicesMutex ) ) {
-            CVerb ( "Init: Failed to destroy devicesMutex!" );
-        }
-        if ( pthread_mutex_destroy	( &mediatorMutex ) ) {
-            CVerb ( "Init: Failed to destroy mediatorMutex!" );
-        }
+        MutexDispose ( &devicesMutex );
+        MutexDispose ( &mediatorMutex );
+        
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
-        if ( pthread_mutex_destroy	( &idMapMutex ) ) {
-            CVerb ( "Init: Failed to destroy idMapMutex!" );
-        }
+        MutexDispose ( &idMapMutex );
 #endif
         projectIDToNames.clear();
         appIDToNames.clear();
@@ -123,18 +119,12 @@ bool Mediator::Init ()
         return false;
     
     if ( !allocated )
-	{
-		Zero ( mediatorMutex );
-        if ( pthread_mutex_init	( &mediatorMutex, NULL ) ) {
-            CErr ( "Init: Failed to init mediatorMutex!" );
+    {
+        if ( !MutexInit ( &mediatorMutex ) )
             return false;
-        }
-
-		Zero ( devicesMutex );
-        if ( pthread_mutex_init	( &devicesMutex, NULL ) ) {
-            CErr ( "Init: Failed to init mediatorMutex!" );
+        
+        if ( !MutexInit ( &devicesMutex ) )
             return false;
-        }
         
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
         Zero ( idMapMutex );
@@ -144,10 +134,8 @@ bool Mediator::Init ()
         nameToProjectID.clear();
         nameToAppID.clear();
         
-        if ( pthread_mutex_init	( &idMapMutex, NULL ) ) {
-            CErr ( "Init: Failed to init idMapMutex!" );
+        if ( !MutexInit ( &idMapMutex ) )
             return false;
-        }
 #endif
         allocated = true;
     }
@@ -168,13 +156,9 @@ bool Mediator::InitClass ()
 		return true;
 
 	Zero ( localNets );
-
-	Zero ( localNetsMutex );
-
-	if ( pthread_mutex_init ( &localNetsMutex, 0 ) ) {
-		CErr ( "InitClass: Failed to init localNetsMutex!" );
-		return false;
-	}
+    
+    if ( !MutexInit ( &localNetsMutex ) )
+        return false;
 
 	allocatedClass = true;
 
@@ -190,10 +174,8 @@ void Mediator::DisposeClass ()
 		return;
 
 	ReleaseNetworks ();
-
-	if ( pthread_mutex_destroy ( &localNetsMutex ) ) {
-		CErr ( "DisposeClass: Failed to init localNetsMutex!" );
-	}
+    
+    MutexDispose ( &localNetsMutex );
 }
 
 
@@ -335,11 +317,9 @@ bool Mediator::ReleaseThreads ()
 void Mediator::ReleaseNetworks ()
 {
 	CVerb ( "ReleaseNetworks" );
-		
-	if ( pthread_mutex_lock ( &localNetsMutex ) ) {
-		CErr ( "ReleaseNetworks: Failed to aquire mutex on localNets!" );
+
+	if ( !MutexLock ( &localNetsMutex, "ReleaseNetworks" ) )
 		return;
-	}
 
 	NetPack * net = localNets.next;
 
@@ -351,14 +331,14 @@ void Mediator::ReleaseNetworks ()
 
 	Zero ( localNets );
 			
-	if ( pthread_mutex_unlock ( &localNetsMutex ) ) {
-		CErr ( "ReleaseNetworks: Failed to release mutex on localNets!" );
-	}
+	MutexUnlock ( &localNetsMutex, "ReleaseNetworks" );
 }
 
 
 void Mediator::ReleaseMediator ( MediatorInstance * med ) 
 {
+    if ( !med ) return;
+    
 	ThreadInstance * inst = &med->connection.instance;
 
 	int s = inst->socket;
@@ -388,16 +368,11 @@ void Mediator::ReleaseMediator ( MediatorInstance * med )
 
 	AESDisposeKeyContext ( &med->connection.instance.aes );
 	med->connection.instance.encrypt = 0;
-
-	if ( pthread_mutex_destroy ( &med->connection.rec_mutex ) ) {
-		CErr ( "ReleaseNetworks: Failed to destroy rec_mutex." );
-	}
-	if ( pthread_mutex_destroy ( &med->connection.send_mutex ) ) {
-		CErr ( "ReleaseNetworks: Failed to destroy send_mutex." );
-	}
-	if ( pthread_cond_destroy ( &med->connection.rec_signal ) ) {
-		CErr ( "ReleaseMediator: Failed to destroy signal." );
-	}
+    
+    MutexDispose ( &med->connection.rec_mutex );
+    MutexDispose ( &med->connection.send_mutex );
+    
+    CondDispose ( &med->connection.rec_signal );
 
 	if ( med->connection.buffer )
 		free ( med->connection.buffer );
@@ -411,9 +386,7 @@ void Mediator::ReleaseMediators ()
 {
 	CVerb ( "ReleaseMediators" );
 
-	if ( pthread_mutex_lock ( &mediatorMutex ) ) {
-		CErr ( "ReleaseMediators: Failed to aquire mutex on mediator!" );
-	}
+	MutexLockV ( &mediatorMutex, "ReleaseMediators" );
 
 	MediatorInstance * inst = mediator.next;
 
@@ -428,10 +401,8 @@ void Mediator::ReleaseMediators ()
 		ReleaseMediator ( &mediator );
 		Zero ( mediator );
 	}
-	
-	if ( pthread_mutex_unlock ( &mediatorMutex ) ) {
-		CErr ( "ReleaseMediators: Failed to release mutex on mediator!" );
-	}
+
+	MutexUnlockV ( &mediatorMutex, "ReleaseMediators" );
 }
 
 
@@ -445,10 +416,8 @@ bool Mediator::LoadNetworks ( )
 
 	unsigned int	ip;
 	unsigned int	bcast;
-	
-	if ( pthread_mutex_lock ( &localNetsMutex ) ) {
-		CErr ( "LoadNetworks: Failed to aquire mutex on localNets!" );
-	}
+
+	MutexLockV ( &localNetsMutex, "LoadNetworks" );
 
 #ifdef _WIN32
 	char ac [ 256 ];
@@ -662,9 +631,8 @@ bool Mediator::LoadNetworks ( )
 #endif
 
 EndOfMethod:
-	if ( pthread_mutex_unlock ( &localNetsMutex ) ) {
-		CErr ( "LoadNetworks: Failed to release mutex on localNets!" );
-	}
+	MutexUnlockV ( &localNetsMutex, "LoadNetworks" );
+
 	return true;
 }
 
@@ -796,8 +764,7 @@ bool Mediator::SendBroadcast ( )
 	/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
 	NetPack * net = 0;
 
-	if ( pthread_mutex_lock ( &localNetsMutex ) ) {
-		CErr ( "SendBroadcast: Failed to aquire mutex!" );
+	if ( !MutexLock ( &localNetsMutex, "SendBroadcast" ) ) {
 		ret = false;
 		goto EndWithStatus;
 	}
@@ -815,9 +782,7 @@ bool Mediator::SendBroadcast ( )
 		net = net->next;
 	}
 	
-	if ( pthread_mutex_unlock ( &localNetsMutex ) ) {
-		CErr ( "SendBroadcast: Failed to release mutex!" );
-	}
+	MutexUnlockV ( &localNetsMutex, "SendBroadcast" );
 
 EndWithStatus:
 
@@ -830,11 +795,9 @@ bool Mediator::IsLocalIP ( unsigned int ip )
 	bool ret = false;
 
 	CVerb ( "IsLocalIP" );
-	
-	if ( pthread_mutex_lock ( &localNetsMutex ) ) {
-		CErr ( "IsLocalIP: Failed to aquire mutex!" );
+
+	if ( !MutexLock ( &localNetsMutex, "IsLocalIP" ) )
 		return false;
-	}
 
 	NetPack * net = &localNets;
 
@@ -845,12 +808,9 @@ bool Mediator::IsLocalIP ( unsigned int ip )
 		}
 		net = net->next;
 	}
-	
-	if ( pthread_mutex_unlock ( &localNetsMutex ) ) {
-		CErr ( "IsLocalIP: Failed to release mutex!" );
-		ret = false;
-	}
 
+	if ( !MutexUnlock ( &localNetsMutex, "IsLocalIP" ) )
+		return false;
 	return ret;
 }
 
@@ -873,10 +833,31 @@ unsigned int Mediator::GetLocalSN ( )
 
 	return localNets.mask;
 }
+    
+    
+    bool Mediator::IsAnonymousUser ( const char * user )
+    {
+        if ( !user || !strlen (user) )
+            return true;
+
+        int maxLen = (int) sizeof ( MEDIATOR_ANONYMOUS_USER );
+        
+        const char * anonUser = MEDIATOR_ANONYMOUS_USER;
+        
+        while ( *user && maxLen >= 0 )
+        {
+            if ( *user++ != *anonUser++ )
+                break;
+            maxLen--;
+        }
+        if ( maxLen <= 1 )
+            return true;
+        return false;
+    }
 
 
 
-DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
+DeviceInstanceNode * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
 {
 	CVerbVerb ( "UpdateDevices" );
 
@@ -891,14 +872,19 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 	char		*	areaName	= 0;
 	char		*	appName		= 0;
 	char		*	userName	= 0;
-	DeviceInstanceList * device		= 0;
-	DeviceInstanceList * devicePrev	= 0;
-	DeviceInstanceList ** listRoot	= 0;
+	DeviceInstanceNode * device		= 0;
+	DeviceInstanceNode * devicePrev	= 0;
+	DeviceInstanceNode ** listRoot	= 0;
 	pthread_mutex_t * mutex		= 0;
 
-	int *					pDevicesAvailable	= 0;
-
-	ApplicationDevices *	appDevices			= 0;
+	int *						pDevicesAvailable	= 0;
+    
+#ifdef MEDIATORDAEMON
+    sp ( ApplicationDevices )
+#else
+	void *
+#endif
+                                appDevices			= 0;
     
 	// Get the id at first (>0)	
 	int * pIntBuffer = (int *) (msg + MEDIATOR_BROADCAST_DEVICEID_START);
@@ -934,16 +920,16 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 	}*/
 
 #if !defined(MEDIATORDAEMON)
-	if ( value == environs.deviceID && !strncmp ( areaName, environs.areaName, sizeof ( environs.areaName ) )
-		&& !strncmp ( appName, environs.appName, sizeof(environs.appName) ) )
+	if ( value == env->deviceID && !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) )
+		&& !strncmp ( appName, env->appName, sizeof( env->appName) ) )
 		return 0;
 
-	if ( opt_mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
-		if ( strncmp ( areaName, environs.areaName, sizeof ( environs.areaName ) ) )
+	if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
+		if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) ) )
 			return 0;
 
-		if ( opt_mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
-			if ( strncmp ( appName, environs.appName, sizeof(environs.appName) ) )
+		if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
+			if ( strncmp ( appName, env->appName, sizeof( env->appName) ) )
 				return 0;
 		}
 	}
@@ -957,10 +943,8 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 	}
 #endif
 	
-	if ( pthread_mutex_lock ( mutex ) ) {
-		CErr ( "UpdateDevices: Failed to aquire mutex!" );
+	if ( !MutexLock ( mutex, "UpdateDevices" ) )
 		goto Finish;
-	}
 
 	device = *listRoot;
 
@@ -976,10 +960,7 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
             if ( strncmp ( device->info.deviceName, deviceName, sizeof(device->info.deviceName) ) )
             {
                 // Another device with the same identifiers has already been registered. Let's ignore this.
-                
-                if ( pthread_mutex_unlock ( mutex ) ) {
-                    CErr ( "UpdateDevices: Failed to unlock mutex!" );
-                }
+                MutexUnlockV ( mutex, "UpdateDevices" );
                 goto Finish;
             }
             
@@ -996,80 +977,97 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 
 #ifdef MEDIATORDAEMON
 	if ( found ) {	
-		if ( pthread_mutex_unlock ( mutex ) ) {
-			CErr ( "UpdateDevices: Failed to release mutex!" );
-		}
+		MutexUnlockV ( mutex, "UpdateDevices" );
 		return device;
 	}
 	if ( created )
 		*created = true;
 #endif
 
-	if ( !found ) {
-		// Create a new list item
-		DeviceInstanceList * dev = (DeviceInstanceList *)calloc ( 1, sizeof(DeviceInstanceList) );
-		if ( dev ) {
-			dev->info.deviceID = value;
-			(*pDevicesAvailable)++;
+	while ( !found ) {
+		// Create a new list node
+		DeviceInstanceNode	*		dev		= 0;
+		sp ( DeviceInstanceNode )	devSP	= sp ( DeviceInstanceNode ) ( new DeviceInstanceNode () );
 
-#ifdef MEDIATORDAEMON
-			dev->root = appDevices;
-#else
-			dev->info.broadcastFound = broadcastFound;
-			
-            // Build the key
-#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
-            *((int *)dev->key) = value;
-            
-			int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
-#else
-			int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
-#endif
-			if ( copied <= 0 ) {
-				CErr ( "UpdateDevices: Failed to build the key for new device!" );
-			}
-#endif
-			if ( devicePrev ) {
-                if ( devicePrev->next ) {
-                    dev->next = devicePrev->next;
-                    devicePrev->next = dev;
-                }
-                else
-                    devicePrev->next = dev;
-			}
-			else {
-				if ( device ) {
-					if ( device->info.deviceID > value ) {
-						/// Device must be the listRoot (because there is no previous device)
-						dev->next = device;
-						*listRoot = dev;
-					}
-					else {
-						if ( device->next ) {
-							dev->next = device->next;
-							device->next = dev;
-						}
-						else
-							device->next = dev;
-					}
-				}
-				else
-					*listRoot = dev;
-			}
-			device = dev;
-			
-			changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
-			strcpy_s ( device->info.areaName, sizeof ( device->info.areaName ), areaName );
-			strcpy_s ( device->info.appName, sizeof(device->info.appName), appName );
-			//if ( userName ) {
-			//	strcpy_s ( device->userName, sizeof(device->userName), userName );
-			//	//flags |= DEVICE_INFO_ATTR_USER_NAME;
-			//}
-		}
-		else {
+		if ( !devSP || ( dev = devSP.get () ) == 0 ) {
 			CErr ( "UpdateDevices: Failed to allocate memory for new device!" );
 			device = 0;
+			break;
 		}
+
+		dev->myself = devSP;
+
+		dev->info.deviceID = value;
+		( *pDevicesAvailable )++;
+
+#ifdef MEDIATORDAEMON
+		dev->rootSP = appDevices;
+#else
+		dev->info.broadcastFound = broadcastFound;
+
+		// Build the key
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+		*( ( int * ) dev->key ) = value;
+
+		int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
+#else
+		int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
+#endif
+		if ( copied <= 0 ) {
+			CErr ( "UpdateDevices: Failed to build the key for new device!" );
+	}
+#endif
+		if ( devicePrev ) 
+		{
+			dev->prev = devicePrev;
+
+			if ( devicePrev->next ) {
+				// Glue next links together
+				dev->next = devicePrev->next;
+				devicePrev->next = dev;
+
+				// Glue previous links together
+				dev->next->prev = dev;
+			}
+			else
+				devicePrev->next = dev;		
+		}
+		else {
+			if ( device ) {
+				if ( device->info.deviceID > value ) {
+					/// Device must be the listRoot (because there is no previous device)
+					dev->next = device;
+					device->prev = dev;
+					*listRoot = dev;
+				}
+				else {
+					dev->prev = device;
+
+					if ( device->next ) {
+						// Glue next links together
+						dev->next = device->next;
+						device->next = dev;
+
+						// Glue previous links together
+						dev->next->prev = dev;
+					}
+					else
+						device->next = dev;
+				}
+			}
+			else
+				*listRoot = dev;
+		}
+		device = dev;
+
+		changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
+		strcpy_s ( device->info.areaName, sizeof ( device->info.areaName ), areaName );
+		strcpy_s ( device->info.appName, sizeof ( device->info.appName ), appName );
+		//if ( userName ) {
+		//	strcpy_s ( device->userName, sizeof(device->userName), userName );
+		//	//flags |= DEVICE_INFO_ATTR_USER_NAME;
+		//}
+		break;
 	}
 
 	if ( device ) {
@@ -1140,16 +1138,15 @@ DeviceInstanceList * Mediator::UpdateDevices ( unsigned int ip, char * msg, char
 		}
 	}
 	
-	if ( pthread_mutex_unlock ( mutex ) ) {
-		CErr ( "UpdateDevices: Failed to release mutex!" );
+	if ( !MutexUnlock ( mutex, "UpdateDevices" ) )
 		device = 0;
-	}
-
-    /*value = 0;
-    if ( device )
+	else {
+		/*value = 0;
+		if ( device )
 		value = device->info.deviceID;
-    */
-	UpdateDeviceInstance ( device, !found, changed );
+		*/
+		UpdateDeviceInstance ( device, !found, changed );
+	}
 
 Finish:
 
@@ -1168,7 +1165,7 @@ void Mediator::DevicesHasChanged ( int type )
 }
 
 
-void printDevices ( DeviceInstanceList * device )
+void printDevices ( DeviceInstanceNode * device )
 {
 	while ( device ) 
 	{
@@ -1267,12 +1264,14 @@ bool Mediator::AddMediator ( unsigned int ip, unsigned short port )
 		CErr ( "AddMediator: Failed to allocate memory for new Mediator!" );
 		return false;
 	}
-
-	Zero ( med->connection.rec_mutex );
-	if ( pthread_mutex_init ( &med->connection.rec_mutex, NULL ) ) {
-		CErr ( "AddMediator: Failed to init rec_mutex!" );
-		goto Failed;
-	}
+    
+#ifndef MEDIATORDAEMON
+    med->connection.env = env;
+#endif
+    
+    if ( !MutexInit ( &med->connection.rec_mutex ) )
+        goto Failed;
+    
 	//pthread_cond_init ( &med->connection.rec_signal, NULL );
 
 	Zero ( med->connection.rec_signal );
@@ -1280,12 +1279,10 @@ bool Mediator::AddMediator ( unsigned int ip, unsigned short port )
 		CErr ( "AddMediator: Failed to init rec_signal!" );
 		goto Failed;
 	}
-
-	Zero ( med->connection.send_mutex );
-	if ( pthread_mutex_init ( &med->connection.send_mutex, NULL ) ) {
-		CErr ( "AddMediator: Failed to init send_mutex!" );
-		goto Failed;
-	}
+    
+    if ( !MutexInit ( &med->connection.send_mutex ) )
+        goto Failed;
+    
 	//pthread_mutex_init	( &med->connection.request_mutex, NULL );
 
 	med->available = false;
@@ -1320,7 +1317,7 @@ MediatorInstance * Mediator::AddMediator ( MediatorInstance * med )
 	}
 	MediatorInstance * added = med;
 
-	if ( pthread_mutex_lock ( &mediatorMutex ) ) {
+	if ( !MutexLock ( &mediatorMutex, "AddMediator" ) ) {
 		CErr ( "AddMediator: Failed to aquire mutex on mediator!" );
 		free ( med->connection.buffer );
 		free ( med );
@@ -1350,9 +1347,7 @@ MediatorInstance * Mediator::AddMediator ( MediatorInstance * med )
 	}
 
 Finish:
-	if ( pthread_mutex_unlock ( &mediatorMutex ) ) {
-		CErr ( "AddMediator: Failed to releaes mutex on mediator!" );
-	}
+	MutexUnlockV ( &mediatorMutex, "AddMediator" );
 
 	return added;
 }
@@ -1364,10 +1359,8 @@ bool Mediator::RemoveMediator ( unsigned int ip )
 
 	CVerb ( "RemoveMediator" );
 
-	if ( pthread_mutex_lock ( &mediatorMutex ) ) {
-		CErr ( "RemoveMediator: Failed to aquire mutex on mediator!" );
+	if ( !MutexLock ( &mediatorMutex, "RemoveMediator" ) )
 		return false;
-	}
 
 	// Find the mediator
 	MediatorInstance * s = 0;
@@ -1400,10 +1393,8 @@ bool Mediator::RemoveMediator ( unsigned int ip )
 		}
 	}
 
-	if ( pthread_mutex_unlock ( &mediatorMutex ) ) {
-		CErr ( "RemoveMediator: Failed to releaes mutex on mediator!" );
+	if ( !MutexUnlock ( &mediatorMutex, "RemoveMediator" ) )
 		ret = false;
-	}
 
 	return ret;
 }

@@ -61,10 +61,9 @@ typedef struct _ValuePack
 
 typedef struct _areaApps
 {
-	unsigned int								id;
-	std::map<std::string, ApplicationDevices*>	apps;
-
-    map<long long, ThreadInstance *>            notifyTargets;
+	unsigned int						id;
+	msp ( string, ApplicationDevices )	apps;
+    msp ( long long, ThreadInstance )   notifyTargets;
 }
 AreaApps;
 
@@ -91,6 +90,17 @@ typedef struct _UserItem
     string			pass;
 }
 UserItem;
+
+
+class NotifyQueueContext
+{
+public:
+
+	int     deviceID;
+	int     notify;
+	string  areaName;
+	string  appName;
+};
 
 
 class MediatorDaemon : public environs::Mediator
@@ -142,30 +152,34 @@ private:
 	pthread_cond_t							thread_condition;
 
 	vector<unsigned short>					ports;
-	vector<MediatorThreadInstance *>		listeners;
+	vsp ( MediatorThreadInstance )          listeners;
+	unsigned int							networkOK;
+	bool									usersDBDirty;
+	bool									configDirty;
+
 
 	pthread_mutex_t							acceptClientsMutex;
-	vector<ThreadInstance *>				acceptClients;
+	vsp ( ThreadInstance )					acceptClients;
 
-	ApplicationDevices *					GetApplicationDevices ( const char * areaName, const char * appName );
+	sp ( ApplicationDevices )				GetApplicationDevices ( const char * areaName, const char * appName );
 	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
-	DeviceInstanceList *					GetDeviceInstance ( int deviceID, DeviceInstanceList * devices );
+	DeviceInstanceNode *					GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
 
-	ThreadInstance						*	GetSessionClient ( long long sessionID );
+	sp ( ThreadInstance ) 					GetSessionClient ( long long sessionID );
 
-    map<long long, ThreadInstance *>        notifyTargets;
-    void                                    UpdateNotifyTargets ( ThreadInstance * client, int filterMode );
+    msp ( long long, ThreadInstance )       notifyTargets;
+    void                                    UpdateNotifyTargets ( const sp ( ThreadInstance ) &client, int filterMode );
 
-	unsigned int							CollectDevicesCount ( DeviceInstanceList * sourceDevice, int filterMode );
+	unsigned int							CollectDevicesCount ( DeviceInstanceNode * sourceDevice, int filterMode );
 
 	pthread_mutex_t							areasMutex;
-	map<string, AppsList * >				areas;
+	msp ( string, AppsList )				areas;
 
 	bool									reqAuth;
 	pthread_mutex_t							usersDBMutex;
 	map<string, UserItem *>                 usersDB;
 
-	map<string, DeviceMapping *>			deviceMappings;
+	msp ( string, DeviceMapping )			deviceMappings;
     
     bool									anonymousLogon;
     char                                    anonymousUser [ MAX_NAMEPROPERTY + 1 ];
@@ -175,10 +189,11 @@ private:
 	char	*								input;
 		
 	unsigned int							sessionCounter;
-	map<long long, ThreadInstance *>        sessions;
+	msp ( long long, ThreadInstance )		sessions;
+	pthread_mutex_t							sessionsMutex;
 
 	unsigned int							spareID;
-	map<unsigned int, ThreadInstance *>		spareClients;
+	msp ( unsigned int, ThreadInstance )	spareClients;
 
 	char								*	privKey;
 	unsigned int							privKeySize;
@@ -186,8 +201,8 @@ private:
     AESContext                              aesCtx;
     char                                    aesKey [ 32 ];
 	
-	DeviceInstanceList **					GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex,
-													int ** pDevicesAvailable, ApplicationDevices ** appDevices );
+	DeviceInstanceNode **					GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex,
+													int ** pDevicesAvailable, void * appDevices );
 	
 	unsigned int							areasCounter;
 	map<unsigned int, string>				areaIDs;
@@ -195,12 +210,12 @@ private:
 	unsigned int							appsCounter;
 	map<unsigned int, string>				appIDs;
 
-	std::map<std::string, AreaApps * >		areasList;
+	msp ( string, AreaApps ) 				areasList;
 	
 	void									RemoveDevice ( unsigned int ip, char * msg );
-	void									RemoveDevice ( DeviceInstanceList * device, bool useLock = true );
+	void									RemoveDevice ( DeviceInstanceNode * device, bool useLock = true );
 	void									RemoveDevice ( int deviceID, const char * areaName, const char * appName );
-	void									UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed );
+	void									UpdateDeviceInstance ( DeviceInstanceNode * device, bool added, bool changed );
 
     unsigned int                            bannAfterTries;
 	pthread_mutex_t							bannedIPsMutex;
@@ -233,15 +248,13 @@ private:
 	void *									ClientThread ( void *arg );
 
 	bool									HandleRequest ( char * buffer, ThreadInstance * client );
-	bool									UpdateDeviceRegistry ( DeviceInstanceList * device, unsigned int ip, char * msg );
+	bool									UpdateDeviceRegistry ( DeviceInstanceNode * device, unsigned int ip, char * msg );
 
-	int										HandleRegistration ( int &deviceID, ThreadInstance * client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+	int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
 
-	bool									HandleDeviceRegistration ( ThreadInstance * client, unsigned int ip, char * msg );
+	bool									HandleDeviceRegistration ( sp ( ThreadInstance ) client, unsigned int ip, char * msg );
 	bool									SecureChannelAuth ( ThreadInstance * client );
-//	bool									SecureChannel ( ThreadInstance * client );
 	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, ThreadInstance * orgClient, char * msg, unsigned int msgLen );
-	//void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, unsigned int deviceID );
 	bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
 	bool									NotifySTUNTRegRequest ( ThreadInstance * client );
 
@@ -251,21 +264,22 @@ private:
     bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
 	bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 
-	bool									HandleQueryDevices ( ThreadInstance * client, char * msg );
+	bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
 	bool									HandleShortMessage ( ThreadInstance * client, char * msg );
 
-	unsigned int							notify;
-	unsigned int							notifyDeviceID;
-	char								*	notifyAreaName;
-	char								*	notifyAppName;
+    pthread_t								notifyThreadID;
+    pthread_cond_t							notifyEvent;
+    pthread_mutex_t							notifyMutex;
+    pthread_mutex_t							notifyTargetsMutex;
 
-	void									NotifyClientsStart ( unsigned int notify, const char * areaName, const char * appName, int deviceID );
+	void									NotifyClients ( unsigned int notify, const char * areaName, const char * appName, int deviceID );
 	static void 						*	NotifyClientsStarter ( void * daemon );
-	void									NotifyClients ( unsigned int notify );
+	void									NotifyClientsThread ();
+	void									NotifyClients ( NotifyQueueContext * ctx );
 	
 	pthread_cond_t							hWatchdogEvent;
 
-	long									checkLast;
+	INTEROPTIMEVAL							checkLast;
 	static void 						*	WatchdogThreadStarter ( void * daemon );
 	void									WatchdogThread ();
 

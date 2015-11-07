@@ -29,6 +29,7 @@
 #define juintp          jint
 #define jvoidArray      jbyteArray
 #define jtstring        jstring
+#define jsstring        jstring
 
 #define	DUMBJENV()
 #define	DUMBJCLASS()
@@ -49,6 +50,7 @@
 #define jshort          unsigned short
 #define jbyte           unsigned char
 #define jstring         const char *
+#define jsstring        char *
 #define jtstring        TCHAR	*
 #define jbyteArray      char	*
 #define jvoidArray      void	*

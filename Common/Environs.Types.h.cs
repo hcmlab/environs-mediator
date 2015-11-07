@@ -94,6 +94,13 @@ namespace hcm.environs
 
 
 		
+		/**
+		 * Max supported instances of Environs objects that each application can run at the same time.
+		 * Max supported instances of Environs objects that each application can run at the same time.
+		 * */
+		public const int ENVIRONS_MAX_ENVIRONS_INSTANCES                   =	(10);
+		
+		
 		/** Deleteable. Device object has been disabled.&nbsp; 
 		 * "Garbage Collection" should dispose and delete the object on the next occasion. 
 		 * "Garbage Collection" should dispose and delete the object on the next occasion. 
@@ -160,6 +167,7 @@ namespace hcm.environs
 		
 		
 		public const int ENVIRONS_OBJECT_DISPOSED                          =	(-1);
+		public const int ENVIRONS_OBJECT_DISPOSED_PLATFORM                 =	(-2);
 		
 		/*
 		 * Native payload type class is determined by the upper byte of payload
@@ -666,6 +674,12 @@ namespace hcm.environs
 		public const int MEDIATOR_BROADCAST_PORTS_START                    =	(20);
 		public const int MEDIATOR_BROADCAST_PLATFORM_START                 =	(24);
 		public const int MEDIATOR_BROADCAST_DESC_START                     =	(28);
+		
+		/**
+		 * Environs mediator broadcast message constants
+		 * Environs mediator broadcast message constants
+		 */
+		public const int TYPES_SEPERATOR_1_ENVIRONS                        =	(28);
 		public const int MEDIATOR_BROADCAST_SPARE_ID_LEN                   =	(28);
 		
 		/**
@@ -673,6 +687,13 @@ namespace hcm.environs
 		 * Environs DeviceInstance struct Start bytes
 		 */
 		public const int MAX_NAMEPROPERTY                                  =	(30);
+		/** Ignore: for Resolver */
+		public const int MAX_LENGTH_AREA_NAME                              =	(MAX_NAMEPROPERTY + 1);
+		/** Ignore: for Resolver */
+		public const int MAX_LENGTH_APP_NAME                               =	(MAX_NAMEPROPERTY + 1);
+		/** Ignore: for Resolver */
+		public const int MAX_LENGTH_DEVICE_NAME                            =	(MAX_NAMEPROPERTY + 1);
+		
 		public const int DEVICEINFO_DEVICEID_START                         =	(0);
 		public const int DEVICEINFO_NATIVE_ID_START                        =	(4);
 		public const int DEVICEINFO_IP_START                               =	(DEVICEINFO_NATIVE_ID_START + 4);
@@ -939,7 +960,7 @@ namespace hcm.environs
 		public const int DEVICE_INFO_ATTR_IDENTITY                         =	(0x20);
 		
 		public const int DEVICE_INFO_ATTR_DEVICE_PLATFORM                  =	(0x40);
-		public const int DEVICE_INFO_ATTR_DEVICE_TYPE                      =	(0x40);
+		public const int DEVICE_INFO_ATTR_DEVICE_TYPE                      =	(0x41);
 		public const int DEVICE_INFO_ATTR_NATIVEID                         =	(0x80);
 		public const int DEVICE_INFO_ATTR_IP                               =	(0x100);
 		public const int DEVICE_INFO_ATTR_IPE                              =	(0x200);
@@ -952,8 +973,11 @@ namespace hcm.environs
 		
 		public const int DEVICE_INFO_ATTR_PORTAL_CREATED                   =	(0x10000);
 		
-		public const int FILE_INFO_ATTR_SEND_PROGRESS                      =	(0x20000);
-		public const int FILE_INFO_ATTR_RECEIVE_PROGRESS                   =	(0x40000);
+		public const int FILE_INFO_ATTR_CREATED                            =	(0x20000);
+		public const int FILE_INFO_ATTR_SEND_PROGRESS                      =	(0x40000);
+		public const int FILE_INFO_ATTR_RECEIVE_PROGRESS                   =	(0x80000);
+		
+		public const int MESSAGE_INFO_ATTR_CREATED                         =	(0x200000);
 		
 		public const int APP_STATUS_ACTIVE                                 =	(0);
 		public const int APP_STATUS_SLEEPING                               =	(1);
@@ -1097,6 +1121,7 @@ namespace hcm.environs
 		public const int ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   =	(7);
 		public const int ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   =	(8);
 		
+		public const int TYPES_SEPERATOR_2_ENVIRONS                        =	(0);
 		
 		/**
 		 * Environs SENSOR_TYPES
@@ -1109,27 +1134,81 @@ namespace hcm.environs
 		public const int ENVIRONS_SENSOR_TYPE_GYROSCOPE                    =	(2);
 		public const int ENVIRONS_SENSOR_TYPE_ORIENTATION                  =	(3);
 		
-
-
-		public static readonly string 	[] 	MSG_PORTAL_Descriptions = {
-			"Portal requested",
-			"Portal provided",
-			"Stream portal provided",
-			"Image portal provided",
-			"Portal request failed",
-			"Portal Stop",
-			"Portal Stop ack",
-			"Portal Stop failed",
-			"Portal Start",
-			"Portal Start ack",
-			"Portal Start failed",
-			"Portal pause",
-			"Portal pause ack",
-			"Portal pause failed",
-			"Portal buffer full",
-			"Portal buffer available again",
-			"Portal i-frame requested",
-		};
+		
+		/**
+		 * Environs Option keys
+		 * Environs Option keys
+		 * Type: String
+		 * Type: String
+		 */
+		/** Ignore: for Resolver */
+		public const String APPENV_MAPPINGS                                   =	("mappings");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT             =	("optDefaultMedToken");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM              =	("optCustomMedToken");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT_N           =	("optDNefaultMedToken");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM_N            =	("optCNustomMedToken");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_TOKEN_MEDIATOR_USERNAME            =	("optMediatorUsername");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_INITIALS                           =	("optInitialSettings");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_GL_USE_NATIVE_DECODER              =	("optUseNativeDecoder");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_GL_USE_HARDWARE_DECODER            =	("optUseHardwareEncoder");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_GL_USE_SHOW_DEBUG_LOGS             =	("useShowDebugStatus");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_GL_USE_LOG_FILE                    =	("useLogFile");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_GL_USE_PUSH_NOTIFS                 =	("optUsePushNotifications");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_GL_USE_SENSORS                     =	("optUseSensors");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_PORTAL_AUTOSTART               =	("optPortalAutoStart");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_DEFAULT_MEDIATOR               =	("optUseDefaultMediator");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_CUSTOM_MEDIATOR                =	("optUseCustomMediator");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_PORTAL_TCP                     =	("optPortalTCP");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_NATIVE_RESOLUTION              =	("optNativeResolution");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_STREAM                         =	("optUseStream");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_CLS_MEDIATOR                   =	("useCLSMediator");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_CLS_DEVICE                     =	("useCLSDevice");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_CLS_DEV_ENFORCE                =	("useCLSDevEnforce");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_AUTH                           =	("useAuth");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_ANONYMOUS                      =	("useAnonymous");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_PORTAL_AUTOACCEPT              =	("portalAutoAccept");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_DEVICE_ID                          =	("optDeviceID");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_DEVICE_UID                         =	("uid");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_DEVICE_NAME                        =	("optDeviceName");
+		
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_MEDIATOR_LOGIN_DLG             =	("useMediatorLoginDialog");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_CUSTOMMEDIATOR_PORT            =	("optMediatorPort");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_CUSTOMMEDIATOR_IP              =	("optMediatorIP");
+		/** Ignore: for Resolver */
+		public const String APPENV_SETTING_USE_PORTALVIEW_DIMS_AUTO           =	("optUsePortalViewDimsAuto");
+		
+		
+		
 
 
 	} /// -> class Types

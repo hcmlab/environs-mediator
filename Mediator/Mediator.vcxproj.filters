@@ -51,6 +51,9 @@
     <ClInclude Include="..\Common\Device.Instance.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="..\Common\Environs.Build.Opts.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">

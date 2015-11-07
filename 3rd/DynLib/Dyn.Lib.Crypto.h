@@ -144,8 +144,13 @@ namespace environs
     
     
 	extern void ReleaseLibOpenSSL ();
-	extern bool InitLibOpenSSL ();
-
+    
+#ifdef __cplusplus
+    class Instance;
+    
+	extern bool InitLibOpenSSL ( Instance * env );
+#endif
+    
 	extern bool								openssl_LibInitialized;
 
     extern pOPENSSL_add_all_algorithms_noconf   dOPENSSL_add_all_algorithms_noconf;

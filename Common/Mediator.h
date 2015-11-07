@@ -23,8 +23,9 @@
 
 #include "Interop/Threads.h"
 #include "Interop/Sock.h"
-#include "Device.Instance.h"
+#include "Device.Info.h"
 #include "Environs.Crypt.h"
+#include "Interop/Smart.Pointer.h"
 
 
 #define USE_INTEGER_PROJECT_APP
@@ -67,6 +68,9 @@
 #define	MEDIATOR_CMD_NATSTAT					'n'
 #define	MEDIATOR_CMD_SHORT_MESSAGE				'm'
 #define	MEDIATOR_CMD_REQ_SPARE_ID				'r'
+#define	MEDIATOR_SRV_CMD_ALIVE_REQUEST			'A'
+#define	MEDIATOR_SRV_CMD_SESSION_RETRY			'R'
+#define	MEDIATOR_SRV_CMD_SESSION_LOCKED			'L'
 #define	MEDIATOR_CMD_STUNT						'x'
 #define	MEDIATOR_CMD_STUN						'y'
 #define	MEDIATOR_CMD_HELP_TLS_GEN				't'
@@ -116,17 +120,19 @@ namespace environs	/// Namespace: environs ->
 	}
 	NetPack;
 
-	struct DeviceInstanceList;
+	struct DeviceInstanceNode;
 
-	typedef struct _ThreadInstance
+	typedef struct ThreadInstance
 	{
+		void				*	daemon;
+
 		int						deviceID;
 		pthread_t				threadID;
 		pthread_mutex_t			accessMutex;
 		unsigned int			version;
 		long long				sessionID;
 
-		long					aliveLast;
+		INTEROPTIMEVAL			aliveLast;
 
 		int						socket;
 		unsigned short			port;
@@ -134,23 +140,30 @@ namespace environs	/// Namespace: environs ->
 
 		struct 	sockaddr_in		addr;
 
+		INTEROPTIMEVAL			connectTime;
 		int						spareSocket;
 		unsigned short			sparePort;
-		unsigned short			filterMode;
+		short                   filterMode;
 		
 		int						encrypt;
 		int						authenticated;
 		AESContext				aes;
-		DeviceInstanceList	*	device;
+		//DeviceInstanceNode	*	device;
 
         int                     authLevel;
 		bool					createAuthToken;
-		char					uid [ MAX_NAMEPROPERTY * 6 ];
+        char					uid [ MAX_NAMEPROPERTY * 6 ];
+        char                    ips [ 20 ];
+
+#ifdef __cplusplus
+		sp ( ThreadInstance )	  clientSP;
+		sp ( DeviceInstanceNode ) deviceSP;
+#endif
 	}
 	ThreadInstance;
 
 
-	typedef struct _ApplicationDevices
+	typedef struct ApplicationDevices
 	{
 		unsigned int			id;
 		unsigned int			areaId;
@@ -158,9 +171,9 @@ namespace environs	/// Namespace: environs ->
 		int						count;
 		long					access;
 		
-		unsigned int			latestAssignedID;
+		long					latestAssignedID;
 
-		DeviceInstanceList	*	devices;
+		DeviceInstanceNode	*	devices;
 	}
 	ApplicationDevices;
 
@@ -169,28 +182,47 @@ namespace environs	/// Namespace: environs ->
 #define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 5)
 
     
-	typedef struct DeviceInstanceList
+	typedef struct DeviceInstanceNode
 	{
 		DeviceInfo info;
 
 #ifdef MEDIATORDAEMON
-		ApplicationDevices		* root;
-		ThreadInstance			* client;
+		sp ( ApplicationDevices ) rootSP;
+		sp ( ThreadInstance )     clientSP;
 #else
 		char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
 #endif
 		char					  userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
 
-		struct DeviceInstanceList	* next;  // 4
+		struct DeviceInstanceNode	* next;  // 4
+		struct DeviceInstanceNode	* prev;  // 4
+
+#ifdef __cplusplus
+		sp ( DeviceInstanceNode ) myself;
+
+		DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 ) {
+			Zero ( info );
+			*userName = 0;
+#ifndef MEDIATORDAEMON
+			*key = 0;
+#endif
+		}
+
+		~DeviceInstanceNode ( ) {
+#ifdef MEDIATORDAEMON
+			clientSP = 0; rootSP = 0;
+#endif
+		}
+#endif
 	}
-    DeviceInstanceList;
+	DeviceInstanceNode;
     
     
     typedef struct DeviceInstanceItem
     {
         DeviceInfo info;
-        
-        char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
+
+		char					  key [ MAX_DEVICE_INSTANCE_KEY_LENGTH ]; // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
     }
     DeviceInstanceItem;
 
@@ -218,6 +250,8 @@ namespace environs	/// Namespace: environs ->
 
 		INTEROPTIMEVAL			lastSpareSocketRenewal;
 		long					renewerAccess;
+        
+        Instance            *   env;
 	}
 	MediatorConnection;
 
@@ -230,12 +264,16 @@ namespace environs	/// Namespace: environs ->
 		bool					available;
 		bool					listening;
 		MediatorConnection		connection;
+        void                *   mediatorObject;
 		MediatorInstance	*	next;
 	}
 	MediatorInstance;
 
 	typedef void ( *MediatorCallback )(void *);
 
+#if (!defined(MEDIATORDAEMON) && defined(__cplusplus))
+	class Instance;
+#endif
 
 	/**
 	*	Mediator base functionality
@@ -268,10 +306,16 @@ namespace environs	/// Namespace: environs ->
 
         static bool				InitClass ();
         static void				DisposeClass ();
+        
+        static bool             IsAnonymousUser ( const char * user );
 
 	protected:
         bool					allocated;
         static bool				allocatedClass;
+
+#if (!defined(MEDIATORDAEMON) && defined(__cplusplus))
+		Instance			*	env;
+#endif
         
 		bool					isRunning;
 		char			*		certificate;
@@ -300,17 +344,17 @@ namespace environs	/// Namespace: environs ->
 
 		virtual void			OnStarted ( );
 
-		DeviceInstanceList *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
+		DeviceInstanceNode *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
 
-		virtual DeviceInstanceList ** GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, ApplicationDevices ** appDevices ) = 0;
+		virtual DeviceInstanceNode ** GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, void * appDevices ) = 0;
 
 		virtual void			RemoveDevice ( unsigned int ip, char * msg ) {};
-		virtual void			RemoveDevice ( DeviceInstanceList * device, bool useLock = true ) = 0;
-		virtual void			UpdateDeviceInstance ( DeviceInstanceList * device, bool added, bool changed ) = 0;
+		virtual void			RemoveDevice ( DeviceInstanceNode * device, bool useLock = true ) = 0;
+		virtual void			UpdateDeviceInstance ( DeviceInstanceNode * device, bool added, bool changed ) = 0;
 		
 		virtual void			ReleaseDevices ( ) = 0;
 
-		virtual void			NotifyClientsStart ( unsigned int notify, const char * areaName, const char * appName, int deviceID ) {};
+		//virtual void			NotifyClients ( unsigned int notify, const char * areaName, const char * appName, int deviceID ) {};
 		
 		MediatorInstance *		IsKnownMediator ( unsigned int ip, unsigned short port );
 		MediatorInstance *		AddMediator ( MediatorInstance * med );

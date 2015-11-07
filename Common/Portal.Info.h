@@ -1,5 +1,5 @@
 /**
- * Portal info object
+ * Portal Info Object
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -21,12 +21,8 @@
 #ifndef INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
 #define INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
 
-#import "Environs.iOSX.Imp.h"
-#include "Portal.Info.Base.h"
+#include "Interfaces/IPortal.Info.h"
 
-#if (!defined(ENVIRONS_IOS) && !defined(ENVIRONS_OSX))
-#define id  void *
-#endif
 
 /* Namespace: environs -> */
 namespace environs
@@ -40,31 +36,36 @@ namespace environs
 	*	@remarks	current size is (4 + 4 + 4 + 4 + 4) = 20 bytes
 	* ****************************************************************************************
 	*/
-	class PortalInfo
+	class PortalInfo : IPortalInfo
 	{
         public:
 		PortalInfoBase  base;
         
-        PortalInfo ( );
+        ENVIRONS_LIB_API PortalInfo ( );
+        ENVIRONS_LIB_API ~PortalInfo ( ) {};
         
-#ifdef __APPLE__
-        id  portal;
+        int hEnvirons;
+        
+#if (defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX))
+        void *  portal;
+#else
+        sp ( lib::PortalInstance ) * portal;        
 #endif
+        std::string ToString ( );
         
-        virtual void NotifyObservers ( int notification );
+        ENVIRONS_LIB_API void NotifyObservers ( int notification );
         
-        virtual void SetSize ( int width, int height );
+        ENVIRONS_LIB_API void SetSize ( int width, int height );
         
-        virtual void SetOrientation ( float angle );
+        ENVIRONS_LIB_API void SetOrientation ( float angle );
         
-        virtual void SetLocation ( int centerX, int centerY );
-        virtual void SetLocation ( int centerX, int centerY, float angle );
+        ENVIRONS_LIB_API void SetLocation ( int centerX, int centerY );
+        ENVIRONS_LIB_API void SetLocation ( int centerX, int centerY, float angle );
         
-        virtual void Set ( int centerX, int centerY, float angle, int width, int height );
+        ENVIRONS_LIB_API void Set ( int centerX, int centerY, float angle, int width, int height );
         
-        virtual id ToString ( );
         
-        virtual bool Update ( int notification, PortalInfoBase * info) ;
+        ENVIRONS_LIB_API bool Update ( int notification, PortalInfoBase * info ) ;
 	};
 
 } /* namepace Environs */

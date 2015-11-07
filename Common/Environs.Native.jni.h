@@ -9,6 +9,54 @@ extern "C" {
 #endif
 /*
  * Class:     hcm_environs_Environs
+ * Method:    CreateEnvirons1
+ * Signature: ()I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_CreateEnvirons1
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    LoadSettings1
+ * Signature: (ILjava/lang/String;Ljava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_LoadSettings1
+  (JNIEnv *, jclass, jint, jstring, jstring);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetUseMediatorLoginDialog1
+ * Signature: (I)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseMediatorLoginDialog1
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetUseMediatorLoginDialog1
+ * Signature: (IZ)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseMediatorLoginDialog1
+  (JNIEnv *, jclass, jint, jboolean);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetMediatorLoginDialogDismissDisable1
+ * Signature: (I)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetMediatorLoginDialogDismissDisable1
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetMediatorLoginDialogDismissDisable1
+ * Signature: (IZ)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetMediatorLoginDialogDismissDisable1
+  (JNIEnv *, jclass, jint, jboolean);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    SetUseNotifyDebugMessage
  * Signature: (Z)V
  */
@@ -25,18 +73,18 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseNotifyDebugMessage
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseLogFile
+ * Method:    SetUseLogFile1
  * Signature: (Z)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseLogFile
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseLogFile1
   (JNIEnv *, jclass, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseLogFile
+ * Method:    GetUseLogFile1
  * Signature: ()Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseLogFile
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseLogFile1
   (JNIEnv *, jclass);
 
 /*
@@ -74,34 +122,34 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetVersionRevision
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetDeviceID
- * Signature: ()I
+ * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDeviceID
-  (JNIEnv *, jclass);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    SetDeviceID1
- * Signature: (I)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetDeviceID1
   (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseExtendedtouch
- * Signature: (Z)V
+ * Method:    SetDeviceID1
+ * Signature: (II)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseExtendedtouch
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetDeviceID1
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetDeviceIDFromMediator
- * Signature: ()I
+ * Method:    SetUseExtendedtouch1
+ * Signature: (IZ)V
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDeviceIDFromMediator
-  (JNIEnv *, jclass);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseExtendedtouch1
+  (JNIEnv *, jclass, jint, jboolean);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetDeviceIDFromMediator1
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDeviceIDFromMediator1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -121,27 +169,35 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetSubnetMask
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetDirectContactStatus
- * Signature: (I)Z
- */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetDirectContactStatus
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    GetPortalEnabled
+ * Method:    GetDirectContactStatus1
  * Signature: (II)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalEnabled
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetDirectContactStatus1
   (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetPortalId
- * Signature: (II)I
+ * Method:    GetPortalEnabled1
+ * Signature: (III)Z
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetPortalId
-  (JNIEnv *, jclass, jint, jint);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalEnabled1
+  (JNIEnv *, jclass, jint, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetPortalId1
+ * Signature: (III)I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetPortalId1
+  (JNIEnv *, jclass, jint, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetAppAreaID1
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetAppAreaID1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -169,67 +225,75 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetDeviceUID
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetDeviceName
+ * Method:    SetDeviceName1
  * Signature: (Ljava/lang/String;)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetDeviceName
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetDeviceName1
   (JNIEnv *, jclass, jstring);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetMediatorUserName1
- * Signature: (Ljava/lang/String;)Z
+ * Signature: (ILjava/lang/String;)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetMediatorUserName1
-  (JNIEnv *, jclass, jstring);
+  (JNIEnv *, jclass, jint, jstring);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetMediatorUserName1
- * Signature: ()Ljava/lang/String;
+ * Signature: (I)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetMediatorUserName1
-  (JNIEnv *, jclass);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    SetUseMediatorAnonymousLogon
- * Signature: (Z)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseMediatorAnonymousLogon
-  (JNIEnv *, jclass, jboolean);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    SetMediatorPassword1
- * Signature: (Ljava/lang/String;)Z
- */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetMediatorPassword1
-  (JNIEnv *, jclass, jstring);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    SetUseAuthentication
- * Signature: (Z)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseAuthentication
-  (JNIEnv *, jclass, jboolean);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    SetAppStatus
- * Signature: (I)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetAppStatus
   (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
+ * Method:    SetUseMediatorAnonymousLogon1
+ * Signature: (IZ)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseMediatorAnonymousLogon1
+  (JNIEnv *, jclass, jint, jboolean);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetUseMediatorAnonymousLogon1
+ * Signature: (I)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseMediatorAnonymousLogon1
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetMediatorPassword1
+ * Signature: (ILjava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetMediatorPassword1
+  (JNIEnv *, jclass, jint, jstring);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetUseAuthentication1
+ * Signature: (IZ)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseAuthentication1
+  (JNIEnv *, jclass, jint, jboolean);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetAppStatus1
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetAppStatus1
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    SetUseTouchRecognizer1
- * Signature: (Ljava/lang/String;Z)Z
+ * Signature: (ILjava/lang/String;Z)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseTouchRecognizer1
-  (JNIEnv *, jclass, jstring, jboolean);
+  (JNIEnv *, jclass, jint, jstring, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
@@ -241,11 +305,11 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_AllocPlatform
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    RegisterAtMediators
- * Signature: ()Z
+ * Method:    RegisterAtMediators1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_RegisterAtMediators
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_RegisterAtMediators1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -258,26 +322,26 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_ResetIdentKeys
 /*
  * Class:     hcm_environs_Environs
  * Method:    PushSensorData
- * Signature: (IFFF)V
+ * Signature: (IIFFF)V
  */
 JNIEXPORT void JNICALL Java_hcm_environs_Environs_PushSensorData
-  (JNIEnv *, jclass, jint, jfloat, jfloat, jfloat);
+  (JNIEnv *, jclass, jint, jint, jfloat, jfloat, jfloat);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetSensorEventSender1
- * Signature: (IIZ)Z
+ * Signature: (IIIZ)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetSensorEventSender1
-  (JNIEnv *, jclass, jint, jint, jboolean);
+  (JNIEnv *, jclass, jint, jint, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetSensorEventSenderCount1
- * Signature: (I)I
+ * Signature: (II)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetSensorEventSenderCount1
-  (JNIEnv *, jclass, jint);
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -290,10 +354,10 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_IsNativeAllocated
 /*
  * Class:     hcm_environs_Environs
  * Method:    RegisterMainThread
- * Signature: ()V
+ * Signature: (I)V
  */
 JNIEXPORT void JNICALL Java_hcm_environs_Environs_RegisterMainThread
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -322,106 +386,114 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetNetworkStatus
 /*
  * Class:     hcm_environs_Environs
  * Method:    Init1
- * Signature: ()I
+ * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_Init1
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    Start1
- * Signature: ()I
+ * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_Start1
-  (JNIEnv *, jclass);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    GetMediatorFilterLevel
- * Signature: ()I
- */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetMediatorFilterLevel
-  (JNIEnv *, jclass);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    SetMediatorFilterLevel
- * Signature: (I)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetMediatorFilterLevel
   (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetRuntimePlatform
+ * Method:    GetMediatorFilterLevel1
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetMediatorFilterLevel1
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    SetMediatorFilterLevel1
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetMediatorFilterLevel1
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetPlatform1
  * Signature: ()I
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetRuntimePlatform
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetPlatform1
   (JNIEnv *, jclass);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    DeviceConnect
- * Signature: (ILjava/lang/String;Ljava/lang/String;I)I
+ * Method:    SetPlatform1
+ * Signature: (I)V
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_DeviceConnect
-  (JNIEnv *, jclass, jint, jstring, jstring, jint);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPlatform1
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    DeviceConnect1
+ * Signature: (IILjava/lang/String;Ljava/lang/String;I)I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_DeviceConnect1
+  (JNIEnv *, jclass, jint, jint, jstring, jstring, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    DeviceDisconnect1
- * Signature: (II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_DeviceDisconnect1
-  (JNIEnv *, jclass, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetDeviceConnectStatus
- * Signature: (I)I
+ * Signature: (II)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDeviceConnectStatus
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    GetConnectedDevicesCount1
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetConnectedDevicesCount1
   (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetConnectedDevicesCount
- * Signature: ()I
+ * Method:    Dispose1
+ * Signature: (I)V
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetConnectedDevicesCount
-  (JNIEnv *, jclass);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    Release1
- * Signature: ()V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_Release1
-  (JNIEnv *, jclass);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_Dispose1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    Stop1
- * Signature: ()I
+ * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_Stop1
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetStatus1
- * Signature: ()I
+ * Signature: (I)I
  */
 JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetStatus1
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetPorts1
- * Signature: (II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetPorts1
-  (JNIEnv *, jclass, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -441,27 +513,27 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetDebug
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetDeviceDims
+ * Method:    SetDeviceDims1
  * Signature: (IIIIII)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetDeviceDims
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetDeviceDims1
   (JNIEnv *, jclass, jint, jint, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetAreaName1
- * Signature: (Ljava/lang/String;)Z
+ * Signature: (ILjava/lang/String;)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetAreaName1
-  (JNIEnv *, jclass, jstring);
+  (JNIEnv *, jclass, jint, jstring);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetApplicationName1
- * Signature: (Ljava/lang/String;)Z
+ * Signature: (ILjava/lang/String;)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetApplicationName1
-  (JNIEnv *, jclass, jstring);
+  (JNIEnv *, jclass, jint, jstring);
 
 /*
  * Class:     hcm_environs_Environs
@@ -473,14 +545,6 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetDeviceType
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetPlatform
- * Signature: (I)V
- */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPlatform
-  (JNIEnv *, jclass, jint);
-
-/*
- * Class:     hcm_environs_Environs
  * Method:    GetDeviceType
  * Signature: ()C
  */
@@ -489,11 +553,11 @@ JNIEXPORT jchar JNICALL Java_hcm_environs_Environs_GetDeviceType
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetPortalViewDims
- * Signature: (IIIII)Z
+ * Method:    SetPortalViewDims1
+ * Signature: (IIIIII)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetPortalViewDims
-  (JNIEnv *, jclass, jint, jint, jint, jint, jint);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetPortalViewDims1
+  (JNIEnv *, jclass, jint, jint, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -505,171 +569,171 @@ JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetGCM
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseCLSForMediator
- * Signature: ()Z
+ * Method:    GetUseCLSForMediator1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForMediator
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForMediator1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseCLSForMediator
- * Signature: (Z)V
+ * Method:    SetUseCLSForMediator1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForMediator
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForMediator1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseCLSForDevices
- * Signature: ()Z
+ * Method:    GetUseCLSForDevices1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForDevices
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForDevices1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseCLSForDevices
- * Signature: (Z)V
+ * Method:    SetUseCLSForDevices1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForDevices
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForDevices1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseCLSForDevicesEnforce
- * Signature: ()Z
+ * Method:    GetUseCLSForDevicesEnforce1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForDevicesEnforce
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForDevicesEnforce1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseCLSForDevicesEnforce
- * Signature: (Z)V
+ * Method:    SetUseCLSForDevicesEnforce1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForDevicesEnforce
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForDevicesEnforce1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseCLSForAllTraffic
- * Signature: ()Z
+ * Method:    GetUseCLSForAllTraffic1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForAllTraffic
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCLSForAllTraffic1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseCLSForAllTraffic
- * Signature: (Z)V
+ * Method:    SetUseCLSForAllTraffic1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForAllTraffic
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCLSForAllTraffic1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseStream
- * Signature: (Z)V
+ * Method:    SetUseStream1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseStream
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseStream1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseStream
- * Signature: ()Z
+ * Method:    GetUseStream1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseStream
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseStream1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetUseNativeDecoder1
- * Signature: (Z)V
+ * Signature: (IZ)V
  */
 JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseNativeDecoder1
-  (JNIEnv *, jclass, jboolean);
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetUseNativeDecoder1
- * Signature: ()Z
+ * Signature: (I)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseNativeDecoder1
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetUseHardwareEncoder1
- * Signature: (Z)V
+ * Signature: (IZ)V
  */
 JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseHardwareEncoder1
-  (JNIEnv *, jclass, jboolean);
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseHardwareEncoder
- * Signature: ()Z
+ * Method:    GetUseHardwareEncoder1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseHardwareEncoder
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseHardwareEncoder1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUsePortalDefaultModules
- * Signature: ()Z
+ * Method:    SetUsePortalDefaultModules1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUsePortalDefaultModules
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUsePortalDefaultModules1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseEncoder
- * Signature: (Ljava/lang/String;)Z
+ * Method:    SetUseEncoder1
+ * Signature: (ILjava/lang/String;)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseEncoder
-  (JNIEnv *, jclass, jstring);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseEncoder1
+  (JNIEnv *, jclass, jint, jstring);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseDecoder
- * Signature: (Ljava/lang/String;)Z
+ * Method:    SetUseDecoder1
+ * Signature: (ILjava/lang/String;)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseDecoder
-  (JNIEnv *, jclass, jstring);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseDecoder1
+  (JNIEnv *, jclass, jint, jstring);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseRenderer
- * Signature: (Ljava/lang/String;)Z
+ * Method:    SetUseRenderer1
+ * Signature: (ILjava/lang/String;)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseRenderer
-  (JNIEnv *, jclass, jstring);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseRenderer1
+  (JNIEnv *, jclass, jint, jstring);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseCapturer
- * Signature: (Ljava/lang/String;)Z
+ * Method:    SetUseCapturer1
+ * Signature: (ILjava/lang/String;)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseCapturer
-  (JNIEnv *, jclass, jstring);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetUseCapturer1
+  (JNIEnv *, jclass, jint, jstring);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseSensors
- * Signature: (Z)V
+ * Method:    SetUseSensors1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseSensors
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseSensors1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseSensors
- * Signature: ()Z
+ * Method:    GetUseSensors1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseSensors
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseSensors1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -689,123 +753,123 @@ JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUsePushNotifications
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseDefaultMediator
- * Signature: ()Z
+ * Method:    GetUseDefaultMediator1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseDefaultMediator
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseDefaultMediator1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseDefaultMediator
- * Signature: (Z)V
+ * Method:    SetUseDefaultMediator1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseDefaultMediator
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseDefaultMediator1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetUseCustomMediator
- * Signature: ()Z
+ * Method:    GetUseCustomMediator1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCustomMediator
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetUseCustomMediator1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUseCustomMediator
- * Signature: (Z)V
+ * Method:    SetUseCustomMediator1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCustomMediator
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUseCustomMediator1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetMediator
- * Signature: (Ljava/lang/String;I)Z
+ * Method:    SetMediator1
+ * Signature: (ILjava/lang/String;I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetMediator
-  (JNIEnv *, jclass, jstring, jint);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetMediator1
+  (JNIEnv *, jclass, jint, jstring, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetMediatorPort
- * Signature: ()I
+ * Method:    GetMediatorPort1
+ * Signature: (I)I
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetMediatorPort
-  (JNIEnv *, jclass);
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetMediatorPort1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetMediatorIP
- * Signature: ()Ljava/lang/String;
+ * Method:    GetMediatorIP1
+ * Signature: (I)Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetMediatorIP
-  (JNIEnv *, jclass);
+JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetMediatorIP1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetPortalNativeResolution
- * Signature: (Z)V
+ * Method:    SetPortalNativeResolution1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalNativeResolution
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalNativeResolution1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetPortalNativeResolution
- * Signature: ()Z
+ * Method:    GetPortalNativeResolution1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalNativeResolution
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalNativeResolution1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetPortalAutoStart
- * Signature: (Z)V
+ * Method:    SetPortalAutoStart1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalAutoStart
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalAutoStart1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetPortalAutoStart
- * Signature: ()Z
+ * Method:    GetPortalAutoStart1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalAutoStart
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalAutoStart1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetPortalTCP
- * Signature: ()Z
+ * Method:    GetPortalTCP1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalTCP
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalTCP1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetPortalTCP
- * Signature: (Z)V
+ * Method:    SetPortalTCP1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalTCP
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalTCP1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetPortalViewDimsAuto
- * Signature: (Z)V
+ * Method:    SetPortalViewDimsAuto1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalViewDimsAuto
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetPortalViewDimsAuto1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetPortalViewDimsAuto
- * Signature: ()Z
+ * Method:    GetPortalViewDimsAuto1
+ * Signature: (I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalViewDimsAuto
-  (JNIEnv *, jclass);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalViewDimsAuto1
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -841,19 +905,19 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetBufferHeaderBytesToStartVal
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SendMsg
- * Signature: (ILjava/lang/String;Ljava/lang/String;ILjava/lang/String;I)Z
+ * Method:    SendMessage1
+ * Signature: (IILjava/lang/String;Ljava/lang/String;ILjava/lang/String;I)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendMsg
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jstring, jint);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendMessage1
+  (JNIEnv *, jclass, jint, jint, jstring, jstring, jint, jstring, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SendBuffer
- * Signature: (IIILjava/lang/String;[BI)Z
+ * Method:    SendBuffer1
+ * Signature: (IIIILjava/lang/String;[BI)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendBuffer
-  (JNIEnv *, jclass, jint, jint, jint, jstring, jbyteArray, jint);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendBuffer1
+  (JNIEnv *, jclass, jint, jint, jint, jint, jstring, jbyteArray, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -905,91 +969,91 @@ JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_ReceivePortalUnit
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SendFile
- * Signature: (IIILjava/lang/String;Ljava/lang/String;)Z
+ * Method:    SendFile1
+ * Signature: (IIIILjava/lang/String;Ljava/lang/String;)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendFile
-  (JNIEnv *, jclass, jint, jint, jint, jstring, jstring);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendFile1
+  (JNIEnv *, jclass, jint, jint, jint, jint, jstring, jstring);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SetUsePlatformPortalGenerator
- * Signature: (Z)V
+ * Method:    SetUsePlatformPortalGenerator1
+ * Signature: (IZ)V
  */
-JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUsePlatformPortalGenerator
-  (JNIEnv *, jclass, jboolean);
+JNIEXPORT void JNICALL Java_hcm_environs_Environs_SetUsePlatformPortalGenerator1
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetPortalIDFreeSlot
- * Signature: (II)I
+ * Method:    GetPortalIDFreeSlot1
+ * Signature: (III)I
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetPortalIDFreeSlot
-  (JNIEnv *, jclass, jint, jint);
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetPortalIDFreeSlot1
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    RequestPortalStream1
- * Signature: (IIIII)Z
+ * Signature: (IIIIII)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_RequestPortalStream1
-  (JNIEnv *, jclass, jint, jint, jint, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    ProvidePortalStream1
- * Signature: (III)Z
+ * Signature: (IIII)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ProvidePortalStream1
-  (JNIEnv *, jclass, jint, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    ProvideRequestPortalStream1
- * Signature: (III)Z
+ * Signature: (IIII)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ProvideRequestPortalStream1
-  (JNIEnv *, jclass, jint, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    StartPortalStream1
- * Signature: (II)Z
- */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_StartPortalStream1
-  (JNIEnv *, jclass, jint, jint);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    PausePortalStream1
- * Signature: (II)Z
- */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_PausePortalStream1
-  (JNIEnv *, jclass, jint, jint);
-
-/*
- * Class:     hcm_environs_Environs
- * Method:    StopPortalStream1
  * Signature: (III)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_StopPortalStream1
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_StartPortalStream1
   (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
+ * Method:    PausePortalStream1
+ * Signature: (III)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_PausePortalStream1
+  (JNIEnv *, jclass, jint, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
+ * Method:    StopPortalStream1
+ * Signature: (IIII)Z
+ */
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_StopPortalStream1
+  (JNIEnv *, jclass, jint, jint, jint, jint);
+
+/*
+ * Class:     hcm_environs_Environs
  * Method:    SetRenderSurface1
- * Signature: (ILandroid/view/Surface;II)Z
+ * Signature: (IILandroid/view/Surface;II)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetRenderSurface1
-  (JNIEnv *, jclass, jint, jobject, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jobject, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    ReleaseRenderSurface1
- * Signature: (II)Z
+ * Signature: (III)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_ReleaseRenderSurface1
-  (JNIEnv *, jclass, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -1010,34 +1074,34 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetRequestedPortalID
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetPortalInfo
- * Signature: (Ljava/nio/ByteBuffer;)Z
+ * Signature: (ILjava/nio/ByteBuffer;)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_GetPortalInfo
-  (JNIEnv *, jclass, jobject);
+  (JNIEnv *, jclass, jint, jobject);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    SetPortalInfo
- * Signature: (Ljava/nio/ByteBuffer;)Z
+ * Signature: (ILjava/nio/ByteBuffer;)Z
  */
 JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SetPortalInfo
-  (JNIEnv *, jclass, jobject);
+  (JNIEnv *, jclass, jint, jobject);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    SendPortalInit
- * Signature: (IIII)Z
+ * Method:    SendPortalInit1
+ * Signature: (IIIII)Z
  */
-JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendPortalInit
-  (JNIEnv *, jclass, jint, jint, jint, jint);
+JNIEXPORT jboolean JNICALL Java_hcm_environs_Environs_SendPortalInit1
+  (JNIEnv *, jclass, jint, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    TouchDispatch
- * Signature: (ILjava/nio/ByteBuffer;IZ)V
+ * Signature: (IILjava/nio/ByteBuffer;IZ)V
  */
 JNIEXPORT void JNICALL Java_hcm_environs_Environs_TouchDispatch
-  (JNIEnv *, jclass, jint, jobject, jint, jboolean);
+  (JNIEnv *, jclass, jint, jint, jobject, jint, jboolean);
 
 /*
  * Class:     hcm_environs_Environs
@@ -1050,50 +1114,50 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetSizeOfInputPack
 /*
  * Class:     hcm_environs_Environs
  * Method:    BridgeForNotifier
- * Signature: (IIII)V
+ * Signature: (IIIII)V
  */
 JNIEXPORT void JNICALL Java_hcm_environs_Environs_BridgeForNotifier
-  (JNIEnv *, jclass, jint, jint, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetDevicesCount
- * Signature: (I)I
+ * Method:    GetDevicesCount1
+ * Signature: (II)I
  */
-JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDevicesCount
-  (JNIEnv *, jclass, jint);
+JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDevicesCount1
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetDevices
- * Signature: (I)Ljava/nio/ByteBuffer;
+ * Method:    GetDevices1
+ * Signature: (II)Ljava/nio/ByteBuffer;
  */
-JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDevices
-  (JNIEnv *, jclass, jint);
+JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDevices1
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetDevice
- * Signature: (ILjava/lang/String;Ljava/lang/String;I)Ljava/nio/ByteBuffer;
+ * Method:    GetDevice1
+ * Signature: (IILjava/lang/String;Ljava/lang/String;I)Ljava/nio/ByteBuffer;
  */
-JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDevice
-  (JNIEnv *, jclass, jint, jstring, jstring, jint);
+JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDevice1
+  (JNIEnv *, jclass, jint, jint, jstring, jstring, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetDeviceForPortal1
- * Signature: (I)Ljava/nio/ByteBuffer;
+ * Signature: (II)Ljava/nio/ByteBuffer;
  */
 JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDeviceForPortal1
-  (JNIEnv *, jclass, jint);
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetDeviceBestMatch1
- * Signature: (I)Ljava/nio/ByteBuffer;
+ * Signature: (II)Ljava/nio/ByteBuffer;
  */
 JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDeviceBestMatch1
-  (JNIEnv *, jclass, jint);
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
@@ -1114,50 +1178,50 @@ JNIEXPORT jint JNICALL Java_hcm_environs_Environs_GetDevicesHeaderSize
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetFilePath
- * Signature: (ILjava/lang/String;Ljava/lang/String;I)Ljava/lang/String;
+ * Signature: (IILjava/lang/String;Ljava/lang/String;I)Ljava/lang/String;
  */
 JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePath
-  (JNIEnv *, jclass, jint, jstring, jstring, jint);
+  (JNIEnv *, jclass, jint, jint, jstring, jstring, jint);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetFilePathForStorage
- * Signature: (ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+ * Method:    GetFilePathForStorage1
+ * Signature: (IILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePathForStorage
-  (JNIEnv *, jclass, jint, jstring, jstring);
+JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePathForStorage1
+  (JNIEnv *, jclass, jint, jint, jstring, jstring);
 
 /*
  * Class:     hcm_environs_Environs
- * Method:    GetFilePathNative
- * Signature: (II)Ljava/lang/String;
+ * Method:    GetFilePathNative1
+ * Signature: (III)Ljava/lang/String;
  */
-JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePathNative
-  (JNIEnv *, jclass, jint, jint);
+JNIEXPORT jstring JNICALL Java_hcm_environs_Environs_GetFilePathNative1
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetFile
- * Signature: (ILjava/lang/String;Ljava/lang/String;I[BI)[B
+ * Signature: (IILjava/lang/String;Ljava/lang/String;I[BI)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_hcm_environs_Environs_GetFile
-  (JNIEnv *, jclass, jint, jstring, jstring, jint, jbyteArray, jint);
+  (JNIEnv *, jclass, jint, jint, jstring, jstring, jint, jbyteArray, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetFileNative
- * Signature: (II[BI)[B
+ * Signature: (III[BI)[B
  */
 JNIEXPORT jbyteArray JNICALL Java_hcm_environs_Environs_GetFileNative
-  (JNIEnv *, jclass, jint, jint, jbyteArray, jint);
+  (JNIEnv *, jclass, jint, jint, jint, jbyteArray, jint);
 
 /*
  * Class:     hcm_environs_Environs
  * Method:    GetDeviceDisplayProps1
- * Signature: (I)Ljava/nio/ByteBuffer;
+ * Signature: (II)Ljava/nio/ByteBuffer;
  */
 JNIEXPORT jobject JNICALL Java_hcm_environs_Environs_GetDeviceDisplayProps1
-  (JNIEnv *, jclass, jint);
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     hcm_environs_Environs

@@ -18,24 +18,59 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
+
+/// Compiler flag that enables verbose debug output
+#ifndef NDEBUG
+//#   define DEBUGVERB
+//#   define DEBUGVERBVerb
+#endif
+
 #include "./Threads.h"
 #include <errno.h>
 #include <stdio.h>
 
 #ifndef _WIN32
-#include <sys/time.h>
+#   include <sys/time.h>
 #endif
-#ifndef MEDIATORDAEMON
-#include "Environs.h"
-#endif
+
 #include "Environs.Native.h"
 
+#if (defined(ENVIRONS_CORE_LIB) || defined(ENVIRONS_NATIVE_MODULE))
+#   include "Environs.Obj.h"
+#else
+#	ifdef CVerb
+#		undef CVerb
+#	endif
+#	define CVerb(msg) printf(msg)
+
+#	ifdef CVerbArg
+#		undef CVerbArg
+#	endif
+#	define CVerbArg(msg,...) printf(msg,__VA_ARGS__)
+
+#	ifdef CLogArg
+#		undef CLogArg
+#	endif
+#	define CLogArg(msg,...) printf(msg,__VA_ARGS__)
+
+#	ifdef CErrArg
+#		undef CErrArg
+#	endif
+#	define CErrArg(msg,...) printf(msg,__VA_ARGS__)
+
+#	ifdef CWarnArg
+#		undef CWarnArg
+#	endif
+#	define CWarnArg(msg,...) printf(msg,__VA_ARGS__)
+
+#endif
+
 #ifdef USE_PTHREADS_FOR_WINDOWS
-#pragma comment ( lib, "pthreadVC2.lib" )
+#   pragma comment ( lib, "pthreadVC2.lib" )
 #endif
 
 // The TAG for prepending to log messages
-#define CLASS_NAME	"Threads"
+#define CLASS_NAME	"Threads. . . . . . . . ."
 
 namespace environs
 {
@@ -315,9 +350,7 @@ namespace environs
 			return;
 		}
 
-#ifndef MEDIATORDAEMON
 		CLogArg ( "Waiting for %s ...", threadName );
-#endif
         
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
 
@@ -365,5 +398,87 @@ namespace environs
 #ifdef _WIN32
 #pragma warning( pop )
 #endif
+    
+    bool CondInitBool ( pthread_cond_t * cond, const char * name ) {
+        if ( !cond ) {
+            CErrArg ( "CondInitBool: Invalid cond object for [%s]", name ? name : "Unknown" );
+            return false;
+        }
+        
+        memset ( cond, 0, sizeof ( pthread_cond_t ) );
+        
+        if ( pthread_cond_init ( cond, NULL ) ) {
+            CErrArg ( "CondInitBool: Failed to init [%s]", name ? name : "Unknown" );
+            return false;
+        }
+        return true;
+    }
+    
+    bool CondDisposeBool ( pthread_cond_t * cond, const char * name ) {
+        if ( !cond || pthread_cond_destroy ( cond ) ) {
+            CErrArg ( "CondDisposeBool: Failed to destroy [%s]", name ? name : "Unknown" );
+            return false;
+        }
+        return true;
+    }
 
+    
+	bool MutexInitBool ( pthread_mutex_t * mtx, const char * name ) {
+		if ( !mtx ) {
+			CErrArg ( "MutexInit: Invalid mutex object for [%s]", name ? name : "Unknown" );
+			return false;
+		}
+
+		memset ( mtx, 0, sizeof ( pthread_mutex_t ) );
+
+		if ( pthread_mutex_init ( mtx, NULL ) ) {
+			CErrArg ( "MutexInit: Failed to init [%s]", name ? name : "Unknown" );
+			return false;
+		}
+		return true;
+	}
+
+	bool MutexDisposeBool ( pthread_mutex_t * mtx, const char * name ) {
+		if ( !mtx || pthread_mutex_destroy ( mtx ) ) {
+			CErrArg ( "MutexDispose: Failed to destroy [%s]", name ? name : "Unknown" );
+			return false;
+		}
+		return true;
+	}
+
+#undef CLASS_NAME
+#define CLASS_NAME	""
+
+	void MutexErrorLog ( const char * operation, const char * mutexName, const char * className, const char * funcName ) {
+		CErrArg ( "%s.%s: Failed to %s [%s]", operation, className ? className : "Unknown", funcName ? funcName : "Unknown", mutexName ? mutexName : "Unknown" );
+	}
+
+
+	void MutexLockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
+			MutexErrorLog ( "lock", mutexName, className, funcName );
+		}
+	}
+
+	void MutexUnlockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+		if ( !mtx || pthread_mutex_unlock ( mtx ) ) {
+			MutexErrorLog ( "unlock", mutexName, className, funcName );
+		}
+	}
+
+	bool MutexLockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
+			MutexErrorLog ( "lock", mutexName, className, funcName );
+			return false;
+		}
+		return true;
+	}
+
+	bool MutexUnlockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+		if ( !mtx || pthread_mutex_unlock ( mtx ) ) {
+			MutexErrorLog ( "unlock", mutexName, className, funcName );
+			return false;
+		}
+		return true;
+	}
 }

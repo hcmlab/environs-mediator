@@ -20,6 +20,14 @@
 #ifndef INCLUDE_HCM_ENVIRONS_BUILD_OPTIONS_COMMON_H
 #define INCLUDE_HCM_ENVIRONS_BUILD_OPTIONS_COMMON_H
 
+#define ENVIRONS_IOSX_USE_CPP_API
+
+
+#ifdef __cplusplus
+#   define ENVIRONS_NAMESP environs::
+#else
+#   define ENVIRONS_NAMESP
+#endif
 
 
 #endif

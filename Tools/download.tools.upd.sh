@@ -34,6 +34,7 @@ tar -xzvf EnvBuildTools.tar.gz
 [[ $? != 0 ]] && echo "Error tools decompress" && exit 1
 
 rm Tools/download.tools.upd.sh
+rm -rf Tools/src
 
 cp Tools/* ../Tools/.
 [[ $? != 0 ]] && echo "Error cp" && exit 1

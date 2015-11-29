@@ -249,7 +249,7 @@
  * @param size        An int pointer, that receives the size of the returned buffer.
  * @return byte-array
  */
-- (char *) GetFile:(int) fileID Size:(int *)size;
+- (NSData *) GetFile:(int) fileID Size:(int *)size;
 
 /**
  * Query the absolute path for the local filesystem that is assigned to the fileID received by deviceID.
@@ -312,7 +312,7 @@
  * @param bytesToSend number of bytes in the buffer to send
  * @return success
  */
-- (bool) SendBuffer:(int)fileID Desc:(const char *)fileDescriptor Data:(char *)buffer Size:(int)bytesToSend;
+- (bool) SendBuffer:(int)fileID Desc:(const char *)fileDescriptor Data:(unsigned char *)buffer Size:(int)bytesToSend;
 
 /**
  * Send a string message to a device through one of the following ways.&nbsp;

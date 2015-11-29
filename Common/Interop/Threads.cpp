@@ -26,8 +26,11 @@
 #endif
 
 #include "./Threads.h"
-#include <errno.h>
-#include <stdio.h>
+
+#ifndef CLI_CPP
+#	include <errno.h>
+#	include <stdio.h>
+#endif
 
 #ifndef _WIN32
 #   include <sys/time.h>
@@ -36,7 +39,11 @@
 #include "Environs.Native.h"
 
 #if (defined(ENVIRONS_CORE_LIB) || defined(ENVIRONS_NATIVE_MODULE))
+
+#ifndef CLI_CPP
 #   include "Environs.Obj.h"
+#endif
+
 #else
 #	ifdef CVerb
 #		undef CVerb
@@ -113,6 +120,42 @@ namespace environs
 #endif
 	}
 
+#ifdef CLI_CPP
+
+	int pthread_create_cli ( pthread_t % threadID, void *, System::Threading::ParameterizedThreadStart ^ startRoutine, pthread_param_t arg  )
+	{
+		threadID = gcnew Thread ( startRoutine );
+		if ( threadID == nullptr )
+			return 1;
+
+		threadID->Start ( arg );
+		return 0;
+	}
+
+
+	bool MutexLockBool ( pthread_mutex_t ^ mtx, const char * mutexName, const char * className, const char * funcName )
+	{
+		if ( mtx == NULL_ptr ) {
+			//MutexErrorLog ( "lock", mutexName, className, funcName );
+			return false;
+		}
+		Monitor::Enter ( mtx );
+		return true;
+	}
+
+	bool MutexUnlockBool ( pthread_mutex_t ^ mtx, const char * mutexName, const char * className, const char * funcName )
+	{
+		if ( mtx == NULL_ptr ) {
+			//MutexErrorLog ( "unlock", mutexName, className, funcName );
+			return false;
+		}
+		
+		Monitor::Exit ( mtx );
+		return true;
+	}
+
+
+#else
 
 	INCLINEFUNC bool pthread_valid ( pthread_t thread )
 	{
@@ -481,4 +524,6 @@ namespace environs
 		}
 		return true;
 	}
+
+#endif
 }

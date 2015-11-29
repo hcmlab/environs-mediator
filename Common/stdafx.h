@@ -1,4 +1,5 @@
 #pragma once
 
-#include <stdio.h>
-
+#ifndef CLI_CPP
+#	include <stdio.h>
+#endif

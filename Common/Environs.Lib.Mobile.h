@@ -26,6 +26,7 @@ namespace environs
 {
 #ifndef DISPLAYDEVICE
 
+#include "Interop/jni.h"
 #include "Environs.Lib.Inc.h"
 	
 	namespace API 
@@ -35,38 +36,38 @@ namespace environs
 		extern "C"
 		{
 #endif
-			LIBEXPORT void CallConv			TouchDispatch ( int hInst, int portalID, void * buffer, int count, EBOOL init );
+			LIBEXPORT void CallConv			TouchDispatchN ( int hInst, int portalID, void * buffer, int count, EBOOL init );
 			LIBEXPORT void CallConv			touch1 ( int deviceID, int id, int x, int y, unsigned char event );
 			LIBEXPORT void CallConv			touch2 ( int deviceID, int id, int x, int y, float angle, float size, float axisx, float axisy, unsigned char event );
 
-			LIBEXPORT int CallConv			GetSizeOfBufferHeader ();
-			LIBEXPORT void * CallConv		ReceiveStreamPack ( int deviceID, const char * areaName, const char * appName, int portalID );
+			LIBEXPORT int CallConv			GetSizeOfBufferHeaderN ();
+			LIBEXPORT void * CallConv		ReceiveStreamPackN ( int deviceID, const char * areaName, const char * appName, int portalID );
 
-			LIBEXPORT int CallConv			GetSizeOfTouchPack ();
+			LIBEXPORT int CallConv			GetSizeOfTouchPackN ();
 			
-			LIBEXPORT EBOOL CallConv		SetPortalWidthHeight ( int deviceID, int width, int height );
+			LIBEXPORT EBOOL CallConv		SetPortalWidthHeightN ( int deviceID, int width, int height );
 
-			LIBEXPORT EBOOL CallConv		GetUseSensors1 ( jint hInst );
-			LIBEXPORT void CallConv			SetUseSensors1 ( jint hInst, EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUseSensorsN ( jint hInst );
+			LIBEXPORT void CallConv			SetUseSensorsN ( jint hInst, EBOOL enable );
 
-			LIBEXPORT EBOOL CallConv		GetUsePushNotifications ();
-			LIBEXPORT void CallConv			SetUsePushNotifications ( EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUsePushNotificationsN ();
+			LIBEXPORT void CallConv			SetUsePushNotificationsN ( EBOOL enable );
 
-			LIBEXPORT EBOOL CallConv		GetPortalTCP1 ( jint hInst );
-			LIBEXPORT void CallConv			SetPortalTCP1 ( jint hInst, EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetPortalTCPN ( jint hInst );
+			LIBEXPORT void CallConv			SetPortalTCPN ( jint hInst, EBOOL enable );
 
-			LIBEXPORT EBOOL CallConv		GetUseNativeDecoder1 ( jint hInst );
-			LIBEXPORT void CallConv			SetUseNativeDecoder1 ( jint hInst, EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUseNativeDecoderN ( jint hInst );
+			LIBEXPORT void CallConv			SetUseNativeDecoderN ( jint hInst, EBOOL enable );
 
-			LIBEXPORT EBOOL CallConv		GetUseHardwareEncoder1 ( jint hInst );
-			LIBEXPORT void CallConv			SetUseHardwareEncoder1 ( jint hInst, EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUseHardwareEncoderN ( jint hInst );
+			LIBEXPORT void CallConv			SetUseHardwareEncoderN ( jint hInst, EBOOL enable );
             
-            LIBEXPORT int CallConv			AcquirePortalSendID ( int portalUnitType, int portalID );
-            LIBEXPORT void CallConv			ReleasePortalSendID ( int sendID );
+            LIBEXPORT int CallConv			AcquirePortalSendIDN ( int portalUnitType, int portalID );
+            LIBEXPORT void CallConv			ReleasePortalSendIDN ( int sendID );
             
-            LIBEXPORT EBOOL CallConv		SendTcpPortal ( int sendID, int portalUnitFlags, jobject prefixBuffer, int prefixSize, jobject byteBuffer, int offset, int contentSize );
+            LIBEXPORT EBOOL CallConv		SendTcpPortalN ( int sendID, int portalUnitFlags, jobject prefixBuffer, int prefixSize, jobject byteBuffer, int offset, int contentSize );
             
-            LIBEXPORT EBOOL CallConv		SendPortalInit1 ( int hInst, int async, int portalID, int width, int height );
+            LIBEXPORT EBOOL CallConv		SendPortalInitN ( int hInst, int async, int portalID, int width, int height );
 
 #ifdef __cplusplus
 		}

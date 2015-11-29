@@ -26,6 +26,7 @@ namespace environs
 {
 #ifdef DISPLAYDEVICE
 
+#include "Interop/jni.h"
 #include "Environs.Lib.Inc.h"
 	
 	namespace API 
@@ -35,13 +36,30 @@ namespace environs
 		extern "C"
 		{
 #endif
+			CLI_INC
+				LIBEXPORT EBOOL CallConv		SetPortalOverlayARGBN ( int hInst, int nativeID, int portalID, int layerID, int left, int top,
+					int width, int height, int stride, Addr_obj renderData, int alpha, bool positionDevice );
 
-			LIBEXPORT void CallConv			SetUseDeviceMarkerAutomatic ( EBOOL enable );
-			LIBEXPORT void CallConv			SetDeviceMarkerReducedPrecision1 ( EBOOL enable );
+			CLI_INC
+				LIBEXPORT void CallConv			SetUseDeviceMarkerAutomaticN ( EBOOL enable );
 
-			LIBEXPORT void CallConv			SetUseTouchInjection ( EBOOL enabled );
+			CLI_INC
+				LIBEXPORT void CallConv			SetDeviceMarkerReducedPrecisionN ( EBOOL enable );
+
+			CLI_INC
+				LIBEXPORT void CallConv			SetUseTouchInjectionN ( EBOOL enabled );
 
 
+			CLI_INC
+				LIBEXPORT void CallConv			SetUseMouseEmulationN ( int hInst, EBOOL enable );
+			CLI_INC
+				LIBEXPORT EBOOL CallConv		GetUseMouseEmulationN ( int hInst );
+
+			CLI_INC
+				LIBEXPORT void CallConv			SetUseTouchVisualizationN ( int hInst, EBOOL enable );
+			CLI_INC
+				LIBEXPORT EBOOL CallConv		GetUseTouchVisualizationN ( int hInst );
+            
 #ifdef __cplusplus
 		}
 #endif

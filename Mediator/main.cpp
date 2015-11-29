@@ -18,6 +18,7 @@
  * --------------------------------------------------------------------
  */
 #include "stdafx.h"
+#include "Environs.Release.h"
 #include "Mediator.Daemon.h"
 #include "Environs.Native.h"
 

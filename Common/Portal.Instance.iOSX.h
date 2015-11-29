@@ -29,7 +29,6 @@
 
 #include "Portal.Info.h"
 #include "Environs.Types.h"
-
 #endif
 
 

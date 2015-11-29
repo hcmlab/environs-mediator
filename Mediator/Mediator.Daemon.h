@@ -215,7 +215,10 @@ private:
 	void									RemoveDevice ( unsigned int ip, char * msg );
 	void									RemoveDevice ( DeviceInstanceNode * device, bool useLock = true );
 	void									RemoveDevice ( int deviceID, const char * areaName, const char * appName );
-	void									UpdateDeviceInstance ( DeviceInstanceNode * device, bool added, bool changed );
+
+#ifdef __cplusplus
+	void									UpdateDeviceInstance ( sp ( DeviceInstanceNode ) device, bool added, bool changed );
+#endif
 
     unsigned int                            bannAfterTries;
 	pthread_mutex_t							bannedIPsMutex;
@@ -254,7 +257,7 @@ private:
 
 	bool									HandleDeviceRegistration ( sp ( ThreadInstance ) client, unsigned int ip, char * msg );
 	bool									SecureChannelAuth ( ThreadInstance * client );
-	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, ThreadInstance * orgClient, char * msg, unsigned int msgLen );
+	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
 	bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
 	bool									NotifySTUNTRegRequest ( ThreadInstance * client );
 

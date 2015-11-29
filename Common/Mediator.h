@@ -108,6 +108,13 @@
 #define MEDIATOR_DEVICE_CHANGE_NEARBY			1
 #define MEDIATOR_DEVICE_CHANGE_MEDIATOR			2
 
+#ifdef MEDIATORDAEMON
+#   define  DAEMONEXP(exp)      exp
+#   define  CLIENTEXP(exp)
+#else
+#   define  DAEMONEXP(exp)
+#   define  CLIENTEXP(exp)      exp
+#endif
 
 namespace environs	/// Namespace: environs ->
 {
@@ -148,7 +155,6 @@ namespace environs	/// Namespace: environs ->
 		int						encrypt;
 		int						authenticated;
 		AESContext				aes;
-		//DeviceInstanceNode	*	device;
 
         int                     authLevel;
 		bool					createAuthToken;
@@ -158,6 +164,8 @@ namespace environs	/// Namespace: environs ->
 #ifdef __cplusplus
 		sp ( ThreadInstance )	  clientSP;
 		sp ( DeviceInstanceNode ) deviceSP;
+        
+        DAEMONEXP ( ~ThreadInstance () );
 #endif
 	}
 	ThreadInstance;
@@ -184,47 +192,44 @@ namespace environs	/// Namespace: environs ->
     
 	typedef struct DeviceInstanceNode
 	{
-		DeviceInfo info;
+		lib::DeviceInfo info;
+        
+        DAEMONEXP ( sp ( ApplicationDevices ) rootSP; )
+        DAEMONEXP ( sp ( ThreadInstance )     clientSP; )
+        
+        // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
+        CLIENTEXP ( char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; );
 
-#ifdef MEDIATORDAEMON
-		sp ( ApplicationDevices ) rootSP;
-		sp ( ThreadInstance )     clientSP;
-#else
-		char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
-#endif
 		char					  userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
 
-		struct DeviceInstanceNode	* next;  // 4
-		struct DeviceInstanceNode	* prev;  // 4
+        // Links used by Mediator base layer
+		struct DeviceInstanceNode	*	next;  // 4
+		struct DeviceInstanceNode	*	prev;  // 4
 
+		int								hEnvirons;
+        
 #ifdef __cplusplus
-		sp ( DeviceInstanceNode ) myself;
+        
+        sp ( DeviceInstanceNode )		baseSP;         // SP used by Mediator base layer
+        
+        CLIENTEXP ( sp ( DeviceInstanceNode ) mapSP; )  // SP used by Mediator base layer
 
-		DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 ) {
+		DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
+        {
 			Zero ( info );
-			*userName = 0;
-#ifndef MEDIATORDAEMON
-			*key = 0;
-#endif
-		}
+			hEnvirons = 0;
+            *userName = 0;
+            baseSP = 0;
 
-		~DeviceInstanceNode ( ) {
-#ifdef MEDIATORDAEMON
-			clientSP = 0; rootSP = 0;
-#endif
+            CLIENTEXP ( *key = 0; )
+            CLIENTEXP ( mapSP = 0; )
 		}
+        
+		~DeviceInstanceNode ();
 #endif
+        
 	}
 	DeviceInstanceNode;
-    
-    
-    typedef struct DeviceInstanceItem
-    {
-        DeviceInfo info;
-
-		char					  key [ MAX_DEVICE_INSTANCE_KEY_LENGTH ]; // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
-    }
-    DeviceInstanceItem;
 
 
 	typedef struct _MediatorThreadInstance
@@ -249,7 +254,7 @@ namespace environs	/// Namespace: environs ->
 		char				*	responseBuffer;
 
 		INTEROPTIMEVAL			lastSpareSocketRenewal;
-		long					renewerAccess;
+		LONGSYNC                renewerAccess;
         
         Instance            *   env;
 	}
@@ -314,6 +319,7 @@ namespace environs	/// Namespace: environs ->
         static bool				allocatedClass;
 
 #if (!defined(MEDIATORDAEMON) && defined(__cplusplus))
+		sp ( Instance )			envSP;
 		Instance			*	env;
 #endif
         
@@ -333,7 +339,8 @@ namespace environs	/// Namespace: environs ->
 
 		unsigned int			broadcastMessageLen;
 		char					broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
-		unsigned int			greetUpdates;
+
+		unsigned long long		lastGreetUpdate;
 
 		int						broadcastSocketID;
 		pthread_t				broadcastThreadID;
@@ -345,13 +352,16 @@ namespace environs	/// Namespace: environs ->
 		virtual void			OnStarted ( );
 
 		DeviceInstanceNode *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
+		void					VanishedDeviceWatcher ();
 
 		virtual DeviceInstanceNode ** GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, void * appDevices ) = 0;
 
 		virtual void			RemoveDevice ( unsigned int ip, char * msg ) {};
 		virtual void			RemoveDevice ( DeviceInstanceNode * device, bool useLock = true ) = 0;
-		virtual void			UpdateDeviceInstance ( DeviceInstanceNode * device, bool added, bool changed ) = 0;
-		
+
+#ifdef __cplusplus
+		virtual void			UpdateDeviceInstance ( sp ( DeviceInstanceNode ) device, bool added, bool changed ) = 0;
+#endif
 		virtual void			ReleaseDevices ( ) = 0;
 
 		//virtual void			NotifyClients ( unsigned int notify, const char * areaName, const char * appName, int deviceID ) {};
@@ -486,7 +496,7 @@ namespace environs	/// Namespace: environs ->
 		char			opt0;
 		char			opt1;
 
-		DeviceHeader	deviceHead;
+		lib::DeviceHeader	deviceHead;
 	}
 	MediatorQueryResponse;
 

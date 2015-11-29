@@ -22,7 +22,12 @@
 #define INCLUDE_HCM_ENVIRONS_FILEINSTANCE_H
 
 #include "Interop/Smart.Pointer.h"
-#include "Interfaces/IFile.Instance.h"
+#include "Interfaces/IEnvirons.Dispose.h"
+
+#ifndef CLI_CPP
+#	include "Interfaces/IFile.Instance.h"
+#endif
+
 #include <string>
 
 /**
@@ -38,88 +43,100 @@ namespace environs
 {
 	namespace lib
     {
-        
-		class FileInstance : public IFileInstance
+#ifndef CLI_CPP
+        class DeviceInstance;
+#endif
+
+		PUBLIC_CLASS FileInstance DERIVE_c_only ( environs::FileInstance ) DERIVE_DISPOSEABLE
 		{
-            friend class DeviceList;
-            friend class DeviceInstance;
-            friend class FileInstanceProxy;
+            MAKE_FRIEND_CLASS ( DeviceList );
+            MAKE_FRIEND_CLASS ( DeviceInstance );
+            MAKE_FRIEND_CLASS ( FileInstanceProxy );
 
 		public:
 			ENVIRONS_LIB_API FileInstance ();
-            ENVIRONS_LIB_API ~FileInstance ();
-            
-            /**
-             * disposed is true if the object is no longer valid. Nothing will be updated anymore.
-             * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
-             * */
-            ENVIRONS_LIB_API bool disposed ();
-            
-            /**
-             * An integer type identifier to uniquely identify this FileInstance between two DeviceInstances.
-             * A value of 0 indicates an invalid fileID.
-             * */
+			ENVIRONS_LIB_API ~FileInstance ();
+
+			/**
+			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.
+			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
+			 * */
+			ENVIRONS_LIB_API bool disposed ();
+
+			/**
+			 * An integer type identifier to uniquely identify this FileInstance between two DeviceInstances.
+			 * A value of 0 indicates an invalid fileID.
+			 * */
 			ENVIRONS_LIB_API int fileID ();
-            
-            /**
-             * Used internally.
-             * */
+
+			/**
+			 * Used internally.
+			 * */
 			ENVIRONS_LIB_API int type ();
-            
-            /**
-             * A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
-             * */
-			ENVIRONS_LIB_API const char * descriptor ();
-            
-            /**
-             * sent is true if this FileInstance is data that was sent or received (false).
-             * */
+
+			/**
+			 * A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
+			 * */
+			ENVIRONS_LIB_API CString_ptr descriptor ();
+
+			/**
+			 * sent is true if this FileInstance is data that was sent or received (false).
+			 * */
 			ENVIRONS_LIB_API bool sent ();
-            
-            /**
-             * created is a posix timestamp that determines the time and date that this FileInstance
-             * has been received or sent.
-             * */
+
+			/**
+			 * created is a posix timestamp that determines the time and date that this FileInstance
+			 * has been received or sent.
+			 * */
 			ENVIRONS_LIB_API unsigned long long created ();
-            
-            /**
-             * The size in bytes of a buffer to send or data received.
-             * */
+
+			/**
+			 * The size in bytes of a buffer to send or data received.
+			 * */
 			ENVIRONS_LIB_API long size ();
-            
-            /**
-             * The absolute path to the file if this FileInstance originates from a call to SendFile or received data.
-             * */
-			ENVIRONS_LIB_API const char * path ();
-            
-            /**
-             * sendProgress is a value between 0-100 (percentage) that reflects the percentage of the
-             * file or buffer that has already been sent.
-             * If this value changes, then the corresponding device's DeviceObserver is notified
-             * with this FileInstance object as the sender
-             * and the change-flag FILE_INFO_ATTR_SEND_PROGRESS
-             * */
+
+			/**
+			 * The absolute path to the file if this FileInstance originates from a call to SendFile or received data.
+			 * */
+			ENVIRONS_LIB_API CString_ptr path ();
+
+			/**
+			* Load data into a binary byte array and returns a pointer to that data.
+			* */
+			ENVIRONS_LIB_API UCharArray_ptr data ();
+
+			/**
+			 * sendProgress is a value between 0-100 (percentage) that reflects the percentage of the
+			 * file or buffer that has already been sent.
+			 * If this value changes, then the corresponding device's DeviceObserver is notified
+			 * with this FileInstance object as the sender
+			 * and the change-flag FILE_INFO_ATTR_SEND_PROGRESS
+			 * */
 			ENVIRONS_LIB_API int sendProgress ();
-            
-            /**
-             * receiveProgress is a value between 0-100 (percentage) that reflects the percentage of the
-             * file or buffer that has already been received.
-             * If this value changes, then the corresponding device's DeviceObserver is notified
-             * with this FileInstance object as the sender
-             * and the change-flag FILE_INFO_ATTR_RECEIVE_PROGRESS
-             * */
+
+			/**
+			 * receiveProgress is a value between 0-100 (percentage) that reflects the percentage of the
+			 * file or buffer that has already been received.
+			 * If this value changes, then the corresponding device's DeviceObserver is notified
+			 * with this FileInstance object as the sender
+			 * and the change-flag FILE_INFO_ATTR_RECEIVE_PROGRESS
+			 * */
 			ENVIRONS_LIB_API int receiveProgress ();
-            
-            /**
-             * Get the DeviceInstance that this FileInstance is attached to.
-             *
-             * */
-			ENVIRONS_LIB_API IDeviceInstance * deviceRetainedI ();
-            
-            
-			ENVIRONS_LIB_API const char * ToString ();
-            
-			ENVIRONS_LIB_API const char * GetPath ();
+
+			/**
+			 * Get the DeviceInstance that this FileInstance is attached to.
+			 *
+			 * */
+#ifdef CLI_CPP
+			ENVIRONS_LIB_API PLATFORMSPACE DeviceInstance OBJ_ptr device ();
+#else
+			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr deviceRetained ();
+#endif
+
+
+			ENVIRONS_LIB_API CLI_VIRTUAL CString_ptr ToString () CLI_OVERRIDE;
+
+			ENVIRONS_LIB_API CString_ptr GetPath ();
 
 
 			/**
@@ -127,21 +144,22 @@ namespace environs
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
-             */
-            ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
+			 */
+			ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
 
-        private:
-            ENVIRONS_OUTPUT_ALLOC_RESOURCE ( FileInstance );
+		INTERNAL:
 
-            void Dispose ();
-            
-            /**
-             * disposed is true if the object is no longer valid. Nothing will be updated anymore.
-             * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
-             * */
-            bool			disposed_;
-            
-            void            PlatformDispose ();
+			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( FileInstance );
+
+			void DisposeInstance ();
+
+			/**
+			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.
+			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
+			 * */
+			bool			disposed_;
+
+			void            PlatformDispose ();
 
 			/**
 			* An integer type identifier to uniquely identify this FileInstance between two DeviceInstances.
@@ -157,7 +175,7 @@ namespace environs
 			/**
 			* A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
 			* */
-			std::string     descriptor_;
+			STRING_T		descriptor_;
 
 			/**
 			* sent is true if this FileInstance is data that was sent or received (false).
@@ -178,7 +196,7 @@ namespace environs
 			/**
 			* The absolute path to the file if this FileInstance originates from a call to SendFile or received data.
 			* */
-			std::string     path_;
+			STRING_T		path_;
 
 			/**
 			* sendProgress is a value between 0-100 (percentage) that reflects the percentage of the
@@ -201,15 +219,16 @@ namespace environs
 			/**
 			* A reference to the DeviceInstance that is responsible for this FileInstance.
 			* */
-            sp ( DeviceInstance ) device_;
-            
-            /**
-             * A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
-             * */
-            std::string toString_;
+			sp ( PLATFORMSPACE DeviceInstance ) device_;
 
-			static sp ( FileInstance ) Create ( const sp ( DeviceInstance ) &device, int fileID, char * fullPath, size_t length );
+			/**
+			 * A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
+			 * */
+			STRING_T		toString_;
+
+			static sp ( PLATFORMSPACE FileInstance ) Create ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int fileID, String_ptr fullPath, size_t length );
 		};
+
 	}
 }
 

@@ -218,7 +218,8 @@ namespace environs
 #endif
     
 #ifdef _WIN32
-    // return milliseconds
+	// Number of milliseconds since system has started
+	//
     INTEROPTIMEVAL GetEnvironsTickCount ()
     {
         return ( INTEROPTIMEVAL ) GetTickCount64 ();

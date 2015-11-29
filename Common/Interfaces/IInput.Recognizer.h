@@ -24,6 +24,7 @@
 #include "Device.Display.Decl.h"
 #include "stdio.h"
 
+
 #ifndef INCLUDE_HCM_ENVIRONS_IHUMAN_INPUT_RECOGNIZER_H
 #define INCLUDE_HCM_ENVIRONS_IHUMAN_INPUT_RECOGNIZER_H
 
@@ -80,9 +81,9 @@ namespace environs
 		*	@return	bool
 		*/
         int                 triggerTouchCount;
-		virtual int			Trigger ( InputPackRec **	inputs, int inputCount ) = 0;
+		virtual int			Trigger ( environs::lib::InputPackRec **	inputs, int inputCount ) = 0;
 
-        virtual int			Perform ( InputPackRec **	inputs, int inputCount ) = 0;
+        virtual int			Perform ( environs::lib::InputPackRec **	inputs, int inputCount ) = 0;
         
         virtual void		Flush () {};
 

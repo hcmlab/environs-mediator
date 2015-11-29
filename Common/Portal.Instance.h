@@ -21,9 +21,16 @@
 #ifndef INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_H
 #define INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_H
 
+#include "Environs.Platforms.h"
 #include "Interop/Smart.Pointer.h"
-#include "Interfaces/IPortal.Instance.h"
 #include "Notify.Context.h"
+#include "Portal.Info.h"
+#include "Environs.Types.h"
+#include "Environs.Observer.CLI.h"
+
+#ifndef CLI_CPP
+#	include "Interfaces/IPortal.Instance.h"
+#endif
 
 
 /**
@@ -37,26 +44,35 @@
 /* Namespace: environs -> */
 namespace environs 
 {
-	namespace lib 
+
+	namespace lib
 	{
+#ifndef CLI_CPP
 		class DeviceInstance;
 		class PortalObserver;
-		class IIPortalObserver;
-        
 
-		class PortalInstance : public IPortalInstance
+		class IIPortalObserver;
+#endif
+
+		PUBLIC_CLASS PortalInstance CLI_ABSTRACT DERIVE_c_only ( environs::PortalInstance ) DERIVE_DISPOSEABLE
 		{
-            friend class Environs;
-			friend class DeviceList;
-            friend class DeviceInstance;
-            friend class PortalInstanceProxy;
-            friend class DeviceInstanceProxy;
-            
+            MAKE_FRIEND_CLASS ( Environs );
+            MAKE_FRIEND_CLASS ( DeviceList );
+            MAKE_FRIEND_CLASS ( DeviceInstance );
+            MAKE_FRIEND_CLASS ( PortalInstanceProxy );
+            MAKE_FRIEND_CLASS ( DeviceInstanceProxy );
+        
 		public:
 			ENVIRONS_LIB_API PortalInstance ();
             ENVIRONS_LIB_API ~PortalInstance ();
             
-            
+#ifdef CLI_CPP
+			int						async;
+
+			bool					startIfPossible;
+#endif
+
+#ifndef CLI_CPP
             /** An ID that identifies this portal across all available portals. */
             int                     portalID ();
             
@@ -68,10 +84,10 @@ namespace environs
             /**
              * Get an Interface to the DeviceInstance that this PortalInstance is attached to.
              * */
-            IDeviceInstance *       deviceRetainedI ();
+			environs::DeviceInstance OBJ_ptr  deviceRetained ();
             
             
-            environs::PortalInfo *  info ();
+            environs::PortalInfo OBJ_ptr  info ();
             
             
             int                     status ();
@@ -89,12 +105,15 @@ namespace environs
             
             
 			virtual environs::PortalType_t  portalType ();
+#endif
 
             
-            ENVIRONS_LIB_API void AddObserver ( PortalObserver * observer );
-            ENVIRONS_LIB_API void RemoveObserver ( PortalObserver * observer );
-            
+            ENVIRONS_LIB_API void AddObserver ( environs::PortalObserver OBJ_ptr observer );
+            ENVIRONS_LIB_API void RemoveObserver ( environs::PortalObserver OBJ_ptr observer );
+
+#ifndef CLI_CPP
             ENVIRONS_LIB_API int GetObserverCount ();
+#endif
             ENVIRONS_LIB_API bool Establish ( bool askForType );
             
             ENVIRONS_LIB_API bool Start ();
@@ -106,11 +125,22 @@ namespace environs
             ENVIRONS_LIB_API bool SetRenderSurface ( void * surface_, int width, int height );
             
             ENVIRONS_LIB_API bool ReleaseRenderSurface ();
-            ENVIRONS_LIB_API PortalInfoBase * GetIPortalInfo ( );
+
+            ENVIRONS_LIB_API PortalInfoBase OBJ_ptr GetIPortalInfo ( );
             
-            static bool SetPortalInfo ( int hInst, PortalInfoBase * infoBase );
-            ENVIRONS_LIB_API bool SetIPortalInfo ( PortalInfoBase * infoBase );
-            
+            static bool SetPortalInfo ( int hInst, PortalInfoBase OBJ_ptr infoBase );
+
+			ENVIRONS_LIB_API bool SetIPortalInfo ( PortalInfoBase OBJ_ptr infoBase );
+
+			static sp ( PortalInstance ) GetPortal ( int nativeID, int portalID );
+
+			static sp ( PortalInfoBase ) GetPortalInfo ( int hInst, int portalID );
+
+			bool ReleaseRenderCallback ();
+
+#ifdef DISPLAYDEVICE
+			bool SetPortalOverlayARGB ( int layerID, int left, int top, int width, int height, int stride, Addr_obj renderData, int alpha, bool positionDevice );
+#endif
 
 			/**
 			* Release ownership on this interface and mark it disposeable.
@@ -119,16 +149,24 @@ namespace environs
 			*
              */
             ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
+		
+		INTERNAL:
 
-		private:
 			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( PortalInstance );
                         
-            static bool             globalsInit;
+            static bool             globalsInit		INIT_to_false_in_cli;
             static bool				GlobalsInit ();
             static void				GlobalsDispose ();
-            
-			static smsp ( int, PortalInstance )	portals;
-            
+
+			static NLayerMapType ( int, PLATFORMSPACE PortalInstance )	portals	INIT_to_EXP_in_cli ( gcnew (NLayerMapTypeObj ( int, PLATFORMSPACE PortalInstance )) );
+
+			static pthread_mutex_t	portalInstancelock;
+			static pthread_mutex_t	portalsLock;
+
+#ifdef CLI_CPP
+			virtual PLATFORMSPACE PortalInstance ^ GetPlatformObj () = 0;
+#endif
+
             int                     hEnvirons_;
             
             /** An ID that identifies this portal across all available portals. */
@@ -149,14 +187,10 @@ namespace environs
             
 			environs::PortalType_t  portalType_;
             
-            static sp ( PortalInstance ) GetPortal ( int nativeID, int portalID );
-            
-            static sp ( PortalInfoBase ) GetPortalInfo ( int hInst, int portalID );
-            
             /** A DeviceInstance object that this portal relates to. */
-            sp ( DeviceInstance )   device_;
+			sp ( PLATFORMSPACE DeviceInstance )   device_;
 
-			std::vector < IIPortalObserver * >    observers;
+			ENVOBSERVER ( lib::IIPortalObserver, environs::PortalObserver )	observers;
 
 			int                 dialogID;
 			bool                networkOK;
@@ -166,41 +200,42 @@ namespace environs
 			bool                establishCalled;
 			bool                askForTypeValue;
 
-			void			*    surface;
+			void			*   surface;
 			bool                renderActivated;
 
 			int					portalKey;
 
-            static int GetKey ( int nativeID, int portalID_ );
+            static int			GetKey ( int nativeID, int portalID_ );
 
-			bool CreateInstance ( const sp ( DeviceInstance ) &device, int Environs_PORTAL_DIR_, environs::PortalType_t type, int slot );
-			bool Create ( const sp ( DeviceInstance ) &device, int destID );
-			bool Create ( const sp ( DeviceInstance ) &device, int Environs_PORTAL_DIR_, environs::PortalType_t type, int slot );
+			bool				CreateInstance ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
+			bool				Create ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int destID );
+			bool				Create ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
 
-			static void * PortalPresenterThread ( void * pack );
-			static void PresentPortalToObservers ( const sp ( PortalInstance ) &portal, int notification );
+			static void c_OBJ_ptr PortalPresenterThread ( pthread_param_t pack );
+			static void			PresentPortalToObservers ( c_const sp ( PortalInstance ) c_ref portal, int notification );
 
-			static void HandleSuccessfulPortal ( const sp ( PortalInstance ) &portal, int notification );
+			static void			HandleSuccessfulPortal ( c_const sp ( PortalInstance ) c_ref portal, int notification );
             
-			static bool UpdateWidthHeight ( const sp ( PortalInstance ) &portal, void * context );
-            static void UpdateOptions ( NotifyContext * ctx );
+			static bool			UpdateWidthHeight ( c_const sp ( PortalInstance ) c_ref portal, Addr_ptr context );
+            static void			UpdateOptions ( environs::ObserverNotifyContext OBJ_ptr ctx );
             
-            void Update ();
-            static void Update ( int hInst, int nativeID, int notification, int portalID, void * context );
+            void				Update ();
+			static void			Update ( int hInst, environs::ObserverNotifyContext OBJ_ptr ctx );
             
-            bool CheckNetworkConnection ();
-            void ShowDialogOutgoingPortalView ();
-            void ShowDialogNoWiFiWarn ();
-            void ShowDialogOutgoingPortal ();
+            bool				CheckNetworkConnection ();
+            void				ShowDialogOutgoingPortalView ();
+            void				ShowDialogNoWiFiWarn ();
+			bool				ShowDialogOutgoingPortal ();
             
-			void NotifyObservers ( int notification);
-			void Dispose ();
-            static void Dispose ( int nativeID, int portalID );
+			void				NotifyObservers ( int notification);
+			void				DisposeInstance ();
+            static void			Dispose ( int nativeID, int portalID );
 
-            static void * Destroyer ( void * _targets );
-			static void KillZombies ();
+            static void c_OBJ_ptr Destroyer ( pthread_param_t _targets );
+			static void			KillZombies ();
 		};
 	}
+
 }
 
 #endif	/// INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_H

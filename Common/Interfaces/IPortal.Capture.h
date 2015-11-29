@@ -57,7 +57,7 @@ namespace environs
 			squareLength ( 0 ), buffersInitialized ( false ), dataAccessed ( 1 ), data ( 0 ), dataHandle ( 0 ),
             dataSize ( 0 ), dataStride ( 0 ),
 			renderOverlayMutex ( 0 ), renderOverlays ( 0 ),
-			stages ( 0 ), osLevel ( 0 ), hAppWindow ( 0 ), env ( 0 )
+			stages ( 0 ), osLevel ( 0 ), env ( 0 ), hAppWindow ( 0 )
 		{};
 
 		virtual ~IPortalCapture () {};
@@ -110,7 +110,7 @@ namespace environs
 		int										squareLength;
 		bool									buffersInitialized;
 
-		long									dataAccessed;
+		LONGSYNC								dataAccessed;
 		void								*	data;
 		void								*	dataHandle;
 

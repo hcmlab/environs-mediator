@@ -21,7 +21,13 @@
 #ifndef INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
 #define INCLUDE_HCM_ENVIRONS_PORTALINFO_OBJECT_H
 
-#include "Interfaces/IPortal.Info.h"
+#include "Interop.h"
+#include "Interop/Smart.Pointer.h"
+#include "Portal.Info.Base.h"
+
+#ifndef CLI_CPP
+#	include "Interfaces/IPortal.Info.h"
+#endif
 
 
 /* Namespace: environs -> */
@@ -36,7 +42,7 @@ namespace environs
 	*	@remarks	current size is (4 + 4 + 4 + 4 + 4) = 20 bytes
 	* ****************************************************************************************
 	*/
-	class PortalInfo : IPortalInfo
+	PUBLIC_CLASS PortalInfo DERIVE_c_only ( environs::IPortalInfo ) DERIVE_DISPOSEABLE
 	{
         public:
 		PortalInfoBase  base;
@@ -45,13 +51,22 @@ namespace environs
         ENVIRONS_LIB_API ~PortalInfo ( ) {};
         
         int hEnvirons;
-        
+
+#ifdef CLI_CPP
+		property int width { int get () { return base.width; }};
+		property int height { int get () { return base.height; }};
+#endif
+
 #if (defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX))
         void *  portal;
 #else
-        sp ( lib::PortalInstance ) * portal;        
+#ifdef CLI_CPP
+		sp ( PortalInstance ) portal;
+#else
+        sp ( lib::PortalInstance ) OBJ_ptr portal;
 #endif
-        std::string ToString ( );
+#endif
+		ENVIRONS_LIB_API CLI_VIRTUAL STRING_T ToString ( ) CLI_OVERRIDE;
         
         ENVIRONS_LIB_API void NotifyObservers ( int notification );
         
@@ -65,7 +80,7 @@ namespace environs
         ENVIRONS_LIB_API void Set ( int centerX, int centerY, float angle, int width, int height );
         
         
-        ENVIRONS_LIB_API bool Update ( int notification, PortalInfoBase * info ) ;
+        ENVIRONS_LIB_API bool Update ( int notification, PortalInfoBase OBJ_ptr info ) ;
 	};
 
 } /* namepace Environs */

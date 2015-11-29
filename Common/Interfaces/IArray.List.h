@@ -25,49 +25,47 @@
 
 namespace environs
 {
-	namespace lib {
+	/**
+	* ArrayList
+	*
+	*/
+	class ArrayList : public lib::IEnvironsDispose
+	{
+	public:
+		const char * listType;
+
+		/** Constructor */
+		ArrayList () : listType ( "IArrayList" ) { };
+
+		virtual ~ArrayList () { };
+
+
 		/**
-		* IArrayList
+		* Release ownership on this interface and mark it disposeable.
+		* Release must be called once for each Interface that the Environs framework returns to client code.
+		* Environs will dispose the underlying object if no more ownership is hold by anyone.
 		*
 		*/
-        class IArrayList : public IEnvironsDispose
-		{
-		public:
-			const char * listType;
-
-			/** Constructor */
-			IArrayList () : listType ( "IArrayList" ) {};
-
-			virtual ~IArrayList () {};
+		virtual void Release () = 0;
 
 
-			/**
-			* Release ownership on this interface and mark it disposeable.
-			* Release must be called once for each Interface that the Environs framework returns to client code.
-			* Environs will dispose the underlying object if no more ownership is hold by anyone.
-			*
-			*/
-            virtual void Release () = 0;
-            
-            
-            /**
-             * Get the size of the list.
-             *
-             * @return size of the list
-             */
-            virtual size_t size () = 0;
-            
-            
-            /**
-             * Get the item at the given position.
-             *
-             * @param position
-             *
-             * @ return The object at given position
-             */
-            virtual void * item ( size_t pos ) = 0;
-		};
-	}
+		/**
+		* Get the size of the list.
+		*
+		* @return size of the list
+		*/
+		virtual size_t size () = 0;
+
+
+		/**
+		* Get the item at the given position.
+		*
+		* @param position
+		*
+		* @ return The object at given position
+		*/
+		virtual void * item ( size_t pos ) = 0;
+	};
 }
             
 

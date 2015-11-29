@@ -26,45 +26,44 @@
 
 namespace environs
 {
-	namespace lib
-    {
-		/**
-		* IMessageList
-		*
-		*/
-		class IMessageList : public IArrayList
-		{
-		public:
-			/** Constructor */
-			IMessageList () {};
+	/**
+	* MessageList
+	*
+	*/
+	class MessageList : public ArrayList
+	{
+	public:
+		/** Constructor */
+		MessageList () { };
 
-			virtual ~IMessageList () {};
-            
-            
-            /**
-             * Get the item at the given position.
-             *
-             * @param position
-             *
-             * @ return The object at given position
-             */
-            sp ( IMessageInstance ) at ( size_t pos ) {
-                ENVIRONS_I_BUILDSP_LIST ( IMessageInstance, pos );
-            };
-            
-            
-            /**
-             * Get an Interface of the item at the given position.
-             *
-             * @param position
-             *
-             * @ return The object at given position
-             */
-            IMessageInstance * atI ( size_t pos ) {
-                return (IMessageInstance *) item ( pos );
-            };
+		virtual ~MessageList () { };
+
+
+		/**
+		* Get the item at the given position.
+		*
+		* @param position
+		*
+		* @ return The object at given position
+		*/
+		sp ( MessageInstance ) at ( size_t pos )
+		{
+			ENVIRONS_I_BUILDSP_LIST ( MessageInstance, pos );
 		};
-	}
+
+
+		/**
+		* Get an Interface of the item at the given position.
+		*
+		* @param position
+		*
+		* @ return The object at given position
+		*/
+		MessageInstance * atI ( size_t pos )
+		{
+			return ( MessageInstance * ) item ( pos );
+		};
+	};
 }
             
 

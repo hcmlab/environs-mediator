@@ -39,8 +39,8 @@
 #	include "Environs.Native.jni.h"
 
 #	define	EnvironsAndroidNullEnv()			JNIEnv * jenv = 0; jclass jcls = 0;
-#	define EnvironsCallArg(name, ...)			Java_hcm_environs_Environs_##name(jenv, jcls, __VA_ARGS__)
-#	define EnvironsCall(name)					Java_hcm_environs_Environs_##name(jenv, jcls)
+#	define EnvironsCallArg(name, ...)			Java_environs_Environs_##name(jenv, jcls, __VA_ARGS__)
+#	define EnvironsCall(name)					Java_environs_Environs_##name(jenv, jcls)
 
 #	define INIT_PCHAR(szname,ref)				const char * szname = 0; if (ref) szname = jenv->GetStringUTFChars ( ref, NULL );
 #	define RELEASE_PCHAR(szname,ref)			if (ref && szname) jenv->ReleaseStringUTFChars ( ref, szname ); \
@@ -60,13 +60,13 @@
 #	define EnvironsCallArg(name, ...)			name(__VA_ARGS__)
 #	define EnvironsCall(name)					name()
 
-#	define INIT_PCHAR(szname,ref)				const char * szname = ref;
+#	define INIT_PCHAR(szname,ref)				const char * szname = (const char *) ref;
 #	define RELEASE_PCHAR(szname,ref)			szname = NULL;
 
-#	define INIT_BYTEARR(name,ref)				char * name = ref;
+#	define INIT_BYTEARR(name,ref)				char * name = (char *) ref;
 #	define RELEASE_BYTEARR(name,ref,mode)		name = NULL;
 
-#	define INIT_VOIDARR(name,ref)				void * name = ref;
+#	define INIT_VOIDARR(name,ref)				void * name = (void *) ref;
 #	define RELEASE_VOIDARR(name,ref,mode)		name = NULL;				
 
 #endif // ANDROID - include only the jni-exports

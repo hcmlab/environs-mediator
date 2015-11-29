@@ -21,11 +21,19 @@
 #ifndef INCLUDE_HCM_ENVIRONS_DEVICELISTS_H
 #define INCLUDE_HCM_ENVIRONS_DEVICELISTS_H
 
+#include "Environs.Observer.CLI.h"
 #include "Interop/Threads.h"
 #include "Interop/Smart.Pointer.h"
-#include "Interfaces/IDevice.List.h"
+#include "Interfaces/IEnvirons.Dispose.h"
 #include "Notify.Context.h"
 #include "Environs.Msg.Types.h"
+
+#ifdef CLI_CPP
+#	include <cliext/queue>
+	using namespace cliext;
+#else
+#	include "Interfaces/IDevice.List.h"
+#endif
 
 /**
  *	DeviceLists
@@ -37,61 +45,64 @@
  */
 namespace environs
 {
-    class Instance;
-    
-    
-    namespace lib
-    {
-        class Environs;
-		class DeviceInstance;
-        class DeviceCommandContext;
-        
 
-		class DeviceList : public IDeviceList
-        {
-            friend class Environs;
-            
-            friend class DeviceListProxy;
-            
+	namespace lib
+	{
+		CLASS Environs;
+		CLASS DeviceInstance;
+		CLASS DeviceCommandContext;
+
+
+		PUBLIC_CLASS DeviceList DERIVE_c_only ( environs::DeviceList ) DERIVE_DISPOSEABLE
+		{
+        
+            MAKE_FRIEND_CLASS ( Environs );
+            MAKE_FRIEND_CLASS ( DeviceListProxy );
+
         public:
 			ENVIRONS_LIB_API DeviceList ();
 			ENVIRONS_LIB_API ~DeviceList ();
-            
-            static bool				GlobalsInit ();
-            static void				GlobalsDispose ();
-            
-			ENVIRONS_LIB_API bool	disposed ();
-            
-			ENVIRONS_LIB_API void	SetListType ( int MEDIATOR_DEVICE_CLASS_ );
-            
-            sp ( DeviceInstance )	GetItemSP ( int position );
-            
-			ENVIRONS_LIB_API IDeviceInstance * GetItemRetainedI ( int position );
-            
-			ENVIRONS_LIB_API int	GetCount ();
-            
-			ENVIRONS_LIB_API void	AddObserver ( ListObserver * observer );
-			ENVIRONS_LIB_API void	RemoveObserver ( ListObserver * observer );
-            
-            sp ( DeviceInstance )   RefreshItemSP ( DeviceInstance * source, DeviceObserver * observer );
-            
-			ENVIRONS_LIB_API IDeviceInstance *       RefreshItemRetainedI ( IDeviceInstance * source, DeviceObserver * observer );
 
+			static bool				GlobalsInit ();
+			static void				GlobalsDispose ();
+
+			ENVIRONS_LIB_API bool	disposed ();
+
+			ENVIRONS_LIB_API void	SetListType ( int MEDIATOR_DEVICE_CLASS_ );
+
+			sp ( PLATFORMSPACE DeviceInstance )	GetItem ( int position );
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance * GetItemRetained ( int position );
+#endif
+
+			ENVIRONS_LIB_API int	GetCount ();
+
+			ENVIRONS_LIB_API void	AddObserver ( environs::ListObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void	RemoveObserver ( environs::ListObserver OBJ_ptr observer );
+
+			sp ( PLATFORMSPACE DeviceInstance )   RefreshItem ( PLATFORMSPACE DeviceInstance OBJ_ptr source, DeviceObserver OBJ_ptr observer );
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr RefreshItemRetained ( environs::DeviceInstance OBJ_ptr source, environs::DeviceObserver OBJ_ptr observer );
+#endif
 			/**
 			* Get a collection that holds the devices according to the specified listtype. This list ist updated dynamically by Environs.
 			*
 			* @return Collection with DeviceInstance objects
 			*/
-			const svsp ( DeviceInstance ) & GetDevicesSP ();
+			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevices ();
 
-			ENVIRONS_LIB_API IArrayList * GetDevicesRetainedI ();
-            
-            
-            /**
-             * Query the number of the devices according to the specified listtype within the environment.
-             *
-             * @return numberOfDevices
-             */
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::ArrayList * GetDevicesRetained ();
+#endif
+
+
+			/**
+			 * Query the number of the devices according to the specified listtype within the environment.
+			 *
+			 * @return numberOfDevices
+			 */
 			ENVIRONS_LIB_API int GetDevicesCount ();
 
 
@@ -103,20 +114,24 @@ namespace environs
 			* @param appName		Application name of the application environment
 			* @return DeviceInstance-object
 			*/
-			sp ( DeviceInstance ) GetDeviceSP ( int deviceID, const char * areaName, const char * appName, int * pos );
+			sp ( PLATFORMSPACE DeviceInstance ) GetDevice ( int deviceID, CString_ptr areaName, CString_ptr appName, int * pos );
 
-			ENVIRONS_LIB_API IDeviceInstance * GetDeviceRetainedI ( int deviceID, const char * areaName, const char * appName, int * pos );
-            
-            
-            /**
-             * Query a DeviceInstance object from the devices according to the specified listtype devices within the environment.
-             *
-             * @param nativeID      The device id of the target device.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceSP ( int nativeID );
-            
-			ENVIRONS_LIB_API IDeviceInstance * GetDeviceRetainedI ( int nativeID );
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceRetained ( int deviceID, const char * areaName, const char * appName, int * pos );
+#endif
+
+
+			/**
+			 * Query a DeviceInstance object from the devices according to the specified listtype devices within the environment.
+			 *
+			 * @param nativeID      The device id of the target device.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDevice ( int nativeID );
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceRetained ( int nativeID );
+#endif
 
 
 			/**
@@ -125,110 +140,122 @@ namespace environs
 			* @param nativeID      The device id of the target device.
 			* @return DeviceInstance-object
 			*/
-            sp ( DeviceInstance ) GetDeviceAllSP ( int nativeID );
-            
-            
-            /**
-             * Query a DeviceInstance object that best match the deviceID only.
-             * Usually the one that is in the same app environment is picked up.
-             * If there is no matching in the app environment,
-             * then the areas are searched for a matchint deviceID.
-             *
-             * @param deviceID      The portalID that identifies an active portal.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceBestMatchSP ( int deviceID );
-            
-			ENVIRONS_LIB_API IDeviceInstance * GetDeviceBestMatchRetainedI ( int deviceID );
-            
-            
-            /**
-             * Query a DeviceInstance object that best match the deviceID only from native layer.
-             * Usually the one that is in the same app environment is picked up.
-             * If there is no matching in the app environment,
-             * then the areas are searched for a matchint deviceID.
-             *
-             * @param deviceID      The portalID that identifies an active portal.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceBestMatchNativeSP ( int deviceID );
-            
-			ENVIRONS_LIB_API IDeviceInstance * GetDeviceBestMatchNativeRetainedI ( int deviceID );
-            
-            
-            /**
-             * Get a collection that holds the nearby devices. This list ist updated dynamically by Environs.
-             *
-             * @return ArrayList with DeviceInstance objects
-             */
-            svsp ( DeviceInstance ) GetDevicesNearbySP ();
-            
-			ENVIRONS_LIB_API IArrayList * GetDevicesNearbyRetainedI ();
-            
-            
-            /**
-             * Query the number of nearby (broadcast visible) devices within the environment.
-             *
-             * @return numberOfDevices
-             */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeID );
+
+
+			/**
+			 * Query a DeviceInstance object that best match the deviceID only.
+			 * Usually the one that is in the same app environment is picked up.
+			 * If there is no matching in the app environment,
+			 * then the areas are searched for a matchint deviceID.
+			 *
+			 * @param deviceID      The portalID that identifies an active portal.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceBestMatch ( int deviceID );
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceBestMatchRetained ( int deviceID );
+#endif
+
+
+			/**
+			 * Query a DeviceInstance object that best match the deviceID only from native layer.
+			 * Usually the one that is in the same app environment is picked up.
+			 * If there is no matching in the app environment,
+			 * then the areas are searched for a matchint deviceID.
+			 *
+			 * @param deviceID      The portalID that identifies an active portal.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceBestMatchNative ( int deviceID );
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceBestMatchNativeRetained ( int deviceID );
+#endif
+
+
+			/**
+			 * Get a collection that holds the nearby devices. This list ist updated dynamically by Environs.
+			 *
+			 * @return ArrayList with DeviceInstance objects
+			 */
+			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesNearby ();
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::ArrayList * GetDevicesNearbyRetained ();
+#endif
+
+
+			/**
+			 * Query the number of nearby (broadcast visible) devices within the environment.
+			 *
+			 * @return numberOfDevices
+			 */
 			ENVIRONS_LIB_API int GetDevicesNearbyCount ();
-            
-            
-            /**
-             * Query a DeviceInstance object of nearby (broadcast visible) devices within the environment.
-             *
-             * @param nativeID      The device id of the target device.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceNearbySP ( int nativeID );
-            
-			ENVIRONS_LIB_API IDeviceInstance * GetDeviceNearbyRetainedI ( int nativeID );
-            
-            
-            /**
-             * Release the ArrayList that holds the nearby devices.
-             */
+
+
+			/**
+			 * Query a DeviceInstance object of nearby (broadcast visible) devices within the environment.
+			 *
+			 * @param nativeID      The device id of the target device.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceNearby ( int nativeID );
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceNearbyRetained ( int nativeID );
+#endif
+
+
+			/**
+			 * Release the ArrayList that holds the nearby devices.
+			 */
 			ENVIRONS_LIB_API void ReleaseDevicesNearby ();
-            
-            
-            /**
-             * Get a collection that holds the Mediator server devices. This list ist updated dynamically by Environs.
-             *
-             * @return ArrayList with DeviceInstance objects
-             */
-            svsp ( DeviceInstance ) GetDevicesFromMediatorSP ();
-            
-			ENVIRONS_LIB_API IArrayList * GetDevicesFromMediatorRetainedI ();
-            
-            
-            /**
-             * Query a DeviceInstance object of Mediator managed devices within the environment.
-             *
-             * @param nativeID      The device id of the target device.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceFromMediatorSP ( int nativeID );
-            
-			ENVIRONS_LIB_API IDeviceInstance * GetDeviceFromMediatorRetainedI ( int nativeID );
-            
-            
-            /**
-             * Query the number of Mediator managed devices within the environment.
-             *
-             * @return numberOfDevices
-             */
+
+
+			/**
+			 * Get a collection that holds the Mediator server devices. This list ist updated dynamically by Environs.
+			 *
+			 * @return ArrayList with DeviceInstance objects
+			 */
+			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesFromMediator ();
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::ArrayList * GetDevicesFromMediatorRetained ();
+#endif
+
+
+			/**
+			 * Query a DeviceInstance object of Mediator managed devices within the environment.
+			 *
+			 * @param nativeID      The device id of the target device.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceFromMediator ( int nativeID );
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceFromMediatorRetained ( int nativeID );
+#endif
+
+
+			/**
+			 * Query the number of Mediator managed devices within the environment.
+			 *
+			 * @return numberOfDevices
+			 */
 			ENVIRONS_LIB_API int GetDevicesFromMediatorCount ();
-            
-            /**
-             * Release the ArrayList that holds the Mediator server devices.
-             */
+
+			/**
+			 * Release the ArrayList that holds the Mediator server devices.
+			 */
 			ENVIRONS_LIB_API void ReleaseDevicesMediator ();
-            
-            /**
-             * Refresh all device lists. Applications may call this if they manually stopped and started Environs again.
-             * Environs does not automatically refresh the device lists so as to allow applications to add observers before refreshing of the lists.
-             */
-			ENVIRONS_LIB_API void RefreshDeviceLists ();            
+
+			/**
+			 * Refresh all device lists. Applications may call this if they manually stopped and started Environs again.
+			 * Environs does not automatically refresh the device lists so as to allow applications to add observers before refreshing of the lists.
+			 */
+			ENVIRONS_LIB_API void RefreshDeviceLists ();
 
 
 			/**
@@ -236,85 +263,93 @@ namespace environs
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
-             */
-            ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
+			 */
+			ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
 
-		private:
+		INTERNAL:
+
 			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( DeviceList );
-			
-            int                             hEnvirons;
-            Instance                    *   env;
-            Environs                    *   envObj;
 
-            static bool                     globalsInit;
-            bool                            disposed_;
-            int                             listType;
-            
-            pthread_mutex_t     *           listDevicesLock;
-            svsp ( DeviceInstance )         listDevices;
-			spv ( IIListObserver * )        listDevicesObservers;
-            
-            
-            void                            PlatformDispose ();
-            
-            const svsp ( DeviceInstance ) & GetDevices ( int type );
-            
-            static sp ( DeviceInstance ) GetDeviceSP ( const svsp ( DeviceInstance ) &deviceList, int deviceID, const char * areaName, const char * appName, int * pos );
-            
-            static sp ( DeviceInstance ) GetDeviceSP ( const svsp ( DeviceInstance ) &deviceList, int nativeID, int * pos );
-            
-            sp ( DeviceInstance ) GetDeviceSP ( int nativeOrDeviceID, bool isNativeID );
+			int                             hEnvirons;
 
-            sp ( DeviceInstance ) GetDeviceAllSP ( int nativeOrDeviceID, bool isNativeID );
+#ifndef CLI_CPP
+			Instance           *			env;
+#endif
+			environs::lib::Environs OBJ_ptr envObj;
 
-            static sp ( DeviceInstance ) GetDeviceSeekerSP ( const svsp ( DeviceInstance ) &list, pthread_mutex_t * lock, int nativeOrDeviceID, bool isNativeID );
-            
-            
-            /**
-             * Release the ArrayList that holds the available devices.
-             */
-            void ReleaseDevices ();
-            
-            void DisposeLists ();
-            
-            static void DisposeList ( const svsp ( DeviceInstance ) &list );
-            
-            static void DeviceListUpdater ( Environs * api, int listType );
-            
-            
-            static void * DeviceListCommandThread ( void * pack );
-            
-            
-            static void OnDeviceListNotification ( int hInst, int deviceID, const char * areaName, const char * appName, int notification, void * context );
-            
-            static sp ( DeviceInstance ) RemoveDevice ( const svsp ( DeviceInstance ) &list, pthread_mutex_t &lock, void * pack );
-            
-            static void RemoveDevice ( void * pack );
-            
-            static void UpdateDevice ( void * pack );
-            
-            static void InsertDevice ( int hInst, const svsp ( DeviceInstance ) &deviceList, pthread_mutex_t &listLock, const sp ( DeviceInstance ) &deviceNew,
-				const spv ( IIListObserver * ) &observerList );
-            
-            static void EnqueueCommand ( DeviceCommandContext * ctx );
-            
-			static void NotifyListObservers ( int hInst, const spv ( IIListObserver * ) &observerList, svsp ( DeviceInstance ) vanished, svsp ( DeviceInstance ) appeared, bool enqueue );
-            
-            
-            
-            static void TakeOverToList ( Environs * api, const svsp ( DeviceInstance ) &list, bool getMediator );
-            
-            
-            static void UpdateConnectProgress ( pthread_mutex_t * lock, const svsp ( DeviceInstance ) &list, int nativeID, int progress );
-            
-            static void UpdateMessage ( pthread_mutex_t * lock, const svsp ( DeviceInstance ) &list, ObserverMessageContext * ctx );
-            
-            static void UpdateData ( pthread_mutex_t * lock, const svsp ( DeviceInstance ) &list, ObserverDataContext * ctx );
-            
-            static void UpdateSensorData ( pthread_mutex_t * lock, const svsp ( DeviceInstance ) &list, int nativeID, environs::SensorFrame * pack );
-            
-        };
-    }
+			static bool                     globalsInit INIT_to_false_in_cli;
+			bool                            disposed_;
+			int                             listType;
+
+			pthread_mutex_t     OBJ_ptr		listDevicesLock;
+
+			devList ( PLATFORMSPACE DeviceInstance )      listDevices;
+
+#ifndef CLI_CPP
+			spv ( lib::IIListObserver * )   listDevicesObservers;
+#endif            
+
+			//void                            PlatformDispose ();
+
+			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevices ( int type );
+
+			static sp(PLATFORMSPACE DeviceInstance) GetDevice(c_const devList(PLATFORMSPACE DeviceInstance) c_ref deviceList, pthread_mutex_t OBJ_ptr lock, int deviceID, CString_ptr areaName, CString_ptr appName, int * pos);
+
+			static sp(PLATFORMSPACE DeviceInstance) GetDevice(c_const devList(PLATFORMSPACE DeviceInstance) c_ref deviceList, pthread_mutex_t OBJ_ptr lock, int nativeID, int * pos);
+
+			sp ( PLATFORMSPACE DeviceInstance ) GetDevice ( int nativeOrDeviceID, bool isNativeID );
+
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeOrDeviceID, bool isNativeID );
+
+			static sp ( PLATFORMSPACE DeviceInstance ) GetDeviceSeeker ( c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, pthread_mutex_t OBJ_ptr lock, int nativeOrDeviceID, bool isNativeID );
+
+
+			/**
+			 * Release the ArrayList that holds the available devices.
+			 */
+			void ReleaseDevices ();
+
+			void DisposeLists ();
+
+			static void DisposeList ( c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list );
+
+			static void DeviceListUpdater ( environs::lib::Environs OBJ_ptr api, int listType );
+
+
+			static void c_OBJ_ptr DeviceListCommandThread ( pthread_param_t pack );
+
+
+			static void OnDeviceListNotification ( int hInst, environs::ObserverNotifyContext OBJ_ptr ctx );
+
+			static sp ( PLATFORMSPACE DeviceInstance ) RemoveDevice ( c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, pthread_mutex_t OBJ_ptr lock, DeviceCommandContext OBJ_ptr pack );
+
+			static void RemoveDevice ( DeviceCommandContext OBJ_ptr pack );
+
+			static void UpdateDevice ( DeviceCommandContext OBJ_ptr pack );
+
+			static void InsertDevice ( int hInst, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref deviceList, pthread_mutex_t OBJ_ptr listLock,
+				c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref deviceNew,
+				c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList );
+
+			static void EnqueueCommand ( DeviceCommandContext OBJ_ptr ctx );
+
+			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList, NLayerVecType ( PLATFORMSPACE DeviceInstance ) vanished, NLayerVecType ( PLATFORMSPACE DeviceInstance ) appeared, bool enqueue );
+
+
+
+			static void TakeOverToList ( environs::lib::Environs OBJ_ptr api, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, bool getMediator );
+
+
+			static void UpdateConnectProgress ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, int nativeID, int progress );
+
+			static void UpdateMessage ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, environs::ObserverMessageContext OBJ_ptr ctx );
+
+			static void UpdateData ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, environs::ObserverDataContext OBJ_ptr ctx );
+
+			static void UpdateSensorData ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, int nativeID, environs::SensorFrame OBJ_ptr pack );
+
+		};
+	}
 }
 
 

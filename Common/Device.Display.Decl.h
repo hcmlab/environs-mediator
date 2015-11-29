@@ -27,10 +27,25 @@
 
 namespace environs
 {
-#endif
+#endif    
+    
+#ifdef CLI_CPP
 
-    
-    
+	public value struct DeviceDisplay
+	{
+		int		nativeID;
+		int     width;
+		int     height;
+		int     width_mm;
+		int     height_mm;
+
+		// environs::DISPLAY_ORIENTATION_* - 0 = landscape, 1 = portrait
+		int     orientation;
+		float   dpi;
+	};
+
+#else
+
 	typedef struct _DeviceDisplay
 	{
 		int     width;
@@ -43,7 +58,8 @@ namespace environs
 		float   dpi;
 	}
     DeviceDisplay;
-    
+
+#endif
     
     
 #ifdef __cplusplus

@@ -27,6 +27,7 @@
 
 #include "Interop/Export.h"
 #include "Environs.Native.h"
+#include "Environs.Release.h"
 #include "Interfaces/Interface.Exports.h"
 
 #if (!defined(MEDIATORDAEMON))
@@ -43,7 +44,7 @@ using namespace environs;
 #define CLASS_NAME	"Export . . . . . . . . ."
 
 
-HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID, Instance * obj )
+HLIB LocateLoadEnvModule ( COBSTR module, int deviceID, Instance * obj )
 {
 	CVerbID ( "LocateLoadModule" );
     
@@ -58,7 +59,7 @@ HMODULE LocateLoadEnvModule ( COBSTR module, int deviceID, Instance * obj )
 
 	sprintf ( absPath, "%s" LIBEXTENSION, module );
 	
-	HMODULE hModLib = dlopen ( module, RTLD_LAZY );
+	HLIB hModLib = dlopen ( module, RTLD_LAZY );
 	if ( !hModLib )
 	{
 		CVerbVerbArgID ( "LocateLoadModule: [%s] not found in system search path.", absPath );

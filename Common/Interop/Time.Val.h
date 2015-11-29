@@ -18,36 +18,33 @@
  * --------------------------------------------------------------------
  */
 #pragma once
-#ifndef INCLUDE_HCM_ENVIRONS_INTEROP_STAT_H
-#define INCLUDE_HCM_ENVIRONS_INTEROP_STAT_H
+#ifndef INCLUDE_HCM_ENVIRONS_INTEROP_TIMEVAL_H
+#define INCLUDE_HCM_ENVIRONS_INTEROP_TIMEVAL_H
 
+//#ifndef INCLINEFUNC
+//#	define INCLINEFUNC						inline 
+//#endif
 
-#ifdef _WIN32
-#include <sys/stat.h>
-#define stat(a,b)			_stat(a,b)
-#define STAT_STRUCT(a)		struct _stat a;
+#if ( defined(_WIN32) )
 
-#include <direct.h>
-#define mkdir(dir,mode)		_mkdir(dir)
-#define unlink(filepath)	_unlink(filepath)
+#	define INTEROPTIMEVAL           		unsigned long long
+#	define INTEROPTIMEMS(ms)           		(ms)
 
-#else /// _WIN32
-
-#include <unistd.h>
-#include <sys/stat.h>
-
-#ifdef ANDROID
-//#include <stl/config/_android.h>
-#endif /// end->ANDROID
-
-#define STAT_STRUCT(a)		struct stat a;
-
-#endif /// end->_WIN32
-
-#if (!defined(_POSIX_SOURCE) && !defined(_WIN32))
-#define unixEpoch(a)		a.st_mtimespec.tv_sec
+#elif CLI_CPP
+#	define INTEROPTIMEVAL           		DWORD
+#	define INTEROPTIMEMS(ms)           		(ms)
 #else
-#define unixEpoch(a)		a.st_mtime
+#	if defined(ANDROID) || !defined(__APPLE__)
+#		define INTEROPTIMEMS(ms)           	(ms * 1000)
+#	else
+#		define INTEROPTIMEMS(ms)           	(ms)
+#	endif
+
+#	if defined(ANDROID) || defined(__APPLE__)
+#		define INTEROPTIMEVAL           	uint64_t
+#	else
+#		define INTEROPTIMEVAL           	unsigned long long
+#	endif
 #endif
 
 #endif /// INCLUDE_HCM_ENVIRONS_INTEROP_STAT_H

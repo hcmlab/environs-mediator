@@ -28,7 +28,12 @@
 #endif
 
 #include "Environs.h"
+#include "Environs.Release.h"
 #include "Environs.Native.h"
+
+#ifdef __APPLE__
+#include <dlfcn.h>
+#endif
 
 #include <string>
 
@@ -43,10 +48,19 @@ using namespace environs::lib;
 #define CLASS_NAME	"Environs.Loader. . . . ."
 
 
+void ShowLibMissingDialog ( const char * libName );
+
+
 namespace environs
 {
-	namespace lib
+
+	void EnvironsDisposer ( IEnvironsDispose * obj )
 	{
+		if ( obj ) ( ( IEnvironsDispose * ) obj )->Release ();
+	}
+
+	namespace lib
+	{        
 		/// C function implemented in the loader (statically build into each app)
 		/*sp ( IEnvirons ) ENVIRONS_CreateInstance ()
 		{
@@ -62,181 +76,279 @@ namespace environs
 			return ENVIRONS_CreateInstance1 ( ENVIRONS_BUILD_CRT );
 		}
 		*/
+	}
 
 
-		void EnvironsDisposer ( IEnvironsDispose * obj )
-        {
-			if ( obj ) ((IEnvironsDispose *)obj)->Release ();
+	namespace Loader
+	{
+		/// Forward declarations
+		environs::Environs * LocateLoadEnvirons ( COBSTR module, int crt );
+
+		HMODULE		g_EnvironsModuleHandle	= 0;
+
+
+		/**
+		* Create an Environs object.
+		*
+		* @return   An Environs object wrapped into a smart pointer.
+		*/
+		sp ( environs::Environs ) ENVIRONS_CreateInstance ()
+		{
+			sp ( environs::Environs ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ) );
+			return obj;
 		}
 
-        
-		namespace Loader
+
+		/**
+		* Create an Environs object.
+		*
+		* @param 	appName		The application name for the application environment.
+		* @param  	areaName	The area name for the application environment.
+		*
+		* @return   An Environs object wrapped into a smart pointer.
+		*/
+		sp ( environs::Environs ) ENVIRONS_CreateInstance ( const char * appName, const char * areaName )
 		{
-			/// Forward declarations
-			IEnvirons * LocateLoadEnvirons ( COBSTR module, int crt );
+			sp ( environs::Environs ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ) );
+			if ( obj )
+				obj->LoadSettings ( appName, areaName );
+			return obj;
+		}
 
-			HMODULE		g_EnvironsModuleHandle	= 0;
 
-            
-            /**
-             * Create an Environs object.
-             *
-             * @return   An Environs object wrapped into a smart pointer.
-             */
-			sp ( IEnvirons ) ENVIRONS_CreateInstance ()
+		/**
+		* Create an Environs object.
+		*
+		* @return   An Environs object interface.
+		*/
+		environs::Environs * ENVIRONS_CreateInstanceObject ()
+		{
+			/// Load Environs.dll and create an instance
+			return LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT );
+		}
+
+
+		/**
+		* Create an Environs object.
+		*
+		* @param 	appName		The application name for the application environment.
+		* @param  	areaName	The area name for the application environment.
+		*
+		* @return   An Environs object interface.
+		*/
+		environs::Environs * ENVIRONS_CreateInstanceObject ( const char * appName, const char * areaName )
+		{
+			/// Load Environs.dll and create an instance
+			environs::Environs * env = LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT );
+			if ( env )
+				env->LoadSettings ( appName, areaName );
+			return env;
+		}
+
+
+		environs::Environs * LocateLoadEnvirons ( COBSTR module, int crt )
+		{
+			CVerbN ( "LocateLoadEnvirons" );
+
+			char absPath [ 1024 ];
+
+			HMODULE hModLib = g_EnvironsModuleHandle;
+			if ( !hModLib )
 			{
-				sp ( IEnvirons ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ) );
-				return obj;
-			}
+				sprintf ( absPath, ENVLIBPREFIX "%s" LIBEXTENSION, module );
 
-            
-            /**
-             * Create an Environs object.
-             *
-             * @param 	appName		The application name for the application environment.
-             * @param  	areaName	The area name for the application environment.
-             *
-             * @return   An Environs object wrapped into a smart pointer.
-             */
-			sp ( IEnvirons ) ENVIRONS_CreateInstance ( const char * appName, const char * areaName )
-			{
-				sp ( IEnvirons ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ) );
-				if ( obj )
-					obj->LoadSettings ( appName, areaName );
-				return obj;
-			}
-
-            
-            /**
-             * Create an Environs object.
-             *
-             * @return   An Environs object interface.
-             */
-			IEnvirons * ENVIRONS_CreateInstanceObject ()
-			{
-				/// Load Environs.dll and create an instance
-				return LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT );
-			}
-
-            
-            /**
-             * Create an Environs object.
-             *
-             * @param 	appName		The application name for the application environment.
-             * @param  	areaName	The area name for the application environment.
-             *
-             * @return   An Environs object interface.
-             */
-			IEnvirons * ENVIRONS_CreateInstanceObject ( const char * appName, const char * areaName )
-			{
-				/// Load Environs.dll and create an instance
-				IEnvirons * env = LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT );
-				if ( env )
-					env->LoadSettings ( appName, areaName );
-				return env;
-			}
-
-
-			IEnvirons * LocateLoadEnvirons ( COBSTR module, int crt )
-			{
-				CVerbN ( "LocateLoadEnvirons" );
-				
-				char absPath [1024];
-
-				HMODULE hModLib = g_EnvironsModuleHandle;
+				hModLib = dlopen ( module, RTLD_LAZY );
 				if ( !hModLib )
 				{
-					sprintf ( absPath, ENVLIBPREFIX "%s" LIBEXTENSION, module );
+					CVerbVerbN ( "LocateLoadEnvirons: Not found in system search path." );
 
-					hModLib = dlopen ( module, RTLD_LAZY );
-					if ( !hModLib )
+					do
 					{
-						CVerbVerbN ( "LocateLoadEnvirons: Not found in system search path." );
+						sprintf ( absPath, "./" ENVLIBPREFIX "%s" LIBEXTENSION, module );
 
-						do
-						{
-							sprintf ( absPath, "./" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+						hModLib = dlopen ( absPath, RTLD_LAZY );
+						if ( hModLib )
+							break;
+						CVerbVerbN ( "LocateLoadEnvirons: Not found in system search path [./]." );
 
-							hModLib = dlopen ( absPath, RTLD_LAZY );
-							if ( hModLib )
-								break;
-							CVerbVerbN ( "LocateLoadEnvirons: Not found in system search path [./]." );
+						sprintf ( absPath, "./" LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
 
-							sprintf ( absPath, "./" LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+						hModLib = dlopen ( absPath, RTLD_LAZY );
+						if ( hModLib )
+							break;
+#ifdef __APPLE__
+						Dl_info info;
+						if ( dladdr ( &g_EnvironsModuleHandle, &info ) ) {
+							if ( info.dli_fname )
+							{
+								int length =  ( int ) strlen ( info.dli_fname );
+								length -= 2;
 
-							hModLib = dlopen ( absPath, RTLD_LAZY );
-							if ( hModLib )
-								break;
-#ifdef _WIN32
-							sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
+								while ( length > 0 ) {
+									if ( info.dli_fname [ length ] == '/' )
+										break;
+									length--;
+								}
 
-							hModLib = dlopen ( absPath, RTLD_LAZY );
-							if ( hModLib )
-								break;
-							CVerbVerbN ( "LocateLoadEnvirons: Not found in toolset search path [" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
+								if ( length > 0 ) {
+									sprintf ( absPath, "%s", info.dli_fname );
 
-							if ( !_getcwd ( absPath, 1024 ) )
-								break;
+									sprintf ( absPath + length + 1, "../../../" ENVLIBPREFIX "%s" LIBEXTENSION, module );
 
-							int pos = (int)strlen ( absPath );
-							if ( pos <= 0 )
-								break;
+									CLogArgN ( "LocateLoadEnvirons: [%s]", absPath );
 
-							sprintf ( absPath + pos, "/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
-
-							CVerbN ( "LocateLoadEnvirons: Trying [/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
-
-							hModLib = dlopen ( absPath, RTLD_LAZY );
-							if ( hModLib )
-								break;
-							CVerbVerbN ( "LocateLoadEnvirons: Not found in toolset working directory path." );
-#else
-							sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
-
-							hModLib = dlopen ( absPath, RTLD_LAZY );
-							if ( hModLib )
-								break;
-#endif
-							if ( !hModLib ) {
-#ifdef _WIN32
-								CLogN ( "LocateLoadEnvirons: Not found." );
-#else
-								CLogArgN ( "LocateLoadEnvirons: [%s]", dlerror () );
-#endif
+									hModLib = dlopen ( absPath, RTLD_LAZY );
+									if ( hModLib )
+										break;
+								}
 							}
-						} 
-						while ( 0 );
+						}
+
+						CVerbVerbN ( "LocateLoadEnvirons: Not found in root folder of app [./../]" );
+
+						sprintf ( absPath, "./../../../" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+
+						hModLib = dlopen ( absPath, RTLD_LAZY );
+						if ( hModLib )
+							break;
+						CVerbVerbN ( "LocateLoadEnvirons: Not found in root folder of app [./../../../.]" );
+#endif
+
+#ifdef _WIN32
+
+#   ifdef TEST_DIFFERENT_CRT
+#   undef ENVIRONS_TSDIR
+#   define ENVIRONS_TSDIR TEST_DIFFERENT_CRT
+#   endif
+                        
+						sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
+
+						hModLib = dlopen ( absPath, RTLD_LAZY );
+						if ( hModLib )
+							break;
+						CVerbVerbN ( "LocateLoadEnvirons: Not found in toolset search path [" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
+
+						if ( !_getcwd ( absPath, 1024 ) )
+							break;
+
+						int pos = ( int ) strlen ( absPath );
+						if ( pos <= 0 )
+							break;
+
+						sprintf ( absPath + pos, "/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
+
+						CVerbN ( "LocateLoadEnvirons: Trying [/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
+
+						hModLib = dlopen ( absPath, RTLD_LAZY );
+						if ( hModLib )
+							break;
+						CVerbVerbN ( "LocateLoadEnvirons: Not found in toolset working directory path." );
+#else
+						sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+
+						hModLib = dlopen ( absPath, RTLD_LAZY );
+						if ( hModLib )
+							break;
+#endif
+						if ( !hModLib ) {
+#ifdef _WIN32
+							CLogN ( "LocateLoadEnvirons: Not found." );
+#else
+							CLogArgN ( "LocateLoadEnvirons: [%s]", dlerror () );
+#endif
+						}
 					}
+					while ( 0 );
 				}
+			}
 
-				if ( !hModLib ) {
-					CErrN ( "LocateLoadEnvirons: Cannot find Environs library." );
-					return 0;
-				}
+			if ( !hModLib ) {
+				CErrN ( "LocateLoadEnvirons: Cannot find Environs library." );
 
-				ENVIRONS_PP ( ENVIRONS_CreateInstance1 ) pCreate = 0;
-
-				pCreate = (ENVIRONS_PP ( ENVIRONS_CreateInstance1 ))
-					dlsym ( hModLib, ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) );
-
-				if ( pCreate ) {
-					g_EnvironsModuleHandle = hModLib;
-
-					CVerbN ( "LocateLoadEnvirons: Creating Instance." );
-
-					return (IEnvirons *) pCreate ( ENVIRONS_BUILD_CRT );
-				}
-					
-				CErrN ( "LocateLoadEnvirons: Cannot find " ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) " in Environs library." );
-
-				dlclose ( hModLib );
-
-				g_EnvironsModuleHandle = 0;
+				ShowLibMissingDialog ( module );
 				return 0;
 			}
+
+			ENVIRONS_PP ( ENVIRONS_CreateInstance1 ) pCreate = 0;
+
+			pCreate = ( ENVIRONS_PP ( ENVIRONS_CreateInstance1 ) )
+				dlsym ( hModLib, ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) );
+
+			if ( pCreate ) {
+				g_EnvironsModuleHandle = hModLib;
+
+				CVerbN ( "LocateLoadEnvirons: Creating Instance." );
+
+				return ( environs::Environs * ) pCreate ( ENVIRONS_BUILD_CRT );
+			}
+
+			CErrN ( "LocateLoadEnvirons: Cannot find " ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) " in Environs library." );
+
+			dlclose ( hModLib );
+
+			g_EnvironsModuleHandle = 0;
+			return 0;
 		}
 	}
 }
+
+
+#ifdef __OBJC__
+
+#import <Foundation/Foundation.h>
+
+
+void ShowLibMissingDialog ( const char * libName )
+{
+    NSString * msg = [NSString stringWithFormat:@ENVLIBPREFIX "%s" LIBEXTENSION " is missing!", libName];
+    
+    NSAlert *alert = [[NSAlert alloc] init];
+    [alert addButtonWithTitle:@"OK"];
+    [alert setMessageText:msg];
+    [alert setAlertStyle:NSWarningAlertStyle];
+    
+    [alert runModal];
+}
+
+#else
+
+#   ifdef _WIN32
+
+void ShowLibMissingDialog ( const char * libName )
+{
+	MessageBoxA ( NULL, ENVLIBPREFIX "Environs" LIBEXTENSION " is missing!", NULL, NULL );
+}
+
+#   else
+
+void ShowLibMissingDialog ( const char * libName )
+{
+}
+
+#   endif
+
+#endif
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

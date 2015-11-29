@@ -23,6 +23,8 @@
 #define INCLUDE_HCM_ENVIRONS_OBSERVERS_IOSX_H
 
 #import <Foundation/Foundation.h>
+#include "Notify.Context.h"
+
 
 /**
  * EnvironsObserver: Attachable to **Environs** objects in order to receive all notifications that the Environs instance processes or submits to the platform layer.
@@ -41,12 +43,9 @@
  * The notification parameter is an integer value which represents one of the values as listed in Types.*
  * The string representation can be retrieved through TypesResolver.get(notification).
  *
- * @param nativeID      The native identifier that targets the device.
- * @param notification  The notification
- * @param source   		A value of the enumeration Types.EnvironsSource
- * @param context       A value that provides additional context information (if available).
+ * @param context		An object reference of type ObserverNotifyContext.
  */
-- (void) OnNotify:(int) nativeID Notify:(int) notification Source:(int)source Context:(void *)context;
+- (void) OnNotify:(ObserverNotifyContext *)context;
 
 
 /**
@@ -54,14 +53,9 @@
  * The notification parameter is an integer value which represents one of the values as listed in Types.*
  * The string representation can be retrieved through TypesResolver.get(notification).
  *
- * @param deviceID      The device id of the sender device.
- * @param areaName      Area name of the application environment
- * @param appName		Application name of the application environment
- * @param notification  The notification
- * @param source   		A value of the enumeration Types.EnvironsSource
- * @param context       A value that provides additional context information (if available).
+ * @param context		An object reference of type ObserverNotifyContext.
  */
-- (void) OnNotifyExt:(int) deviceID Area:(const char *) areaName App:(const char *) appName Notify:(int) notification Source:(int)source Context:(void *)context;
+- (void) OnNotifyExt:(ObserverNotifyContext *) context;
 
 
 /**
@@ -114,24 +108,16 @@
 /**
  * OnMessage is called whenever a text message is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
  *
- * @param nativeID      The native identifier that targets the device.
- * @param type	        Determines the source (either from a device, environs, or native layer)
- * @param message       The message as string text
- * @param length        The length of the message
+ * @param context		An object reference of type ObserverMessageContext.
  */
-- (void) OnMessage:(int) nativeID Type:(int)type Msg:(const char *) message Length:(int)length;
+- (void) OnMessage:(ObserverMessageContext *) context;
 
 /**
  * OnMessageExt is called whenever a text message is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
  *
- * @param deviceID      The device id of the sender device.
- * @param areaName      Area name of the application environment
- * @param appName		Application name of the application environment
- * @param type	        Determines the source (either from a device, environs, or native layer)
- * @param message       The message as string text
- * @param length        The length of the message
+ * @param context		An object reference of type ObserverMessageContext.
  */
-- (void) OnMessageExt:(int) deviceID Area:(const char *) areaName App:(const char *) appName Type:(int)type Msg:(const char *) message Length:(int)length;
+- (void) OnMessageExt:(ObserverMessageContext *) context;
 
 /**
  * OnStatusMessage is called when the native layer has broadcase a text message to inform about a status change.
@@ -166,13 +152,9 @@
  * OnData is called whenever new binary data (files, buffers) has been received.
  * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
  *
- * @param nativeID      The native identifier that targets the device.
- * @param type          The type of the data
- * @param fileID        A user-customizable id that identifies the file
- * @param descriptor    A text that describes the file
- * @param size          The size in bytes
+ * @param context		An object reference of type ObserverDataContext.
  */
-- (void) OnData:(int) nativeID Type:(int) type FileID:(int) fileID Descriptor:(const char *) descriptor Size:(int) size;
+- (void) OnData:(ObserverDataContext *) context;
 @end
 
 

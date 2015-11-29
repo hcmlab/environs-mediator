@@ -15,7 +15,6 @@
  * it under the terms of the Eclipse Public License v1.0.
  * A copy of the license may be obtained at:
  * http://www.eclipse.org/org/documents/epl-v10.html
- 
  * --------------------------------------------------------------------
  */
 #pragma once
@@ -26,73 +25,110 @@
 #include "Environs.Platforms.h"
 #include "Environs.Build.Opts.h"
 
+/** Include iOSX declarations */
+
 #if ( defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX) )
-#   ifdef __OBJC__
+#   if ( defined(__OBJC__) )
 #       import <Environs.iOSX.h>
 #   endif
 #endif
 
-#ifdef __cplusplus
 
-#include "Interfaces/IEnvirons.h"
-#include "Environs.Loader.h"
-#include "Notify.Context.h"
-#include "Environs.Observer.h"
-#include "Device.List.h"
-#include "Device.Instance.h"
-#include "File.Instance.h"
-#include "Message.Instance.h"
-#include "Portal.Instance.h"
+/** Declare CPP API if it has not been disabled by symbol */
 
-#include <queue>
+#if ( defined(__cplusplus) && !defined(DISABLE_ENVIRONS_CPP_API))
 
-namespace environs 
+#	include "Notify.Context.h"
+#	include "Environs.Observer.CLI.h"
+#	include "Environs.Msg.Types.h"
+#	include "Environs.Cli.Base.h"
+#	include "Environs.Cpp.Base.h"
+
+#ifndef CLI_CPP
+#	include "Interfaces/IEnvirons.h"
+#	include "Environs.Loader.h"
+#	include "Environs.Observer.h"
+#	include "Device.List.h"
+#	include "Device.Instance.h"
+#	include "File.Instance.h"
+#	include "Message.Instance.h"
+#	include "Portal.Instance.h"
+#	include "Environs.Cpp.Base.h"
+
+#	include <queue>
+
+#else
+#	include "Environs.Platforms.h"
+#	include "Interop/Smart.Pointer.h"
+#	include "Interfaces/IEnvirons.Dispose.h"
+#	include "Environs.Types.h"
+#	include "Device.Info.h"
+#	include "Environs.Types.h.Cli.h"
+#	include "Environs.Types.h"
+
+	using namespace System;
+	using namespace System::Collections::ObjectModel;
+	using namespace System::Runtime::InteropServices;
+
+#	include <cliext/queue>
+	using namespace cliext;
+#endif
+	
+
+namespace environs
 {
-    class Instance;
-    
+#ifndef CLI_CPP
+    class EnvironsNative;
+#endif
     
 	namespace lib
 	{
-        class DeviceList;
-        
-        
-        class DeviceCommandContext
-        {
-        public:
-            int             hEnvirons;
-            Environs *      envObj;
-            int             deviceID;
-            int             type;
-            std::string     areaName;
-            std::string     appName;
-            
-            spv ( IIListObserver * ) observerList;
-            svsp ( DeviceInstance ) vanished;
-            svsp ( DeviceInstance ) appeared;
-            
-            int     notification;
-            
-            sp ( DeviceInfo ) device;
-        };
-        
-        
-		class Environs : public IEnvirons
+		CLASS Environs;
+
+		CLASS DeviceCommandContext
 		{
-            friend class DeviceList;
-			friend class PortalInstance;
-            friend class EnvironsProxy;
-            friend class FactoryProxy;
-            
-        private:
-            /**
-             * Construction of Environs objects have to be done using Environs.CreateInstance() or Environs.New()
-             */
-            ENVIRONS_LIB_API Environs ();
+		public:
+			int					hEnvirons;
+			Environs OBJ_ptr	envObj;
+			int					deviceID;
+			int					type;
+
+			STRING_T			areaName;
+			STRING_T			appName;
+			int					sourceIdent;
+#ifndef CLI_CPP
+			spvc ( lib::IIListObserver OBJ_ptr ) observerList;
+#else
+			spv ( lib::IIEnvironsObserver OBJ_ptr ) observerList;
+#endif
+			NLayerVecType ( PLATFORMSPACE DeviceInstance ) vanished;
+			NLayerVecType ( PLATFORMSPACE DeviceInstance ) appeared;
+
+			int     notification;
+
+			sp ( environs::DeviceInfo ) device;
+		};
+
+
+		PUBLIC_CLASS Environs DERIVE_c_only ( environs::Environs ) DERIVE_DISPOSEABLE DERIVE_TYPES
+		{
+            MAKE_FRIEND_CLASS ( environs::EnvironsNative );
+            MAKE_FRIEND_CLASS ( DeviceList );
+            MAKE_FRIEND_CLASS ( PortalInstance );
+			MAKE_FRIEND_CLASS ( DeviceInstance );
+            MAKE_FRIEND_CLASS ( EnvironsProxy );
+            MAKE_FRIEND_CLASS ( FactoryProxy );
+
+		public:
+			/**
+			 * Construction of Environs objects have to be done using Environs.CreateInstance() or Environs.New()
+			 */
+			ENVIRONS_LIB_API Environs ();
 
 		public:
 			ENVIRONS_LIB_API ~Environs ();
-            
-        
+			
+
 			/**
 			* Load settings for the given application environment from settings storage,
 			* if any have been saved previously.
@@ -103,16 +139,16 @@ namespace environs
 			*
 			* @return   success
 			*/
-            ENVIRONS_LIB_API bool LoadSettings ( const char * appName, const char * areaName );
-            
-            
-            /**
-             * Load settings. Prior to this call, an application environment MUST be given
-             * using SetApplicationName and SetAreaName.
-             *
-             * @return   success
-             */
-            ENVIRONS_LIB_API bool LoadSettings ( );
+			ENVIRONS_LIB_API bool LoadSettings ( CString_ptr appName, CString_ptr areaName );
+
+
+			/**
+			 * Load settings. Prior to this call, an application environment MUST be given
+			 * using SetApplicationName and SetAreaName.
+			 *
+			 * @return   success
+			 */
+			ENVIRONS_LIB_API bool LoadSettings ();
 
 
 			/**
@@ -121,43 +157,51 @@ namespace environs
 			* @param enable      true = enable, false = disable
 			*/
 			ENVIRONS_LIB_API void SetDebug ( int enable );
-        
-        
+
+
+			/**
+			* Ignore autodetection of the actual runtime platform and enforce the given platform.
+			*
+			* @param		platform of type Environs.platform
+			*/
+			ENVIRONS_LIB_API void SetPlatform ( CPP_CLI ( Platforms_t, Environs::Platforms ) platform );
+
+
 			/**
 			 * Instruct Environs to show log messages in the status log.
 			 *
 			 * @param enable      true = enable, false = disable
 			 */
 			ENVIRONS_LIB_API void SetUseNotifyDebugMessage ( int enable );
-        
-        
+
+
 			/**
 			 * Query Environs settings that show log messages in the status log.
 			 *
 			 * @return enable      true = enabled, false = disabled
 			 */
 			ENVIRONS_LIB_API bool GetUseNotifyDebugMessage ();
-        
-        
+
+
 			/**
 			 * Instruct Environs to create and write a log file in the working directory.
 			 *
 			 * @param enable      true = enable, false = disable
 			 */
-			ENVIRONS_LIB_API void SetUseLogFile ( int enable );
-        
-        
+			ENVIRONS_LIB_API void SetUseLogFile ( bool enable );
+
+
 			/**
 			 * Query Environs settings that create and write a log file in the working directory.
 			 *
 			 * @return enable      true = enabled, false = disabled
 			 */
 			ENVIRONS_LIB_API bool GetUseLogFile ();
-        
-        
-			//ENVIRONS_LIB_API bool opt ( const char * key );
-        
-        
+
+
+			//ENVIRONS_LIB_API bool opt ( CString_ptr key );
+
+
 			/**
 			 * Initialize the environment. This must be called after the user interface has been loaded, rendered and shown.
 			 * Tasks:
@@ -167,49 +211,57 @@ namespace environs
 			 * @return success    true = success, false = failed
 			 */
 			ENVIRONS_LIB_API bool Init ();
-        
+
 
 			ENVIRONS_LIB_API void ResetIdentKeys ();
-        
-        
+
+
 			/**
 			 * Get the native version of Environs.
 			 *
 			 * @return		version string
 			 */
-			ENVIRONS_LIB_API const char * GetVersionString ();
-        
-        
+            ENVIRONS_LIB_API CString_ptr GetVersionString ();
+            
+            
+            /**
+             * Release memory allocated by Environs to be temporarily used by client code.
+             *
+             * @param		mem
+             */
+            ENVIRONS_LIB_API void ReleaseEnvMemory ( Addr_obj mem );
+
+
 			/**
 			 * Get the native major version of Environs.
 			 *
 			 * @return		major version
 			 */
 			ENVIRONS_LIB_API int GetVersionMajor ();
-        
+
 			/**
 			 * Get the native minor version of Environs.
 			 *
 			 * @return		minor version
 			 */
 			ENVIRONS_LIB_API int GetVersionMinor ();
-        
+
 			/**
 			 * Get the native revision of Environs.
 			 *
 			 * @return		revision
 			 */
 			ENVIRONS_LIB_API int GetVersionRevision ();
-        
-        
+
+
 			/**
 			 * Query whether the native layer was build for release (or debug).
 			 *
 			 * @return	true = Release build, false = Debug build.
 			 */
 			ENVIRONS_LIB_API bool GetIsReleaseBuild ();
-        
-        
+
+
 			/**
 			 * Set the device type that the local instance of Environs shall use for identification within the environment.&nbsp;
 			 * Valid type are enumerated in Environs.DEVICE_TYPE_*
@@ -218,8 +270,8 @@ namespace environs
 			 * @param	type	Environs.DEVICE_TYPE_*
 			 */
 			ENVIRONS_LIB_API void SetDeviceType ( char value );
-        
-        
+
+
 			/**
 			 * Get the device type that the local instance of Environs use for identification within the environment.&nbsp;
 			 * Valid type are enumerated in Types.DEVICE_TYPE_*
@@ -228,8 +280,8 @@ namespace environs
 			 * @return	type	Environs.DEVICE_TYPE_*
 			 */
 			ENVIRONS_LIB_API char GetDeviceType ();
-        
-        
+
+
 			/**
 			 * Set the ports that the local instance of Environs shall use for listening on connections.
 			 *
@@ -239,30 +291,30 @@ namespace environs
 			 * @return  success
 			 */
 			ENVIRONS_LIB_API bool SetPorts ( int tcpPort, int udpPort );
-        
+
 			ENVIRONS_LIB_API unsigned int GetIPAddress ();
 			ENVIRONS_LIB_API unsigned int GetSubnetMask ();
-        
-			ENVIRONS_LIB_API const char * GetSSID ();
-			ENVIRONS_LIB_API const char * GetSSIDDesc ();
-        
-        
+
+			ENVIRONS_LIB_API CString_ptr GetSSID ();
+			ENVIRONS_LIB_API CString_ptr GetSSIDDesc ();
+
+
 			/**
 			 * Set the device id that is assigned to the instance of Environs.
 			 *
 			 * @param   deviceID
 			 */
 			ENVIRONS_LIB_API void SetDeviceID ( int deviceID );
-        
-        
+
+
 			/**
 			 * Get the device id that the application has assigned to the instance of Environs.
 			 *
 			 * @return	deviceID
 			 */
 			ENVIRONS_LIB_API int GetDeviceID ();
-        
-        
+
+
 			/**
 			 * Request a device id from mediator server instances that have been provided before this call.
 			 * Prior to this call, the area and application name must be provided as well,
@@ -272,16 +324,16 @@ namespace environs
 			 * @return	deviceID
 			 */
 			ENVIRONS_LIB_API int GetDeviceIDFromMediator ();
-        
-        
+
+
 			/**
 			 * Query whether the name of the current device has been set before.
 			 *
 			 * @return	has DeviceUID
 			 */
 			ENVIRONS_LIB_API bool HasDeviceUID ();
-        
-        
+
+
 			/**
 			 * Set the name of the current device.&nbsp;This name is used to communicate with other devices within the environment.
 			 *
@@ -289,33 +341,33 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetDeviceUID ( const char * name );
-        
-        
+			ENVIRONS_LIB_API bool SetDeviceUID ( CString_ptr name );
+
+
 			/**
 			 * Query ip of custom Mediator.
 			 *
 			 * @return ip
 			 */
 			ENVIRONS_LIB_API unsigned int GetMediatorIPValue ();
-        
-        
+
+
 			/**
 			 * Query ip of custom Mediator.
 			 *
 			 * @return ip
 			 */
-			ENVIRONS_LIB_API const char * GetMediatorIP ();
-        
-        
+			ENVIRONS_LIB_API CString_ptr GetMediatorIP ();
+
+
 			/**
 			 * Query port of custom Mediator.
 			 *
 			 * @return port
 			 */
 			ENVIRONS_LIB_API int GetMediatorPort ();
-        
-        
+
+
 			/**
 			 * Determines whether to use Crypto Layer Security for Mediator connections.
 			 * If a Mediator enforces CLS, then disabling this option will result in failure to connect to that Mediator.
@@ -323,96 +375,96 @@ namespace environs
 			 * @param	enable
 			 */
 			ENVIRONS_LIB_API void SetUseCLSForMediator ( bool enable );
-        
-        
+
+
 			/**
 			 * Query whether to use Crypto Layer Security for Mediator connections.
 			 *
 			 * @return	enabled
 			 */
 			ENVIRONS_LIB_API bool GetUseCLSForMediator ();
-        
-        
+
+
 			/**
 			 * Determines whether to use Crypto Layer Security for device-to-device connections.
 			 *
 			 * @param	enable
 			 */
 			ENVIRONS_LIB_API void SetUseCLSForDevices ( bool enable );
-        
-        
+
+
 			/**
 			 * Query whether to use Crypto Layer Security for device-to-device connections.
 			 *
 			 * @return	enabled
 			 */
 			ENVIRONS_LIB_API bool GetUseCLSForDevices ();
-        
-        
+
+
 			/**
 			 * Determines whether to enforce Crypto Layer Security for device-to-device connections.
 			 *
 			 * @param	enable
 			 */
 			ENVIRONS_LIB_API void SetUseCLSForDevicesEnforce ( bool enable );
-        
-        
+
+
 			/**
 			 * Query whether to enforce Crypto Layer Security for device-to-device connections.
 			 *
 			 * @return	enabled
 			 */
 			ENVIRONS_LIB_API bool GetUseCLSForDevicesEnforce ();
-        
-        
+
+
 			/**
 			 * Enable Crypto Layer Security for all traffic (incl. those of interactive type) in device-to-device connections.
 			 *
 			 * @param	enable
 			 */
 			ENVIRONS_LIB_API void SetUseCLSForAllTraffic ( bool enable );
-        
-        
+
+
 			/**
 			 * Query whether all traffic (incl. those of interactive type) in device-to-device connections is encrypted.
 			 *
 			 * @return	enabled
 			 */
 			ENVIRONS_LIB_API bool GetUseCLSForAllTraffic ();
-        
-        
+
+
 			/**
 			 * Determines whether to use environs default Mediator predefined by framework developers or not.
 			 *
 			 * @param enable 	true = use the default Mediator
 			 */
 			ENVIRONS_LIB_API void SetUseDefaultMediator ( bool enable );
-        
-        
+
+
 			/**
 			 * Query whether to use given Mediator by setMediator()
 			 *
 			 * @return enabled
 			 */
 			ENVIRONS_LIB_API bool GetUseDefaultMediator ();
-        
-        
+
+
 			/**
 			 * Determines whether to use given Mediator by setMediator()
 			 *
 			 * @param enable 	true = enable, false = disable
 			 */
 			ENVIRONS_LIB_API void SetUseCustomMediator ( bool enable );
-        
-        
+
+
 			/**
 			 * Query whether to use given Mediator by setMediator()
 			 *
 			 * @return enabled
 			 */
 			ENVIRONS_LIB_API bool GetUseCustomMediator ();
-        
-        
+
+
 			/**
 			 * Set custom Mediator to use.
 			 *
@@ -421,9 +473,9 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetMediator ( const char * ip, unsigned short port );
+			ENVIRONS_LIB_API bool SetMediator ( CString_ptr ip, unsigned short port );
 
-        
+
 			/**
 			 * Set the user name for authentication with a Mediator service.&nbsp;Usually the user's email address is used as the user name.
 			 *
@@ -431,34 +483,34 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetMediatorUserName ( const char * name );
-			ENVIRONS_LIB_API bool SetUserName ( const char * name );
+			ENVIRONS_LIB_API bool SetMediatorUserName ( CString_ptr name );
+			ENVIRONS_LIB_API bool SetUserName ( CString_ptr name );
 
-        
+
 			/**
 			 * Query UserName used to authenticate with a Mediator.
 			 *
 			 * @return UserName
 			 */
-			ENVIRONS_LIB_API const char * GetMediatorUserName ();
+			ENVIRONS_LIB_API CString_ptr GetMediatorUserName ();
 
-        
+
 			/**
 			 * Enable or disable anonymous logon to the Mediator.
 			 *
 			 * @param 	enable A boolean that determines the target state.
 			 */
-            ENVIRONS_LIB_API void SetUseMediatorAnonymousLogon ( bool enable );
-            
-            
-            /**
-             * Get setting of anonymous logon to the Mediator.
-             *
-             * @return 	enabled A boolean that determines the target state.
-             */
-            ENVIRONS_LIB_API bool GetUseMediatorAnonymousLogon ();
+			ENVIRONS_LIB_API void SetUseMediatorAnonymousLogon ( bool enable );
 
-        
+
+			/**
+			 * Get setting of anonymous logon to the Mediator.
+			 *
+			 * @return 	enabled A boolean that determines the target state.
+			 */
+			ENVIRONS_LIB_API bool GetUseMediatorAnonymousLogon ();
+
+
 			/**
 			 * Set the user password for authentication with a Mediator service.&nbsp;The password is stored as a hashed token within Environs.
 			 *
@@ -466,18 +518,18 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetMediatorPassword ( const char * password );
-			ENVIRONS_LIB_API bool SetUserPassword ( const char * password );
-        
-        
+			ENVIRONS_LIB_API bool SetMediatorPassword ( CString_ptr password );
+			ENVIRONS_LIB_API bool SetUserPassword ( CString_ptr password );
+
+
 			/**
 			 * Enable or disable authentication with the Mediator using username/password.
 			 *
 			 * @param 	enable
 			 */
 			ENVIRONS_LIB_API void SetUseAuthentication ( bool enable );
-        
-        
+
+
 			/**
 			 * Query the filter level for device management within Environs.
 			 *
@@ -485,31 +537,31 @@ namespace environs
 			 */
 			ENVIRONS_LIB_API int GetMediatorFilterLevel ();
 
-        
+
 			/**
 			 * Set the filter level for device management within Environs.
 			 *
 			 * @param   level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
 			 */
 			ENVIRONS_LIB_API void SetMediatorFilterLevel ( int level );
-        
-        
+
+
 			/**
 			 * Retrieve a boolean that determines whether Environs shows up a login dialog if a Mediator is used and no credentials are available.
 			 *
 			 * @return	true = yes, false = no
 			 */
 			ENVIRONS_LIB_API bool GetUseMediatorLoginDialog ();
-        
-        
+
+
 			/**
 			 * Instruct Environs to show up a login dialog if a Mediator is used and no credentials are available.
 			 *
 			 * @param   enable      true = enable, false = disable
 			 */
 			ENVIRONS_LIB_API void SetUseMediatorLoginDialog ( bool enable );
-        
-        
+
+
 			/**
 			 * Retrieve a boolean that determines whether Environs disable Mediator settings on dismiss of the login dialog.
 			 *
@@ -524,17 +576,32 @@ namespace environs
 			 * @param   enable      true = enable, false = disable
 			*/
 			ENVIRONS_LIB_API void SetMediatorLoginDialogDismissDisable ( bool enable );
-        
-        
+
+
 			/**
 			 * Register at known Mediator server instances.
 			 *
 			 * @return	success
 			 */
 			ENVIRONS_LIB_API bool RegisterAtMediators ();
-        
 
-			/**
+
+            /**
+             * Determines whether touch events should be translated to mouse events. This is performed by a touch recognizer module. Therefore the module must be in the lib-folder and loaded by Environs.
+             *
+             * @param   enable      true = enable, false = disable
+             */
+			ENVIRONS_LIB_API void SetUseMouseEmulation ( bool enable );
+
+
+            /**
+             * Determines whether touch events should be visualized as rounded circles on the desktop Window. This is performed by a touch recognizer module. Therefore the module must be in the lib-folder and loaded by Environs.
+             *
+             * @param   enable      true = enable, false = disable
+             */
+			ENVIRONS_LIB_API void SetUseTouchVisualization ( bool enable );
+
+            /**
 			 * Start Environs.&nbsp;This is a non-blocking call and returns immediately.&nbsp;
 			 * 		Since starting Environs includes starting threads and activities that may take longer,&nbsp;
 			 * 		this call executes the start tasks within a thread.&nbsp;
@@ -542,27 +609,28 @@ namespace environs
 			 *
 			 */
 			ENVIRONS_LIB_API void Start ();
-        
-        
+
+
 			/**
 			 * Query the status of Environs.&nsbp;Valid values are Types.NATIVE_STATUS_*
 			 *
 			 * @return  Environs.NATIVE_STATUS_*
 			 */
 			ENVIRONS_LIB_API int GetStatus ();
-        
-        
+
+
 			/**
 			 * Stop Environs and release all acquired resources.
 			 */
 			ENVIRONS_LIB_API void Stop ();
-        
-        
+
+
 			/**
 			 * Stop Environs and release all acquired resources.
 			 */
-			ENVIRONS_LIB_API void Dispose ();
-        
+			ENVIRONS_LIB_API void DisposeInstance ();
+
+
 			/**
 			 * Set the area name that the local instance of Environs shall use for identification within the environment.
 			 * It must be set before creating the Environs instance.
@@ -571,17 +639,17 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetAreaName ( const char * name );
-        
+			ENVIRONS_LIB_API bool SetAreaName ( CString_ptr name );
+
 			/**
 			 * Get the area name that the local instance of Environs use for identification within the environment.
 			 * It must be set before creating the Environs instance.
 			 *
 			 * @return	areaName
 			 */
-			ENVIRONS_LIB_API const char * GetAreaName ();
-        
-        
+			ENVIRONS_LIB_API CString_ptr GetAreaName ();
+
+
 			/**
 			 * Set the application name of that the local instance of Environs shall use for identification within the environment.
 			 * It must be set before creating the Environs instance.
@@ -590,19 +658,19 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API void SetApplication ( const char * name );
-			ENVIRONS_LIB_API void SetApplicationName ( const char * name );
-        
-        
+			ENVIRONS_LIB_API void SetApplication ( CString_ptr name );
+			ENVIRONS_LIB_API void SetApplicationName ( CString_ptr name );
+
+
 			/**
 			 * Get the application name that the local instance of Environs use for identification within the environment.
 			 * It must be set before creating the Environs instance.
 			 *
 			 * @return	appName
 			 */
-			ENVIRONS_LIB_API const char * GetApplicationName ();
-        
-        
+			ENVIRONS_LIB_API CString_ptr GetApplicationName ();
+
+
 			/**
 			 * Set the name of the current device.&nbsp;This name is used to communicate with other devices within the environment.
 			 *
@@ -610,37 +678,37 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetDeviceName ( const char * name );
-        
-        
+			ENVIRONS_LIB_API bool SetDeviceName ( CString_ptr name );
+
+
 			/**
 			 * Use default encoder, decoder, capture, render modules.
 			 *
 			 * @return  success
 			 */
 			ENVIRONS_LIB_API bool SetUsePortalDefaultModules ();
-        
-        
+
+
 			ENVIRONS_LIB_API void SetUseH264 ( bool enable );
 			ENVIRONS_LIB_API bool GetUseH264 ();
-        
-        
+
+
 			/**
 			 * Determine whether to use  TCP for portal streaming (if not selectively set for a particular deviceID)
 			 *
 			 * @param   enable
 			 */
 			ENVIRONS_LIB_API void SetUsePortalTCP ( bool enable );
-        
-        
+
+
 			/**
 			 * Query whether to use TCP for portal streaming (UDP otherwise)
 			 *
 			 * @return enabled
 			 */
 			ENVIRONS_LIB_API bool GetUsePortalTCP ();
-        
-        
+
+
 			/**
 			 * Use encoder module with the name moduleName. (libEnv-Enc...).
 			 *
@@ -648,9 +716,9 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetUseEncoder ( const char * name );
-        
-        
+			ENVIRONS_LIB_API bool SetUseEncoder ( CString_ptr name );
+
+
 			/**
 			 * Use decoder module with the name moduleName. (libEnv-Dec...).
 			 *
@@ -658,9 +726,9 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetUseDecoder ( const char * name );
-        
-        
+			ENVIRONS_LIB_API bool SetUseDecoder ( CString_ptr name );
+
+
 			/**
 			 * Use capture module with the name moduleName. (libEnv-Cap...).
 			 *
@@ -668,9 +736,9 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetUseCapturer ( const char * name );
-        
-        
+			ENVIRONS_LIB_API bool SetUseCapturer ( CString_ptr name );
+
+
 			/**
 			 * Use render module with the name moduleName. (libEnv-Rend...).
 			 *
@@ -678,8 +746,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool SetUseRenderer ( const char * name );
-        
+			ENVIRONS_LIB_API bool SetUseRenderer ( CString_ptr name );
+
 			/**
 			 * Enable or disable a touch recognizer module by name (libEnv-Rec...).
 			 *
@@ -688,18 +756,18 @@ namespace environs
 			 *
 			 * @return  success
 			 */
-			ENVIRONS_LIB_API bool SetUseTouchRecognizer ( const char * name, bool enable );
-        
-        
-			ENVIRONS_LIB_API int SetUseTracker ( int async, const char * name );
-        
-			ENVIRONS_LIB_API int GetUseTracker ( const char * name );
-        
-			ENVIRONS_LIB_API bool DisposeTracker ( int async, const char * name );
-        
+			ENVIRONS_LIB_API bool SetUseTouchRecognizer ( CString_ptr name, bool enable );
+
+
+			ENVIRONS_LIB_API int SetUseTracker ( int async, CString_ptr name );
+
+			ENVIRONS_LIB_API int GetUseTracker ( CString_ptr name );
+
+			ENVIRONS_LIB_API bool DisposeTracker ( int async, CString_ptr name );
+
 			ENVIRONS_LIB_API bool PushTrackerCommand ( int async, int moduleIndex, int command );
-        
-        
+
+#ifndef CLI_CPP
 			/**
 			 * Add an observer for communication with Environs and devices within the environment.
 			 *
@@ -707,8 +775,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool AddObserver ( EnvironsObserver * observer );
-        
+			ENVIRONS_LIB_API bool AddObserver ( environs::EnvironsObserver OBJ_ptr observer );
+
 			/**
 			 * Remove an observer for communication with Environs and devices within the environment.
 			 *
@@ -716,8 +784,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool RemoveObserver ( EnvironsObserver * observer );
-        
+			ENVIRONS_LIB_API bool RemoveObserver ( environs::EnvironsObserver OBJ_ptr observer );
+
 			/**
 			 * Add an observer for receiving messages.
 			 *
@@ -725,8 +793,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool AddObserverForMessages ( EnvironsMessageObserver * observer );
-        
+			ENVIRONS_LIB_API bool AddObserverForMessages ( environs::EnvironsMessageObserver * observer );
+
 			/**
 			 * Remove an observer for receiving messages.
 			 *
@@ -734,8 +802,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool RemoveObserverForMessages ( EnvironsMessageObserver * observer );
-        
+			ENVIRONS_LIB_API bool RemoveObserverForMessages ( environs::EnvironsMessageObserver * observer );
+
 			/**
 			 * Add an observer for receiving data buffers and files.
 			 *
@@ -743,8 +811,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool AddObserverForData ( EnvironsDataObserver * observer );
-        
+			ENVIRONS_LIB_API bool AddObserverForData ( environs::EnvironsDataObserver * observer );
+
 			/**
 			 * Remove an observer for receiving data buffers and files.
 			 *
@@ -752,8 +820,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool RemoveObserverForData ( EnvironsDataObserver * observer );
-        
+			ENVIRONS_LIB_API bool RemoveObserverForData ( environs::EnvironsDataObserver * observer );
+
 			/**
 			 * Add an observer for receiving sensor data of all devices.
 			 * Please note: This observer reports sensor data of all devices that are connected and send to us.
@@ -763,8 +831,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool AddObserverForSensorData ( EnvironsSensorDataObserver * observer );
-        
+			ENVIRONS_LIB_API bool AddObserverForSensorData ( environs::EnvironsSensorDataObserver * observer );
+
 			/**
 			 * Remove an observer for receiving data buffers and files.
 			 * Please note: This observer reports sensor data of all devices that are connected and send to us.
@@ -774,238 +842,396 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool RemoveObserverForSensorData ( EnvironsSensorDataObserver * observer );
-            
-            
-            /**
-             * Get a DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
-             * After client code is done with the list, the list->Release () method MUST be called by the client code,
-             * in order to release the resource (give ownership) back to Environs.
-             *
-             * @param MEDIATOR_DEVICE_CLASS_	A value of type MEDIATOR_DEVICE_CLASS_* that determines the list type
-             
-             * @return A DeviceList object
-             */
-			ENVIRONS_LIB_API DeviceList * GetDeviceListObj ( int MEDIATOR_DEVICE_CLASS_ );
-            
-            /**
-             * Get a DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
-             * After client code is done with the list, the list->Release () method MUST be called by the client code,
-             * in order to release the resource (give ownership) back to Environs.
-             *
-             * @param MEDIATOR_DEVICE_CLASS_	A value of type MEDIATOR_DEVICE_CLASS_* that determines the list type
-             
-             * @return An interface of type IDeviceList
-             */
-			ENVIRONS_LIB_API IDeviceList * GetDeviceListRetainedI ( int MEDIATOR_DEVICE_CLASS_ );
-            
-            
-            ENVIRONS_LIB_API bool GetPortalNativeResolution ();
-            ENVIRONS_LIB_API void SetPortalNativeResolution ( bool enable );
-            
-            ENVIRONS_LIB_API bool GetPortalAutoStart ();
-            ENVIRONS_LIB_API void SetPortalAutoStart ( bool enable );
-            
-            
-            
-            /**
-             * Release ownership on this interface and mark it disposeable.
-             * Release must be called once for each Interface that the Environs framework returns to client code.
-             * Environs will dispose the underlying object if no more ownership is hold by anyone.
-             *
-             */
-            ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
-            
-        private:
-            ENVIRONS_OUTPUT_ALLOC_RESOURCE ( Environs );
-            
-            bool                                            allocated;
-            
-            Instance                                    *   env;
-            int                                             hEnvirons;
-            
-            void    SetInstance ( Instance * obj );
-            
-			spv ( IIEnvironsObserver * )             environsObservers;
+			ENVIRONS_LIB_API bool RemoveObserverForSensorData ( environs::EnvironsSensorDataObserver * observer );
+#endif
 
-            spv ( IIEnvironsMessageObserver * )      environsObserversForMessages;
 
-            spv ( IIEnvironsDataObserver * )         environsObserversForData;
+			/**
+			 * Get a DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
+			 * After client code is done with the list, the list->Release () method MUST be called by the client code,
+			 * in order to release the resource (give ownership) back to Environs.
+			 *
+			 * @param MEDIATOR_DEVICE_CLASS_	A value of type MEDIATOR_DEVICE_CLASS_* that determines the list type
 
-            spv ( IIEnvironsSensorDataObserver * )   environsObserversForSensorData;
+			 * @return A DeviceList object
+			 */
+			ENVIRONS_LIB_API PLATFORMSPACE DeviceList OBJ_ptr GetDeviceList ( int MEDIATOR_DEVICE_CLASS_ );
+
+#ifndef CLI_CPP
+			/**
+			 * Get a DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
+			 * After client code is done with the list, the list->Release () method MUST be called by the client code,
+			 * in order to release the resource (give ownership) back to Environs.
+			 *
+			 * @param MEDIATOR_DEVICE_CLASS_	A value of type MEDIATOR_DEVICE_CLASS_* that determines the list type
+
+			 * @return An interface of type IDeviceList
+			 */
+			ENVIRONS_LIB_API DeviceList OBJ_ptr GetDeviceListRetained ( int MEDIATOR_DEVICE_CLASS_ );
+#endif
+
+			ENVIRONS_LIB_API bool GetPortalNativeResolution ();
+			ENVIRONS_LIB_API void SetPortalNativeResolution ( bool enable );
+
+			ENVIRONS_LIB_API bool GetPortalAutoStart ();
+			ENVIRONS_LIB_API void SetPortalAutoStart ( bool enable );
+
+			ENVIRONS_LIB_API DeviceDisplay OBJ_ptr GetDeviceDisplayProps ( int nativeID );
+
+			/**
+			* Connect to device with the given ID and a particular application environment.
+			*
+			* @param deviceID	Destination device ID
+			* @param areaName Project name of the application environment
+			* @param appName	Application name of the application environment
+			* @param async	    Perform asynchronous. Non-async means that this call blocks until the call finished.
+			* @return status	0: Connection can't be conducted (maybe environs is stopped or the device ID is invalid) &nbsp;
+			* 					1: A connection to the device already exists or a connection task is already in progress) &nbsp;
+			* 					2: A new connection has been triggered and is in progress
+			*/
+			ENVIRONS_LIB_API int DeviceConnect ( int deviceID, CString_ptr areaName, CString_ptr appName, int async );
+
+
+			/**
+			* Set render callback.
+			*
+			* @param async			Perform asynchronous. Non-async means that this call blocks until the call finished.
+			* @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
+			* @param callback		The pointer to the callback.
+			* @param callbackType	A value of type RENDER_CALLBACK_TYPE_* that tells the portal receiver what we actually can render..
+			* @return				true = success, false = failed.
+			*/
+#ifdef CLI_CPP
+			bool SetRenderCallback ( int async, int portalID, PortalSinkSource ^ callback, int callbackType );
+#else
+			ENVIRONS_LIB_API bool SetRenderCallback ( int async, int portalID, void * callback, int callbackType );
+#endif
+
+
+			/**
+			* Release render callback delegate or pointer
+			*
+			* @param async			Perform asynchronous. Non-async means that this call blocks until the call finished.
+			* @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
+			* @param callback		A delegate that manages the callback.
+			* @return				true = success, false = failed.
+			*/
+			ENVIRONS_LIB_API bool ReleaseRenderCallback ( int async, int portalID );
+
+			/**
+			* Start streaming of portal to or from the portal identifier (received in notification).
+			*
+			* @param async      	Execute asynchronous. Non-async means that this call blocks until the command has finished.
+			* @param portalID		An application specific id (e.g. used for distinguishing front facing or back facing camera)
+			*
+			* @return success
+			*/
+			ENVIRONS_LIB_API bool StartPortalStream ( int async, int portalID );
+
+
+			/**
+			* Stop streaming of portal to or from the portal identifier (received in notification).
+			*
+			* @param 	async      	Execute asynchronous. Non-async means that this call blocks until the command has finished.
+			* @param 	nativeID    The native device id of the target device.
+			* @param 	portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
+			* 						It is provided within the notification listener as sourceIdent.&nbsp;
+			* 					    Applications should store them in order to address the correct portal within Environs.
+			* @return success
+			*/
+			ENVIRONS_LIB_API bool StopPortalStream ( int async, int nativeID, int portalID );
+
+
+			/**
+			* Get the status, whether the device (id) has established an active portal
+			*
+			* @param 	nativeID    The device id of the target device.
+			* @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
+            *
+			* @return	success 	true = yes, false = no
+			*/
+			ENVIRONS_LIB_API bool GetPortalEnabled ( int nativeID, int portalType );
+
+            
+            /**
+             * Get the number of devices that are currently connected to our device.
+             *
+             * @return	Count of connected devices
+             */
+            ENVIRONS_LIB_API int GetConnectedDevicesCount ();
+
 
             /**
-             * BridgeForNotify static method to be called by Environs in order to notify about events,<br\>
-             * 		such as when a connection has been established or closed.
+             * Get enabled status for stream encoding.
              *
-             * @param hInst			A handle to the Environs instance
-             * @param nativeID      The native device id of the sender device.
-             * @param notification  The received notification.
-             * @param sourceIdent   A value of the enumeration type Types.EnvironsSource
-             * @param context       A value that provides additional context information (if available).
+             * @return	enabled
              */
-            static void BridgeForNotify ( int hInst, int nativeID, int notification, int sourceIdent, void * contextPtr );
+			ENVIRONS_LIB_API bool GetUseStream ();
+
             
             /**
-             * BridgeForNotify static method to be called by Environs in order to notify about events,<br\>
-             * 		such as when a connection has been established or closed.
+             * Get platform support for OpenCL.
              *
-             * @param hInst			A handle to the Environs instance
-             * @param deviceID      The device id of the sender device.
-             * @param areaName		Area name of the application environment.
-             * @param appName		Application name of the application environment.
-             * @param notification  The received notification.
-             * @param sourceIdent   A value of the enumeration type Types.EnvironsSource
-             * @param context       A value that provides additional context information (if available).
+             * @return	enabled
              */
-            static void BridgeForNotifyExt ( int hInst, int deviceID, const char * areaName, const char * appName, int notification, int sourceIdent, void * contextPtr );
-            
+			ENVIRONS_LIB_API bool GetUseOpenCL ();
+
+
             /**
-             * BridgeForMessage static method to be called by native layer in order to notify about incoming messages.
+             * Switch platform support for OpenCL rendering.
              *
-             * @param hInst			A handle to the Environs instance
-             * @param deviceID      The device id of the sender device.
-             * @param areaName		Area name of the application environment
-             * @param appName		Application name of the application environment
-             * @param type          The type of this message.
-             * @param msg           The message.
-             * @param length        The length of the message.
+             * @param enable
              */
-            static void BridgeForMessageExt ( int hInst, int deviceID, const char * areaName, const char * appName, int type, const void * message, int length );
+			ENVIRONS_LIB_API void SetUseOpenCL ( bool enable );
+
             
-            /**
-             * BridgeForMessage static method to be called by native layer in order to notify about incoming messages.
-             *
-             * @param hInst			A handle to the Environs instance
-             * @param nativeID      The native device id of the sender device.
-             * @param type          The type of this message.
-             * @param msg           The message.
-             * @param length        The length of the message.
-             */
-            static void BridgeForMessage ( int hInst, int nativeID, int type, const void * message, int length );
+			ENVIRONS_LIB_API CString_ptr GetFilePathNative ( int nativeID, int fileID );
             
-            /**
-             * BridgeForStatusMessage static method to be called by native layer in order to drop a status messages.
-             *
-             * @param hInst			A handle to the Environs instance
-             * @param msg           A status message of Environs.
-             */
-            static void BridgeForStatusMessage ( int hInst, const char * message );
+
+            ENVIRONS_LIB_API String_ptr GetFilePath ( int nativeID, int fileID );
+
             
-            /**
-             * BridgeForData static method to be called by native layer in order to notify about data received from a device.
-             *
-             * @param hInst			A handle to the Environs instance
-             * @param nativeID      The native device id of the sender device.
-             * @param type          The type of this message.
-             * @param fileID        A fileID that was attached to the buffer.
-             * @param descriptor    A descriptor that was attached to the buffer.
-             * @param size          The size of the data buffer.
-             */
-            static void BridgeForData ( int hInst, int nativeID, int type, int fileID, const char * descriptor, int size );
-            static void BridgeForSensorData ( int hInst, int nativeID, SensorFrame * pack );
-            
-            
-            pthread_mutex_t             queryLock;
-            pthread_mutex_t             listLock;
-            pthread_mutex_t             threadDeviceCommandMutex;
-            
-            std::queue<DeviceCommandContext *> threadDeviceCommandQueue;
-            
-            long                        listAllUpdate;
-            long                        listNearbyUpdate;
-            long                        listMediatorUpdate;
-            
-            pthread_mutex_t             listAllLock;
-            svsp ( DeviceInstance )     listAll;
-            spv ( IIListObserver * )    listAllObservers;
-            
-            pthread_mutex_t             listNearbyLock;
-            svsp ( DeviceInstance )     listNearby;
-            spv ( IIListObserver * )    listNearbyObservers;
-            
-            pthread_mutex_t             listMediatorLock;
-            svsp ( DeviceInstance )     listMediator;
-            spv ( IIListObserver * )    listMediatorObservers;
-            
-            
-            void DisposeLists ();
-            
-            void RefreshDeviceLists ();
-            
-            const svsp ( DeviceInstance ) & GetDevices ( int type );
-            
-            const svsp ( DeviceInstance ) & GetDevicesBest ();
-            
-            
-            /**
-             * Query a DeviceInstance object from all available devices within the environment (including those of the Mediator).
-             *
-             * @param nativeID      The device id of the target device.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceAllSP ( int nativeID );
-            
-            sp ( DeviceInstance ) GetDeviceAllSP ( int nativeOrDeviceID, bool isNativeID );
-            
-            
-            /**
-             * Query a DeviceInstance object of nearby (broadcast visible) devices within the environment.
-             *
-             * @param nativeID      The device id of the target device.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceNearbySP ( int nativeID );
-            
-            
-            /**
-             * Get a collection that holds the nearby devices. This list ist updated dynamically by Environs.
-             *
-             * @return ArrayList with DeviceInstance objects
-             */
-            svsp ( DeviceInstance ) GetDevicesNearbySP ();
-            
-            
-            /**
-             * Query a DeviceInstance object of Mediator managed devices within the environment.
-             *
-             * @param nativeID      The device id of the target device.
-             * @return DeviceInstance-object
-             */
-            sp ( DeviceInstance ) GetDeviceFromMediatorSP ( int nativeID );
-            
-            
-            /**
-             * Get a collection that holds the Mediator server devices. This list ist updated dynamically by Environs.
-             *
-             * @return ArrayList with DeviceInstance objects
-             */
-            svsp ( DeviceInstance ) GetDevicesFromMediatorSP ();
-            
-            static void NotifyListObservers ( int hInst, const spv ( IIListObserver * ) &observerList, svsp ( DeviceInstance ) vanished, svsp ( DeviceInstance ) appeared, bool enqueue );
-            
-            
-            void * DeviceListUpdateThread ( void * pack );
-            
-            static void * DeviceListUpdateThreadStarter ( void * pack );
-            
-            void OnDeviceListUpdate ();
-            
-            void OnDeviceListNotification ( NotifyContext * ctx );
-            
-            void OnDeviceListNotification1 ( const sp ( DeviceInstance ) &device, NotifyContext * ctx );
-            
-            void DeviceListUpdate ( int listType );
-            
-            
-            void UpdateConnectProgress ( int nativeID, int progress );
-            
-            void UpdateMessage ( ObserverMessageContext * ctx );
-            
-            void UpdateData ( ObserverDataContext * ctx );
-            
-            void UpdateSensorData ( int nativeID, environs::SensorFrame * pack );
-            
+			/**
+			* Load the file that is assigned to the fileID into a byte array.
+			*
+			* @param nativeIDOK		Indicates that the nativeOrDeviceID represents a nativeID.
+			* @param nativeID		The native id of the device.
+			* @param deviceID		The device id of the device.
+			* @param areaName		Area name of the application environment.
+			* @param appName		Application name of the application environment.
+			* @param fileID			The id of the file to load (given in the onData receiver).
+			* @param size			An int pointer, that receives the size of the returned buffer.
+			* @return byte-array
+			*/
+			ENVIRONS_LIB_API UCharArray_ptr GetFile ( bool nativeIDOK, int nativeID, int deviceID, CString_ptr areaName, CString_ptr appName, int fileID, int OBJ_ref size );
+			
+
+            ENVIRONS_LIB_API int GetHandle () { return hEnvirons; };
+
+			/**
+			 * Release ownership on this interface and mark it disposeable.
+			 * Release must be called once for each Interface that the Environs framework returns to client code.
+			 * Environs will dispose the underlying object if no more ownership is hold by anyone.
+			 *
+			 */
+			ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
+
+		INTERNAL:
+
+			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( Environs );
+
+			bool                                            allocated;
+
+#ifndef CLI_CPP
+			Instance                                    *   env;
+        
+            static Environs                             *   instancesAPI [ ENVIRONS_MAX_ENVIRONS_INSTANCES ];
+#endif
+			int                                             hEnvirons;
+			static int										DebugLevel;
+
+			void			SetInstance ( int hInst );
+
+			virtual bool	InitPlatform ();
+
+#ifndef CLI_CPP
+			spv ( lib::IIEnvironsObserver * )             environsObservers;
+
+			spv ( lib::IIEnvironsMessageObserver * )      environsObserversForMessages;
+
+			spv ( lib::IIEnvironsDataObserver * )         environsObserversForData;
+
+			spv ( lib::IIEnvironsSensorDataObserver * )   environsObserversForSensorData;
+#endif
+			/**
+			* BridgeForNotify static method to be called by Environs in order to notify about events,<br\>
+			* 		such as when a connection has been established or closed.
+			*
+			* @param hInst			A handle to the Environs instance
+			* @param nativeID      The native device id of the sender device.
+			* @param notification  The received notification.
+			* @param sourceIdent   A value of the enumeration type Types.EnvironsSource
+			* @param context       A value that provides additional context information (if available).
+			*/
+			CLI_NO_STATIC void BridgeForNotify ( int hInst, int nativeID, int notification, int sourceIdent, Addr_obj contextPtr );
+
+
+			/**
+			* BridgeForNotify static method to be called by Environs in order to notify about events,<br\>
+			* 		such as when a connection has been established or closed.
+			*
+			* @param hInst			A handle to the Environs instance
+			* @param deviceID      The device id of the sender device.
+			* @param areaName		Area name of the application environment.
+			* @param appName		Application name of the application environment.
+			* @param notification  The received notification.
+			* @param sourceIdent   A value of the enumeration type Types.EnvironsSource
+			* @param context       A value that provides additional context information (if available).
+			*/
+			CLI_NO_STATIC void BridgeForNotifyExt ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int notification, int sourceIdent, Addr_obj contextPtr );
+
+
+			/**
+			* BridgeForMessage static method to be called by native layer in order to notify about incoming messages.
+			*
+			* @param hInst			A handle to the Environs instance
+			* @param nativeID      The native device id of the sender device.
+			* @param type          The type of this message.
+			* @param msg           The message.
+			* @param length        The length of the message.
+			*/
+			CLI_NO_STATIC void BridgeForMessage ( int hInst, int nativeID, int type, CVString_ptr message, int length );
+
+
+			/**
+			* BridgeForMessageExt static method to be called by native layer in order to notify about incoming messages.
+			*
+			* @param hInst			A handle to the Environs instance
+			* @param deviceID      The device id of the sender device.
+			* @param areaName		Area name of the application environment
+			* @param appName		Application name of the application environment
+			* @param type          The type of this message.
+			* @param msg           The message.
+			* @param length        The length of the message.
+			*/
+			CLI_NO_STATIC void BridgeForMessageExt ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int type, CVString_ptr message, int length );
+
+
+			/**
+			* BridgeForStatusMessage static method to be called by native layer in order to drop a status messages.
+			*
+			* @param hInst			A handle to the Environs instance
+			* @param msg           A status message of Environs.
+			*/
+			CLI_NO_STATIC void BridgeForStatusMessage ( int hInst, CString_ptr message );
+
+
+			/**
+			* BridgeForData static method to be called by native layer in order to notify about data received from a device.
+			*
+			* @param hInst			A handle to the Environs instance
+			* @param nativeID      The native device id of the sender device.
+			* @param type          The type of this message.
+			* @param fileID        A fileID that was attached to the buffer.
+			* @param descriptor    A descriptor that was attached to the buffer.
+			* @param size          The size of the data buffer.
+			*/
+			CLI_NO_STATIC void BridgeForData ( int hInst, int nativeID, int type, int fileID, CString_ptr descriptor, int size );
+
+
+			/**
+			* BridgeForSensorData is called (by the native layer) when a sensor input event has been received from a connected device.
+			*
+			* @param hInst			A handle to the Environs instance
+			* @param nativeID       The native device id of the sender device.
+			* @param pack			The sensor data frame.
+			*/
+			CLI_NO_STATIC void BridgeForSensorData ( int hInst, int nativeID, Addr_obj pack );
+
+			pthread_mutex_t             queryLock;
+			pthread_mutex_t             listLock;
+			pthread_mutex_t             threadDeviceCommandMutex;
+
+			long                        listAllUpdate;
+			long                        listNearbyUpdate;
+			long                        listMediatorUpdate;
+
+			pthread_mutex_t							listAllLock;
+			devList ( PLATFORMSPACE DeviceInstance )	listAll;
+
+			pthread_mutex_t							listNearbyLock;
+			devList ( PLATFORMSPACE DeviceInstance )    listNearby;
+
+			pthread_mutex_t							listMediatorLock;
+			devList ( PLATFORMSPACE DeviceInstance )    listMediator;
+
+			spv ( lib::IIListObserver * )	listAllObservers;
+			spv ( lib::IIListObserver * )   listNearbyObservers;
+			spv ( lib::IIListObserver * )   listMediatorObservers;
+
+			stdQueue ( DeviceCommandContext OBJ_ptr ) threadDeviceCommandQueue;
+
+			void DisposeLists ( bool releaseList );
+
+			void RefreshDeviceLists ();
+
+			devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevices ( int type );
+
+			devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesBest ( pthread_mutex_t OBJ_ptr OBJ_ref lock );
+
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceByNativeID ( int nativeID );
+
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceByDeviceID ( int deviceID );
+
+
+			/**
+			 * Query a DeviceInstance object from all available devices within the environment (including those of the Mediator).
+			 *
+			 * @param nativeID      The device id of the target device.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeID );
+
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeOrDeviceID, bool isNativeID );
+
+
+			/**
+			 * Query a DeviceInstance object of nearby (broadcast visible) devices within the environment.
+			 *
+			 * @param nativeID      The device id of the target device.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceNearby ( int nativeID );
+
+
+			/**
+			 * Get a collection that holds the nearby devices. This list ist updated dynamically by Environs.
+			 *
+			 * @return ArrayList with DeviceInstance objects
+			 */
+			c_const devList ( PLATFORMSPACE  DeviceInstance ) c_ref GetDevicesNearby ();
+
+
+			/**
+			 * Query a DeviceInstance object of Mediator managed devices within the environment.
+			 *
+			 * @param nativeID      The device id of the target device.
+			 * @return DeviceInstance-object
+			 */
+			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceFromMediator ( int nativeID );
+
+
+			/**
+			 * Get a collection that holds the Mediator server devices. This list ist updated dynamically by Environs.
+			 *
+			 * @return ArrayList with DeviceInstance objects
+			 */
+			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesFromMediator ();
+
+#ifndef CLI_CPP
+			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver * ) c_ref observerList, svsp ( DeviceInstance ) vanished, svsp ( DeviceInstance ) appeared, bool enqueue );
+
+#endif
+			static void c_OBJ_ptr DeviceListUpdateThreadStarter ( pthread_param_t pack );
+
+			void * DeviceListUpdateThread ( pthread_param_t pack );
+
+			void OnDeviceListUpdate ();
+			void DeviceListUpdate ( int listType );
+
+			void UpdateConnectProgress ( int nativeID, int progress );
+
+			void OnDeviceListNotification ( environs::ObserverNotifyContext OBJ_ptr ctx );
+
+			void OnDeviceListNotification1 ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, environs::ObserverNotifyContext OBJ_ptr ctx );
+
+			void UpdateMessage ( environs::ObserverMessageContext OBJ_ptr ctx );
+
+
+
+			void UpdateData ( environs::ObserverDataContext OBJ_ptr ctx );
+
+			void UpdateSensorData ( int nativeID, environs::SensorFrame OBJ_ptr pack );
 		};
 	}
 }

@@ -38,6 +38,10 @@ namespace environs
 {
     namespace lib
     {
+		class Environs;
+		class PortalInstance;
+		class DeviceList;
+
         /**
          * IIEnvironsObserver: Attachable to **IEnvirons** objects in order to receive all notifications that the Environs instance processes or submits to the platform layer.
          */
@@ -64,28 +68,20 @@ namespace environs
 			* OnNotify is called whenever a notification is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
 			* The notification parameter is an integer value which represents one of the values as listed in Types.*
 			* The string representation can be retrieved through TypesResolver.get(notification).
-			*
-			* @param nativeID      The native identifier that targets the device.
-			* @param notification  The notification
-			* @param source		   A value of the enumeration Types.EnvironsSource
-			* @param context       A value that provides additional context information (if available).
+             *
+             * @param context		An object reference of type environs::ObserverNotifyContext.
 			*/
-			virtual void OnNotify ( int nativeID, int notification, int source, void * context ) = 0;
+			virtual void OnNotify ( environs::ObserverNotifyContext * context ) = 0;
 
 
 			/**
 			* OnNotifyExt is called whenever a notification is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
 			* The notification parameter is an integer value which represents one of the values as listed in Types.*
 			* The string representation can be retrieved through TypesResolver.get(notification).
-			*
-			* @param deviceID      The device id of the sender device.
-			* @param areaName      Area name of the application environment
-			* @param appName	   Application name of the application environment
-			* @param notification  The notification
-			* @param source		   A value of the enumeration Types.EnvironsSource
-			* @param context       A value that provides additional context information (if available).
+             *
+             * @param context		An object reference of type environs::ObserverNotifyContext.
 			*/
-			virtual void OnNotifyExt ( int deviceID, const char * areaName, const char * appName, int notification, int source, void * context ) = 0;
+			virtual void OnNotifyExt ( environs::ObserverNotifyContext * context ) = 0;
             
             
             /**
@@ -93,7 +89,7 @@ namespace environs
              *
              * @param portal 		The PortalInstance object.
              */
-            virtual void OnPortalRequestOrProvided ( sp ( IPortalInstance ) portal ) = 0;
+            virtual void OnPortalRequestOrProvided ( sp ( environs::PortalInstance ) portal ) = 0;
             
             
             /**
@@ -101,14 +97,14 @@ namespace environs
              *
              * @param portal 		The PortalInstance object.
              */
-            virtual void OnPortalRequestOrProvidedInterface ( IPortalInstance * portal ) = 0;
+            virtual void OnPortalRequestOrProvidedInterface ( environs::PortalInstance * portal ) = 0;
             
             /**
              * OnPortalRequestOrProvidedBase is called when a portal request from another devices came in, or when a portal has been provided by another device.
              *
              * @param portal 		The PortalInstance object.
              */
-            virtual void OnPortalRequestOrProvidedBase ( IPortalInstance * portal ) { ENVIRONS_I_SP1 ( IPortalInstance, OnPortalRequestOrProvided, portal ); };
+            virtual void OnPortalRequestOrProvidedBase ( environs::PortalInstance * portal ) { ENVIRONS_I_SP1 ( environs::PortalInstance, OnPortalRequestOrProvided, portal ); };
             
             
         protected:
@@ -139,7 +135,7 @@ namespace environs
 			* @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
 			* @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
 			*/
-            virtual void OnListChanged ( sp ( IDeviceInstanceList ) vanished, sp ( IDeviceInstanceList ) appeared ) = 0;
+            virtual void OnListChanged ( sp ( DeviceInstanceList ) vanished, sp ( DeviceInstanceList ) appeared ) = 0;
             
             /**
              * OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
@@ -147,9 +143,9 @@ namespace environs
              * @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
              * @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
              */
-            virtual void OnListChangedInterface ( IDeviceInstanceList * vanished, IDeviceInstanceList * appeared ) = 0;
+            virtual void OnListChangedInterface ( DeviceInstanceList * vanished, DeviceInstanceList * appeared ) = 0;
 
-			virtual void OnListChangedBase ( IArrayList * vanished, IArrayList * appeared ) { ENVIRONS_I_SP2_SEL ( IDeviceInstanceList, OnListChanged, vanished, appeared ); }
+			virtual void OnListChangedBase ( ArrayList * vanished, ArrayList * appeared ) { ENVIRONS_I_SP2_SEL ( DeviceInstanceList, OnListChanged, vanished, appeared ); }
 
 			virtual void OnListChangedInternal ( svsp ( DeviceInstance ) vanished, svsp ( DeviceInstance ) appeared ) { OnListChangedInternal_ = false; };
 
@@ -181,7 +177,7 @@ namespace environs
 			* @param device                    The DeviceInstance object that sends this notification.
 			* @param DEVICE_INFO_ATTR_changed  The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
 			*/
-            virtual void OnDeviceChanged ( sp ( IDeviceInstance ) device, int DEVICE_INFO_ATTR_changed ) = 0;
+            virtual void OnDeviceChanged ( sp ( environs::DeviceInstance ) device, int DEVICE_INFO_ATTR_changed ) = 0;
             
             
             /**
@@ -191,9 +187,9 @@ namespace environs
              * @param device                    The DeviceInstance object that sends this notification.
              * @param DEVICE_INFO_ATTR_changed  The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
              */
-            virtual void OnDeviceChangedInterface ( IDeviceInstance * device, int DEVICE_INFO_ATTR_changed ) = 0;
+            virtual void OnDeviceChangedInterface ( environs::DeviceInstance * device, int DEVICE_INFO_ATTR_changed ) = 0;
             
-            virtual void OnDeviceChangedBase ( IDeviceInstance * device, int DEVICE_INFO_ATTR_changed ) { ENVIRONS_I_SP1_1 ( IDeviceInstance, OnDeviceChanged, device, DEVICE_INFO_ATTR_changed ); }
+            virtual void OnDeviceChangedBase ( environs::DeviceInstance * device, int DEVICE_INFO_ATTR_changed ) { ENVIRONS_I_SP1_1 ( environs::DeviceInstance, OnDeviceChanged, device, DEVICE_INFO_ATTR_changed ); }
 
 			virtual void OnDeviceChangedInternal ( int DEVICE_INFO_ATTR_changed ) { OnDeviceChangedInternal_ = false; };
 
@@ -220,25 +216,17 @@ namespace environs
             /**
              * OnMessage is called whenever a text message is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
              *
-             * @param nativeID      The native identifier that targets the device.
-             * @param type	        Determines the source (either from a device, environs, or native layer)
-             * @param message       The message as string text
-             * @param length        The length of the message
+			 * @param context		An object reference of type environs::ObserverMessageContext.
              */
-			virtual void OnMessage ( int nativeID, int type, const char * message, int length ) = 0;
+			virtual void OnMessage ( environs::ObserverMessageContext * context ) = 0;
             
             
             /**
              * OnMessage is called whenever a text message is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
              *
-             * @param deviceID      The device id of the sender device.
-             * @param areaName      Area name of the application environment
-             * @param appName		Application name of the application environment
-             * @param type	        Determines the source (either from a device, environs, or native layer)
-             * @param message       The message as string text
-             * @param length        The length of the message
+			 * @param context		An object reference of type environs::ObserverMessageContext.
              */
-			virtual void OnMessageExt ( int deviceID, const char * areaName, const char * appName, int type, const char * message, int length ) = 0;
+			virtual void OnMessageExt ( environs::ObserverMessageContext * context ) = 0;
             
             
             /**
@@ -273,21 +261,21 @@ namespace environs
 			*
 			* @param msg   The corresponding message object of type MessageInstance
 			*/
-            virtual void OnMessage ( sp ( IMessageInstance ) msg, int MESSAGE_INFO_ATTR_changed ) = 0;
+            virtual void OnMessage ( sp ( environs::MessageInstance ) msg, int MESSAGE_INFO_ATTR_changed ) = 0;
             
             /**
              * OnMessage is called whenever a text message has been received from a device.
              *
              * @param msg   The corresponding message object of type MessageInstance
              */
-            virtual void OnMessageInterface ( IMessageInstance * msg, int MESSAGE_INFO_ATTR_changed ) = 0;
+            virtual void OnMessageInterface ( environs::MessageInstance * msg, int MESSAGE_INFO_ATTR_changed ) = 0;
 
 			/**
 			* OnMessage is called whenever a text message has been received from a device.
 			*
 			* @param msg   The corresponding message object of type MessageInstance
 			*/
-			virtual void OnMessageBase ( IMessageInstance * msg, int MESSAGE_INFO_ATTR_changed ) { ENVIRONS_I_SP2 ( IMessageInstance, OnMessage, msg, MESSAGE_INFO_ATTR_changed ); };
+			virtual void OnMessageBase ( environs::MessageInstance * msg, int MESSAGE_INFO_ATTR_changed ) { ENVIRONS_I_SP2 ( environs::MessageInstance, OnMessage, msg, MESSAGE_INFO_ATTR_changed ); };
 
 			virtual void OnMessageInternal ( sp ( MessageInstance ) msg, int MESSAGE_INFO_ATTR_changed ) { OnMessageInternal_ = false; };
 
@@ -308,18 +296,14 @@ namespace environs
 			IIEnvironsDataObserver () : OnEnvironsData_ ( true ) {};
             
 			virtual ~IIEnvironsDataObserver () {};
-            
-            /**
-             * OnData is called whenever new binary data (files, buffers) has been received.
-             * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
-             *
-             * @param nativeID      The native identifier that targets the device.
-             * @param type          The type of the data
-             * @param fileID        A user-customizable id that identifies the file
-             * @param descriptor    A text that describes the file
-             * @param size          The size in bytes
-             */
-            virtual void OnData ( int nativeID, int type, int fileID, const char * descriptor, int size ) = 0;
+
+			/**
+			* OnData is called whenever new binary data (files, buffers) has been received.
+			* Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
+			*
+			* @param context		An object reference of type environs::ObserverDataContext.
+			*/
+			virtual void OnData ( environs::ObserverDataContext * context ) = 0;
             
         protected:
             bool OnEnvironsData_;
@@ -346,7 +330,7 @@ namespace environs
              * @param fileData                  The corresponding file object of type FileInstance
              * @param FILE_INFO_ATTR_changed    Flags that indicate the object change.
              */
-            virtual void OnData ( sp ( IFileInstance ) fileData, int FILE_INFO_ATTR_changed ) = 0;
+            virtual void OnData ( sp ( environs::FileInstance ) fileData, int FILE_INFO_ATTR_changed ) = 0;
             
             /**
              * OnData is called whenever new binary data (files, buffers) has been received.
@@ -355,7 +339,7 @@ namespace environs
              * @param fileData                  The corresponding file object of type FileInstance
              * @param FILE_INFO_ATTR_changed    Flags that indicate the object change.
              */
-            virtual void OnDataInterface ( IFileInstance * fileData, int FILE_INFO_ATTR_changed ) = 0;
+            virtual void OnDataInterface ( environs::FileInstance * fileData, int FILE_INFO_ATTR_changed ) = 0;
             
             /**
              * OnDataBase is called whenever new binary data (files, buffers) has been received.
@@ -364,7 +348,7 @@ namespace environs
              * @param fileData                  The corresponding file object of type FileInstance
              * @param FILE_INFO_ATTR_changed    Flags that indicate the object change.
              */
-			virtual void OnDataBase ( IFileInstance * fileData, int FILE_INFO_ATTR_changed )  { ENVIRONS_I_SP2 ( IFileInstance, OnData, fileData, FILE_INFO_ATTR_changed ); };
+			virtual void OnDataBase ( environs::FileInstance * fileData, int FILE_INFO_ATTR_changed )  { ENVIRONS_I_SP2 ( environs::FileInstance, OnData, fileData, FILE_INFO_ATTR_changed ); };
 
 			virtual void OnDataInternal ( sp ( FileInstance ) fileData, int FILE_INFO_ATTR_changed ) { OnDataInternal_ = false; };
 
@@ -424,7 +408,7 @@ namespace environs
         
         
         /**
-         * IIPortalObserver: Attachable to **IPortalInstance** objects in order to receive changes of a particular interactive portal.
+         * IIPortalObserver: Attachable to **PortalInstance** objects in order to receive changes of a particular interactive portal.
          */
 		class IIPortalObserver
         {
@@ -442,7 +426,7 @@ namespace environs
              * @param portal                    The PortalInstance object.
              * @param Environs_NOTIFY_PORTAL_	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
              */
-            virtual void OnPortalChanged ( sp ( IPortalInstance ) portal, int Environs_NOTIFY_PORTAL_ ) = 0;
+            virtual void OnPortalChanged ( sp ( environs::PortalInstance ) portal, int Environs_NOTIFY_PORTAL_ ) = 0;
             
             /**
              * OnPortalChanged is called when the portal status has changed, e.g. stream has started, stopped, disposed, etc..
@@ -450,7 +434,7 @@ namespace environs
              * @param portal                    The PortalInstance object.
              * @param Environs_NOTIFY_PORTAL_	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
              */
-            virtual void OnPortalChangedInterface ( IPortalInstance * portal, int Environs_NOTIFY_PORTAL_ ) = 0;
+            virtual void OnPortalChangedInterface ( environs::PortalInstance * portal, int Environs_NOTIFY_PORTAL_ ) = 0;
             
             
             /**
@@ -459,7 +443,7 @@ namespace environs
              * @param portal                    The PortalInstance object.
              * @param Environs_NOTIFY_PORTAL_	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
              */
-            virtual void OnPortalChangedBase ( IPortalInstance * portal, int Environs_NOTIFY_PORTAL_ ) { ENVIRONS_I_SP1_1 ( IPortalInstance, OnPortalChanged, portal, Environs_NOTIFY_PORTAL_ ); };
+            virtual void OnPortalChangedBase ( environs::PortalInstance * portal, int Environs_NOTIFY_PORTAL_ ) { ENVIRONS_I_SP1_1 ( environs::PortalInstance, OnPortalChanged, portal, Environs_NOTIFY_PORTAL_ ); };
             
         protected:
             bool OnPortalChanged_;

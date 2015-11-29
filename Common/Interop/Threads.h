@@ -76,7 +76,10 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+
+#ifndef CLI_CPP
 #include "windows.h"
+#endif
 
 #ifdef WINDOWS_PHONE
 #include "winbase.h"
@@ -120,162 +123,207 @@ namespace environs
 	* Windows specific definintions
 	*/
 
-#ifdef USE_PTHREADS_FOR_WINDOWS
-#define pthread_reset(thread)			memset(&thread,0,sizeof(pthread_t))
-#define pthread_close(threadID)			
-	//#define pthread_mutex_valid(m)			true	
-#define pthread_wait_fail(val)			(val != 0)
-#else
+#	ifdef USE_PTHREADS_FOR_WINDOWS
 
-#ifdef WINDOWS_PHONE
+#		define pthread_reset(thread)			memset(&thread,0,sizeof(pthread_t))
+#		define pthread_close(threadID)			
+//#		define pthread_mutex_valid(m)			true	
+#		define pthread_wait_fail(val)			(val != 0)
 
-	/*
-	* Sleep
-	*/
-	void Sleep ( DWORD millis );
-#endif
+#	else
+#		ifdef WINDOWS_PHONE
+			/*
+			* Sleep
+			*/
+			void Sleep ( DWORD millis );
+#		endif
 
-	/*
-	* Threads
-	*/
-#define pthread_reset(thread)			thread = 0
-#define pthread_mvalid(m)				(true)
-#define pthread_t						HANDLE
-#define pthread_close(threadID)			CloseHandle ( threadID )
-#define pthread_detach_handle(threadID)	CloseHandle ( threadID )
+		/*
+		* Threads
+		*/
+#		define pthread_reset(thread)				thread = NULL_ptr
 
-#ifdef WINDOWS_PHONE
-#define pthread_join(thread,retval)		WaitForSingleObjectEx ( thread, INFINITE, TRUE )
-#define pthread_cancel(threadID)		_endthread();
-#else
-#define pthread_join(thread,retval)		WaitForSingleObject ( thread, INFINITE )
-#endif
+#		ifdef CLI_CPP
+#			define pthread_mvalid(m)				(m != NULL_ptr && m->ThreadState == ThreadState::Stopped)
+#			define pthread_t						Thread ^
+#			define pthread_param_t					System::Object ^
+#			define pthread_close(threadID)			
+#			define pthread_detach_handle(threadID)	
+#		else
+#			define pthread_mvalid(m)				(true)
+#			define pthread_t						HANDLE
+#			define pthread_param_t					void *
+#			define pthread_close(threadID)			CloseHandle ( threadID )
+#			define pthread_detach_handle(threadID)	CloseHandle ( threadID )
+#		endif
 
-#define pthread_wait_fail(val)			(val != WAIT_OBJECT_0)
-#define pthread_equal(val,arg)			(val == GetThreadId(arg))
-#define PTHREAD_THREAD_INITIALIZER		0
-#define pthread_setname_current(name)	
-	//#define pthread_self()					GetCurrentThreadId()
+#		ifdef WINDOWS_PHONE
+#			define pthread_join(thread,retval)		WaitForSingleObjectEx ( thread, INFINITE, TRUE )
+#			define pthread_cancel(threadID)			_endthread();
+#		elif CLI_CPP
+#			define pthread_join(thread,retval)		thread->Join ()
+#			define pthread_cancel(thread)			thread->Abort ()
+#		else
+#			define pthread_join(thread,retval)		WaitForSingleObject ( thread, INFINITE )
+#		endif
 
-#ifdef WINDOWS_PHONE
-#define pthread_create(threadID,s0,startRoutine,arg) \
-	((*threadID = (HANDLE)_beginthread ( (void (__cdecl *) (void *))startRoutine, 64000, arg )) == 0)
-#else
-#define pthread_create(threadID,s0,startRoutine,arg) \
-	((*threadID = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, 0 )) == 0)
-#endif
+#		define pthread_wait_fail(val)			(val != WAIT_OBJECT_0)
+#		define pthread_equal(val,arg)			(val == GetThreadId(arg))
+#		define PTHREAD_THREAD_INITIALIZER		NULL_ptr
+#		define pthread_setname_current(name)	
+		//#define pthread_self()					GetCurrentThreadId()
 
-	/*
-	* Events
-	*/
-#define	pthread_cond_t					HANDLE	
-#define	pthread_cond_mutex_t			void *
+#		ifdef WINDOWS_PHONE
+#			define pthread_create(threadID,s0,startRoutine,arg) \
+				((*threadID = (HANDLE)_beginthread ( (void (__cdecl *) (void *))startRoutine, 64000, arg )) == 0)
+#		elif CLI_CPP
+			using namespace System::Threading;
 
-#ifdef WINDOWS_PHONE
-#define PTHREAD_COND_INITIALIZER		CreateEventEx ( NULL, NULL, NULL, NULL )
-#define pthread_cond_init(e,d)			((*e = CreateEventEx ( NULL, NULL, NULL, NULL )) == NULL)
-#define pthread_cond_manual_init(e,d)	(*e = CreateEventEx ( NULL, NULL, CREATE_EVENT_MANUAL_RESET, NULL ))
-#define pthread_cond_manual_wait(e,m)	WaitForSingleObjectEx ( *e, INFINITE, TRUE )
-#define pthread_cond_wait_time(e,m,t)	(WaitForSingleObjectEx ( *e, t, TRUE ) != WAIT_OBJECT_0)
-#else
-#define PTHREAD_COND_INITIALIZER		CreateEvent ( NULL, FALSE, FALSE, NULL )
-#define pthread_cond_init(e,d)			((*e = CreateEvent ( NULL, FALSE, FALSE, NULL )) == NULL)
-#define pthread_cond_manual_init(e,d)	((*e = CreateEvent ( NULL, TRUE, FALSE, NULL )) == NULL)
-#define pthread_cond_manual_wait(e,m)	WaitForSingleObject ( *e, INFINITE )
-#define pthread_cond_wait_time(e,m,t)	(WaitForSingleObject ( *e, t ) != WAIT_OBJECT_0)
-#endif
+			int pthread_create_cli ( pthread_t % threadID, void *, System::Threading::ParameterizedThreadStart ^ startRoutine, pthread_param_t arg );
 
-#define pthread_cond_mutex_init(e,d)	false
-	//#define pthread_cond_mutex_valid(m)		false	
+#			define pthread_create(threadID,s0,startRoutine,arg) \
+				pthread_create_cli ( threadID, s0, gcnew ParameterizedThreadStart ( startRoutine ), arg )
+#		else
+#			define pthread_create(threadID,s0,startRoutine,arg) \
+				((*threadID = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, 0 )) == 0)
+#		endif
 
-#define pthread_cond_mutex_destroy(m)	false
+		/*
+		* Events
+		*/
+#		ifdef CLI_CPP
+#			define	pthread_cond_t					System::Threading::AutoResetEvent ^
+#		else
+#			define	pthread_cond_t					HANDLE	
+#		endif
+#		define	pthread_cond_mutex_t				void *
 
-#define pthread_cond_mutex_lock(m)		false
-#define pthread_cond_mutex_unlock(m)	false
-#define pthread_cond_prepare(e)			ResetEvent ( *e )
-#define pthread_cond_signal(e)			!SetEvent ( *e )
-#define pthread_cond_broadcast(e)		pthread_cond_signal(e)
-#define pthread_cond_signal_checked(e)	if (*e) SetEvent ( *e )
-#define pthread_cond_prepare_checked(e) if (*e) ResetEvent ( *e )
-#define pthread_cond_destroy(e)			(!CloseHandle ( *e ) || ((*e = 0) != 0))
-#define pthread_cond_valid(e)			(e)    
+#		ifdef WINDOWS_PHONE
+#			define PTHREAD_COND_INITIALIZER			CreateEventEx ( NULL, NULL, NULL, NULL )
+#			define pthread_cond_init(e,d)			((*e = CreateEventEx ( NULL, NULL, NULL, NULL )) == NULL)
+#			define pthread_cond_manual_init(e,d)	(*e = CreateEventEx ( NULL, NULL, CREATE_EVENT_MANUAL_RESET, NULL ))
+#			define pthread_cond_manual_wait(e,m)	WaitForSingleObjectEx ( *e, INFINITE, TRUE )
+#			define pthread_cond_wait_time(e,m,t)	(WaitForSingleObjectEx ( *e, t, TRUE ) != WAIT_OBJECT_0)
+#		else
+#			define PTHREAD_COND_INITIALIZER			CreateEvent ( NULL, FALSE, FALSE, NULL )
+#			define pthread_cond_init(e,d)			((*e = CreateEvent ( NULL, FALSE, FALSE, NULL )) == NULL)
+#			define pthread_cond_manual_init(e,d)	((*e = CreateEvent ( NULL, TRUE, FALSE, NULL )) == NULL)
+#			define pthread_cond_manual_wait(e,m)	WaitForSingleObject ( *e, INFINITE )
 
-	/*
-	* Semaphore
-	*/
-#define sem_tp							HANDLE
-	//#define sem_fail(exp)					((exp) == 0)
-#define env_sem_post(sem)				ReleaseSemaphore ( sem, 1, 0 )
-#define env_sem_posts(sem)				env_sem_post ( sem )
-#ifdef WINDOWS_PHONE
-#define env_sem_wait(sem)				(WaitForSingleObjectEx ( sem, INFINITE, TRUE ) == WAIT_OBJECT_0)
-#else
-#define env_sem_wait(sem)				(WaitForSingleObject ( sem, INFINITE ) == WAIT_OBJECT_0)
-#endif
-	//#define sem_trywait(sem)				(WaitForSingleObject ( sem, 0 ) == WAIT_OBJECT_0)
+#			ifdef CLI_CPP
+#				define pthread_cond_wait_time(e,m,t)	!e->WaitOne (t)
+#			else
+#				define pthread_cond_wait_time(e,m,t)	(WaitForSingleObject ( *e, t ) != WAIT_OBJECT_0)
+#			endif
+#		endif
 
-#define env_sem_dispose(sem)			CloseHandle ( sem )
+#		define pthread_cond_mutex_init(e,d)			false
+		//#define pthread_cond_mutex_valid(m)		false	
 
-	/*
-	* Mutex
-	*/
-#ifdef USE_CRIT_SEC_MUTEX	 // USE_CRIT_SEC_MUTEX
-	/*
-	* Use critical section objects for windows mutex
-	*/
+#		define pthread_cond_mutex_destroy(m)		false
 
-#define pthread_mutex_t					CRITICAL_SECTION
-	//#define pthread_mutex_valid(m)			true	
+#		define pthread_cond_mutex_lock(m)			false
+#		define pthread_cond_mutex_unlock(m)			false
+#		define pthread_cond_prepare(e)				ResetEvent ( *e )
+#		define pthread_cond_broadcast(e)			pthread_cond_signal(e)
+#		define pthread_cond_signal_checked(e)		if (*e) SetEvent ( *e )
+#		define pthread_cond_prepare_checked(e)		if (*e) ResetEvent ( *e )
+#		define pthread_cond_destroy(e)				(!CloseHandle ( *e ) || ((*e = 0) != 0))
+#		define pthread_cond_valid(e)				(e)    
 
-#ifdef WINDOWS_PHONE
-#define pthread_mutex_init(m,d)			
-#else
-	extern INCLINEFUNC bool pthread_mutex_init ( CRITICAL_SECTION  * critSEc, void * arg );
-	//#define pthread_mutex_init(m,d)			InitializeCriticalSection(m)
-#endif
+#		ifdef CLI_CPP
+#			define pthread_cond_signal(e)			!e->Set()
+#		else
+#			define pthread_cond_signal(e)			!SetEvent ( *e )
+#		endif
+		/*
+		* Semaphore
+		*/
+#		define sem_tp								HANDLE
+		//#define sem_fail(exp)						((exp) == 0)
+#		define env_sem_post(sem)					ReleaseSemaphore ( sem, 1, 0 )
+#		define env_sem_posts(sem)					env_sem_post ( sem )
+#		ifdef WINDOWS_PHONE
+#			define env_sem_wait(sem)				(WaitForSingleObjectEx ( sem, INFINITE, TRUE ) == WAIT_OBJECT_0)
+#		else
+#			define env_sem_wait(sem)				(WaitForSingleObject ( sem, INFINITE ) == WAIT_OBJECT_0)
+#		endif
+		//#define sem_trywait(sem)					(WaitForSingleObject ( sem, 0 ) == WAIT_OBJECT_0)
 
-	extern INCLINEFUNC bool pthread_mutex_destroy ( CRITICAL_SECTION  * critSEc );
-	//#define pthread_mutex_destroy(m)		DeleteCriticalSection(m))
+#		define env_sem_dispose(sem)					CloseHandle ( sem )
 
-#ifdef WINDOWS_PHONE
-#define pthread_cond_wait(e,m)			LeaveCriticalSection(m); WaitForSingleObjectEx ( *e, INFINITE, TRUE ); EnterCriticalSection (m);
-#else
-#define pthread_cond_wait(e,m)			LeaveCriticalSection(m); WaitForSingleObject ( *e, INFINITE ); EnterCriticalSection (m);
-#endif
-
-	extern INCLINEFUNC int pthread_mutex_lock ( pthread_mutex_t * lock );
-	extern INCLINEFUNC int pthread_mutex_trylock ( pthread_mutex_t * lock );
-	extern INCLINEFUNC int pthread_mutex_unlock ( pthread_mutex_t * lock );
-
-#else // USE_CRIT_SEC_MUTEX
-	/*
-	* Use mutex objects for windows mutex
-	*/
-#define pthread_mutex_t					HANDLE
-#define pthread_mutex_valid(m)			m
-#define PTHREAD_MUTEX_INITIALIZER		CreateMutex ( NULL, FALSE, NULL )
-#define pthread_mutex_init(m,d)			( (*m = CreateMutex ( NULL, FALSE, NULL )) == 0 )
-#define pthread_mutex_destroy(m)		CloseHandle ( *m )
-#define pthread_mutex_lock(m)			(WaitForSingleObject ( *m, WAIT_TIME_FOR_MUTEX_ACQUIRE ) != WAIT_OBJECT_0)
-#define pthread_mutex_unlock(m)			(!ReleaseMutex ( *m ))
-
-#define pthread_cond_wait(e,m)			ReleaseMutex(*m); WaitForSingleObject ( *e, INFINITE ); WaitForSingleObject ( *m, WAIT_TIME_FOR_MUTEX_ACQUIRE );
-
-#endif // USE_CRIT_SEC_MUTEX
-
-	extern INCLINEFUNC int pthread_cond_timedwait ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int * timeout );
-	extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
-	extern INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
-
-#define pthread_csec_t                  CRITICAL_SECTION
-#define pthread_csec_init(m,d)			InitializeCriticalSection(m)
-#define pthread_csec_destroy(m)         DeleteCriticalSection(m)
-#define pthread_csec_lock(m)            EnterCriticalSection (m)
-#define pthread_csec_trylock(m)         TryEnterCriticalSection (m)
-#define pthread_csec_unlock(m)          LeaveCriticalSection(m)
+		/*
+		* Mutex
+		*/
+#		ifdef USE_CRIT_SEC_MUTEX	 // USE_CRIT_SEC_MUTEX
 
 
-#endif // USE_PTHREADS_FOR_WINDOWS
+#			ifdef CLI_CPP
+#				define pthread_mutex_t				System::Object
+
+#			else
+			/*
+			* Use critical section objects for windows mutex
+			*/
+
+#			define pthread_mutex_t					CRITICAL_SECTION
+			//#define pthread_mutex_valid(m)		true	
+
+#			ifdef WINDOWS_PHONE
+#				define pthread_mutex_init(m,d)			
+#			else
+				extern INCLINEFUNC bool pthread_mutex_init ( CRITICAL_SECTION  * critSEc, void * arg );
+				//#define pthread_mutex_init(m,d)	InitializeCriticalSection(m)
+#			endif
+
+			extern INCLINEFUNC bool pthread_mutex_destroy ( CRITICAL_SECTION  * critSEc );
+			//#define pthread_mutex_destroy(m)		DeleteCriticalSection(m))
+
+#			ifdef WINDOWS_PHONE
+#					define pthread_cond_wait(e,m)	LeaveCriticalSection(m); WaitForSingleObjectEx ( *e, INFINITE, TRUE ); EnterCriticalSection (m);
+#			else
+#				define pthread_cond_wait(e,m)		LeaveCriticalSection(m); WaitForSingleObject ( *e, INFINITE ); EnterCriticalSection (m);
+#			endif
+
+			extern INCLINEFUNC int pthread_mutex_lock (		pthread_mutex_t OBJ_ptr lock );
+			extern INCLINEFUNC int pthread_mutex_trylock (	pthread_mutex_t OBJ_ptr lock );
+			extern INCLINEFUNC int pthread_mutex_unlock (	pthread_mutex_t OBJ_ptr lock );
+
+#		endif
+
+#	else // USE_CRIT_SEC_MUTEX
+		/*
+		* Use mutex objects for windows mutex
+		*/
+#		define pthread_mutex_t					HANDLE
+#		define pthread_mutex_valid(m)			m
+#		define PTHREAD_MUTEX_INITIALIZER		CreateMutex ( NULL, FALSE, NULL )
+#		define pthread_mutex_init(m,d)			( (*m = CreateMutex ( NULL, FALSE, NULL )) == 0 )
+#		define pthread_mutex_destroy(m)		CloseHandle ( *m )
+#		define pthread_mutex_lock(m)			(WaitForSingleObject ( *m, WAIT_TIME_FOR_MUTEX_ACQUIRE ) != WAIT_OBJECT_0)
+#		define pthread_mutex_unlock(m)			(!ReleaseMutex ( *m ))
+
+#		define pthread_cond_wait(e,m)			ReleaseMutex(*m); WaitForSingleObject ( *e, INFINITE ); WaitForSingleObject ( *m, WAIT_TIME_FOR_MUTEX_ACQUIRE );
+
+#	endif // USE_CRIT_SEC_MUTEX
+
+
+#	ifdef CLI_CPP
+
+#	else
+		extern INCLINEFUNC int pthread_cond_timedwait (		pthread_cond_t	* cond, pthread_mutex_t OBJ_ptr lock, unsigned int * timeout );
+		extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t	* cond, pthread_mutex_t OBJ_ptr lock, unsigned int timeout );
+		extern INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t OBJ_ptr lock, unsigned int timeout );
+#	endif
+
+#	define pthread_csec_t                  CRITICAL_SECTION
+#	define pthread_csec_init(m,d)			InitializeCriticalSection(m)
+#	define pthread_csec_destroy(m)         DeleteCriticalSection(m)
+#	define pthread_csec_lock(m)            EnterCriticalSection (m)
+#	define pthread_csec_trylock(m)         TryEnterCriticalSection (m)
+#	define pthread_csec_unlock(m)          LeaveCriticalSection(m)
+		
+#	endif // USE_PTHREADS_FOR_WINDOWS
 
 #else 	 // _WIN32 - Section for __APPLE__, ANDROID, _GNUC_
 	extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
@@ -284,29 +332,31 @@ namespace environs
 	/*
 	* Android/iOS/MacOS/Linux specific definintions
 	*/
-#ifdef __APPLE__
-#define pthread_setname_current(name)	pthread_setname_np ( name );
-#else
-#define pthread_setname_current(name)	pthread_setname_np ( pthread_self (), name );
-#endif
+#	define pthread_param_t						void *
 
-#ifdef _OPEN_THREADS
-#define pthread_detach_handle(threadID)	pthread_detach ( &threadID )
-#else
-#define pthread_detach_handle(threadID)	pthread_detach ( threadID )
-#endif
+#	ifdef __APPLE__
+#		define pthread_setname_current(name)	pthread_setname_np ( name );
+#	else
+#		define pthread_setname_current(name)	pthread_setname_np ( pthread_self (), name );
+#	endif
 
-#define pthread_reset(thread)			memset(&thread,0,sizeof(pthread_t))
+#	ifdef _OPEN_THREADS
+#		define pthread_detach_handle(threadID)	pthread_detach ( &threadID )
+#	else
+#		define pthread_detach_handle(threadID)	pthread_detach ( threadID )
+	#endif
 
-#ifdef ANDROID
-	extern long ___sync_val_compare_and_swap ( long * destination, unsigned int compare, unsigned int swap );
+#	define pthread_reset(thread)				memset(&thread,0,sizeof(pthread_t))
 
-#define pthread_mutex_valid(m)			(m.value != 0)
-#define pthread_cond_valid(e)			(true)
-#else
-#define pthread_mutex_valid(m)			(true)
-#define pthread_cond_valid(e)			(true)
-#endif
+#	ifdef ANDROID
+		extern long ___sync_val_compare_and_swap ( long * destination, unsigned int compare, unsigned int swap );
+
+#		define pthread_mutex_valid(m)			(m.value != 0)
+#		define pthread_cond_valid(e)			(true)
+#	else
+#		define pthread_mutex_valid(m)			(true)
+#		define pthread_cond_valid(e)			(true)
+#	endif
 
 #define	pthread_cond_mutex_t			pthread_mutex_t
 #define pthread_cond_mutex_lock(m)		pthread_mutex_lock(m)
@@ -359,7 +409,10 @@ namespace environs
 	/*
 	* pthread Extensions for Environs.
 	*/
-	extern INCLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t &lock );
+#	ifdef CLI_CPP
+
+#	else
+	extern INCLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t OBJ_ref lock );
 	extern INCLINEFUNC bool pthread_is_self_thread ( pthread_t thread );
 	extern INCLINEFUNC bool pthread_valid ( pthread_t thread );
 
@@ -370,32 +423,68 @@ namespace environs
 
 
 	extern void DisposeThread ( pthread_t &threadID, const char * threadName );
+#	endif
+
 #endif
-    
-#define MutexInit(m)		MutexInitBool(m,#m)
-	extern bool MutexInitBool ( pthread_mutex_t * mtx, const char * name );
 
-#define MutexDispose(m)		MutexDisposeBool(m,#m)
-	extern bool MutexDisposeBool ( pthread_mutex_t * mtx, const char * name );
+#ifdef CLI_CPP
 
-#define MutexLockV(m,f)		MutexLockVoid(m,#m,CLASS_NAME,f)
-	extern void MutexLockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
+	using namespace System::Threading;
 
-#define MutexUnlockV(m,f)		MutexUnlockVoid(m,#m,CLASS_NAME,f)
-	extern void MutexUnlockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
+#	define MutexInitA(m)			true
+#	define MutexDisposeA(m)			true
 
-#define MutexLock(m,f)		MutexLockBool(m,#m,CLASS_NAME,f)
-	extern bool MutexLockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
+#	define MutexLockV(m,f)			Monitor::Enter(m)
+#	define MutexLockVA(m,f)			Monitor::Enter(%m)
 
-#define MutexUnlock(m,f)		MutexUnlockBool(m,#m,CLASS_NAME,f)
-	extern bool MutexUnlockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName );
-    
-    
-#define CondInit(m)		CondInitBool(m,#m)
-    extern bool CondInitBool ( pthread_cond_t * mtx, const char * name );
-    
-#define CondDispose(m)		CondDisposeBool(m,#m)
-    extern bool CondDisposeBool ( pthread_cond_t * mtx, const char * name );
+#	define MutexLock(m,f)			MutexLockBool(m,#m,CLASS_NAME,f)
+#	define MutexLockA(m,f)			MutexLockBool(%m,#m,CLASS_NAME,f)
+	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+
+#	define MutexUnlockV(m,f)		Monitor::Exit(m)
+#	define MutexUnlockVA(m,f)		Monitor::Exit(%m)
+
+#	define MutexUnlock(m,f)			MutexUnlockBool(m,#m,CLASS_NAME,f)
+#	define MutexUnlockA(m,f)		MutexUnlockBool(%m,#m,CLASS_NAME,f)
+	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+
+#	define CondInitA(m)				((m = gcnew System::Threading::AutoResetEvent(false)) != NULL_ptr)
+#	define CondDisposeA(m)			(m = NULL_ptr)
+#else
+
+#	define MutexInit(m)			MutexInitBool(m,#m)
+#	define MutexInitA(m)		MutexInitBool(&m,#m)
+	extern bool MutexInitBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
+
+#	define MutexDispose(m)		MutexDisposeBool(m,#m)
+#	define MutexDisposeA(m)		MutexDisposeBool(&m,#m)
+	extern bool MutexDisposeBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
+
+#	define MutexLockV(m,f)		MutexLockVoid(m,#m,CLASS_NAME,f)
+#	define MutexLockVA(m,f)		MutexLockVoid(&m,#m,CLASS_NAME,f)
+	extern void MutexLockVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+
+#	define MutexUnlockV(m,f)	MutexUnlockVoid(m,#m,CLASS_NAME,f)
+#	define MutexUnlockVA(m,f)	MutexUnlockVoid(&m,#m,CLASS_NAME,f)
+	extern void MutexUnlockVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+
+#	define MutexLock(m,f)		MutexLockBool(m,#m,CLASS_NAME,f)
+#	define MutexLockA(m,f)		MutexLockBool(&m,#m,CLASS_NAME,f)
+	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+
+#	define MutexUnlock(m,f)		MutexUnlockBool(m,#m,CLASS_NAME,f)
+#	define MutexUnlockA(m,f)	MutexUnlockBool(&m,#m,CLASS_NAME,f)
+	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+
+
+#	define CondInit(m)			CondInitBool(m,#m)
+#	define CondInitA(m)			CondInitBool(&m,#m)
+	extern bool CondInitBool ( pthread_cond_t * mtx, const char * name );
+
+#	define CondDispose(m)		CondDisposeBool(m,#m)
+#	define CondDisposeA(m)		CondDisposeBool(&m,#m)
+	extern bool CondDisposeBool ( pthread_cond_t * mtx, const char * name );
+#endif
 
     
 #ifdef __cplusplus

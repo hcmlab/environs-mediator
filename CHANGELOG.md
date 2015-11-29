@@ -2,6 +2,16 @@
 
 ---------------------------
 
+* Fixed: Bug in Lock/Access list of HandleShortMessage (MediatorDaemon)
+* Updated: Disposal of MediatorDaemon SpareSocket reference in ClientInstance
+* Added: Instance SP to Mediator
+* Updated: Mediator client access while disposing
+* Updated: Concurrent access to mediator (while disposing)
+* Updated: AliveThread sending a helo to help vanished devices watcher (duration 120000 ms)
+* Updated: Vanished devices watcher
+* Added: Vanished devices watcher to base Mediator layer (for broadcast found devices)
+
+
 * Release: 0.9.0
 * Updated: Notification thread for device list changes
 

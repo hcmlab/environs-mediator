@@ -49,10 +49,10 @@
 #define jfloat          float
 #define jshort          unsigned short
 #define jbyte           unsigned char
-#define jstring         const char *
 #define jsstring        char *
+#define jstring         const char *
 #define jtstring        TCHAR	*
-#define jbyteArray      char	*
+#define jbyteArray      unsigned char	*
 #define jvoidArray      void	*
 #define jintArray       int		*
 #define jfloatArray     float	*
@@ -60,6 +60,12 @@
 #define jobject         void	*
 #define jchar           char
 #define jclass          void	*
+
+#ifdef CLI_CPP
+#define jstring_ptr	    IntPtr 
+#else
+#define jstring_ptr     const char *
+#endif
 //#define JNICALL
 
 #define	DUMBJENV()		void * jenv = 0;

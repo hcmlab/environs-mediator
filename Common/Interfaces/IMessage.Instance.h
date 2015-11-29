@@ -36,80 +36,78 @@
 /* Namespace: environs -> */
 namespace environs
 {
-    namespace lib
-    {        
-        class IDeviceInstance;
-        
-        
-		class IMessageInstance : public IEnvironsDispose
-        {
-            
-        public:
-            IMessageInstance () {};
-            ~IMessageInstance () {};
-            
-            
-            /**
-             * Release ownership on this interface and mark it disposeable.
-             * Release must be called once for each Interface that the Environs framework returns to client code.
-             * Environs will dispose the underlying object if no more ownership is hold by anyone.
-             *
-             */
-            virtual void Release () = 0;
-            
-            /**
-             * disposed is true if the object is no longer valid. Nothing will be updated anymore.
-             * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
-             * */
-            virtual bool disposed () = 0;
-            
-            /**
-             * sent is true if this MessageInstance is data that was sent or received (false).
-             * */
-            virtual bool sent () = 0;
-            
-            /**
-             * created is a posix timestamp that determines the time and date that this MessageInstance
-             * has been received or sent.
-             * */
-            virtual unsigned long long created () = 0;
-            
-            /**
-             * The length of the text message in bytes (characters).
-             * */
-            virtual int length () = 0;
-            
-            /**
-             * The text message.
-             * */
-            virtual const char * text () = 0;
-            
-            /**
-             * Determins the type of connection (channel type) used to exchange this message.
-             * c = in connected state
-             * d = in not connected state through a direct device to device channel.
-             * m = in not connected state by means of a Mediator service.
-             * */
-            virtual char connection () = 0;
-            
-            /**
-             * Get the DeviceInstance that this MessageInstance is attached to.
-             * */
-            sp ( IDeviceInstance ) device () {
-                ENVIRONS_IR_SP1_RETURN ( IDeviceInstance, deviceRetainedI () );
-            }
-            
-            /**
-             * Get an Interface to the DeviceInstance that this MessageInstance is attached to.
-             * */
-            virtual IDeviceInstance * deviceRetainedI () = 0;
-            
-            
-            virtual const char * ToString () = 0;
-            virtual const char * ShortText () = 0;
-            
-        };
-    }
+	class DeviceInstance;
+
+
+	class MessageInstance : public lib::IEnvironsDispose
+	{
+
+	public:
+		MessageInstance () { };
+		~MessageInstance () { };
+
+
+		/**
+		* Release ownership on this interface and mark it disposeable.
+		* Release must be called once for each Interface that the Environs framework returns to client code.
+		* Environs will dispose the underlying object if no more ownership is hold by anyone.
+		*
+		*/
+		virtual void Release () = 0;
+
+		/**
+		* disposed is true if the object is no longer valid. Nothing will be updated anymore.
+		* disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
+		* */
+		virtual bool disposed () = 0;
+
+		/**
+		* sent is true if this MessageInstance is data that was sent or received (false).
+		* */
+		virtual bool sent () = 0;
+
+		/**
+		* created is a posix timestamp that determines the time and date that this MessageInstance
+		* has been received or sent.
+		* */
+		virtual unsigned long long created () = 0;
+
+		/**
+		* The length of the text message in bytes (characters).
+		* */
+		virtual int length () = 0;
+
+		/**
+		* The text message.
+		* */
+		virtual const char * text () = 0;
+
+		/**
+		* Determins the type of connection (channel type) used to exchange this message.
+		* c = in connected state
+		* d = in not connected state through a direct device to device channel.
+		* m = in not connected state by means of a Mediator service.
+		* */
+		virtual char connection () = 0;
+
+		/**
+		* Get the DeviceInstance that this MessageInstance is attached to.
+		* */
+		sp ( DeviceInstance ) device ()
+		{
+			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, deviceRetained () );
+		}
+
+		/**
+		* Get an Interface to the DeviceInstance that this MessageInstance is attached to.
+		* */
+		virtual DeviceInstance * deviceRetained () = 0;
+
+
+		virtual const char * ToString () = 0;
+		virtual const char * ShortText () = 0;
+
+	};
 }
 
 #endif	/// INCLUDE_HCM_ENVIRONS_MESSAGEINSTANCE_INTERFACE_H

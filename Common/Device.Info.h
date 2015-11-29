@@ -24,7 +24,6 @@
 #include "Environs.Types.h"
 #include "Interop/Threads.h"
 
-//#define		MAX_NAMEPROPERTY    	30
 
 /** Place declarations to global namespace for plain C */
 #ifdef __cplusplus
@@ -32,26 +31,99 @@
 /* Namespace: environs -> */
 namespace environs
 {
+	namespace lib
+	{
 #endif
-    
+		/**
+		* Environs DeviceInstance struct Start bytes
+		*/
+		typedef struct _DeviceInfo
+		{
+			/** The device ID within the environment */
+			int				deviceID;	// 4
+
+			/** The ID that is used by the native layer to identify this particular device within the environment: -1 means that this device is not connected and therefore not actively managed. */
+			int				nativeID;	// 4
+
+			/** IP from device. The IP address reported by the device which it has read from network configuration. */
+			unsigned int 	ip;	// 4
+
+			/** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
+			* This address could be different from IP due to NAT, Router, Gateways behind the device.
+			*/
+			unsigned int 	ipe; // 4 The external IP or the IP resolved from the socket address
+
+			/** The tcp port on which the device listens for device connections. */
+			unsigned short	tcpPort; // 2
+
+			/** The udp port on which the device listens for device connections. */
+			unsigned short	udpPort;  // 2
+
+			/** The number of alive updates noticed by the mediator layer since its appearance within the application environment. */
+			unsigned int	updates; // 4
+
+			/** A value that describes the device platform. */
+			int				platform; // 4
+
+			/** BroadcastFound is a value of DEVICEINFO_DEVICE_* and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
+			char			broadcastFound; // 1
+			bool            unavailable;  // 1
+
+			/** isConnected is true if the device is currently in the connected state. */
+			bool			isConnected; // 1
+			char			internalUpdates;  // 1
+
+			/** Used internally by native layer. */
+			char            internalType;  // 1
+
+			/** The device name. */
+			char			deviceName [ MAX_LENGTH_DEVICE_NAME ]; // 31
+
+			/** The area name of the appliction environment. */
+			char			areaName [ MAX_LENGTH_AREA_NAME ]; // 31
+
+			/** The application name of the appliction environment. */
+			char			appName [ MAX_LENGTH_APP_NAME ]; // 31
+		}
+		DeviceInfo;
+
 #define DEVICES_HEADER_SIZE				20
 #define DEVICE_PACKET_SIZE				sizeof(DeviceInfo)
 
-//#define DEVICE_PACKET_SIZE				(sizeof(DeviceInstance) - (sizeof(DeviceInstance *) + sizeof(ApplicationDevices *)))
-//#define DEVICE_PACKET_SIZE				(sizeof(DeviceInstance) - sizeof(DeviceInstance *))
-//#define MAX_DEVICE_PACKETS_RESPONSE		(( (BUFFERSIZE - 4) - (2 * DEVICES_HEADER_SIZE)) / DEVICE_PACKET_SIZE)
-    
-    
-    /**
-     * Environs DeviceInstance struct Start bytes
-     */
-	typedef struct _DeviceInfo
-	{
-		/** The device ID within the environment */
-        int				deviceID;	// 4
+
+		typedef struct _DeviceHeader
+		{
+			unsigned int	deviceCountAvailable;
+			unsigned int	startIndex;
+			unsigned int	deviceCount;
+		}
+		DeviceHeader;
+
+
+		typedef struct DevicePackage
+		{
+			DeviceHeader	header;
+			unsigned int    pad0;
+			unsigned int    pad1;
+			DeviceInfo		device;
+			unsigned int    pad2;
+		}
+		DevicePackage;
         
-        /** The ID that is used by the native layer to identify this particular device within the environment: -1 means that this device is not connected and therefore not actively managed. */
-        int				nativeID;	// 4
+#ifdef __cplusplus
+    }
+
+
+
+#ifdef CLI_CPP
+	PUBLIC_CLASS DeviceInfo
+	{
+	public:
+		/** The device ID within the environment */
+		int				deviceID;	// 4
+
+		/** The ID that is used by the native layer to identify this particular device within the environment: -1 means that this device is not connected and therefore not actively managed. */
+		int				nativeID;	// 4
 
 		/** IP from device. The IP address reported by the device which it has read from network configuration. */
 		unsigned int 	ip;	// 4
@@ -85,38 +157,22 @@ namespace environs
 		char            internalType;  // 1
 
 		/** The device name. */
-		char			deviceName [MAX_LENGTH_DEVICE_NAME]; // 31
+		System::String^	deviceName; // 31
 
 		/** The area name of the appliction environment. */
-		char			areaName [MAX_LENGTH_AREA_NAME]; // 31
+		System::String^	areaName; // 31
 
 		/** The application name of the appliction environment. */
-		char			appName [MAX_LENGTH_APP_NAME]; // 31
-	}
-	DeviceInfo;
+		System::String^	appName; // 31
+
+	};
+#else
+    
+	typedef lib::DeviceInfo	DeviceInfo;
+    
+#endif
 
 
-	typedef struct _DeviceHeader
-	{
-		unsigned int	deviceCountAvailable;
-		unsigned int	startIndex;
-		unsigned int	deviceCount;
-	}
-	DeviceHeader;
-
-
-	typedef struct DevicePackage
-	{
-		DeviceHeader	header;
-		unsigned int    pad0;
-		unsigned int    pad1;
-		DeviceInfo		device;
-		unsigned int    pad2;
-	}
-	DevicePackage;
-
-
-#ifdef __cplusplus
 } /* namepace Environs */
 #endif
 

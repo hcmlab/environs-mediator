@@ -19,27 +19,32 @@
 */
 #include "stdafx.h"
 
-#include <stdio.h>
-#include <stdarg.h>
-#include <stdlib.h>
+#	include <stdio.h>
+#ifndef CLI_CPP
+#	include <stdarg.h>
+#	include <stdlib.h>
 
-#ifdef _WIN32
-#   include "windows.h"
-#endif
+#	ifdef _WIN32
+#		include "windows.h"
+#	endif
 
-#ifdef ANDROID
+#	ifdef ANDROID
 #   include <android/log.h>
+#	endif
+
+#	include "Environs.Obj.h"
+#	include "Core/Callbacks.h"
 #endif
 
 #include "Environs.Native.h"
 #include "Interop/Threads.h"
 #include "Interop/Stat.h"
-#include "Environs.Obj.h"
-#include "Core/Callbacks.h"
+
 using namespace environs;
 
 
-#define CLASS_NAME   "Log"
+#define CLASS_NAME  "Log. . . . . . . . . . ."
+
 
 #define ENVIRONS_LOGFILE_TEMP_MAXSIZE               200000
 

@@ -26,44 +26,43 @@
 
 namespace environs
 {
-	namespace lib
-    {        
-		/**
-		* IDeviceInstanceList
-		*
-		*/
-		class IDeviceInstanceList : public IArrayList
-		{
-		public:
-			/** Constructor */
-			IDeviceInstanceList () {};
+	/**
+	* DeviceInstanceList
+	*
+	*/
+	class DeviceInstanceList : public ArrayList
+	{
+	public:
+		/** Constructor */
+		DeviceInstanceList () { };
 
-			virtual ~IDeviceInstanceList () {};
-            
-            /**
-             * Get the item at the given position.
-             *
-             * @param position
-             * 
-             * @ return The object at given position
-             */
-			sp ( IDeviceInstance ) at ( size_t pos ) {
-				ENVIRONS_I_BUILDSP_LIST ( IDeviceInstance, pos );
-            };
-            
-            
-            /**
-             * Get an Interface of the item at the given position.
-             *
-             * @param position
-             *
-             * @ return The object at given position
-             */
-            IDeviceInstance * atI ( size_t pos ) {
-                return (IDeviceInstance *) item ( pos );
-            };
+		virtual ~DeviceInstanceList () { };
+
+		/**
+		* Get the item at the given position.
+		*
+		* @param position
+		*
+		* @ return The object at given position
+		*/
+		sp ( DeviceInstance ) at ( size_t pos )
+		{
+			ENVIRONS_I_BUILDSP_LIST ( DeviceInstance, pos );
 		};
-	}
+
+
+		/**
+		* Get an Interface of the item at the given position.
+		*
+		* @param position
+		*
+		* @ return The object at given position
+		*/
+		DeviceInstance * atI ( size_t pos )
+		{
+			return ( DeviceInstance * ) item ( pos );
+		};
+	};
 }
             
 

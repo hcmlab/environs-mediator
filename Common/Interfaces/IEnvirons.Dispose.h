@@ -25,31 +25,36 @@
 #include "Environs.Build.Opts.h"
 #include "Interop/Threads.h"
 
+
 namespace environs
 {
-	namespace lib 
-    {
-        class IArrayList;
-        
-        
+
+#ifndef CLI_CPP
+
+#define DERIVE_DISPOSEABLE	
+#define DERIVE_TYPES		
+
+	namespace lib
+	{
 		/**
 		* IEnvironsDispose
 		*
 		*/
-		class ENVIRONS_LIB_API IEnvironsDispose
+		PUBLIC_CLASS ENVIRONS_LIB_API IEnvironsDispose
 		{
+#ifndef CLI_CPP
 			friend class PortalInstance;
 			friend class DeviceList;
 			friend class DeviceInstance;
 			friend class MessageInstance;
 			friend class FileInstance;
-            friend class Environs;
-
+			friend class Environs;
+#endif
 		public:
 			/** Constructor */
-			IEnvironsDispose () {};
+			IEnvironsDispose () { };
 
-			virtual ~IEnvironsDispose () {};
+			virtual ~IEnvironsDispose () { };
 
 
 			/**
@@ -69,18 +74,28 @@ namespace environs
 			*/
 			virtual void Release () = 0;
 
-		private:
+		protected:
 			/**
 			* Internal Release used by Environs to clean up internal resources while object is locked.
 			*
 			*/
-			virtual void ReleaseLocked () {};
+			virtual void ReleaseLocked () { };
 		};
-        
-        
-		void EnvironsDisposer ( IEnvironsDispose * obj );
 	}
+
+	void EnvironsDisposer ( lib::IEnvironsDispose * obj );
+#else
+
+	using namespace System;
+
+#	define DERIVE_DISPOSEABLE		: IDisposable	
+#	define DERIVE_TYPES				, public Types
+
+#endif
 }
+
+
+#ifndef CLI_CPP
 
 /*
  * myself is a pointer to the smart pointer instance within Environs.
@@ -91,43 +106,70 @@ namespace environs
 
 #define ENVIRONS_OUTPUT_ALLOC_RESOURCE(type)	sp ( type ) myself; sp ( type ) myselfAtClients
 
+
+#define ENVIRONS_OUTPUT_DE_ALLOC_DECL()         ENVIRONS_LIB_API bool	Retain (); \
+                                                ENVIRONS_LIB_API void	Release (); \
+                                                void * platformRef; \
+                                            private: \
+                                                LONGSYNC				refCountSP; \
+                                                LONGSYNC                objID_;
+
+/*
 #define ENVIRONS_OUTPUT_DE_ALLOC_DECL()         ENVIRONS_LIB_API bool	Retain (); \
 												ENVIRONS_LIB_API void	Release (); \
                                                 void * platformRef; \
 												private: \
                                                 int						refCountSP; \
 												pthread_mutex_t			refCountMutex; long objID_;
+*/
 
+#define ENVIRONS_OUTPUT_ALLOC_INIT()			myself = 0; refCountSP = 0; myselfAtClients = 0; platformRef = 0; objID_ = __sync_add_and_fetch ( &objectIdentifiers, 1 );
 
+/*
 #define ENVIRONS_OUTPUT_ALLOC_INIT()			myself = 0; refCountSP = 0; myselfAtClients = 0; MutexInit ( &refCountMutex ); platformRef = 0; objID_ = __sync_add_and_fetch ( &objectIdentifiers, 1 );
-
-#define ENVIRONS_OUTPUT_ALLOC(type)				extern long objectIdentifiers; \
+*/
+ 
+#define ENVIRONS_OUTPUT_ALLOC(type)				extern LONGSYNC objectIdentifiers; \
 bool type::Retain () { \
 	CVerbVerbArg ( "Retain [%i]: [%i]", objID_, refCountSP );  \
 	\
-	bool success = true; \
+	LONGSYNC localRefCount = __sync_add_and_fetch ( &refCountSP, 1 ); \
 	\
-	MutexLockV ( &refCountMutex, "Retain" ); \
+    if ( refCountSP == 1 && myself ) { \
+        CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
+        myselfAtClients = myself; \
+    } \
+	CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, localRefCount );  \
 	\
+	return (localRefCount > 0); \
+} 
+/*
+bool type::Retain () { \
+    CVerbVerbArg ( "Retain [%i]: [%i]", objID_, refCountSP );  \
+    \
+    bool success = true; \
+    \
+    MutexLockV ( &refCountMutex, "Retain" ); \
+    \
     if ( refCountSP < 0 )  {\
         success = false; \
         CErrArg ( "Retain [%i]: Negative reference count!!!", objID_ );  \
     } \
-	else \
-	{ \
-		if ( refCountSP == 0 && myself ) { \
-			CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
-			myselfAtClients = myself; \
-		} \
-		++refCountSP; \
-	} \
-		\
-	CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, refCountSP );  \
-	\
-	MutexUnlockV ( &refCountMutex, "Retain" ); \
-	return success; \
-} 
-
+    else \
+    { \
+        if ( refCountSP == 0 && myself ) { \
+            CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
+            myselfAtClients = myself; \
+        } \
+        ++refCountSP; \
+    } \
+    \
+    CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, refCountSP );  \
+    \
+    MutexUnlockV ( &refCountMutex, "Retain" ); \
+    return success; \
+}
+*/
 
  /**
  * Release ownership on this interface and mark it disposeable.
@@ -138,6 +180,19 @@ bool type::Retain () { \
  */
 #define ENVIRONS_OUTPUT_RELEASE()				 CVerbVerbArg ( "Release  [%i]: [%i]", objID_, refCountSP ); \
 \
+LONGSYNC localRefCount = __sync_sub_and_fetch ( &refCountSP, 1 ); \
+\
+if ( localRefCount == 0 )  { \
+	ReleaseLocked (); \
+} \
+CVerbVerbArg ( "Release  [%i]: -> [%i]", objID_, localRefCount ); \
+\
+if ( localRefCount == 0 ) { \
+	CVerbVerbArg ( "Release  [%i]: -> Disposing SP", objID_ );  \
+	myselfAtClients = 0; \
+}
+
+/*
 int localRefCount = 0; \
 \
 MutexLockV ( &refCountMutex, "Release" ); \
@@ -145,17 +200,17 @@ MutexLockV ( &refCountMutex, "Release" ); \
 localRefCount = --refCountSP; \
 \
 if ( localRefCount == 0 )  { \
-	ReleaseLocked (); \
+    ReleaseLocked (); \
 } \
 MutexUnlockV ( &refCountMutex, "Release" ); \
 \
 CVerbVerbArg ( "Release  [%i]: -> [%i]", objID_, localRefCount ); \
 \
 if ( localRefCount == 0 ) { \
-	CVerbVerbArg ( "Release  [%i]: -> Disposing SP", objID_ );  \
-	myselfAtClients = 0; \
-} 
-
+    CVerbVerbArg ( "Release  [%i]: -> Disposing SP", objID_ );  \
+    myselfAtClients = 0; \
+}
+*/
 
 #if ((defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX)))
 
@@ -169,38 +224,58 @@ if ( localRefCount == 0 ) { \
 #endif
 
 
-#define ENVIRONS_I_SP1(type,call,arg1)             sp ( type ) sp1 ( arg1, environs::lib::EnvironsDisposer ); arg1->Retain (); call ( sp1 );
-#define ENVIRONS_I_SP2(type,call,arg1,arg2)        sp ( type ) sp1 ( arg1, environs::lib::EnvironsDisposer ); arg1->Retain (); call ( sp1, arg2 );
+#define ENVIRONS_I_SP1(type,call,arg1)             sp ( type ) sp1 ( arg1, ::environs::EnvironsDisposer ); arg1->Retain (); call ( sp1 );
+#define ENVIRONS_I_SP2(type,call,arg1,arg2)        sp ( type ) sp1 ( arg1, ::environs::EnvironsDisposer ); arg1->Retain (); call ( sp1, arg2 );
 
-#define ENVIRONS_IR_SP1_RETURN(type,arg1)           sp ( type ) sp1 ( (type *)arg1, environs::lib::EnvironsDisposer ); return sp1
+#define ENVIRONS_IR_SP1_RETURN(type,arg1)           sp ( type ) sp1 ( (type *)arg1, ::environs::EnvironsDisposer ); return sp1
 
-#define ENVIRONS_I_SP1_1(type,call,arg1,arg2)      sp ( type ) sp1 ( arg1, environs::lib::EnvironsDisposer ); \
+#define ENVIRONS_I_SP1_1(type,call,arg1,arg2)      sp ( type ) sp1 ( arg1, ::environs::EnvironsDisposer ); \
 arg1->Retain (); call ( sp1, arg2 );
 
-#define ENVIRONS_IR_SP2(type,call,arg1,arg2)        sp ( type ) sp1 ( (type *) arg1, environs::lib::EnvironsDisposer ); \
-	sp ( type ) sp2 ( (type *) arg2, environs::lib::EnvironsDisposer ); \
+#define ENVIRONS_IR_SP2(type,call,arg1,arg2)        sp ( type ) sp1 ( (type *) arg1, ::environs::EnvironsDisposer ); \
+	sp ( type ) sp2 ( (type *) arg2, ::environs::EnvironsDisposer ); \
 	call ( environs_local_sp1, sp2 );
 
 #define ENVIRONS_I_SP2_SEL(type,call,arg1,arg2)        sp ( type ) sp1; sp ( type ) sp2; \
 	\
 if ( arg1 ) { \
-	arg1->Retain (); sp1 = sp ( type ) ( (type *) arg1, environs::lib::EnvironsDisposer ); } \
+	arg1->Retain (); sp1 = sp ( type ) ( (type *) arg1, ::environs::EnvironsDisposer ); } \
 if ( arg2 ) { \
-	arg2->Retain (); sp2 = sp ( type ) ( (type *) arg2, environs::lib::EnvironsDisposer ); } \
+	arg2->Retain (); sp2 = sp ( type ) ( (type *) arg2, ::environs::EnvironsDisposer ); } \
 call ( sp1, sp2 );
 
 
-#define ENVIRONS_I_BUILDSP_LIST(type,arg1)        sp ( type ) ent ( (type *)item ( arg1 ), environs::lib::EnvironsDisposer ); if ( ent ) ent->Retain(); return ent;
+#define ENVIRONS_I_BUILDSP_LIST(type,arg1)        sp ( type ) ent ( (type *)item ( arg1 ), ::environs::EnvironsDisposer ); if ( ent ) ent->Retain(); return ent;
 
 #define ENVIRONS_I_BUILDSP_LISTITEM_ALLOC(type,arg1)  type * p1 = (type *)item ( arg1 ); \
 	\
 if ( p1 == 0 ) \
 	return 0; \
 ((environs::lib::IEnvironsDispose *) p1)->Retain (); \
-sp ( type ) ent ( p1, environs::lib::EnvironsDisposer ); \
+sp ( type ) ent ( p1, ::environs::EnvironsDisposer ); \
 	return ent;
 
+#else
 
+
+#	define ENVIRONS_OUTPUT_ALLOC_RESOURCE(type)	
+#	define ENVIRONS_OUTPUT_DE_ALLOC_DECL()				ENVIRONS_LIB_API void	Release (); \
+														void * platformRef; \
+													protected: \
+														LONGSYNC                objID_; \
+													private: 
+
+#	define ENVIRONS_OUTPUT_ALLOC_INIT()					platformRef = 0; __int64 %tRef = objectIdentifiers; objID_ = __sync_add_and_fetch ( tRef, 1 );
+
+#	define ENVIRONS_OUTPUT_ALLOC(type)					extern LONGSYNC objectIdentifiers;
+
+#	define ENVIRONS_OUTPUT_RELEASE()						 
+
+#	define ENVIRONS_I_SP1(type,call,arg1)				call ( arg1 );
+
+#	define ENVIRONS_IR_SP1_RETURN(type,arg1)			return arg1
+
+#endif
 
 
 #endif	/// -> INCLUDE_HCM_ENVIRONS_INTERFACES_H

@@ -22,7 +22,12 @@
 #define INCLUDE_HCM_ENVIRONS_MESSAGEINSTANCE_H
 
 #include "Interop/Smart.Pointer.h"
-#include "Interfaces/IMessage.Instance.h"
+#include "Interfaces/IEnvirons.Dispose.h"
+
+#ifndef CLI_CPP
+#	include "Interfaces/IMessage.Instance.h"
+#endif
+
 #include <string>
 
 /**
@@ -37,102 +42,112 @@
 /* Namespace: environs -> */
 namespace environs
 {
-    namespace lib
+	namespace lib
     {
-        
+#ifndef CLI_CPP
         class DeviceInstance;
-        
-		class MessageInstance : public IMessageInstance
+#endif
+
+		PUBLIC_CLASS MessageInstance DERIVE_c_only ( environs::MessageInstance ) DERIVE_DISPOSEABLE
         {
-            friend class DeviceList;
-            friend class DeviceInstance;
-            friend class MessageInstanceProxy;
-            
-        public:
+            MAKE_FRIEND_CLASS ( DeviceList );
+            MAKE_FRIEND_CLASS ( DeviceInstance );
+            MAKE_FRIEND_CLASS ( MessageInstanceProxy );
+
+		public:
 			ENVIRONS_LIB_API MessageInstance ();
 			ENVIRONS_LIB_API ~MessageInstance ();
-            
-            /**
-             * disposed is true if the object is no longer valid. Nothing will be updated anymore.
-             * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
-             * */
-            ENVIRONS_LIB_API bool disposed ();
-            
-            /**
-             * sent is true if this MessageInstance is data that was sent or received (false).
-             * */
+
+			/**
+			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.
+			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
+			 * */
+			ENVIRONS_LIB_API bool disposed ();
+
+			/**
+			 * sent is true if this MessageInstance is data that was sent or received (false).
+			 * */
 			ENVIRONS_LIB_API bool sent ();
-            
-            /**
-             * created is a posix timestamp that determines the time and date that this MessageInstance
-             * has been received or sent.
-             * */
+
+			/**
+			 * created is a posix timestamp that determines the time and date that this MessageInstance
+			 * has been received or sent.
+			 * */
 			ENVIRONS_LIB_API unsigned long long created ();
-            
-            /**
-             * The length of the text message in bytes (characters).
-             * */
+
+			/**
+			 * The length of the text message in bytes (characters).
+			 * */
 			ENVIRONS_LIB_API int length ();
-            
-            /**
-             * The text message.
-             * */
-			ENVIRONS_LIB_API const char * text ();
-            
-            /**
-             * Determins the type of connection (channel type) used to exchange this message.
-             * c = in connected state
-             * d = in not connected state through a direct device to device channel.
-             * m = in not connected state by means of a Mediator service.
-             * */
+
+			/**
+			 * The text message.
+			 * */
+			ENVIRONS_LIB_API CString_ptr text ();
+
+			/**
+			 * Determins the type of connection (channel type) used to exchange this message.
+			 * c = in connected state
+			 * d = in not connected state through a direct device to device channel.
+			 * m = in not connected state by means of a Mediator service.
+			 * */
 			ENVIRONS_LIB_API char connection ();
-            
-            /**
-             * A reference to the DeviceInstance that is responsible for this FileInstance.
-             * */
-            sp ( DeviceInstance ) device_;
-            
-			ENVIRONS_LIB_API IDeviceInstance * deviceRetainedI ();
-            
-			ENVIRONS_LIB_API const char * ToString ();
-			ENVIRONS_LIB_API const char * ShortText ();
+
+			/**
+			 * A reference to the DeviceInstance that is responsible for this FileInstance.
+			 * */
+			sp ( PLATFORMSPACE DeviceInstance ) device_;
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr deviceRetained ();
+#endif
+			ENVIRONS_LIB_API CLI_VIRTUAL CString_ptr ToString () CLI_OVERRIDE;
+
+			ENVIRONS_LIB_API CString_ptr ShortText ();
 
 			/**
 			* Release ownership on this interface and mark it disposeable.
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
-             */
-            ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
+			 */
+			ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
 
-		private:
+        INTERNAL:
+        
 			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( MessageInstance );
-            
-            void            Dispose ();
-            
-            void            PlatformDispose ();
-            
-            /**
-             * disposed is true if the object is no longer valid. Nothing will be updated anymore.
-             * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
-             * */
-            bool			disposed_;
 
-            std::string     toString;
-            char            textShortEnd;
-            char            connection_;
-            char *          text_;
-            int             length_;
-            bool            sent_;
-            
-            unsigned long long created_;
-            
-            static sp ( MessageInstance ) Create ( char * line, int length, const sp ( DeviceInstance ) &device );
-            
-            static bool HasPrefix ( const char * line, int length );
-            
-        };
-    }
+			void            DisposeInstance ();
+
+			void            PlatformDispose ();
+
+			/**
+			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.
+			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
+			 * */
+			bool			disposed_;
+
+			STRING_T		toString;
+
+#ifdef CLI_CPP
+			String_ptr		textShortEnd;
+#else
+			char            textShortEnd;
+#endif
+			char            connection_;
+			String_ptr      text_;
+			int             length_;
+			bool            sent_;
+
+			unsigned long long created_;
+
+			static sp ( PLATFORMSPACE MessageInstance ) Create ( char * line, int length, c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device );
+
+			static bool HasPrefix ( char * line, int length );
+
+		};
+	}
+
 }
 
 #endif	/// INCLUDE_HCM_ENVIRONS_MESSAGEINSTANCE_H

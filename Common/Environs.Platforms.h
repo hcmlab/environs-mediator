@@ -21,7 +21,7 @@
 #ifndef INCLUDE_HCM_ENVIRONS_NATIVE_PLATFORMS_H
 #define INCLUDE_HCM_ENVIRONS_NATIVE_PLATFORMS_H
 
-#ifdef _WIN32
+#if (defined(_WIN32) && !defined(CLI_CPP))
 #   if defined(ENVIRONS_CORE_LIB)
 #       define ENVIRONS_LIB_API   __declspec(dllexport)
 #   else
@@ -31,15 +31,25 @@
 #   define ENVIRONS_LIB_API
 #endif
 
+#ifdef CLI_CPP
+#	define		EnvironsOBJ			environs::Environs ^
+#	define		EnvironsOBJInst		environs::Environs::instancesAPI
+#else
+#	define		EnvironsOBJ			Environs *
+#	define		EnvironsOBJInst		instancesAPI
 
+#	define		GetSensorInputPack(f)	(environs::SensorFrame *) f
+#endif
 
 /**
  * Platform detectors
  */
 #ifndef ENVIRONS_IOS
 
-#   ifdef _WIN32
-#       include "WinDef.h"
+#   if (defined(_WIN32))
+#		if (!defined(CLI_CPP))
+#			include "WinDef.h"
+#		endif
 #   else
 #       define APIENTRY
 #   endif

@@ -34,7 +34,7 @@ namespace environs {
 #if (defined(ENVIRONS_CORE_LIB) || defined(MEDIATORDAEMON))
 
 // Declaration for environs core library
-    extern HMODULE LocateLoadEnvModule ( const char * module, int deviceID, environs::Instance * obj );
+    extern HLIB LocateLoadEnvModule ( const char * module, int deviceID, environs::Instance * obj );
 
 #	define LocateLoadModule(module,deviceID,obj)   LocateLoadEnvModule ( module, deviceID, obj )
 
@@ -47,7 +47,7 @@ namespace environs {
 #endif
 
 #if (defined(__cplusplus))
-typedef HMODULE ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::Instance * obj  );
+typedef HLIB ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::Instance * obj  );
 #endif
 
 #define	ENVMODPREFIX					"libEnv-"
@@ -98,7 +98,7 @@ typedef HMODULE ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::I
 #define ENVIRONS_TSDIR                  "v" ENVIRONS_TOSTRING(ENVIRONS_BUILD_CRT)
 
 /// OS specific export macros
-#ifdef ENVIRONS_NATIVE_MODULE
+#if (defined(ENVIRONS_NATIVE_MODULE) || defined(ENVIRONS_CORE_LIB))
 #	ifdef _WIN32
 #		define LIBEXPORT		__declspec(dllexport)
 #		define CallConv			__cdecl
@@ -128,9 +128,9 @@ typedef HMODULE ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::I
 
 #ifdef ANDROID
 #	define EnvironsFunc(FuncName, ...)	\
-		CallConv Java_hcm_environs_Environs_##FuncName ( JNIEnv * jenv, jclass jcls, __VA_ARGS__ )
+		CallConv Java_environs_Environs_##FuncName ( JNIEnv * jenv, jclass jcls, __VA_ARGS__ )
 #	define EnvironsProc(FuncName)	\
-		CallConv Java_hcm_environs_Environs_##FuncName(JNIEnv * jenv, jclass jcls)
+		CallConv Java_environs_Environs_##FuncName(JNIEnv * jenv, jclass jcls)
 #else
 #	define EnvironsFunc(FuncName, ...)	\
 		CallConv FuncName ( __VA_ARGS__ )

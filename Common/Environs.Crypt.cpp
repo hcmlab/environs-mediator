@@ -1539,6 +1539,9 @@ namespace environs
 
 			/* max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes */
 			ciphersSize = *bufferLen + AES_SHA256_KEY_LENGTH;
+            
+            CVerbVerbArg ( "AESEncrypt: ciphersSize [%i]", ciphersSize );
+            
 			int finalSize = 0;
 			ciphers = (char *) malloc ( ciphersSize + 21 );
 			if ( !ciphers ) {
@@ -1549,7 +1552,9 @@ namespace environs
 
 
 			cipherStart = ciphers + 20;
-
+            
+            CVerbVerb ( "AESEncrypt: dEVP_EncryptInit_ex" );
+            
             if ( !dEVP_EncryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) (ciphers + 4) ) ) {
 				CErrID ( "AESEncrypt: EVP_EncryptInit_ex IV failed." ); break;
             }
@@ -1558,15 +1563,21 @@ namespace environs
 				CErrID ( "AESEncrypt: EVP_EncryptInit_ex failed." ); break;
 			}
             */
-
+            
+            CVerbVerbArg ( "AESEncrypt: bufferLen [%i]", *bufferLen );
+            
 			if ( !dEVP_EncryptUpdate ( e, (unsigned char *)cipherStart, (int *)&ciphersSize, (unsigned char *)buffer, *bufferLen ) ) {
 				CErrID ( "AESEncrypt: EVP_EncryptUpdate failed." ); break;
 			}
         
-			/* update ciphertext with the final remaining bytes */
+            /* update ciphertext with the final remaining bytes */
+            CVerbVerbArg ( "AESEncrypt: ciphersSize [%i]", ciphersSize );
+            
 			if ( !dEVP_EncryptFinal_ex ( e, (unsigned char *) (cipherStart + ciphersSize), &finalSize ) ) {
 				CErrID ( "AESEncrypt: EVP_EncryptFinal_ex failed." ); break;
-			}
+            }
+            
+            CVerbVerbArg ( "AESEncrypt: finalSize [%i]", finalSize );
        
 			ciphersSize += finalSize;
 			ret = true;

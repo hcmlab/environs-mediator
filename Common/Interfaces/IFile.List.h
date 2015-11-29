@@ -26,44 +26,43 @@
 
 namespace environs
 {
-	namespace lib
-    {
-		/**
-		* IFileList
-		*
-		*/
-		class IFileList : public IArrayList
-		{
-		public:
-			/** Constructor */
-			IFileList () {};
+	/**
+	* FileList
+	*
+	*/
+	class FileList : public ArrayList
+	{
+	public:
+		/** Constructor */
+		FileList () { };
 
-			virtual ~IFileList () {};
-            
-            /**
-             * Get the item at the given position.
-             *
-             * @param position
-             * 
-             * @ return The object at given position
-             */
-            sp ( IFileInstance ) at ( size_t pos ) {
-                ENVIRONS_I_BUILDSP_LIST ( IFileInstance, pos );
-            };
-            
-            
-            /**
-             * Get an Interface of the item at the given position.
-             *
-             * @param position
-             *
-             * @ return The object at given position
-             */
-            IFileInstance * atI ( size_t pos ) {
-                return (IFileInstance *) item ( pos );
-            };
+		virtual ~FileList () { };
+
+		/**
+		* Get the item at the given position.
+		*
+		* @param position
+		*
+		* @ return The object at given position
+		*/
+		sp ( FileInstance ) at ( size_t pos )
+		{
+			ENVIRONS_I_BUILDSP_LIST ( FileInstance, pos );
 		};
-	}
+
+
+		/**
+		* Get an Interface of the item at the given position.
+		*
+		* @param position
+		*
+		* @ return The object at given position
+		*/
+		FileInstance * atI ( size_t pos )
+		{
+			return ( FileInstance * ) item ( pos );
+		};
+	};
 }
             
 

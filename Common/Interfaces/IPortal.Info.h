@@ -30,9 +30,11 @@
 namespace environs
 {
 #if (!defined(ENVIRONS_IOS) && !defined(ENVIRONS_OSX))
-	namespace lib {
+	class PortalInstance;
+
+	namespace lib
+	{
 		class PortalInstance;
-		class IPortalInstance;
 	}
 #endif
 
@@ -57,7 +59,7 @@ namespace environs
 #if (defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX))
         void *  portal;
 #else
-		sp ( lib::IPortalInstance ) portal;
+		sp ( lib::PortalInstance ) portal;
 #endif
         virtual std::string ToString ( ) = 0;
         

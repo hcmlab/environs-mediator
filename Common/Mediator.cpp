@@ -28,6 +28,7 @@
 
 #include "Mediator.h"
 #include "Environs.Native.h"
+#include "Environs.Utils.h"
 
 #if !defined(MEDIATORDAEMON)
 #   include "Environs.Obj.h"
@@ -52,1352 +53,1416 @@
 /* Namespace: environs -> */
 namespace environs
 {
-    
-    bool                Mediator::allocatedClass = false;
-    NetPack             Mediator::localNets;
-    pthread_mutex_t     Mediator::localNetsMutex;
-    
-    
+
+	bool                Mediator::allocatedClass = false;
+	NetPack             Mediator::localNets;
+	pthread_mutex_t     Mediator::localNetsMutex;
+
+
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
-    std::map<int, std::string>      projectIDToNames;
-    std::map<int, std::string>      appIDToNames;
-    
-    std::map<std::string, int>      nameToProjectID;
-    std::map<std::string, int>      nameToAppID;
+	std::map<int, std::string>      projectIDToNames;
+	std::map<int, std::string>      appIDToNames;
+
+	std::map<std::string, int>      nameToProjectID;
+	std::map<std::string, int>      nameToAppID;
 #endif
 
-Mediator::Mediator ( )
-{
-	CVerb ( "Construct" );
-
-	Zero ( localNets );
-	Zero ( mediator );
-    mediator.connection.instance.socket = -1;
-    mediator.connection.instance.spareSocket = -1;
-    
-    allocated               = false;
-	
-	isRunning 				= false;
-	broadcastSocketID 		= -1;
-
-	Zero ( broadcastThreadID );
-	
-	broadcastMessageLen		= 0;
-	greetUpdates			= 0;
-
-	certificate				= 0;
-}
-
-
-Mediator::~Mediator ( )
-{
-	CVerb ( "Destructor" );
-
-	Dispose ();
-
-    if ( allocated )
-    {
-        MutexDispose ( &devicesMutex );
-        MutexDispose ( &mediatorMutex );
-        
-#ifdef USE_INTEGER_PROJECT_APP_MAPS
-        MutexDispose ( &idMapMutex );
-#endif
-        projectIDToNames.clear();
-        appIDToNames.clear();
-        nameToProjectID.clear();
-        nameToAppID.clear();
-    }
-}
-
-
-bool Mediator::Init ()
-{
-	CVerb ( "Init" );
-
-    if ( !InitClass () )
-        return false;
-    
-    if ( !allocated )
-    {
-        if ( !MutexInit ( &mediatorMutex ) )
-            return false;
-        
-        if ( !MutexInit ( &devicesMutex ) )
-            return false;
-        
-#ifdef USE_INTEGER_PROJECT_APP_MAPS
-        Zero ( idMapMutex );
-        
-        projectIDToNames.clear();
-        appIDToNames.clear();
-        nameToProjectID.clear();
-        nameToAppID.clear();
-        
-        if ( !MutexInit ( &idMapMutex ) )
-            return false;
-#endif
-        allocated = true;
-    }
-    
-	if ( !LoadNetworks () ) {
-		CErr ( "Init: Failed to load local ip addresses!" );
-        return false;
-    }
-	return true;
-}
-
-
-bool Mediator::InitClass ()
-{
-	CVerb ( "InitClass" );
-
-	if ( allocatedClass )
-		return true;
-
-	Zero ( localNets );
-    
-    if ( !MutexInit ( &localNetsMutex ) )
-        return false;
-
-	allocatedClass = true;
-
-	return true;
-}
-
-
-void Mediator::DisposeClass ()
-{
-	CVerb ( "DisposeClass" );
-
-	if ( !allocatedClass )
-		return;
-
-	ReleaseNetworks ();
-    
-    MutexDispose ( &localNetsMutex );
-}
-
-
-void Mediator::BroadcastByeBye ()
-{
-	strcpy_s ( broadcastMessage + 4, sizeof ( MEDIATOR_BROADCAST_BYEBYE ), MEDIATOR_BROADCAST_BYEBYE );
-	SendBroadcast ();
-}
-
-    
-void Mediator::Dispose ()
-{	
-	CVerb ( "Dispose" );
-
-	isRunning = false;
-
-	// Wait for each thread to terminate
-	ReleaseThreads ();
-	
-	ReleaseNetworks ();
-	ReleaseMediators ();
-
-	if ( certificate ) 
-		free ( certificate );
-}
-
-
-bool Mediator::IsSocketAlive ( int &sock )
-{
-	CVerb ( "IsSocketAlive" );
-
-	if ( sock == -1 ) {
-		CVerb ( "IsSocketAlive: socket argument is invalid" );
-		return false;
-	}
-
-	int value;
-	socklen_t size = sizeof(socklen_t);
-
-	int ret = getsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, (char *)&value, &size );
-	if ( ret < 0 ) {
-		CInfo ( "IsSocketAlive: disposing invalid socket!" );
-		//LogSocketError ();
-#ifdef MEDIATORDAEMON
-        try {
-            shutdown ( sock, 2 );
-			closesocket ( sock );
-		} catch (...) {
-		}
-#else
-		shutdown ( sock, 2 );
-		closesocket ( sock );
-#endif
-		sock = -1;
-		return false;
-	}
-
-	CVerb ( "IsSocketAlive: socket is alive" );
-	return true;
-}
-
-
-void Mediator::VerifySockets ( ThreadInstance * inst, bool waitThread )
-{
-	CVerb ( "VerifySockets" );
-
-	if ( !IsSocketAlive ( inst->socket ) ) {
-		// Close spare socket as well
-		if ( inst->spareSocket != -1 ) {
-			CVerb ( "VerifySockets: disposing spare socket!" );
-
-			shutdown ( inst->spareSocket, 2 );
-			closesocket ( inst->spareSocket );
-			inst->spareSocket = -1;
-		}
-        
-        if ( !waitThread )
-            return;
-        
-        // Wait for the listening thread to be terminated
-        pthread_t thrd = inst->threadID;
-        
-        if ( pthread_valid ( thrd ) ) {
-            CLog ( "VerifySockets: waiting for mediator listener thread to be termianted." );
-            
-            /// EXC_BAD_ACCESS
-            int s = pthread_join ( thrd, NULL );
-            if ( pthread_wait_fail ( s ) ) {
-                CErrArg ( "VerifySockets: Error waiting for mediator listener thread (pthread_join:%i)", s );
-            }
-            pthread_close ( thrd );
-            pthread_reset ( inst->threadID );
-        }
-	}
-}
-
-
-bool Mediator::ReleaseThreads ()
-{
-	CVerb ( "ReleaseThreads" );
-
-	int value;
-	bool ret = true;
-
-	// Signal stop status to threads
-	isRunning = false;
-
-	// Close broadcast listener socket
-	value = broadcastSocketID;
-	if ( value != -1 ) {
-		CVerb ( "ReleaseThreads: Closing broadcast socket." );
-		
-		broadcastSocketID = -1;
-		shutdown ( value, 2 );
-		closesocket ( value );
-	}
-
-	// Waiting for broadcast thread
-	pthread_t thrd = broadcastThreadID;
-
-	if ( pthread_valid ( thrd ) ) {
-		pthread_reset ( broadcastThreadID );
-
-		CVerb ( "ReleaseThreads: Waiting for broadcast thread to be termianted." );
-				
-		value = pthread_join ( thrd, NULL );
-		if ( pthread_wait_fail ( value ) ) {
-			CErrArg ( "ReleaseThreads: Error waiting for broadcast thread (pthread_join:%i)\n", value );
-			ret = false;
-		}
-
-		pthread_close ( thrd );
-	}
-
-	return ret;
-}
-
-
-void Mediator::ReleaseNetworks ()
-{
-	CVerb ( "ReleaseNetworks" );
-
-	if ( !MutexLock ( &localNetsMutex, "ReleaseNetworks" ) )
-		return;
-
-	NetPack * net = localNets.next;
-
-	while ( net ) {
-		NetPack * toDelete = net;
-		net = net->next;
-		free ( toDelete );
-	}
-
-	Zero ( localNets );
-			
-	MutexUnlock ( &localNetsMutex, "ReleaseNetworks" );
-}
-
-
-void Mediator::ReleaseMediator ( MediatorInstance * med ) 
-{
-    if ( !med ) return;
-    
-	ThreadInstance * inst = &med->connection.instance;
-
-	int s = inst->socket;
-	if ( s != -1 ) {
-		inst->socket = -1;
-
-		CVerb ( "ReleaseMediator: closing cocket" );
-		shutdown ( s, 2 );
-		closesocket ( s );
-	}
-
-	// Wait for the listening thread to be terminated
-	pthread_t thrd = inst->threadID;
-	if ( pthread_valid ( thrd ) ) {
-		pthread_reset ( inst->threadID );
-
-		CVerb ( "ReleaseMediator: waiting for mediator listener thread to be termianted." );
-
-        /// EXC_BAD_ACCESS
-		s = pthread_join ( thrd, NULL );
-		if ( pthread_wait_fail ( s ) ) {
-			CErrArg ( "ReleaseMediator: Error waiting for mediator listener thread (pthread_join:%i)", s );
-		}
-		pthread_close ( thrd );
-	}
-
-
-	AESDisposeKeyContext ( &med->connection.instance.aes );
-	med->connection.instance.encrypt = 0;
-    
-    MutexDispose ( &med->connection.rec_mutex );
-    MutexDispose ( &med->connection.send_mutex );
-    
-    CondDispose ( &med->connection.rec_signal );
-
-	if ( med->connection.buffer )
-		free ( med->connection.buffer );
-
-	if ( med != &mediator )
-		delete med;
-}
-
-
-void Mediator::ReleaseMediators ()
-{
-	CVerb ( "ReleaseMediators" );
-
-	MutexLockV ( &mediatorMutex, "ReleaseMediators" );
-
-	MediatorInstance * inst = mediator.next;
-
-	while ( inst ) {
-		MediatorInstance * toDelete = inst;
-		inst = inst->next;
-
-		ReleaseMediator ( toDelete );
-	}
-
-	if ( mediator.port ) {
-		ReleaseMediator ( &mediator );
+	Mediator::Mediator ()
+	{
+		CVerb ( "Construct" );
+
+		Zero ( localNets );
 		Zero ( mediator );
+		mediator.connection.instance.socket = -1;
+		mediator.connection.instance.spareSocket = -1;
+
+		allocated               = false;
+
+		isRunning 				= false;
+		broadcastSocketID 		= -1;
+
+		Zero ( broadcastThreadID );
+
+		broadcastMessageLen		= 0;
+		lastGreetUpdate			= 0;
+
+		certificate				= 0;
 	}
 
-	MutexUnlockV ( &mediatorMutex, "ReleaseMediators" );
-}
+
+	Mediator::~Mediator ()
+	{
+		CVerb ( "Destructor" );
+
+		Dispose ();
+
+		if ( allocated )
+		{
+			MutexLockV ( &mediatorMutex, "Destructor" );
+
+			MutexDispose ( &devicesMutex );
+
+#ifdef USE_INTEGER_PROJECT_APP_MAPS
+			MutexDispose ( &idMapMutex );
+#endif
+			projectIDToNames.clear ();
+			appIDToNames.clear ();
+			nameToProjectID.clear ();
+			nameToAppID.clear ();
+
+			MutexUnlockV ( &mediatorMutex, "Destructor" );
+
+			MutexDispose ( &mediatorMutex );
+		}
+
+#if ( !defined(MEDIATORDAEMON) )
+		envSP = 0;
+#endif
+
+		CVerb ( "Destructor: Done." );
+	}
 
 
-bool Mediator::LoadNetworks ( )
-{
-	CVerb ( "LoadNetworks" );
+	bool Mediator::Init ()
+	{
+		CVerb ( "Init" );
 
-	ReleaseNetworks ();
-	
-	NetPack * pack = &localNets;
+		if ( !InitClass () )
+			return false;
 
-	unsigned int	ip;
-	unsigned int	bcast;
+		if ( !allocated )
+		{
+			if ( !MutexInit ( &mediatorMutex ) )
+				return false;
 
-	MutexLockV ( &localNetsMutex, "LoadNetworks" );
+			if ( !MutexInit ( &devicesMutex ) )
+				return false;
+
+#ifdef USE_INTEGER_PROJECT_APP_MAPS
+			Zero ( idMapMutex );
+
+			projectIDToNames.clear ();
+			appIDToNames.clear ();
+			nameToProjectID.clear ();
+			nameToAppID.clear ();
+
+			if ( !MutexInit ( &idMapMutex ) )
+				return false;
+#endif
+			allocated = true;
+		}
+
+		if ( !LoadNetworks () ) {
+			CErr ( "Init: Failed to load local ip addresses!" );
+			return false;
+		}
+
+		lastGreetUpdate			= GetEnvironsTickCount ();
+
+		return true;
+	}
+
+
+	bool Mediator::InitClass ()
+	{
+		CVerb ( "InitClass" );
+
+		if ( allocatedClass )
+			return true;
+
+		Zero ( localNets );
+
+		if ( !MutexInit ( &localNetsMutex ) )
+			return false;
+
+		allocatedClass = true;
+
+		return true;
+	}
+
+
+	void Mediator::DisposeClass ()
+	{
+		CVerb ( "DisposeClass" );
+
+		if ( !allocatedClass )
+			return;
+
+		ReleaseNetworks ();
+
+		MutexDispose ( &localNetsMutex );
+	}
+
+
+	void Mediator::BroadcastByeBye ()
+	{
+		strcpy_s ( broadcastMessage + 4, sizeof ( MEDIATOR_BROADCAST_BYEBYE ), MEDIATOR_BROADCAST_BYEBYE );
+		SendBroadcast ();
+	}
+
+
+	void Mediator::Dispose ()
+	{
+		CVerb ( "Dispose" );
+
+		isRunning = false;
+
+		// Wait for each thread to terminate
+		ReleaseThreads ();
+
+		ReleaseNetworks ();
+		ReleaseMediators ();
+
+		if ( certificate )
+			free ( certificate );
+	}
+
+
+	bool Mediator::IsSocketAlive ( int &sock )
+	{
+		CVerb ( "IsSocketAlive" );
+
+		if ( sock == -1 ) {
+			CVerb ( "IsSocketAlive: socket argument is invalid" );
+			return false;
+		}
+
+		int value;
+		socklen_t size = sizeof ( socklen_t );
+
+		int ret = getsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( char * ) &value, &size );
+		if ( ret < 0 ) {
+			CInfo ( "IsSocketAlive: disposing invalid socket!" );
+			//LogSocketError ();
+#ifdef MEDIATORDAEMON
+			try {
+				shutdown ( sock, 2 );
+				closesocket ( sock );
+			}
+			catch ( ... ) {
+			}
+#else
+			shutdown ( sock, 2 );
+			closesocket ( sock );
+#endif
+			sock = -1;
+			return false;
+		}
+
+		CVerb ( "IsSocketAlive: socket is alive" );
+		return true;
+	}
+
+
+	void Mediator::VerifySockets ( ThreadInstance * inst, bool waitThread )
+	{
+		CVerb ( "VerifySockets" );
+		 
+		if ( !IsSocketAlive ( inst->socket ) ) {
+			// Close spare socket as well
+			/*if ( inst->spareSocket != -1 ) {
+				CVerb ( "VerifySockets: disposing spare socket!" );
+
+				shutdown ( inst->spareSocket, 2 );
+				closesocket ( inst->spareSocket );
+				inst->spareSocket = -1;
+			}*/
+
+			if ( !waitThread )
+				return;
+
+			// Wait for the listening thread to be terminated
+			pthread_t thrd = inst->threadID;
+
+			if ( pthread_valid ( thrd ) ) {
+				CLog ( "VerifySockets: waiting for mediator listener thread to be termianted." );
+
+				/// EXC_BAD_ACCESS
+				int s = pthread_join ( thrd, NULL );
+				if ( pthread_wait_fail ( s ) ) {
+					CErrArg ( "VerifySockets: Error waiting for mediator listener thread (pthread_join:%i)", s );
+				}
+				pthread_close ( thrd );
+				pthread_reset ( inst->threadID );
+			}
+		}
+	}
+
+
+	bool Mediator::ReleaseThreads ()
+	{
+		CVerb ( "ReleaseThreads" );
+
+		int value;
+		bool ret = true;
+
+		// Signal stop status to threads
+		isRunning = false;
+
+		// Close broadcast listener socket
+		value = broadcastSocketID;
+		if ( value != -1 ) {
+			CVerb ( "ReleaseThreads: Closing broadcast socket." );
+
+			broadcastSocketID = -1;
+			shutdown ( value, 2 );
+			closesocket ( value );
+		}
+
+		// Waiting for broadcast thread
+		pthread_t thrd = broadcastThreadID;
+
+		if ( pthread_valid ( thrd ) ) {
+			pthread_reset ( broadcastThreadID );
+
+			CVerb ( "ReleaseThreads: Waiting for broadcast thread to be termianted." );
+
+			value = pthread_join ( thrd, NULL );
+			if ( pthread_wait_fail ( value ) ) {
+				CErrArg ( "ReleaseThreads: Error waiting for broadcast thread (pthread_join:%i)\n", value );
+				ret = false;
+			}
+
+			pthread_close ( thrd );
+		}
+
+		return ret;
+	}
+
+
+	void Mediator::ReleaseNetworks ()
+	{
+		CVerb ( "ReleaseNetworks" );
+
+		if ( !MutexLock ( &localNetsMutex, "ReleaseNetworks" ) )
+			return;
+
+		NetPack * net = localNets.next;
+
+		while ( net ) {
+			NetPack * toDelete = net;
+			net = net->next;
+			free ( toDelete );
+		}
+
+		Zero ( localNets );
+
+		MutexUnlock ( &localNetsMutex, "ReleaseNetworks" );
+	}
+
+
+	void Mediator::ReleaseMediator ( MediatorInstance * med )
+	{
+		if ( !med ) return;
+
+		ThreadInstance * inst = &med->connection.instance;
+
+		int s = inst->socket;
+		if ( s != -1 ) {
+			inst->socket = -1;
+
+			CVerb ( "ReleaseMediator: closing cocket" );
+			shutdown ( s, 2 );
+			closesocket ( s );
+		}
+
+		// Wait for the listening thread to be terminated
+		pthread_t thrd = inst->threadID;
+		if ( pthread_valid ( thrd ) ) {
+			pthread_reset ( inst->threadID );
+
+			CVerb ( "ReleaseMediator: waiting for mediator listener thread to be termianted." );
+
+			/// EXC_BAD_ACCESS
+			s = pthread_join ( thrd, NULL );
+			if ( pthread_wait_fail ( s ) ) {
+				CErrArg ( "ReleaseMediator: Error waiting for mediator listener thread (pthread_join:%i)", s );
+			}
+			pthread_close ( thrd );
+		}
+		
+		AESDisposeKeyContext ( &med->connection.instance.aes );
+		med->connection.instance.encrypt = 0;
+
+		MutexDispose ( &med->connection.rec_mutex );
+		MutexDispose ( &med->connection.send_mutex );
+
+		CondDispose ( &med->connection.rec_signal );
+
+		if ( med->connection.buffer )
+			free ( med->connection.buffer );
+
+		if ( med != &mediator )
+			delete med;
+	}
+
+
+	void Mediator::ReleaseMediators ()
+	{
+		CVerb ( "ReleaseMediators" );
+
+		MutexLockV ( &mediatorMutex, "ReleaseMediators" );
+
+		MediatorInstance * inst = mediator.next;
+
+		while ( inst ) {
+			MediatorInstance * toDelete = inst;
+			inst = inst->next;
+
+			ReleaseMediator ( toDelete );
+		}
+
+		if ( mediator.port ) {
+			ReleaseMediator ( &mediator );
+			Zero ( mediator );
+		}
+
+		MutexUnlockV ( &mediatorMutex, "ReleaseMediators" );
+	}
+
+
+	bool Mediator::LoadNetworks ()
+	{
+		CVerb ( "LoadNetworks" );
+
+		ReleaseNetworks ();
+
+		NetPack * pack = &localNets;
+
+		unsigned int	ip;
+		unsigned int	bcast;
+
+		MutexLockV ( &localNetsMutex, "LoadNetworks" );
 
 #ifdef _WIN32
-	char ac [ 256 ];
-    if ( gethostname ( ac, sizeof(ac) ) == SOCKET_ERROR ) {
-        CErrArg ( "LoadNetworks: Error %i when getting local host name.", WSAGetLastError () );
-        goto EndOfMethod;
-    }	
-	CLogArg ( "LoadNetworks: Host name [%s]", ac );
+		char ac [ 256 ];
+		if ( gethostname ( ac, sizeof ( ac ) ) == SOCKET_ERROR ) {
+			CErrArg ( "LoadNetworks: Error %i when getting local host name.", WSAGetLastError () );
+			goto EndOfMethod;
+		}
+		CLogArg ( "LoadNetworks: Host name [%s]", ac );
 
-	SOCKET sock = WSASocket ( PF_INET, SOCK_DGRAM, 0, 0, 0, 0 );
-    if ( sock == SOCKET_ERROR ) {
-        CErrArg ( "LoadNetworks: Failed to get a socket. Error %i", WSAGetLastError () );
-        goto EndOfMethod;
-    }
-    DisableSIGPIPE ( sock );
+		SOCKET sock = WSASocket ( PF_INET, SOCK_DGRAM, 0, 0, 0, 0 );
+		if ( sock == SOCKET_ERROR ) {
+			CErrArg ( "LoadNetworks: Failed to get a socket. Error %i", WSAGetLastError () );
+			goto EndOfMethod;
+		}
+		DisableSIGPIPE ( sock );
 
-    INTERFACE_INFO InterfaceList [ 20 ];
-    unsigned long nBytesReturned;
+		INTERFACE_INFO InterfaceList [ 20 ];
+		unsigned long nBytesReturned;
 
-    if ( WSAIoctl ( sock, SIO_GET_INTERFACE_LIST, 0, 0, &InterfaceList,
-			sizeof(InterfaceList), &nBytesReturned, 0, 0) == SOCKET_ERROR )
-	{
-        CErrArg ( "LoadNetworks: Failed calling WSAIoctl: error %i", WSAGetLastError() );
-		shutdown ( sock, 2 );
-		closesocket ( sock );
-        goto EndOfMethod;
-    }
-
-    int nNumInterfaces = nBytesReturned / sizeof(INTERFACE_INFO);
-	CVerbArg ( "LoadNetworks: There are [%i] interfaces:", nNumInterfaces );
-
-	// Skip loopback interfaces
-	for ( int i = 0; i < nNumInterfaces; ++i ) {
-        u_long nFlags = InterfaceList[i].iiFlags;
-		if ( nFlags & IFF_LOOPBACK ) {
-			CVerb ( "LoadNetworks: Omiting loopback interface." );
-			continue;
+		if ( WSAIoctl ( sock, SIO_GET_INTERFACE_LIST, 0, 0, &InterfaceList,
+			sizeof ( InterfaceList ), &nBytesReturned, 0, 0 ) == SOCKET_ERROR )
+		{
+			CErrArg ( "LoadNetworks: Failed calling WSAIoctl: error %i", WSAGetLastError () );
+			shutdown ( sock, 2 );
+			closesocket ( sock );
+			goto EndOfMethod;
 		}
 
-        sockaddr_in * pAddress;
-		//int max_length = 20;
-		
-		// Retrieve ip address
-        pAddress = (sockaddr_in *) & (InterfaceList[i].iiAddress);	
+		int nNumInterfaces = nBytesReturned / sizeof ( INTERFACE_INFO );
+		CVerbArg ( "LoadNetworks: There are [%i] interfaces:", nNumInterfaces );
 
-		ip = pAddress->sin_addr.s_addr;
+		// Skip loopback interfaces
+		for ( int i = 0; i < nNumInterfaces; ++i ) {
+			u_long nFlags = InterfaceList [ i ].iiFlags;
+			if ( nFlags & IFF_LOOPBACK ) {
+				CVerb ( "LoadNetworks: Omiting loopback interface." );
+				continue;
+			}
 
-		// Retrieve netmask	
-        pAddress = (sockaddr_in *) & (InterfaceList[i].iiNetmask);	
-		unsigned int mask = pAddress->sin_addr.s_addr;
+			sockaddr_in * pAddress;
+			//int max_length = 20;
 
-        CLogArg ( "Local IP %i: %s", i, inet_ntoa ( *((struct in_addr *) &ip) ) );
-        CVerbArg ( "Local SN %i: %s", i, inet_ntoa ( *((struct in_addr *) &mask) ) );
+			// Retrieve ip address
+			pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiAddress );
 
-		bcast = GetBroadcast ( ip, mask );
-        if ( !bcast ) {
-            CErrArg ( "LoadNetworks: Failed to calculate broadcast address for interface [%i]!", i );
-            continue;
-        }
-            
-        CVerbArg ( "LoadNetworks: Local BC %i: [%s]", i, inet_ntoa ( *((struct in_addr *) &bcast) ) );
-        
-		AddNetwork ( pack, ip, bcast, mask );
-    }
+			ip = pAddress->sin_addr.s_addr;
 
-	shutdown ( sock, 2 );
-	closesocket ( sock );
+			// Retrieve netmask	
+			pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiNetmask );
+			unsigned int mask = pAddress->sin_addr.s_addr;
+
+			CLogArg ( "Local IP %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+			CVerbArg ( "Local SN %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+
+			bcast = GetBroadcast ( ip, mask );
+			if ( !bcast ) {
+				CErrArg ( "LoadNetworks: Failed to calculate broadcast address for interface [%i]!", i );
+				continue;
+			}
+
+			CVerbArg ( "LoadNetworks: Local BC %i: [%s]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+
+			AddNetwork ( pack, ip, bcast, mask );
+		}
+
+		shutdown ( sock, 2 );
+		closesocket ( sock );
 
 #else
 
 #ifdef ANDROID
-	int sock, rval;
-	struct ifreq ifreqs[20];
-	struct ifreq ifr_mask;
-	struct ifconf ifconf;
-	int  nifaces, i;
+		int sock, rval;
+		struct ifreq ifreqs [ 20 ];
+		struct ifreq ifr_mask;
+		struct ifconf ifconf;
+		int  nifaces, i;
 
-	Zero ( ifconf );
-	ifconf.ifc_buf = (char *) ifreqs;
-	ifconf.ifc_len = sizeof(ifreqs);
+		Zero ( ifconf );
+		ifconf.ifc_buf = ( char * ) ifreqs;
+		ifconf.ifc_len = sizeof ( ifreqs );
 
-	sock = socket ( PF_INET, SOCK_STREAM, 0 );
-	if ( sock < 0 ) {
-		CErr ( "LoadNetworks: Failed to create socket for ioctl!" );
-        goto EndOfMethod;
-    }
-    DisableSIGPIPE ( sock );
+		sock = socket ( PF_INET, SOCK_STREAM, 0 );
+		if ( sock < 0 ) {
+			CErr ( "LoadNetworks: Failed to create socket for ioctl!" );
+			goto EndOfMethod;
+		}
+		DisableSIGPIPE ( sock );
 
-	rval = ioctl ( sock, SIOCGIFCONF , (char*) &ifconf );
-	if ( rval < 0 ) {
-		CErr ( "LoadNetworks: ioctl SIOCGIFCONF failed!" );
+		rval = ioctl ( sock, SIOCGIFCONF, ( char* ) &ifconf );
+		if ( rval < 0 ) {
+			CErr ( "LoadNetworks: ioctl SIOCGIFCONF failed!" );
+			shutdown ( sock, 2 );
+			closesocket ( sock );
+			goto EndOfMethod;
+		}
+
+		nifaces =  ifconf.ifc_len / sizeof ( struct ifreq );
+
+		CVerbArg ( "LoadNetworks: Interfaces (count = %d)", nifaces );
+
+		for ( i = 0; i < nifaces; i++ )
+		{
+			ip = ( ( struct sockaddr_in * )&ifreqs [ i ].ifr_ifru.ifru_addr )->sin_addr.s_addr;
+
+			CLogArg ( "LoadNetworks: Interface name: '%s' - ip: '%s'", ifreqs [ i ].ifr_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+
+			if ( strlen ( ifreqs [ i ].ifr_name ) < 1 ) {
+				CVerb ( "LoadNetworks: Omiting invalid interface name." );
+				continue;
+			}
+
+			if ( !ip ) {
+				CVerb ( "LoadNetworks: Omiting invalid interface." );
+				continue;
+			}
+
+			// Skip loopback
+			if ( ip == 0x0100007F ) {
+				CVerb ( "LoadNetworks: Omiting loopback interface." );
+				continue;
+			}
+
+			// Retrieve netmask	
+			ifr_mask.ifr_addr.sa_family = PF_INET;
+
+			strncpy ( ifr_mask.ifr_name, ifreqs [ i ].ifr_name, IFNAMSIZ - 1 );
+
+			rval = ioctl ( sock, SIOCGIFNETMASK, &ifr_mask );
+			if ( rval < 0 ) {
+				CErr ( "LoadNetworks: ioctl SIOCGIFNETMASK failed!" );
+				continue;
+			}
+
+			unsigned int mask = ( ( struct sockaddr_in * )&ifr_mask.ifr_addr )->sin_addr.s_addr;
+
+			bcast = GetBroadcast ( ip, mask );
+			if ( !bcast ) {
+				CErr ( "LoadNetworks: Failed to calculate broadcast address!" );
+				continue;
+			}
+			CVerbArg ( "LoadNetworks: Netmask: '%s'", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+			CVerbArg ( "LoadNetworks: Broadcast: '%s'", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+
+			AddNetwork ( pack, ip, bcast, mask );
+		}
 		shutdown ( sock, 2 );
 		closesocket ( sock );
-        goto EndOfMethod;
-	}
 
-	nifaces =  ifconf.ifc_len/sizeof(struct ifreq);
-
-	CVerbArg ( "LoadNetworks: Interfaces (count = %d)", nifaces );
-		
-	for ( i = 0; i < nifaces; i++ )
-	{
-		ip = ((struct sockaddr_in *)&ifreqs[i].ifr_ifru.ifru_addr)->sin_addr.s_addr;
-
-		CLogArg ( "LoadNetworks: Interface name: '%s' - ip: '%s'", ifreqs[i].ifr_name, inet_ntoa ( *((struct in_addr *) &ip) ) );
-
-        if ( strlen ( ifreqs[i].ifr_name ) < 1 ) {
-			CVerb ( "LoadNetworks: Omiting invalid interface name." );
-            continue;
-        }
-
-        if ( !ip ) {
-			CVerb ( "LoadNetworks: Omiting invalid interface." );
-			continue;
-		}
-
-		// Skip loopback
-		if ( ip == 0x0100007F ) {
-			CVerb ( "LoadNetworks: Omiting loopback interface." );
-			continue;
-		}
-		
-		// Retrieve netmask	
-		ifr_mask.ifr_addr.sa_family = PF_INET;
-
-		strncpy ( ifr_mask.ifr_name, ifreqs[i].ifr_name, IFNAMSIZ-1 );
-
-		rval = ioctl ( sock, SIOCGIFNETMASK, &ifr_mask );
-		if ( rval < 0 ) {
-			CErr ( "LoadNetworks: ioctl SIOCGIFNETMASK failed!" );
-			continue;
-		}
-
-		unsigned int mask = ((struct sockaddr_in *)&ifr_mask.ifr_addr)->sin_addr.s_addr;
-		
-		bcast = GetBroadcast ( ip, mask );
-        if ( !bcast ) {
-            CErr ( "LoadNetworks: Failed to calculate broadcast address!" );
-            continue;
-        }
-        CVerbArg ( "LoadNetworks: Netmask: '%s'", inet_ntoa ( *((struct in_addr *) &mask) ) );
-        CVerbArg ( "LoadNetworks: Broadcast: '%s'", inet_ntoa ( *((struct in_addr *) &bcast) ) );
-        
-		AddNetwork ( pack, ip, bcast, mask );
-	}
-	shutdown ( sock, 2 );
-	closesocket ( sock );
-    
 #else // LINUX or MAC or IOS
 
-	struct ifaddrs  * ifList  = NULL;
-	struct ifaddrs  * ifa           = NULL;
-	void            * tmp    = NULL;
+		struct ifaddrs  * ifList  = NULL;
+		struct ifaddrs  * ifa           = NULL;
+		void            * tmp    = NULL;
 
-	if ( getifaddrs ( &ifList ) != 0 ) {
-		CErr ( "LoadNetworks: getifaddrs failed!" );
-        goto EndOfMethod;    
-    }
-    
-	for ( ifa = ifList; ifa != NULL; ifa = ifa->ifa_next )
-    {
-	    if ( ifa ->ifa_addr->sa_family == PF_INET ) {
-	        // IPv4
-            ip = ( (struct sockaddr_in *) ifa->ifa_addr )->sin_addr.s_addr;
-            
-            CLogArg ( "LoadNetworks: [%s] => IP: [%s]", ifa->ifa_name, inet_ntoa ( *((struct in_addr *) &ip) )  );
-            
-            if ( !ip ) {
-                CVerb ( "LoadNetworks: Omiting invalid interface." );
-                continue;
-            }
-            
-            // Skip loopback
-            if ( ip == 0x0100007F ) {
-                CVerb ( "LoadNetworks: Omiting loopback interface." );
-                continue;
-            }
-            
+		if ( getifaddrs ( &ifList ) != 0 ) {
+			CErr ( "LoadNetworks: getifaddrs failed!" );
+			goto EndOfMethod;
+		}
+
+		for ( ifa = ifList; ifa != NULL; ifa = ifa->ifa_next )
+		{
+			if ( ifa->ifa_addr->sa_family == PF_INET ) {
+				// IPv4
+				ip = ( ( struct sockaddr_in * ) ifa->ifa_addr )->sin_addr.s_addr;
+
+				CLogArg ( "LoadNetworks: [%s] => IP: [%s]", ifa->ifa_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+
+				if ( !ip ) {
+					CVerb ( "LoadNetworks: Omiting invalid interface." );
+					continue;
+				}
+
+				// Skip loopback
+				if ( ip == 0x0100007F ) {
+					CVerb ( "LoadNetworks: Omiting loopback interface." );
+					continue;
+				}
+
 #ifdef XCODE
-            // Skip any connection but ethernet en...
-            if ( !strstr ( ifa->ifa_name, "en") ) {
-                CVerbArg ( "LoadNetworks: Not an ethernet interface. Ommiting [%s]", ifa->ifa_name ? ifa->ifa_name : "---" );
-                continue;
-            }
+				// Skip any connection but ethernet en...
+				if ( !strstr ( ifa->ifa_name, "en" ) ) {
+					CVerbArg ( "LoadNetworks: Not an ethernet interface. Ommiting [%s]", ifa->ifa_name ? ifa->ifa_name : "---" );
+					continue;
+				}
 #endif
-            unsigned int mask = ((struct sockaddr_in *)ifa->ifa_netmask)->sin_addr.s_addr;
-            
-            bcast = GetBroadcast ( ip, mask );
-            if ( !bcast ) {
-                CErr ( "LoadNetworks: ERROR - Failed to calculate broadcast address!" );
-                continue;
-            }
-            CVerbArg ( "LoadNetworks: Netmask:   [%s]", inet_ntoa ( *((struct in_addr *) &mask) ) );
-            CVerbArg ( "LoadNetworks: Broadcast: [%s]", inet_ntoa ( *((struct in_addr *) &bcast) ) );
-            
-            AddNetwork ( pack, ip, bcast, mask );
-	    }
-        else if ( ifa->ifa_addr->sa_family == PF_INET6 ) {
-	            // We do not support IPv6 yet
-	            tmp=&((struct sockaddr_in6 *)ifa->ifa_addr)->sin6_addr;
-	            char addressBuffer[INET6_ADDRSTRLEN];
-	            inet_ntop(PF_INET6, tmp, addressBuffer, INET6_ADDRSTRLEN);
-	            CVerbArg ( "LoadNetworks: IPv6 not supported yet: [%s] IP Address [%s]", ifa->ifa_name, addressBuffer);
-	        }
-    }
-    
-	if ( ifList )
-        freeifaddrs ( ifList );
-#endif
-    
-#endif
+				unsigned int mask = ( ( struct sockaddr_in * )ifa->ifa_netmask )->sin_addr.s_addr;
 
-EndOfMethod:
-	MutexUnlockV ( &localNetsMutex, "LoadNetworks" );
+				bcast = GetBroadcast ( ip, mask );
+				if ( !bcast ) {
+					CErr ( "LoadNetworks: ERROR - Failed to calculate broadcast address!" );
+					continue;
+				}
+				CVerbArg ( "LoadNetworks: Netmask:   [%s]", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+				CVerbArg ( "LoadNetworks: Broadcast: [%s]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-	return true;
-}
-
-
-unsigned int Mediator::GetBroadcast ( unsigned int ip, unsigned int netmask )
-{
-    u_long host_ip = ip;
-    u_long net_mask = netmask;
-    u_long net_addr = host_ip & net_mask;
-    u_long bcast_addr = net_addr | (~net_mask);
-    
-    return (unsigned int) bcast_addr;
-}
-
-
-void Mediator::AddNetwork ( NetPack * &pack, unsigned int ip, unsigned int bcast, unsigned int netmask )
-{
-    if ( pack->ip ) {
-        // This NetPack is already filled, create and attach a new one
-		NetPack * newPack = (NetPack *)malloc ( sizeof(NetPack) );
-        if ( !newPack ) {
-            CErr ( "AddNetwork: ERROR - failed to allocate memory to store ip/broadcast! Low memory problem!" );
-            return;
-        }
-        pack->next = newPack;
-        pack = newPack;
-        memset ( pack, 0, sizeof(NetPack) );
-    }
-    
-	pack->ip = ip;
-	pack->bcast = bcast;
-	pack->mask = netmask;
-}
-
-
-bool Mediator::IsStarted ()
-{
-	return isRunning;
-}
-
-
-bool Mediator::Start ()
-{
-	CVerb ( "Start" );
-
-	isRunning = true;
-	
-	// Create socket for broadcast thread
-	if ( broadcastSocketID == -1 ) {
-		int sock = (int) socket ( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
-		if ( sock == -1 ) {
-			CErr ( "Start: Failed to create broadcast socket!" );
-			return false;
-        }
-        DisableSIGPIPE ( sock );
-        
-		broadcastSocketID = sock;
-
-		int value = 1;
-		if ( setsockopt ( sock, SOL_SOCKET, SO_BROADCAST, (const char *) &value, sizeof ( value ) ) == -1 ) {
-			CErr ( "Start: Failed to set broadcast option on socket!" );
-			return false;
+				AddNetwork ( pack, ip, bcast, mask );
+			}
+			else if ( ifa->ifa_addr->sa_family == PF_INET6 ) {
+				// We do not support IPv6 yet
+				tmp=&( ( struct sockaddr_in6 * )ifa->ifa_addr )->sin6_addr;
+				char addressBuffer [ INET6_ADDRSTRLEN ];
+				inet_ntop ( PF_INET6, tmp, addressBuffer, INET6_ADDRSTRLEN );
+				CVerbArg ( "LoadNetworks: IPv6 not supported yet: [%s] IP Address [%s]", ifa->ifa_name, addressBuffer );
+			}
 		}
 
-		value = 1;
-		if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, (const char *) &value, sizeof ( value ) ) != 0 ) {
-			CErr ( "Start: Failed to set reuseaddr option on socket!" );
-			return false;
+		if ( ifList )
+			freeifaddrs ( ifList );
+#endif
+
+#endif
+
+	EndOfMethod:
+		MutexUnlockV ( &localNetsMutex, "LoadNetworks" );
+
+		return true;
+	}
+
+
+	unsigned int Mediator::GetBroadcast ( unsigned int ip, unsigned int netmask )
+	{
+		u_long host_ip = ip;
+		u_long net_mask = netmask;
+		u_long net_addr = host_ip & net_mask;
+		u_long bcast_addr = net_addr | ( ~net_mask );
+
+		return ( unsigned int ) bcast_addr;
+	}
+
+
+	void Mediator::AddNetwork ( NetPack * &pack, unsigned int ip, unsigned int bcast, unsigned int netmask )
+	{
+		if ( pack->ip ) {
+			// This NetPack is already filled, create and attach a new one
+			NetPack * newPack = ( NetPack * ) malloc ( sizeof ( NetPack ) );
+			if ( !newPack ) {
+				CErr ( "AddNetwork: ERROR - failed to allocate memory to store ip/broadcast! Low memory problem!" );
+				return;
+			}
+			pack->next = newPack;
+			pack = newPack;
+			memset ( pack, 0, sizeof ( NetPack ) );
 		}
+
+		pack->ip = ip;
+		pack->bcast = bcast;
+		pack->mask = netmask;
+	}
+
+
+	bool Mediator::IsStarted ()
+	{
+		return isRunning;
+	}
+
+
+	bool Mediator::Start ()
+	{
+		CVerb ( "Start" );
+
+		isRunning = true;
+
+		// Create socket for broadcast thread
+		if ( broadcastSocketID == -1 ) {
+			int sock = ( int ) socket ( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
+			if ( sock == -1 ) {
+				CErr ( "Start: Failed to create broadcast socket!" );
+				return false;
+			}
+			DisableSIGPIPE ( sock );
+
+			broadcastSocketID = sock;
+
+			int value = 1;
+			if ( setsockopt ( sock, SOL_SOCKET, SO_BROADCAST, ( const char * ) &value, sizeof ( value ) ) == -1 ) {
+				CErr ( "Start: Failed to set broadcast option on socket!" );
+				return false;
+			}
+
+			value = 1;
+			if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
+				CErr ( "Start: Failed to set reuseaddr option on socket!" );
+				return false;
+			}
 
 #ifdef SO_REUSEPORT // Fix for bind error on iOS simulator due to crash of app, leaving the port still bound
-		value = 1;
-		if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEPORT, (const char *) &value, sizeof (value)) != 0 ) {
-			CErr ( "Start: Failed to set reuseaddr option on socket!" );
-			return false;
-		}
+			value = 1;
+			if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEPORT, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
+				CErr ( "Start: Failed to set reuseaddr option on socket!" );
+				return false;
+			}
 #endif
 
-		/// Create broadcast thread
-		int s = pthread_create ( &broadcastThreadID, 0, BroadcastThreadStarter, (void *)this );
-		if ( s ) {
-			CErrArg ( "Start: Creating thread for broadcast failed. (pthread_create [%i])", s );
-			return false;
+			/// Create broadcast thread
+			int s = pthread_create ( &broadcastThreadID, 0, BroadcastThreadStarter, ( void * )this );
+			if ( s ) {
+				CErrArg ( "Start: Creating thread for broadcast failed. (pthread_create [%i])", s );
+				return false;
+			}
+
+			Sleep ( 300 );
 		}
 
-		Sleep ( 300 );
-	}
-	
-	OnStarted ( );
+		OnStarted ();
 
-	SendBroadcast ( );
-	
-	CVerb ( "Start: success" );
-	return true;
-}
+		SendBroadcast ();
 
-
-void Mediator::OnStarted ( )
-{
-}
-
-
-bool Mediator::SendBroadcast ( )
-{
-	CVerb ( "SendBroadcast" );
-
-    if ( /*!isRunning ||*/ broadcastSocketID == -1 )
-        return false;
-
-	bool ret = true;
-	size_t sentBytes = 0;
-	
-	CVerbArg ( "SendBroadcast: Broadcasting message [%s] (%d)...", broadcastMessage + 4, broadcastMessageLen );
-
-	struct 	sockaddr_in		broadcastAddr;
-	Zero ( broadcastAddr );
-
-	broadcastAddr.sin_family = PF_INET;
-	broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
-
-	broadcastAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
-	
-	sentBytes = sendto ( broadcastSocketID, broadcastMessage + 4, broadcastMessageLen, 0, (struct sockaddr *) &broadcastAddr, sizeof(struct sockaddr) );
-	if ( sentBytes != broadcastMessageLen ) {
-		CErr ( "SendBroadcast: Broadcast failed!" );
-		ret = false;
-	}
-	
-	/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
-	NetPack * net = 0;
-
-	if ( !MutexLock ( &localNetsMutex, "SendBroadcast" ) ) {
-		ret = false;
-		goto EndWithStatus;
+		CVerb ( "Start: success" );
+		return true;
 	}
 
-	net = &localNets;
-	while ( net ) {
-		broadcastAddr.sin_addr.s_addr = net->bcast;
 
-		sentBytes = sendto ( broadcastSocketID, broadcastMessage + 4, broadcastMessageLen, 0, (struct sockaddr *) &broadcastAddr, sizeof(struct sockaddr) );
+	void Mediator::OnStarted ()
+	{
+	}
+
+
+	bool Mediator::SendBroadcast ()
+	{
+		CVerb ( "SendBroadcast" );
+
+		if ( /*!isRunning ||*/ broadcastSocketID == -1 )
+			return false;
+
+		bool ret = true;
+		size_t sentBytes = 0;
+
+		CVerbArg ( "SendBroadcast: Broadcasting message [%s] (%d)...", broadcastMessage + 4, broadcastMessageLen );
+
+		struct 	sockaddr_in		broadcastAddr;
+		Zero ( broadcastAddr );
+
+		broadcastAddr.sin_family = PF_INET;
+		broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
+
+		broadcastAddr.sin_addr.s_addr = inet_addr ( "255.255.255.255" );
+
+		sentBytes = sendto ( broadcastSocketID, broadcastMessage + 4, broadcastMessageLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
 		if ( sentBytes != broadcastMessageLen ) {
 			CErr ( "SendBroadcast: Broadcast failed!" );
 			ret = false;
 		}
 
-		net = net->next;
-	}
-	
-	MutexUnlockV ( &localNetsMutex, "SendBroadcast" );
+		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
+		NetPack * net = 0;
 
-EndWithStatus:
-
-	return ret;
-}
-
-
-bool Mediator::IsLocalIP ( unsigned int ip )
-{
-	bool ret = false;
-
-	CVerb ( "IsLocalIP" );
-
-	if ( !MutexLock ( &localNetsMutex, "IsLocalIP" ) )
-		return false;
-
-	NetPack * net = &localNets;
-
-	while ( net ) {
-		if ( ip == net->ip ) {
-			ret = true;
-			break;
+		if ( !MutexLock ( &localNetsMutex, "SendBroadcast" ) ) {
+			ret = false;
+			goto EndWithStatus;
 		}
-		net = net->next;
+
+		net = &localNets;
+		while ( net ) {
+			broadcastAddr.sin_addr.s_addr = net->bcast;
+
+			sentBytes = sendto ( broadcastSocketID, broadcastMessage + 4, broadcastMessageLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+			if ( sentBytes != broadcastMessageLen ) {
+				CErr ( "SendBroadcast: Broadcast failed!" );
+				ret = false;
+			}
+
+			net = net->next;
+		}
+
+		MutexUnlockV ( &localNetsMutex, "SendBroadcast" );
+
+	EndWithStatus:
+
+		return ret;
 	}
 
-	if ( !MutexUnlock ( &localNetsMutex, "IsLocalIP" ) )
+
+	bool Mediator::IsLocalIP ( unsigned int ip )
+	{
+		bool ret = false;
+
+		CVerb ( "IsLocalIP" );
+
+		if ( !MutexLock ( &localNetsMutex, "IsLocalIP" ) )
+			return false;
+
+		NetPack * net = &localNets;
+
+		while ( net ) {
+			if ( ip == net->ip ) {
+				ret = true;
+				break;
+			}
+			net = net->next;
+		}
+
+		if ( !MutexUnlock ( &localNetsMutex, "IsLocalIP" ) )
+			return false;
+		return ret;
+	}
+
+
+	unsigned int Mediator::GetLocalIP ()
+	{
+		CVerb ( "GetLocalIP" );
+
+		if ( !localNets.ip )
+			if ( !LoadNetworks () )
+				return 0;
+
+		return localNets.ip;
+	}
+
+
+	unsigned int Mediator::GetLocalSN ()
+	{
+		CVerb ( "GetLocalSN" );
+
+		return localNets.mask;
+	}
+
+
+	bool Mediator::IsAnonymousUser ( const char * user )
+	{
+		if ( !user || !strlen ( user ) )
+			return true;
+
+		int maxLen = ( int ) sizeof ( MEDIATOR_ANONYMOUS_USER );
+
+		const char * anonUser = MEDIATOR_ANONYMOUS_USER;
+
+		while ( *user && maxLen >= 0 )
+		{
+			if ( *user++ != *anonUser++ )
+				break;
+			maxLen--;
+		}
+		if ( maxLen <= 1 )
+			return true;
 		return false;
-	return ret;
-}
-
-
-unsigned int Mediator::GetLocalIP ( )
-{
-	CVerb ( "GetLocalIP" );
-
-    if ( !localNets.ip )
-    if ( !LoadNetworks() )
-        return 0;
-    
-	return localNets.ip;
-}
-
-
-unsigned int Mediator::GetLocalSN ( )
-{
-	CVerb ( "GetLocalSN" );
-
-	return localNets.mask;
-}
-    
-    
-    bool Mediator::IsAnonymousUser ( const char * user )
-    {
-        if ( !user || !strlen (user) )
-            return true;
-
-        int maxLen = (int) sizeof ( MEDIATOR_ANONYMOUS_USER );
-        
-        const char * anonUser = MEDIATOR_ANONYMOUS_USER;
-        
-        while ( *user && maxLen >= 0 )
-        {
-            if ( *user++ != *anonUser++ )
-                break;
-            maxLen--;
-        }
-        if ( maxLen <= 1 )
-            return true;
-        return false;
-    }
-
-
-
-DeviceInstanceNode * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
-{
-	CVerbVerb ( "UpdateDevices" );
-
-	if ( !msg )
-		return 0;
-
-	int				value;
-	//unsigned int	flags		= 0;
-	bool			found		= false;
-	bool			changed		= false;
-	char		*	deviceName	= 0;
-	char		*	areaName	= 0;
-	char		*	appName		= 0;
-	char		*	userName	= 0;
-	DeviceInstanceNode * device		= 0;
-	DeviceInstanceNode * devicePrev	= 0;
-	DeviceInstanceNode ** listRoot	= 0;
-	pthread_mutex_t * mutex		= 0;
-
-	int *						pDevicesAvailable	= 0;
-    
-#ifdef MEDIATORDAEMON
-    sp ( ApplicationDevices )
-#else
-	void *
-#endif
-                                appDevices			= 0;
-    
-	// Get the id at first (>0)	
-	int * pIntBuffer = (int *) (msg + MEDIATOR_BROADCAST_DEVICEID_START);
-	value = *pIntBuffer;
-	if ( !value )
-		return 0;
-	
-	// Get the areaName, appname, etc..
-	char * context = NULL;
-	char * psem = strtok_s ( msg + MEDIATOR_BROADCAST_DESC_START, ";", &context );
-	if ( !psem )
-		return 0;
-	deviceName = psem;
-	
-	psem = strtok_s ( NULL, ";", &context );
-	if ( !psem )
-		return 0;
-	areaName = psem;
-	
-	psem = strtok_s ( NULL, ";", &context );
-	if ( !psem )
-		return 0;
-	appName = psem;
-	
-	if ( uid ) {
-		psem = strtok_s ( NULL, ";", &context );
-		if ( psem )
-			*uid = psem;
 	}
-	/*psem = strtok_s ( NULL, ";", &context );
-	if ( psem ) {
-		userName = psem;	
-	}*/
 
-#if !defined(MEDIATORDAEMON)
-	if ( value == env->deviceID && !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) )
-		&& !strncmp ( appName, env->appName, sizeof( env->appName) ) )
-		return 0;
 
-	if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
-		if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) ) )
+	void Mediator::VanishedDeviceWatcher ()
+	{
+		DeviceInstanceNode	**	listRoot	= 0;
+		DeviceInstanceNode	*	device		= 0;
+		pthread_mutex_t		*	mutex		= 0;
+
+		listRoot = GetDeviceList ( NULL_ptr, NULL_ptr, &mutex, NULL_ptr, NULL_ptr );
+
+		if ( !listRoot )
+			return;
+
+		if ( !MutexLock ( mutex, "VanishedDeviceWatcher" ) )
+            return;
+        
+        device = *listRoot;
+
+		while ( device )
+		{
+			CVerbVerbArg ( "VanishedDeviceWatcher: Checking [0x%X] Area [%s] App [%s]", device->info.deviceID, device->info.areaName, device->info.appName );
+
+			if ( device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST && ( lastGreetUpdate - device->info.updates ) > 120000 ) 
+			{
+				// Device has vanished
+				DeviceInstanceNode	*	vanished = device;
+
+				//device = vanished->next;
+
+				//if ( !vanished->prev ) {
+				//	// The root device vanished
+				//	if ( device )
+				//		device->prev = 0;
+
+				//	*listRoot = device;
+				//}
+				//else
+				//	vanished->prev->next = device;
+
+				//vanished->next = 0;
+
+				// Remove device and relink the list
+				RemoveDevice ( vanished, false );
+
+				device = *listRoot;;
+				continue;
+			}
+
+			device = device->next;
+		}
+
+		MutexUnlockV ( mutex, "VanishedDeviceWatcher" );
+	}
+
+
+	DeviceInstanceNode * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
+	{
+		CVerbVerb ( "UpdateDevices" );
+
+		if ( !msg )
 			return 0;
 
-		if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
-			if ( strncmp ( appName, env->appName, sizeof( env->appName) ) )
-				return 0;
-		}
-	}
-#endif
+		int				value;
+		//unsigned int	flags		= 0;
+		bool			found		= false;
+		bool			changed		= false;
+		char		*	deviceName	= 0;
+		char		*	areaName	= 0;
+		char		*	appName		= 0;
+		char		*	userName	= 0;
+		DeviceInstanceNode * device		= 0;
+		DeviceInstanceNode * devicePrev	= 0;
+		DeviceInstanceNode ** listRoot	= 0;
+		pthread_mutex_t * mutex		= 0;
 
-	listRoot = GetDeviceList ( areaName, appName, &mutex, &pDevicesAvailable, &appDevices );
-
-#ifdef MEDIATORDAEMON
-	if ( !listRoot ) {
-		return 0;
-	}
-#endif
-	
-	if ( !MutexLock ( mutex, "UpdateDevices" ) )
-		goto Finish;
-
-	device = *listRoot;
-
-	while ( device ) 
-	{
-		CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Area [%s / %s] App [%s / %s]", device->info.deviceID, value, device->info.areaName, areaName, device->info.appName, appName );
-
-		if ( device->info.deviceID == value
-#ifndef MEDIATORDAEMON
-			&& !strncmp ( device->info.areaName, areaName, sizeof ( device->info.areaName ) ) && !strncmp ( device->info.appName, appName, sizeof ( device->info.appName ) )
-#endif
-		) {
-            if ( strncmp ( device->info.deviceName, deviceName, sizeof(device->info.deviceName) ) )
-            {
-                // Another device with the same identifiers has already been registered. Let's ignore this.
-                MutexUnlockV ( mutex, "UpdateDevices" );
-                goto Finish;
-            }
-            
-			found = true; device->info.unavailable = true;
-			break;
-		}
-
-		if ( !device->next || device->info.deviceID > value )
-			break;
-
-		devicePrev = device;
-		device = device->next;
-	}
+		int *						pDevicesAvailable	= 0;
 
 #ifdef MEDIATORDAEMON
-	if ( found ) {	
-		MutexUnlockV ( mutex, "UpdateDevices" );
-		return device;
-	}
-	if ( created )
-		*created = true;
-#endif
-
-	while ( !found ) {
-		// Create a new list node
-		DeviceInstanceNode	*		dev		= 0;
-		sp ( DeviceInstanceNode )	devSP	= sp ( DeviceInstanceNode ) ( new DeviceInstanceNode () );
-
-		if ( !devSP || ( dev = devSP.get () ) == 0 ) {
-			CErr ( "UpdateDevices: Failed to allocate memory for new device!" );
-			device = 0;
-			break;
-		}
-
-		dev->myself = devSP;
-
-		dev->info.deviceID = value;
-		( *pDevicesAvailable )++;
-
-#ifdef MEDIATORDAEMON
-		dev->rootSP = appDevices;
+		sp ( ApplicationDevices )
 #else
-		dev->info.broadcastFound = broadcastFound;
-
-		// Build the key
-#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
-		*( ( int * ) dev->key ) = value;
-
-		int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
-#else
-		int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
+		void *
 #endif
-		if ( copied <= 0 ) {
-			CErr ( "UpdateDevices: Failed to build the key for new device!" );
-	}
-#endif
-		if ( devicePrev ) 
-		{
-			dev->prev = devicePrev;
+			appDevices			= 0;
 
-			if ( devicePrev->next ) {
-				// Glue next links together
-				dev->next = devicePrev->next;
-				devicePrev->next = dev;
-
-				// Glue previous links together
-				dev->next->prev = dev;
-			}
-			else
-				devicePrev->next = dev;		
-		}
-		else {
-			if ( device ) {
-				if ( device->info.deviceID > value ) {
-					/// Device must be the listRoot (because there is no previous device)
-					dev->next = device;
-					device->prev = dev;
-					*listRoot = dev;
-				}
-				else {
-					dev->prev = device;
-
-					if ( device->next ) {
-						// Glue next links together
-						dev->next = device->next;
-						device->next = dev;
-
-						// Glue previous links together
-						dev->next->prev = dev;
-					}
-					else
-						device->next = dev;
-				}
-			}
-			else
-				*listRoot = dev;
-		}
-		device = dev;
-
-		changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
-		strcpy_s ( device->info.areaName, sizeof ( device->info.areaName ), areaName );
-		strcpy_s ( device->info.appName, sizeof ( device->info.appName ), appName );
-		//if ( userName ) {
-		//	strcpy_s ( device->userName, sizeof(device->userName), userName );
-		//	//flags |= DEVICE_INFO_ATTR_USER_NAME;
-		//}
-		break;
-	}
-
-	if ( device ) {
-		device->info.updates = greetUpdates;
-
-#ifndef MEDIATORDAEMON
-		if ( !device->info.ipe || device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
-#endif
-		if ( ip != device->info.ipe ) {
-			device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;
-		}
-
-		/*if ( device->info.deviceType != msg [MEDIATOR_BROADCAST_DEVICETYPE_START] ) {
-			device->info.deviceType = msg [MEDIATOR_BROADCAST_DEVICETYPE_START]; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
-		}
-        */
-
-		int platform = *((int *) (msg + MEDIATOR_BROADCAST_PLATFORM_START));
-
-		if ( device->info.platform != platform ) {
-			device->info.platform = platform; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
-		}
-
-		pIntBuffer += 1;
-
-		// Get the ip
+		// Get the id at first (>0)	
+		int * pIntBuffer = ( int * ) ( msg + MEDIATOR_BROADCAST_DEVICEID_START );
 		value = *pIntBuffer;
-		if ( device->info.ip != (unsigned) value ) {
-			device->info.ip = value; changed = true; //flags |= DEVICE_INFO_ATTR_IP;
-		}	
-		// Get ports
-		unsigned short * pUShortBuffer = (unsigned short *) (msg + MEDIATOR_BROADCAST_PORTS_START);
-		unsigned short svalue = *pUShortBuffer++;
-		if ( svalue != device->info.tcpPort ) {
-			device->info.tcpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_TCP;
-		}
+		if ( !value )
+			return 0;
 
-		svalue = *pUShortBuffer;
-		if ( svalue != device->info.udpPort ) {
-			device->info.udpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_UDP;
+		// Get the areaName, appname, etc..
+		char * context = NULL;
+		char * psem = strtok_s ( msg + MEDIATOR_BROADCAST_DESC_START, ";", &context );
+		if ( !psem )
+			return 0;
+		deviceName = psem;
+
+		psem = strtok_s ( NULL, ";", &context );
+		if ( !psem )
+			return 0;
+		areaName = psem;
+
+		psem = strtok_s ( NULL, ";", &context );
+		if ( !psem )
+			return 0;
+		appName = psem;
+
+		if ( uid ) {
+			psem = strtok_s ( NULL, ";", &context );
+			if ( psem )
+				*uid = psem;
 		}
-		
-		if ( strncmp ( device->info.deviceName, deviceName, sizeof(device->info.deviceName) ) ) {
-			strcpy_s ( device->info.deviceName, sizeof(device->info.deviceName), deviceName ); changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_NAME;
+		/*psem = strtok_s ( NULL, ";", &context );
+		if ( psem ) {
+		userName = psem;
+		}*/
+
+#if !defined(MEDIATORDAEMON)
+		if ( value == env->deviceID && !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) )
+			&& !strncmp ( appName, env->appName, sizeof ( env->appName ) ) )
+			return 0;
+
+		if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
+			if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) ) )
+				return 0;
+
+			if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
+				if ( strncmp ( appName, env->appName, sizeof ( env->appName ) ) )
+					return 0;
+			}
+		}
+#endif
+
+		listRoot = GetDeviceList ( areaName, appName, &mutex, &pDevicesAvailable, &appDevices );
+		if ( !listRoot )
+			return 0;
+
+		if ( !MutexLock ( mutex, "UpdateDevices" ) )
+			goto Finish;
+
+		device = *listRoot;
+
+		while ( device )
+		{
+			CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Area [%s / %s] App [%s / %s]", device->info.deviceID, value, device->info.areaName, areaName, device->info.appName, appName );
+
+			if ( device->info.deviceID == value
+#ifndef MEDIATORDAEMON
+				&& !strncmp ( device->info.areaName, areaName, sizeof ( device->info.areaName ) ) && !strncmp ( device->info.appName, appName, sizeof ( device->info.appName ) )
+#endif
+				) {
+				if ( strncmp ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) ) )
+				{
+					// Another device with the same identifiers has already been registered. Let's ignore this.
+					MutexUnlockV ( mutex, "UpdateDevices" );
+					goto Finish;
+				}
+
+				found = true; device->info.unavailable = true;
+				break;
+			}
+
+			if ( !device->next || device->info.deviceID > value )
+				break;
+
+			devicePrev = device;
+			device = device->next;
 		}
 
 #ifdef MEDIATORDAEMON
-		if ( device->info.broadcastFound != broadcastFound ) {
-			device->info.broadcastFound = broadcastFound; changed = true; //flags |= DEVICE_INFO_ATTR_BROADCAST_FOUND;
+		if ( found ) {
+			MutexUnlockV ( mutex, "UpdateDevices" );
+			return device;
 		}
+		if ( created )
+			*created = true;
 #endif
-		if ( userName && *userName && strncmp ( device->userName, userName, sizeof(device->userName) ) ) {
-			strcpy_s ( device->userName, sizeof(device->userName), userName ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
-		}
 
-		if ( changed ) {		
-			CLogArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
-			if ( device->info.ip != device->info.ipe ) {
-				CLogArg ( "UpdateDevices: Device IPe != IP  [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
-				CLogArg ( "UpdateDevices: Device IP  != IPe [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
+		while ( !found ) {
+			// Create a new list node
+			DeviceInstanceNode	*		dev		= 0;
+			sp ( DeviceInstanceNode )	devSP	= sp_make ( DeviceInstanceNode );
+
+			if ( !devSP || ( dev = devSP.get () ) == 0 ) {
+				CErr ( "UpdateDevices: Failed to allocate memory for new device!" );
+				device = 0;
+				break;
+			}
+
+            dev->baseSP = devSP;
+
+			dev->info.deviceID = value;
+			( *pDevicesAvailable )++;
+
+#ifdef MEDIATORDAEMON
+			dev->rootSP = appDevices;
+#else
+			dev->hEnvirons = env->hEnvirons;
+			dev->info.broadcastFound = broadcastFound;
+
+			// Build the key
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+			*( ( int * ) dev->key ) = value;
+
+			int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
+#else
+			int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
+#endif
+			if ( copied <= 0 ) {
+				CErr ( "UpdateDevices: Failed to build the key for new device!" );
+			}
+#endif
+			if ( devicePrev )
+			{
+				dev->prev = devicePrev;
+
+				if ( devicePrev->next ) {
+					// Glue next links together
+					dev->next = devicePrev->next;
+					devicePrev->next = dev;
+
+					// Glue previous links together
+					dev->next->prev = dev;
+				}
+				else
+					devicePrev->next = dev;
 			}
 			else {
-				CListLogArg ( "UpdateDevices: Device IPe [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
+				if ( device ) {
+					if ( device->info.deviceID > value ) {
+						/// Device must be the listRoot (because there is no previous device)
+						dev->next = device;
+						device->prev = dev;
+						*listRoot = dev;
+					}
+					else {
+						dev->prev = device;
+
+						if ( device->next ) {
+							// Glue next links together
+							dev->next = device->next;
+							device->next = dev;
+
+							// Glue previous links together
+							dev->next->prev = dev;
+						}
+						else
+							device->next = dev;
+					}
+				}
+				else
+					*listRoot = dev;
+			}
+			device = dev;
+
+			changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
+			strcpy_s ( device->info.areaName, sizeof ( device->info.areaName ) - 1, areaName );
+			strcpy_s ( device->info.appName, sizeof ( device->info.appName ) - 1, appName );
+			//if ( userName ) {
+			//	strcpy_s ( device->userName, sizeof(device->userName) - 1, userName );
+			//	//flags |= DEVICE_INFO_ATTR_USER_NAME;
+			//}
+			break;
+		}
+
+		if ( device ) {
+			device->info.updates = ( unsigned int ) lastGreetUpdate;
+
+#ifndef MEDIATORDAEMON
+			if ( !device->info.ipe || device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
+#endif
+				if ( ip != device->info.ipe ) {
+					device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;
+				}
+
+			/*if ( device->info.deviceType != msg [MEDIATOR_BROADCAST_DEVICETYPE_START] ) {
+			device->info.deviceType = msg [MEDIATOR_BROADCAST_DEVICETYPE_START]; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
+			}
+			*/
+
+			int platform = *( ( int * ) ( msg + MEDIATOR_BROADCAST_PLATFORM_START ) );
+
+			if ( device->info.platform != platform ) {
+				device->info.platform = platform; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
 			}
 
-			CListLogArg ( "UpdateDevices: Area/App = [%s / %s]", device->info.areaName, device->info.appName );
-			CListLogArg ( "UpdateDevices: Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &ip) ), device->info.tcpPort, device->info.udpPort );
-		}
-	}
-	
-	if ( !MutexUnlock ( mutex, "UpdateDevices" ) )
-		device = 0;
-	else {
-		/*value = 0;
-		if ( device )
-		value = device->info.deviceID;
-		*/
-		UpdateDeviceInstance ( device, !found, changed );
-	}
+			pIntBuffer += 1;
 
-Finish:
+			// Get the ip
+			value = *pIntBuffer;
+			if ( device->info.ip != ( unsigned ) value ) {
+				device->info.ip = value; changed = true; //flags |= DEVICE_INFO_ATTR_IP;
+			}
+			// Get ports
+			unsigned short * pUShortBuffer = ( unsigned short * ) ( msg + MEDIATOR_BROADCAST_PORTS_START );
+			unsigned short svalue = *pUShortBuffer++;
+			if ( svalue != device->info.tcpPort ) {
+				device->info.tcpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_TCP;
+			}
+
+			svalue = *pUShortBuffer;
+			if ( svalue != device->info.udpPort ) {
+				device->info.udpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_UDP;
+			}
+
+			if ( strncmp ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) - 1 ) ) {
+				strcpy_s ( device->info.deviceName, sizeof ( device->info.deviceName ) - 1, deviceName ); changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_NAME;
+			}
 
 #ifdef MEDIATORDAEMON
-	if ( appDevices )
-		__sync_sub_and_fetch ( &appDevices->access, 1 );
+			if ( device->info.broadcastFound != broadcastFound ) {
+				device->info.broadcastFound = broadcastFound; changed = true; //flags |= DEVICE_INFO_ATTR_BROADCAST_FOUND;
+		}
+#endif
+			if ( userName && *userName && strncmp ( device->userName, userName, sizeof ( device->userName ) - 1 ) ) {
+				strcpy_s ( device->userName, sizeof ( device->userName ) - 1, userName ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
+			}
+
+			if ( changed ) {
+				CLogArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+				if ( device->info.ip != device->info.ipe ) {
+					CLogArg ( "UpdateDevices: Device IPe != IP  [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ip ) ) );
+					CLogArg ( "UpdateDevices: Device IP  != IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+				}
+				else {
+					CListLogArg ( "UpdateDevices: Device IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+				}
+
+				CListLogArg ( "UpdateDevices: Area/App = [%s / %s]", device->info.areaName, device->info.appName );
+				CListLogArg ( "UpdateDevices: Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), device->info.tcpPort, device->info.udpPort );
+			}
+		}
+
+		if ( !MutexUnlock ( mutex, "UpdateDevices" ) )
+			device = 0;
+		else {
+			/*value = 0;
+			if ( device )
+			value = device->info.deviceID;
+			*/
+			UpdateDeviceInstance ( device->baseSP, !found, changed );
+		}
+
+	Finish:
+
+#ifdef MEDIATORDAEMON
+		if ( appDevices )
+			__sync_sub_and_fetch ( &appDevices->access, 1 );
 #endif
 
-	return device;
+		return device;
 }
 
 
-void Mediator::DevicesHasChanged ( int type )
-{
-	CVerb ( "DevicesHasChanged" );
-}
-
-
-void printDevices ( DeviceInstanceNode * device )
-{
-	while ( device ) 
+	void Mediator::DevicesHasChanged ( int type )
 	{
-		CLogArg ( "printDevices: Device id      = 0x%X", device->info.deviceID );
-		CLogArg ( "printDevices: Area name      = %s", device->info.areaName );
-		CLogArg ( "printDevices: App name       = %s", device->info.appName );
-		CLogArg ( "printDevices: Platform       = %i", device->info.platform );
-		CLogArg ( "printDevices: Device IPe     = %s (from socket)", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
-		CLogArg ( "printDevices: Device IPe != IP (%s)", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ) );
-		CLogArg ( "printDevices: Device tcpPort = %d", device->info.tcpPort );
-		CLogArg ( "printDevices: Device udpPort = %d", device->info.udpPort );
-		CLogArg ( "printDevices: Device name    = %s", device->info.deviceName );
-
-		device = device->next;
+		CVerb ( "DevicesHasChanged" );
 	}
-}
 
 
-MediatorInstance * Mediator::IsKnownMediator ( unsigned int ip, unsigned short port )
-{
-	CVerb ( "IsKnownMediator" );
+	void printDevices ( DeviceInstanceNode * device )
+	{
+		while ( device )
+		{
+			CLogArg ( "printDevices: Device id      = 0x%X", device->info.deviceID );
+			CLogArg ( "printDevices: Area name      = %s", device->info.areaName );
+			CLogArg ( "printDevices: App name       = %s", device->info.appName );
+			CLogArg ( "printDevices: Platform       = %i", device->info.platform );
+			CLogArg ( "printDevices: Device IPe     = %s (from socket)", inet_ntoa ( *( ( struct in_addr * ) &device->info.ip ) ) );
+			CLogArg ( "printDevices: Device IPe != IP (%s)", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+			CLogArg ( "printDevices: Device tcpPort = %d", device->info.tcpPort );
+			CLogArg ( "printDevices: Device udpPort = %d", device->info.udpPort );
+			CLogArg ( "printDevices: Device name    = %s", device->info.deviceName );
 
-    MediatorInstance * ret = 0;
-    
-	MediatorInstance * med = &mediator;
+			device = device->next;
+		}
+	}
 
-	while ( med ) {
-		if ( ip == med->ip && med->port == port ) {
-			ret = med;
-			//med->available = true;
 
-			// Register again
-			CVerb ( "IsKnownMediator: already know." );
-/*
-#ifndef MEDIATORDAEMON
-			if ( (opt_useDefaultMediator || opt_useCustomMediator) && environs::ID ) {
-#endif
+	MediatorInstance * Mediator::IsKnownMediator ( unsigned int ip, unsigned short port )
+	{
+		CVerb ( "IsKnownMediator" );
+
+		MediatorInstance * ret = 0;
+
+		MediatorInstance * med = &mediator;
+
+		while ( med ) {
+			if ( ip == med->ip && med->port == port ) {
+				ret = med;
+				//med->available = true;
+
+				// Register again
+				CVerb ( "IsKnownMediator: already know." );
+				/*
+				#ifndef MEDIATORDAEMON
+				if ( (opt_useDefaultMediator || opt_useCustomMediator) && environs::ID ) {
+				#endif
 				if ( pthread_mutex_trylock ( &mediatorMutex ) ) {
-					CVerb ( "IsKnownMediator: Failed to aquire mutex on mediator!" );
-					return false;
+				CVerb ( "IsKnownMediator: Failed to aquire mutex on mediator!" );
+				return false;
 				}
 
 				RegisterAtMediator ( med );
 
 				if ( pthread_mutex_unlock ( &mediatorMutex ) ) {
-					CErr ( "IsKnownMediator: Failed to release mutex on mediator!" );
+				CErr ( "IsKnownMediator: Failed to release mutex on mediator!" );
 				}
-#ifndef MEDIATORDAEMON
+				#ifndef MEDIATORDAEMON
+				}
+				#endif
+				*/
+				break;
 			}
-#endif
- */
-			break;
+			med = med->next;
 		}
-		med = med->next;
-	}
-	return ret;
-}
-
-
-bool Mediator::RegisterAtMediator ( MediatorInstance * med )
-{
-	return true;
-}
-
-
-void * Mediator::BroadcastThreadStarter ( void *arg )
-{
-	if ( !arg  ) {
-		CErr ( "BroadcastThreadStarter: Called with invalid (NULL) argument.\n" );
-		return 0;
+		return ret;
 	}
 
-	Mediator * mediator = (Mediator *) arg;
 
-	// Execute thread
-	return mediator->BroadcastThread ( );
-}
-
-
-bool Mediator::AddMediator ( unsigned int ip, unsigned short port )
-{
-	CVerbArg ( "AddMediator: IP [%s] Port [%d]", inet_ntoa ( *((struct in_addr *) &ip) ) , port );
-
-	if ( !port ) {
-		CWarn ( "AddMediator: port [0] is invalid." );
-		return false;
-	}
-
-	if ( IsKnownMediator ( ip, port ) ) {
-		CVerbArg ( "AddMediator: mediator (%s) already available.", inet_ntoa ( *((struct in_addr *) &ip) ) );
+	bool Mediator::RegisterAtMediator ( MediatorInstance * med )
+	{
 		return true;
 	}
 
-	MediatorInstance * med = (MediatorInstance *)calloc ( 1, sizeof(MediatorInstance) );
-	if ( !med ) {
-		CErr ( "AddMediator: Failed to allocate memory for new Mediator!" );
-		return false;
-	}
-    
-#ifndef MEDIATORDAEMON
-    med->connection.env = env;
-#endif
-    
-    if ( !MutexInit ( &med->connection.rec_mutex ) )
-        goto Failed;
-    
-	//pthread_cond_init ( &med->connection.rec_signal, NULL );
 
-	Zero ( med->connection.rec_signal );
-	if ( pthread_cond_manual_init ( &med->connection.rec_signal, NULL ) ) {
-		CErr ( "AddMediator: Failed to init rec_signal!" );
-		goto Failed;
-	}
-    
-    if ( !MutexInit ( &med->connection.send_mutex ) )
-        goto Failed;
-    
-	//pthread_mutex_init	( &med->connection.request_mutex, NULL );
-
-	med->available = false;
-	med->connection.instance.socket = -1;
-	med->connection.instance.spareSocket = -1;
-	med->ip = ip;
-	med->port = port;
-
-	med->connection.buffer = (char *) malloc ( MEDIATOR_BUFFER_SIZE_MAX );
-	if ( !med->connection.buffer ) {
-		CErr ( "AddMediator: Failed to allocate memory for new Mediator!" );
-		goto Failed;
-	}
-
-	AddMediator ( med );
-
-	return true;
-
-Failed:
-	free ( med );
-	return false;
-}
-
-
-MediatorInstance * Mediator::AddMediator ( MediatorInstance * med )
-{
-	CVerb ( "AddMediator" );
-
-	if ( !med ) {
-		CErr ( "AddMediator: Mediator object passed in is invalid!" );
-		return 0;
-	}
-	MediatorInstance * added = med;
-
-	if ( !MutexLock ( &mediatorMutex, "AddMediator" ) ) {
-		CErr ( "AddMediator: Failed to aquire mutex on mediator!" );
-		free ( med->connection.buffer );
-		free ( med );
-		return 0;
-	}
-
-	if ( mediator.ip ) {
-		// Find the last and make sure that we do not have this mediator already in the list
-		MediatorInstance * t = &mediator;
-		while ( t->next ) {
-			t = t->next;
-			if ( t->ip == med->ip && t->port == med->port ) {
-				CVerbArg ( "AddMediator: Mediator [%s] Port [%d] is already in our list.", inet_ntoa ( *((struct in_addr *) &t->ip) ), t->port );
-				free ( med );
-				added = 0;
-				goto Finish;
-			}
+	void * Mediator::BroadcastThreadStarter ( void *arg )
+	{
+		if ( !arg ) {
+			CErr ( "BroadcastThreadStarter: Called with invalid (NULL) argument.\n" );
+			return 0;
 		}
 
-		// Attach the new one
-		t->next = med;
+		Mediator * mediator = ( Mediator * ) arg;
+
+		// Execute thread
+		return mediator->BroadcastThread ();
 	}
-	else {
-		memcpy ( &mediator, med, sizeof(MediatorInstance) );
+
+
+	bool Mediator::AddMediator ( unsigned int ip, unsigned short port )
+	{
+		CVerbArg ( "AddMediator: IP [%s] Port [%d]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), port );
+
+		if ( !port ) {
+			CWarn ( "AddMediator: port [0] is invalid." );
+			return false;
+		}
+
+		if ( IsKnownMediator ( ip, port ) ) {
+			CVerbArg ( "AddMediator: mediator (%s) already available.", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+			return true;
+		}
+
+		MediatorInstance * med = ( MediatorInstance * ) calloc ( 1, sizeof ( MediatorInstance ) );
+		if ( !med ) {
+			CErr ( "AddMediator: Failed to allocate memory for new Mediator!" );
+			return false;
+		}
+
+#ifndef MEDIATORDAEMON
+		med->connection.env = env;
+#endif
+
+		if ( !MutexInit ( &med->connection.rec_mutex ) )
+			goto Failed;
+
+		//pthread_cond_init ( &med->connection.rec_signal, NULL );
+
+		Zero ( med->connection.rec_signal );
+		if ( pthread_cond_manual_init ( &med->connection.rec_signal, NULL ) ) {
+			CErr ( "AddMediator: Failed to init rec_signal!" );
+			goto Failed;
+		}
+
+		if ( !MutexInit ( &med->connection.send_mutex ) )
+			goto Failed;
+
+		//pthread_mutex_init	( &med->connection.request_mutex, NULL );
+
+		med->available = false;
+		med->connection.instance.socket = -1;
+		med->connection.instance.spareSocket = -1;
+		med->ip = ip;
+		med->port = port;
+
+		med->connection.buffer = ( char * ) malloc ( MEDIATOR_BUFFER_SIZE_MAX );
+		if ( !med->connection.buffer ) {
+			CErr ( "AddMediator: Failed to allocate memory for new Mediator!" );
+			goto Failed;
+		}
+
+		AddMediator ( med );
+
+		return true;
+
+	Failed:
 		free ( med );
-		added = &mediator;
+		return false;
 	}
 
-Finish:
-	MutexUnlockV ( &mediatorMutex, "AddMediator" );
 
-	return added;
-}
+	MediatorInstance * Mediator::AddMediator ( MediatorInstance * med )
+	{
+		CVerb ( "AddMediator" );
 
+		if ( !med ) {
+			CErr ( "AddMediator: Mediator object passed in is invalid!" );
+			return 0;
+		}
+		MediatorInstance * added = med;
 
-bool Mediator::RemoveMediator ( unsigned int ip )
-{
-	bool ret = true;
+		if ( !MutexLock ( &mediatorMutex, "AddMediator" ) ) {
+			CErr ( "AddMediator: Failed to aquire mutex on mediator!" );
+			free ( med->connection.buffer );
+			free ( med );
+			return 0;
+		}
 
-	CVerb ( "RemoveMediator" );
-
-	if ( !MutexLock ( &mediatorMutex, "RemoveMediator" ) )
-		return false;
-
-	// Find the mediator
-	MediatorInstance * s = 0;
-	MediatorInstance * t = &mediator;
-	do {
-		if ( ip == t->ip )
-			break;
-
-		s = t;
-		t = t->next;
-	} while ( t );
-
-	if ( t ) {
-		MediatorInstance * src = t->next;
-		if ( t == &mediator ) {
-			if ( src ) {
-				// There is a next instance
-				memcpy ( t, src, sizeof(MediatorInstance) );
-				ReleaseMediator ( src );
+		if ( mediator.ip ) {
+			// Find the last and make sure that we do not have this mediator already in the list
+			MediatorInstance * t = &mediator;
+			while ( t->next ) {
+				t = t->next;
+				if ( t->ip == med->ip && t->port == med->port ) {
+					CVerbArg ( "AddMediator: Mediator [%s] Port [%d] is already in our list.", inet_ntoa ( *( ( struct in_addr * ) &t->ip ) ), t->port );
+					free ( med );
+					added = 0;
+					goto Finish;
+				}
 			}
-			else {
-				// No more instances
-				ReleaseMediator ( src );
-				memset ( t, 0, sizeof(MediatorInstance) );
-			}
+
+			// Attach the new one
+			t->next = med;
 		}
 		else {
-			s->next = t->next;
-			ReleaseMediator ( t );
+			memcpy ( &mediator, med, sizeof ( MediatorInstance ) );
+			free ( med );
+			added = &mediator;
 		}
+
+	Finish:
+		MutexUnlockV ( &mediatorMutex, "AddMediator" );
+
+		return added;
 	}
 
-	if ( !MutexUnlock ( &mediatorMutex, "RemoveMediator" ) )
-		ret = false;
 
-	return ret;
-}
+	bool Mediator::RemoveMediator ( unsigned int ip )
+	{
+		bool ret = true;
+
+		CVerb ( "RemoveMediator" );
+
+		if ( !MutexLock ( &mediatorMutex, "RemoveMediator" ) )
+			return false;
+
+		// Find the mediator
+		MediatorInstance * s = 0;
+		MediatorInstance * t = &mediator;
+		do {
+			if ( ip == t->ip )
+				break;
+
+			s = t;
+			t = t->next;
+		}
+		while ( t );
+
+		if ( t ) {
+			MediatorInstance * src = t->next;
+			if ( t == &mediator ) {
+				if ( src ) {
+					// There is a next instance
+					memcpy ( t, src, sizeof ( MediatorInstance ) );
+					ReleaseMediator ( src );
+				}
+				else {
+					// No more instances
+					ReleaseMediator ( src );
+					memset ( t, 0, sizeof ( MediatorInstance ) );
+				}
+			}
+			else {
+				s->next = t->next;
+				ReleaseMediator ( t );
+			}
+		}
+
+		if ( !MutexUnlock ( &mediatorMutex, "RemoveMediator" ) )
+			ret = false;
+
+		return ret;
+	}
 
 
 

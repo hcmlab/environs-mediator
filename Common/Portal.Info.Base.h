@@ -38,6 +38,8 @@ namespace environs
 	*	@remarks	current size is (4 + 4 + 4 + 4 + 4) = 20 bytes
 	* ****************************************************************************************
 	*/
+#ifndef CLI_CPP
+
 	typedef struct _PortalInfoBase
 	{
 		int portalID;
@@ -50,6 +52,23 @@ namespace environs
 		float orientation;
 	}
 	PortalInfoBase;
+
+#else
+
+	PUBLIC_CLASS PortalInfoBase
+	{
+	public:
+		int portalID;
+		int flags;
+
+		int centerX;
+		int centerY;
+		int width;
+		int height;
+		float orientation;
+	};
+
+#endif
 
     
 #ifdef __cplusplus

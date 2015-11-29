@@ -30,12 +30,20 @@
 
 #import "Environs.Observer.iOSX.h"
 
-#import "Device.List.iOSX.h"
-#import "Device.Instance.iOSX.h"
-#import "Message.Instance.iOSX.h"
-#import "File.Instance.iOSX.h"
-#import "Portal.Instance.iOSX.h"
+#if (!defined(DISABLE_ENVIRONS_OBJC_API))
+#   import "Device.List.iOSX.h"
+#   import "Device.Instance.iOSX.h"
+#   import "Message.Instance.iOSX.h"
+#   import "File.Instance.iOSX.h"
+#   import "Portal.Instance.iOSX.h"
 
+#   include "Device.Display.Decl.h"
+
+#ifdef __cplusplus
+#define ENVIRONS_NAMES  environs::
+#else
+#define ENVIRONS_NAMES
+#endif
 
 bool CreateAppID ( char * buffer, unsigned int bufSize );
 
@@ -737,6 +745,135 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 #endif
 
 
+-(ENVIRONS_NAMES DeviceDisplay *) GetDeviceDisplayProps:(int) nativeID;
+
+/**
+ * Connect to device with the given ID and a particular application environment.
+ *
+ * @param deviceID	Destination device ID
+ * @param areaName Project name of the application environment
+ * @param appName	Application name of the application environment
+ * @param async	    Perform asynchronous. Non-async means that this call blocks until the call finished.
+ * @return status	0: Connection can't be conducted (maybe environs is stopped or the device ID is invalid) &nbsp;
+ * 					1: A connection to the device already exists or a connection task is already in progress) &nbsp;
+ * 					2: A new connection has been triggered and is in progress
+ */
+-(int) DeviceConnect:(int) deviceID areaName:(const char *) areaName appName:(const char *) appName async:(int) async;
+
+
+/**
+ * Set render callback.
+ *
+ * @param async			Perform asynchronous. Non-async means that this call blocks until the call finished.
+ * @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
+ * @param callback		The pointer to the callback.
+ * @param callbackType	A value of type RENDER_CALLBACK_TYPE_* that tells the portal receiver what we actually can render..
+ * @return				true = success, false = failed.
+ */
+-(bool) SetRenderCallback:(int) async portalID:(int) portalID callback:(void *)callback callbackType:(int) callbackType;
+
+
+/**
+ * Release render callback delegate or pointer
+ *
+ * @param async			Perform asynchronous. Non-async means that this call blocks until the call finished.
+ * @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
+ * @param callback		A delegate that manages the callback.
+ * @return				true = success, false = failed.
+ */
+-(bool) ReleaseRenderCallback:(int) async portalID:(int) portalID;
+
+/**
+ * Start streaming of portal to or from the portal identifier (received in notification).
+ *
+ * @param async      	Execute asynchronous. Non-async means that this call blocks until the command has finished.
+ * @param portalID		An application specific id (e.g. used for distinguishing front facing or back facing camera)
+ *
+ * @return success
+ */
+-(bool) StartPortalStream:(int) async portalID:(int) portalID;
+
+
+/**
+ * Stop streaming of portal to or from the portal identifier (received in notification).
+ *
+ * @param 	async      	Execute asynchronous. Non-async means that this call blocks until the command has finished.
+ * @param 	nativeID    The native device id of the target device.
+ * @param 	portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
+ * 						It is provided within the notification listener as sourceIdent.&nbsp;
+ * 					    Applications should store them in order to address the correct portal within Environs.
+ * @return success
+ */
+-(bool) StopPortalStream:(int) async nativeID:(int) nativeID portalID:(int) portalID;
+
+
+/**
+ * Get the status, whether the device (id) has established an active portal
+ *
+ * @param 	nativeID    The device id of the target device.
+ * @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
+ * @return	success 	true = yes, false = no
+ */
+-(bool) GetPortalEnabled:(int) nativeID portalType:(int) portalType;
+
+
+/**
+ * Get the number of devices that are currently connected to our device.
+ *
+ * @return	Count of connected devices
+ */
+-(int) GetConnectedDevicesCount;
+
+
+/**
+ * Get enabled status for stream encoding.
+ *
+ * @return	enabled
+ */
+-(bool) GetUseStream;
+
+
+#ifdef DISPLAYDEVICE
+/**
+ * Get platform support for OpenCL.
+ *
+ * @return	enabled
+ */
+-(bool) GetUseOpenCL;
+
+
+/**
+ * Switch platform support for OpenCL rendering.
+ *
+ * @param enable
+ */
+-(void) SetUseOpenCL:(bool) enable;
+
+#endif
+
+
+-(const char *) GetFilePathNative:(int) nativeID fileID:(int)fileID;
+
+
+-(char *) GetFilePath:(int) nativeID  fileID:(int) fileID;
+
+
+
+/**
+ * Load the file that is assigned to the fileID into a byte array.
+ *
+ * @param nativeIDOK		Indicates that the nativeOrDeviceID represents a nativeID.
+ * @param nativeID		The native id of the device.
+ * @param deviceID		The device id of the device.
+ * @param areaName		Area name of the application environment.
+ * @param appName		Application name of the application environment.
+ * @param fileID			The id of the file to load (given in the onData receiver).
+ * @param size			An int pointer, that receives the size of the returned buffer.
+ * @return byte-array
+ */
+-(NSData *) GetFile: (bool) nativeIDOK nativeID:(int)nativeID deviceID:(int)deviceID areaName:(const char *)areaName appName:(const char *)appName fileID:(int)fileID size:(int *)size;
+
+
 /**
  * Get a collection that holds all devices of given list type. This list ist updated dynamically by Environs.
  * After client code is done with the list, the list->Release () method MUST be called by the client code,
@@ -746,8 +883,9 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  */
 - (DeviceList *) GetDeviceList : (int) MEDIATOR_DEVICE_CLASS_;
 
-
-
 @end
+
+#endif
+
 
 #endif

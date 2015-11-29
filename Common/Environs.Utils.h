@@ -21,12 +21,14 @@
 #ifndef INCLUDE_HCM_ENVIRONS_UTILS_AND_TOOLS_H
 #define INCLUDE_HCM_ENVIRONS_UTILS_AND_TOOLS_H
 
+#include "Interop/Time.Val.h"
+#include "Interop.h"
 
 namespace environs
 {
 	extern void refactorBuffer ( char * &curStart, char * bufferStart, unsigned int remainingMsg, char * &curEnd );
     
-	extern size_t GetSizeOfFile ( const char * filePath );
+	extern size_t GetSizeOfFile ( CString_ptr filePath );
 	extern char * LoadBinary ( const char * fileName, int * size );
 
 	extern char * LoadPrivateBinary ( const char * fileName, int * size );
@@ -34,13 +36,16 @@ namespace environs
 
 	extern unsigned int getRandomValue ( void * value );
 	
-	INCLINEFUNC INTEROPTIMEVAL GetEnvironsTickCount ();
+	INTEROPTIMEVAL GetEnvironsTickCount ();
     extern unsigned long long   GetUnixEpoch ();
     
 #ifdef _WIN32
+#	ifndef CLI_CPP
     struct ::timeval;
     
     int gettimeofday ( struct timeval *tv, void * );
+#	endif
+
 #endif
     
     extern bool CreateDataDirectory ( char * dir );

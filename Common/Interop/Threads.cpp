@@ -276,22 +276,32 @@ namespace environs
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
 
 #ifdef USE_CRIT_SEC_MUTEX
+	
+#if _MSC_VER >= 1800
+	_When_(return == 0, _Acquires_lock_(*lock) )
+#endif
 	INCLINEFUNC int pthread_mutex_lock ( pthread_mutex_t * lock )
 	{
-		EnterCriticalSection(lock);
+		EnterCriticalSection ( lock );
 		return 0;
 	}
 
-
+	
+#if _MSC_VER >= 1800
+	_When_(return == 0, _Acquires_lock_(*lock))
+#endif
 	INCLINEFUNC int pthread_mutex_trylock ( pthread_mutex_t * lock )
 	{
 		return !TryEnterCriticalSection(lock);
 	}
 
-
+	
+#if _MSC_VER >= 1800
+	_When_(return == 0, _Releases_lock_(*lock))	
+#endif
 	INCLINEFUNC int pthread_mutex_unlock ( pthread_mutex_t * lock )
 	{
-		LeaveCriticalSection(lock);
+		LeaveCriticalSection ( lock );
 		return 0;
 	}
 #endif

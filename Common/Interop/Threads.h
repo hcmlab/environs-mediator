@@ -256,11 +256,8 @@ namespace environs
 		* Mutex
 		*/
 #		ifdef USE_CRIT_SEC_MUTEX	 // USE_CRIT_SEC_MUTEX
-
-
 #			ifdef CLI_CPP
 #				define pthread_mutex_t				System::Object
-
 #			else
 			/*
 			* Use critical section objects for windows mutex
@@ -285,8 +282,19 @@ namespace environs
 #				define pthread_cond_wait(e,m)		LeaveCriticalSection(m); WaitForSingleObject ( *e, INFINITE ); EnterCriticalSection (m);
 #			endif
 
+#if _MSC_VER >= 1800
+			_When_(return == 0, _Acquires_lock_(*lock))
+#endif
 			extern INCLINEFUNC int pthread_mutex_lock (		pthread_mutex_t OBJ_ptr lock );
+			
+#if _MSC_VER >= 1800
+			_When_(return == 0, _Acquires_lock_(*lock))
+#endif
 			extern INCLINEFUNC int pthread_mutex_trylock (	pthread_mutex_t OBJ_ptr lock );
+			
+#if _MSC_VER >= 1800
+			_When_(return == 0, _Releases_lock_(*lock))
+#endif
 			extern INCLINEFUNC int pthread_mutex_unlock (	pthread_mutex_t OBJ_ptr lock );
 
 #		endif

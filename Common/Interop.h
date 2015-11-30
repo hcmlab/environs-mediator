@@ -237,6 +237,7 @@
 #	define c_ref				
 #	define CLI_OVERRIDE						override
 #	define PLATFORMSPACE					environs::
+#	define CLIBSPACE						
 
 #	define StringToCChar(s)					( const char* ) ( Marshal::StringToHGlobalAnsi ( s ) ).ToPointer ()
 #	define CCharToString(s)					Marshal::PtrToStringAnsi ( IntPtr ( (void *) (s) ) )
@@ -315,6 +316,7 @@
 #	define c_ref                            &
 #	define CLI_OVERRIDE					
 #	define PLATFORMSPACE					
+#	define CLIBSPACE						environs::lib::
 
 #	define CString_ptr						const char *	
 #	define CString_obj						const char *

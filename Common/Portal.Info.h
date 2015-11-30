@@ -33,6 +33,12 @@
 /* Namespace: environs -> */
 namespace environs
 {
+#ifndef CLI_CPP
+    namespace lib {
+        class PortalInstance;
+    }
+#endif
+    
 	/**
 	*	A PortalInfo object serves as container for portal information.
     *   Environs makes use of such objects to get/set portal details.
@@ -57,15 +63,8 @@ namespace environs
 		property int height { int get () { return base.height; }};
 #endif
 
-#if (defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX))
-        void *  portal;
-#else
-#ifdef CLI_CPP
-		sp ( PortalInstance ) portal;
-#else
-        sp ( lib::PortalInstance ) OBJ_ptr portal;
-#endif
-#endif
+		CLIBSPACE PortalInstance OBJ_ptr portal;
+
 		ENVIRONS_LIB_API CLI_VIRTUAL STRING_T ToString ( ) CLI_OVERRIDE;
         
         ENVIRONS_LIB_API void NotifyObservers ( int notification );

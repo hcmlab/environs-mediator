@@ -58,7 +58,8 @@ namespace environs
 		{
             MAKE_FRIEND_CLASS ( Environs );
             MAKE_FRIEND_CLASS ( DeviceList );
-            MAKE_FRIEND_CLASS ( DeviceInstance );
+			MAKE_FRIEND_CLASS ( DeviceInstance );
+            MAKE_FRIEND_CLASS ( environs::PortalInfo );
             MAKE_FRIEND_CLASS ( PortalInstanceProxy );
             MAKE_FRIEND_CLASS ( DeviceInstanceProxy );
         
@@ -70,9 +71,7 @@ namespace environs
 			int						async;
 
 			bool					startIfPossible;
-#endif
-
-#ifndef CLI_CPP
+#else
             /** An ID that identifies this portal across all available portals. */
             int                     portalID ();
             
@@ -102,7 +101,8 @@ namespace environs
             
             /** true = outgoing (Generator), false = incoming (Receiver). */
             bool                    isIncoming ();
-            
+
+			ENVIRONS_LIB_API int GetObserverCount ();
             
 			virtual environs::PortalType_t  portalType ();
 #endif
@@ -111,9 +111,6 @@ namespace environs
             ENVIRONS_LIB_API void AddObserver ( environs::PortalObserver OBJ_ptr observer );
             ENVIRONS_LIB_API void RemoveObserver ( environs::PortalObserver OBJ_ptr observer );
 
-#ifndef CLI_CPP
-            ENVIRONS_LIB_API int GetObserverCount ();
-#endif
             ENVIRONS_LIB_API bool Establish ( bool askForType );
             
             ENVIRONS_LIB_API bool Start ();
@@ -228,7 +225,7 @@ namespace environs
 			bool				ShowDialogOutgoingPortal ();
             
 			void				NotifyObservers ( int notification);
-			void				DisposeInstance ();
+			void				DisposeInstance ( bool removeFromGlobal );
             static void			Dispose ( int nativeID, int portalID );
 
             static void c_OBJ_ptr Destroyer ( pthread_param_t _targets );

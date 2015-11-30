@@ -2,6 +2,11 @@
 
 ---------------------------
 
+* Fixed: Uninitialized variable in MediatorDaemon
+* Updated: MediatorDaemon Disposal of ClientThread resources
+* Updated: MediatorDaemon to check connectTime within WatchDog
+* Updated: MediatorDaemon with DeviceInfoNode
+* Updated: Usage of deviceSP in MediatorDaemon
 * Fixed: Bug in Lock/Access list of HandleShortMessage (MediatorDaemon)
 * Updated: Disposal of MediatorDaemon SpareSocket reference in ClientInstance
 * Added: Instance SP to Mediator

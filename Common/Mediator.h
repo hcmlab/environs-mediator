@@ -205,9 +205,9 @@ namespace environs	/// Namespace: environs ->
         // Links used by Mediator base layer
 		struct DeviceInstanceNode	*	next;  // 4
 		struct DeviceInstanceNode	*	prev;  // 4
-
-		int								hEnvirons;
-        
+		
+        CLIENTEXP ( int					hEnvirons; )
+		        
 #ifdef __cplusplus
         
         sp ( DeviceInstanceNode )		baseSP;         // SP used by Mediator base layer
@@ -216,11 +216,11 @@ namespace environs	/// Namespace: environs ->
 
 		DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
         {
-			Zero ( info );
-			hEnvirons = 0;
+			Zero ( info );			
             *userName = 0;
             baseSP = 0;
-
+			
+            CLIENTEXP ( hEnvirons = 0; )
             CLIENTEXP ( *key = 0; )
             CLIENTEXP ( mapSP = 0; )
 		}
@@ -230,6 +230,16 @@ namespace environs	/// Namespace: environs ->
         
 	}
 	DeviceInstanceNode;
+
+    
+	typedef struct DeviceInfoNode
+	{
+		lib::DeviceInfo info;
+
+        // Links used by Mediator base layer
+		struct DeviceInfoNode	*	next;  // 4        
+	}
+	DeviceInfoNode;
 
 
 	typedef struct _MediatorThreadInstance

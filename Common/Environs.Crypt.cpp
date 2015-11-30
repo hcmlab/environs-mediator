@@ -445,7 +445,7 @@ namespace environs
 		const char 				*	subjStr			= "CN=Environs, T=Secure, Client";
 		CRYPT_ALGORITHM_IDENTIFIER	alg;
 		
-		DWORD						nameLen;
+		DWORD						nameLen		= 0;
 		BYTE					*	nameSubject	= 0;
 		BYTE					*	nameIssuer	= 0;
 		BYTE					*	certBin		= (BYTE *) (pub + 4);
@@ -535,11 +535,11 @@ namespace environs
 			};
 
 
-			if ( !CryptEncodeObjectEx ( X509_ASN_ENCODING, X509_NAME, &CertName, 0, NULL, NULL, &nameLen ) ) {
+			if ( !CryptEncodeObjectEx ( X509_ASN_ENCODING, X509_NAME, &CertName, 0, NULL, NULL, &nameLen ) || nameLen <= 0 ) {
 				CErr ( "SignCertificate: AcquireContext failed." ); break;
 			}
 
-			nameIssuer = (BYTE*)malloc ( nameLen );
+			nameIssuer = ( BYTE* ) malloc ( nameLen );
 			if ( !nameIssuer ) {
 				CErrArg ( "SignCertificate: Memory alloc for nameIssuer failed [%u].", certSize ); break;
 			}
@@ -1230,7 +1230,7 @@ namespace environs
 				CErr ( "DecryptMessage: CryptImportKey failed." ); break;
 			}
 
-			plainText = (char *) malloc ( msgLen + 1 );
+			plainText = (char *) malloc ( msgLen + 2 );
 			if ( !plainText ) {
 				CErrArg ( "DecryptMessage: Memory allocation [%i bytes] failed.", msgLen ); break;
 			}
@@ -1310,7 +1310,7 @@ namespace environs
 	{
 		CVerb ( "AESDisposeKeyContexts" );
 
-		if ( !ctx->encCtx )
+		if ( !ctx || !ctx->encCtx )
 			return;
         
         MutexDispose ( &ctx->encMutex );
@@ -2305,7 +2305,7 @@ namespace environs
 		}
 
 		keyData = (BYTE *) malloc ( keyDataSize );
-		if ( !CryptStringToBinaryA ( keyBin, size, CRYPT_STRING_ANY, keyData, &keyDataSize, NULL, NULL) || !keyDataSize )
+		if ( !keyData || !CryptStringToBinaryA ( keyBin, size, CRYPT_STRING_ANY, keyData, &keyDataSize, NULL, NULL) || !keyDataSize )
 		{
 			CErr ( "LoadPrivateKey: CryptStringToBinaryA (convert)" );
 			goto Finish;

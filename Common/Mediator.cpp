@@ -988,15 +988,15 @@ namespace environs
 
 #if !defined(MEDIATORDAEMON)
 		if ( value == env->deviceID && !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) )
-			&& !strncmp ( appName, env->appName, sizeof ( env->appName ) ) )
+			&& !strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
 			return 0;
 
 		if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
-			if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) ) )
+			if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) )
 				return 0;
 
 			if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
-				if ( strncmp ( appName, env->appName, sizeof ( env->appName ) ) )
+				if ( strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
 					return 0;
 			}
 		}
@@ -1205,11 +1205,8 @@ namespace environs
 		if ( !MutexUnlock ( mutex, "UpdateDevices" ) )
 			device = 0;
 		else {
-			/*value = 0;
-			if ( device )
-			value = device->info.deviceID;
-			*/
-			UpdateDeviceInstance ( device->baseSP, !found, changed );
+            if ( device )
+                UpdateDeviceInstance ( device->baseSP, !found, changed );
 		}
 
 	Finish:

@@ -398,6 +398,17 @@ namespace environs
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API envArrayList OBJ_ptr GetAllMessagesRetained ();
 #endif
+        
+            /**
+             * Acquire or release lock on file and message instances.
+             * Client code MUST balance successful locks. Otherwise deadlocks may happen.
+             *
+             * @param lock true = acquire, false = release.
+             *
+             * @return success
+             */
+            ENVIRONS_LIB_API bool StorageLock ( bool lock );
+        
 
 			/**
 			* Query the absolute path for the local filesystem to the persistent storage for this DeviceInstance.

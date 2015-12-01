@@ -2,6 +2,7 @@
 
 ---------------------------
 
+* Fixed: Bug in MediatorDaemon (HandleSTUNTRequest)
 * Fixed: Uninitialized variable in MediatorDaemon
 * Updated: MediatorDaemon Disposal of ClientThread resources
 * Updated: MediatorDaemon to check connectTime within WatchDog

@@ -3535,7 +3535,11 @@ void * MediatorDaemon::ClientThread ( void * arg )
 		goto ShutdownClient;
 
 	msgEnd = buffer = bufferUP.get ();
-
+	
+#ifndef NDEBUG
+	try
+	{
+#endif
 	while ( isRunning ) {
 		bytesReceived = (int)recvfrom ( sock, msgEnd, remainingSize, 0, (struct sockaddr*) &client->addr, &addrLen );
 		if ( bytesReceived <= 0 ) {
@@ -3784,6 +3788,18 @@ Continue:
 		else
 			msgEnd = buffer;
 	}
+	
+#ifndef NDEBUG
+	}
+	catch (const std::exception &exc)
+	{
+		// catch anything thrown within try block that derives from std::exception
+		CErrArg ( "Client: [%s]", exc.what() );
+#if ( defined(_WIN32) )
+		::_CrtDbgBreak ();
+#endif
+	}
+#endif
 
 ShutdownClient:
     MutexLockV ( &client->accessMutex, "Client" );
@@ -3832,6 +3848,7 @@ ShutdownClient:
 DeviceInstanceNode * MediatorDaemon::GetDeviceInstance ( int deviceID, DeviceInstanceNode * device )
 {
 	while ( device ) {
+		// Exception here
 		if ( device->info.deviceID == deviceID ) {
 			return device;
 		}
@@ -4670,6 +4687,10 @@ bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
 
 bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTReqPacket * req )
 {
+#ifndef NDEBUG
+	try
+	{
+#endif
 	sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
 	if ( !sourceDeviceSP )
 		return false;
@@ -4717,14 +4738,12 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
         //appName = sourceDevice->info.appName;
 
         destMutex = &sourceDevice->rootSP->mutex;
-        destList = sourceDevice->rootSP->devices;
     }
     else {
         appDevices = GetApplicationDevices ( areaName, appName );
         if ( !appDevices ) {
             goto UnlockQuit;
         }
-        destList = appDevices->devices;
         destMutex = &appDevices->mutex;
     }
 
@@ -4732,9 +4751,14 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 		destMutex = 0; goto UnlockQuit;
 	}
 
-    if ( appDevices )
+    if ( appDevices ) {
+        destList = appDevices->devices;
 		UnlockApplicationDevices ( appDevices.get () );
-	
+	}
+	else
+        destList = sourceDevice->rootSP->devices;
+
+	/// Exception herer
 	destDevice = GetDeviceInstance ( deviceID, destList );
 	if ( destDevice )
 		destClient = destDevice->clientSP;
@@ -4867,7 +4891,18 @@ UnlockQuit:
 		CErrArgID ( "HandleSTUNTRequest: Failed to send %s message to sourceClient device", reqResponse->respCode == 'e' ? "Failed" : "Retry" );
 		LogSocketError ();
 	}
-
+	
+#ifndef NDEBUG
+	}
+	catch (const std::exception &exc)
+	{
+		// catch anything thrown within try block that derives from std::exception
+		CErrArg ( "HandleSTUNTRequest: [%s]", exc.what() );
+#if ( defined(_WIN32) )
+		::_CrtDbgBreak ();
+#endif
+	}
+#endif
 	return false;
 }
 

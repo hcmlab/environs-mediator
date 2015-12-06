@@ -47,6 +47,7 @@ namespace environs
 	CLASS PortalInfoBase;
 	CLASS SensorFrame;
 
+	CLASS DeviceInfo;
 	CLASS DeviceList;
 	CLASS DeviceInstance;
 	CLASS FileInstance;

@@ -21,6 +21,8 @@
 #ifndef INCLUDE_HCM_ENVIRONS_HUMAN_INPUT_DECLARATIONS_H_
 #define INCLUDE_HCM_ENVIRONS_HUMAN_INPUT_DECLARATIONS_H_
 
+#ifndef CLI_CPP
+
 #include "Environs.Types.h"
 
 
@@ -207,5 +209,6 @@ namespace environs
 }
 #endif
 
+#endif
 
 #endif /* INCLUDE_HCM_ENVIRONS_HUMAN_INPUT_DECLARATIONS_H_ */

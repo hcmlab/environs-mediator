@@ -35,8 +35,11 @@ namespace environs
 	extern bool SavePrivateBinary ( const char * fileName, const char * buffer, int size );
 
 	extern unsigned int getRandomValue ( void * value );
-	
+
+	// Number of milliseconds since system has started
+	//
 	INTEROPTIMEVAL GetEnvironsTickCount ();
+
     extern unsigned long long   GetUnixEpoch ();
     
 #ifdef _WIN32

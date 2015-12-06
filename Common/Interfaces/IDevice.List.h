@@ -62,7 +62,9 @@ namespace environs
 
 		virtual bool					disposed () = 0;
 
-		virtual void					SetListType ( int MEDIATOR_DEVICE_CLASS_ ) = 0;
+        virtual void					SetListType ( int MEDIATOR_DEVICE_CLASS_ ) = 0;
+        
+        virtual void					SetIsUIAdapter ( bool enable ) = 0;
 
 		virtual void					AddObserver ( ListObserver * observer ) = 0;
 		virtual void					RemoveObserver ( ListObserver * observer ) = 0;

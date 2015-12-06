@@ -100,6 +100,12 @@
 #	endif /// <- WINDOWS_PHONE
 
 #	define LONGSYNC           				unsigned long volatile
+
+#   ifdef USE_LOCKFREE_SOCKET_ACCESS
+#       define SOCKETSYNC           		long volatile
+#   else
+#       define SOCKETSYNC           		int
+#   endif
 #	define LONGSYNCNV          				unsigned long
 
 /// Note: EBOOL represents platform specific boolean type. 
@@ -121,11 +127,25 @@
 
 # ifdef CLI_CPP
 #	define LONGSYNCNV          				__int64 
-#	define LONGSYNC           				__int64 
-#	define WNDHANDLE           				IntPtr 
+#	define LONGSYNC           				__int64
+
+#   ifdef USE_LOCKFREE_SOCKET_ACCESS
+#       define SOCKETSYNC           		__int64
+#   else
+#       define SOCKETSYNC           			int
+#   endif
+
+#	define WNDHANDLE           				IntPtr
 #else
 #	define LONGSYNCNV          				long
 #	define LONGSYNC           				long
+
+#   ifdef USE_LOCKFREE_SOCKET_ACCESS
+#       define SOCKETSYNC           			long
+#   else
+#       define SOCKETSYNC           			int
+#   endif
+
 #	define WNDHANDLE           				void *
 #endif
 
@@ -220,10 +240,11 @@
 
 #	define INTERNAL							internal
 #	define free_m(m)						
-#	define free_plt(m)                      environs::API::FreeNativeMemoryN(m)
+#	define free_plt(m)                      if (m != NULL_ptr) environs::API::FreeNativeMemoryN(m)
 
 #	define CLASS							ref class
 #	define PUBLIC_CLASS						public ref class
+#	define PUBLIC_STRUCT					public value struct
 #	define CLI_ABSTRACT						abstract
 #	define c_const						
 #	define DERIVE_c_only(v)					
@@ -236,7 +257,7 @@
 #	define cli_ref							%
 #	define c_ref				
 #	define CLI_OVERRIDE						override
-#	define PLATFORMSPACE					environs::
+#	define EPSPACE                          environs::
 #	define CLIBSPACE						
 
 #	define StringToCChar(s)					( const char* ) ( Marshal::StringToHGlobalAnsi ( s ) ).ToPointer ()
@@ -295,14 +316,16 @@
 
 #   define MAKE_FRIEND_CLASS(c)
 #	define DeviceInstanceNotify(i,f)		NotifyObservers ( i, f, true )
+//#	define DeviceInstanceNotify(i,f)		
 
 #else
 
 #	define INTERNAL							private
-#	define free_m(m)						free(m)
-#	define free_plt(m)                      free(m)
+#	define free_m(m)						if (m != NULL_ptr) free(m)
+#	define free_plt(m)                      free_m(m)
 #	define CLASS							class
 #	define PUBLIC_CLASS						class
+#	define PUBLIC_STRUCT					typedef struct
 #	define CLI_ABSTRACT					
 #	define c_const                          const
 #	define DERIVE_c_only(v)					: public v
@@ -315,7 +338,7 @@
 #	define cli_ref							
 #	define c_ref                            &
 #	define CLI_OVERRIDE					
-#	define PLATFORMSPACE					
+#	define EPSPACE					
 #	define CLIBSPACE						environs::lib::
 
 #	define CString_ptr						const char *	

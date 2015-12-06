@@ -85,6 +85,8 @@ namespace environs
 
 			CLI_INC LIBEXPORT const char * CallConv	ResolveNameN ( int notification );
 
+			CLI_INC LIBEXPORT void CallConv			LogN ( CString_ptr msg, int length );
+
 
 			/**
 			* Create a native Environs object and return a handle to the object.
@@ -220,17 +222,13 @@ namespace environs
 			/**
 			* Get the portalID of the first active portal
 			*
-			* @param 	deviceID    The device id of the target device.
-			* @param 	areaName	Area name of the application environment
-			* @param 	appName		Application name of the application environment
+			* @param 	nativeID    The device id of the target device.
 			* @param	portalType  0 = Any type, or PORTAL_DIR_INCOMING, PORTAL_DIR_OUTGOING
+			*
 			* @return	portalID 	The portal ID.
 			*/
 			CLI_INC
-				LIBEXPORT int CallConv          GetPortalIdN ( int hInst, int nativeID, int portalType );
-
-			CLI_INC
-				LIBEXPORT int CallConv			DeviceDetectedN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int Environs_CALL_, int x, int y, float angle );
+				LIBEXPORT int CallConv          GetPortalIDN ( int hInst, int nativeID, int portalType );
 
 			CLI_INC
 				LIBEXPORT int CallConv			DeviceConnectN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int async );
@@ -238,15 +236,17 @@ namespace environs
 				LIBEXPORT EBOOL CallConv		DeviceDisconnectN ( int hInst, int nativeID, int async );
 
 			CLI_INC
-				LIBEXPORT void CallConv			DeviceUpdatedN ( int hInst, int nativeID, int async, int x, int y, float angle );
+				LIBEXPORT int CallConv			DeviceDetectedN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int Environs_CALL_, int x, int y, float angle );
 			CLI_INC
-				LIBEXPORT void CallConv			DevicePositionUpdatedN ( int hInst, int nativeID, int async, int x, int y );
+				LIBEXPORT void CallConv			DeviceUpdatedN ( int hInst, int nativeID, int portalID, int async, int x, int y, float angle );
 			CLI_INC
-				LIBEXPORT void CallConv			DeviceAngleUpdatedN ( int hInst, int nativeID, int async, float angle );
+				LIBEXPORT void CallConv			DevicePositionUpdatedN ( int hInst, int nativeID, int portalID, int async, int x, int y );
 			CLI_INC
-				LIBEXPORT void CallConv			DeviceRemovedN ( int hInst, int nativeID, int async, int x, int y, float angle );
+				LIBEXPORT void CallConv			DeviceAngleUpdatedN ( int hInst, int nativeID, int portalID, int async, float angle );
 			CLI_INC
-				LIBEXPORT void CallConv			DeviceRemovedIDN ( int hInst, int nativeID, int async );
+				LIBEXPORT void CallConv			DeviceRemovedN ( int hInst, int nativeID, int portalID, int async, int x, int y, float angle );
+			CLI_INC
+				LIBEXPORT void CallConv			DeviceRemovedIDN ( int hInst, int nativeID, int portalID, int async );
 
 			CLI_INC
 				LIBEXPORT int CallConv			GetStatusN ( int hInst );

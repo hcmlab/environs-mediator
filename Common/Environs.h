@@ -81,6 +81,8 @@ namespace environs
     class EnvironsNative;
 #endif
     
+    extern bool IsUIThread ();
+    
 	namespace lib
 	{
 		CLASS Environs;
@@ -101,8 +103,8 @@ namespace environs
 #else
 			spv ( lib::IIEnvironsObserver OBJ_ptr ) observerList;
 #endif
-			NLayerVecType ( PLATFORMSPACE DeviceInstance ) vanished;
-			NLayerVecType ( PLATFORMSPACE DeviceInstance ) appeared;
+			NLayerVecType ( EPSPACE DeviceInstance ) vanished;
+			NLayerVecType ( EPSPACE DeviceInstance ) appeared;
 
 			int     notification;
 
@@ -855,7 +857,7 @@ namespace environs
 
 			 * @return A DeviceList object
 			 */
-			ENVIRONS_LIB_API PLATFORMSPACE DeviceList OBJ_ptr GetDeviceList ( int MEDIATOR_DEVICE_CLASS_ );
+			ENVIRONS_LIB_API EPSPACE DeviceList OBJ_ptr GetDeviceList ( int MEDIATOR_DEVICE_CLASS_ );
 
 #ifndef CLI_CPP
 			/**
@@ -1136,14 +1138,15 @@ namespace environs
 			long                        listNearbyUpdate;
 			long                        listMediatorUpdate;
 
-			pthread_mutex_t							listAllLock;
-			devList ( PLATFORMSPACE DeviceInstance )	listAll;
+            bool                                        isUIAdapter;
+			pthread_mutex_t                             listAllLock;
+			devList ( EPSPACE DeviceInstance )	listAll;
 
-			pthread_mutex_t							listNearbyLock;
-			devList ( PLATFORMSPACE DeviceInstance )    listNearby;
+			pthread_mutex_t                             listNearbyLock;
+			devList ( EPSPACE DeviceInstance )    listNearby;
 
-			pthread_mutex_t							listMediatorLock;
-			devList ( PLATFORMSPACE DeviceInstance )    listMediator;
+			pthread_mutex_t                             listMediatorLock;
+			devList ( EPSPACE DeviceInstance )    listMediator;
 
 			spv ( lib::IIListObserver * )	listAllObservers;
 			spv ( lib::IIListObserver * )   listNearbyObservers;
@@ -1155,13 +1158,13 @@ namespace environs
 
 			void RefreshDeviceLists ();
 
-			devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevices ( int type );
+			devList ( EPSPACE DeviceInstance ) c_ref GetDevices ( int type );
 
-			devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesBest ( pthread_mutex_t OBJ_ptr OBJ_ref lock );
+			devList ( EPSPACE DeviceInstance ) c_ref GetDevicesBest ( pthread_mutex_t OBJ_ptr OBJ_ref lock );
 
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceByNativeID ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceByNativeID ( int nativeID );
 
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceByDeviceID ( int deviceID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceByDeviceID ( int deviceID );
 
 
 			/**
@@ -1170,9 +1173,9 @@ namespace environs
 			 * @param nativeID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceAll ( int nativeID );
 
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeOrDeviceID, bool isNativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceAll ( int nativeOrDeviceID, bool isNativeID );
 
 
 			/**
@@ -1181,7 +1184,7 @@ namespace environs
 			 * @param nativeID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceNearby ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceNearby ( int nativeID );
 
 
 			/**
@@ -1189,7 +1192,7 @@ namespace environs
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( PLATFORMSPACE  DeviceInstance ) c_ref GetDevicesNearby ();
+			c_const devList ( EPSPACE  DeviceInstance ) c_ref GetDevicesNearby ();
 
 
 			/**
@@ -1198,7 +1201,7 @@ namespace environs
 			 * @param nativeID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceFromMediator ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceFromMediator ( int nativeID );
 
 
 			/**
@@ -1206,7 +1209,7 @@ namespace environs
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesFromMediator ();
+			c_const devList ( EPSPACE DeviceInstance ) c_ref GetDevicesFromMediator ();
 
 #ifndef CLI_CPP
 			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver * ) c_ref observerList, svsp ( DeviceInstance ) vanished, svsp ( DeviceInstance ) appeared, bool enqueue );
@@ -1223,7 +1226,7 @@ namespace environs
 
 			void OnDeviceListNotification ( environs::ObserverNotifyContext OBJ_ptr ctx );
 
-			void OnDeviceListNotification1 ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, environs::ObserverNotifyContext OBJ_ptr ctx );
+			void OnDeviceListNotification1 ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, environs::ObserverNotifyContext OBJ_ptr ctx );
 
 			void UpdateMessage ( environs::ObserverMessageContext OBJ_ptr ctx );
 

@@ -37,7 +37,7 @@ namespace environs
 		/**
 		* Environs DeviceInstance struct Start bytes
 		*/
-		typedef struct _DeviceInfo
+		typedef struct DeviceInfo
 		{
 			/** The device ID within the environment */
 			int				deviceID;	// 4
@@ -76,13 +76,13 @@ namespace environs
 			/** Used internally by native layer. */
 			char            internalType;  // 1
 
-			/** The device name. */
+										   /** The device name. */
 			char			deviceName [ MAX_LENGTH_DEVICE_NAME ]; // 31
 
-			/** The area name of the appliction environment. */
+																   /** The area name of the appliction environment. */
 			char			areaName [ MAX_LENGTH_AREA_NAME ]; // 31
 
-			/** The application name of the appliction environment. */
+															   /** The application name of the appliction environment. */
 			char			appName [ MAX_LENGTH_APP_NAME ]; // 31
 		}
 		DeviceInfo;
@@ -91,7 +91,7 @@ namespace environs
 #define DEVICE_PACKET_SIZE				sizeof(DeviceInfo)
 
 
-		typedef struct _DeviceHeader
+		typedef struct DeviceHeader
 		{
 			unsigned int	deviceCountAvailable;
 			unsigned int	startIndex;

@@ -870,6 +870,28 @@ public class TypesResolver extends environs.Types
 
 		switch ( constToResolve ) {
 			case ( 0 ):
+				return "DEVICELIST_QUEUE_COMMAND_RELOAD";
+			case ( 1 ):
+				return "DEVICELIST_QUEUE_COMMAND_CLEAR";
+			case ( 2 ):
+				return "DEVICELIST_QUEUE_COMMAND_APPEND";
+			case ( 3 ):
+				return "DEVICELIST_QUEUE_COMMAND_UPDATE";
+			case ( 4 ):
+				return "DEVICELIST_QUEUE_COMMAND_INSERT_AT";
+			case ( 5 ):
+				return "DEVICELIST_QUEUE_COMMAND_REMOVE_AT";
+			case ( 6 ):
+				return "DEVICELIST_QUEUE_COMMAND_INSERT_CALL";
+			case ( 7 ):
+				return "DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST";
+			case ( 8 ):
+				return "DEVICELIST_QUEUE_COMMAND_LOCK";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0 ):
 				return "DISPLAY_ORIENTATION_LANDSCAPE";
 			case ( 1 ):
 				return "DISPLAY_ORIENTATION_PORTRAIT";

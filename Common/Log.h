@@ -31,7 +31,7 @@ namespace environs
 #endif
     
     void DisposeLog ();
-    void CloseLog ( bool useLock );
+    void CloseLog ();
     
     
 #ifdef ANDROID

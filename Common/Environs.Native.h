@@ -165,13 +165,13 @@ namespace environs {
 #define		OBJ_RELEASE(obj)					if(obj) { obj->Release(); obj = 0; }
 
 #define		Zero(mem)							memset(&mem,0,sizeof(mem))
-#define		GetPortalID(p)						(p & 0xFF)
-#define		RemovePortalID(p)					(p & 0xFFFFFF00)
+#define		GetPortalIndex(p)					(p & 0xFF)
+#define		RemovePortalIndex(p)				(p & 0xFFFFFF00)
 #define		GetPortalDeviceID(p)				((p >> 24) & 0xFF)
 #define		IsInvalidPortalDeviceID(p)			(p < 0 || p >= MAX_PORTAL_INSTANCES )
-#define		IsInvalidPortalID(p)				(p < 0 || p >= MAX_PORTAL_STREAMS_A_DEVICE )
-#define		IsValidPortalID(p)					(p >= 0 && p < MAX_PORTAL_STREAMS_A_DEVICE )
-#define		PortalID()							(portalID & 0xFF)
+#define		IsInvalidPortalIndex(p)				(p < 0 || p >= MAX_PORTAL_STREAMS_A_DEVICE )
+#define		IsValidPortalIndex(p)				(p >= 0 && p < MAX_PORTAL_STREAMS_A_DEVICE )
+#define		PortalIndex()						(portalID & 0xFF)
 #define		IsPortalGenerator()					(portalID & PORTAL_DIR_OUTGOING)
 #define		IsPortalIDGenerator(p)				(p & PORTAL_DIR_OUTGOING)
 #define		IsPortalReceiver()					(portalID & PORTAL_DIR_INCOMING)
@@ -375,11 +375,14 @@ namespace environs {
 #define CLogArg(msg,...)							ENVIRONS_LOGARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
 #define CListLogArg(msg,...)						ENVIRONS_LOGARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
 #define CLogArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
+
 #ifdef CLI_CPP
 #	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
 #else
 #	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
 #endif
+
+#define CListLogArg1(msg,name1,type1,arg1)			CLogArg1 ( msg,name1,type1,arg1)
 
 #define CInfoArg(msg,...)							ENVIRONS_INFOARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg), __VA_ARGS__ )
 #define CWarnArg(msg,...)							ENVIRONS_WARNARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg), __VA_ARGS__ )
@@ -398,12 +401,21 @@ namespace environs {
 #define CWarnID(msg)								ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg ), deviceID )
 #define CErrID(msg)									ENVIRONS_ERRARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg ), deviceID )
 
-#define CVerbIDN(msg)								ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), nativeID )
-#define CVerbVerbIDN(msg)							ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), nativeID )
-#define CLogIDN(msg)								ENVIRONS_LOGARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg ), nativeID )
-#define CInfoIDN(msg)								ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg ), nativeID )
-#define CWarnIDN(msg)								ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg ), nativeID )
-#define CErrIDN(msg)								ENVIRONS_ERRARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg ), nativeID )
+#ifdef CLI_CPP
+#	define CVerbIDN(msg)							CVerb(msg)
+#	define CVerbVerbIDN(msg)						CVerb(msg)
+#	define CLogIDN(msg)								CLog(msg)
+#	define CInfoIDN(msg)							CInfo(msg)
+#	define CWarnIDN(msg)							CWarn(msg)
+#	define CErrIDN(msg)								CErr(msg)
+#else
+#	define CVerbIDN(msg)							ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), nativeID )
+#	define CVerbVerbIDN(msg)						ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), nativeID )
+#	define CLogIDN(msg)								ENVIRONS_LOGARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg ), nativeID )
+#	define CInfoIDN(msg)							ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg ), nativeID )
+#	define CWarnIDN(msg)							ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg ), nativeID )
+#	define CErrIDN(msg)								ENVIRONS_ERRARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg ), nativeID )
+#endif
 
 #define CVerbArgID(msg,...)							ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), deviceID, __VA_ARGS__ )
 #define CVerbVerbArgID(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), deviceID, __VA_ARGS__ )
@@ -431,6 +443,8 @@ namespace environs {
 #	define CListLog(msg)
 #	undef	CListLogArg
 #	define CListLogArg(msg,...)
+#	undef	CListLogArg1
+#	define CListLogArg1(msg,...)
 #endif
 
 #if (!defined(DEBUGVERB) || defined(NDEBUG))

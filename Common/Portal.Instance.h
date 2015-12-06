@@ -155,13 +155,13 @@ namespace environs
             static bool				GlobalsInit ();
             static void				GlobalsDispose ();
 
-			static NLayerMapType ( int, PLATFORMSPACE PortalInstance )	portals	INIT_to_EXP_in_cli ( gcnew (NLayerMapTypeObj ( int, PLATFORMSPACE PortalInstance )) );
+			static NLayerMapType ( int, EPSPACE PortalInstance )	portals	INIT_to_EXP_in_cli ( gcnew (NLayerMapTypeObj ( int, EPSPACE PortalInstance )) );
 
 			static pthread_mutex_t	portalInstancelock;
 			static pthread_mutex_t	portalsLock;
 
 #ifdef CLI_CPP
-			virtual PLATFORMSPACE PortalInstance ^ GetPlatformObj () = 0;
+			virtual EPSPACE PortalInstance ^ GetPlatformObj () = 0;
 #endif
 
             int                     hEnvirons_;
@@ -185,7 +185,7 @@ namespace environs
 			environs::PortalType_t  portalType_;
             
             /** A DeviceInstance object that this portal relates to. */
-			sp ( PLATFORMSPACE DeviceInstance )   device_;
+			sp ( EPSPACE DeviceInstance )   device_;
 
 			ENVOBSERVER ( lib::IIPortalObserver, environs::PortalObserver )	observers;
 
@@ -204,9 +204,9 @@ namespace environs
 
             static int			GetKey ( int nativeID, int portalID_ );
 
-			bool				CreateInstance ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
-			bool				Create ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int destID );
-			bool				Create ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
+			bool				CreateInstance ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
+			bool				Create ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, int destID );
+			bool				Create ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
 
 			static void c_OBJ_ptr PortalPresenterThread ( pthread_param_t pack );
 			static void			PresentPortalToObservers ( c_const sp ( PortalInstance ) c_ref portal, int notification );

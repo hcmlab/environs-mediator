@@ -87,6 +87,10 @@
 #	define NLayerVecType(a)			svsp(a)
 #	define NLayerMapTypeObj(a,b)	msp(a,b)
 #	define NLayerVecTypeObj(a)		vsp(a)
+#	define NLayerListType(a)		std::shared_ptr < std::vector < a * > >
+#	define NLayerListTypeObj(a)		std::vector < a * > 
+
+#	define NLayerMapRaw(key,t)		std::map < key, t * >
 
 #	define DeviceListItems						DeviceInfo    *
 #	define DevicesToPlatform(devHead)			&devHead->device
@@ -181,6 +185,10 @@ using System::Collections::ObjectModel::ObservableCollection;
 #	define NLayerVecType(a)			List<a ^> ^
 #	define NLayerMapTypeObj(a,b)	Dictionary<a, b ^> 
 #	define NLayerVecTypeObj(a)		List<a ^> 
+#	define NLayerListType(a)		List<a ^> ^
+#	define NLayerListTypeObj(a)		List<a ^> 
+
+#	define NLayerMapRaw(key,t)		Dictionary<key, t ^> 
 
 #	define DeviceListItems						cli::array < DeviceInstance ^ > ^
 #	define DevicesToPlatform(devHead)			BuildDeviceInfoList(api->hEnvirons, IntPtr(devHead), true)

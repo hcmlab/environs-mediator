@@ -762,6 +762,10 @@ namespace environs
 		public const String ENVIRONS_DEFAULT_APP_NAME                         =	("HCMDefaultApp");
 		/** Ignore: for Resolver */
 		public const String ENVIRONS_DEFAULT_DEVICE_NAME                      =	("DefaultDevice");
+		/** Ignore: for Resolver */
+		public const int ENVIRONS_STUNT_MAX_TRY                            =	(10);
+		/** Ignore: for Resolver */
+		public const int ENVIRONS_STUN_MAX_TRY                             =	(10);
 		
 		
 		/**
@@ -796,6 +800,23 @@ namespace environs
 		public const char DEVICE_TYPE_TABLET                                =	('T');
 		public const char DEVICE_TYPE_UNKNOWN                               =	('U');
 		public const char DEVICE_TYPE_SMARTPHONE                            =	('P');
+		
+		
+		/**
+		 * Device queue commands.
+		 * Device queue commands.
+		 * Type: int
+		 * Type: int
+		 */
+		public const int DEVICELIST_QUEUE_COMMAND_RELOAD                   =	(0);
+		public const int DEVICELIST_QUEUE_COMMAND_CLEAR                    =	(1);
+		public const int DEVICELIST_QUEUE_COMMAND_APPEND                   =	(2);
+		public const int DEVICELIST_QUEUE_COMMAND_UPDATE                   =	(3);
+		public const int DEVICELIST_QUEUE_COMMAND_INSERT_AT                =	(4);
+		public const int DEVICELIST_QUEUE_COMMAND_REMOVE_AT                =	(5);
+		public const int DEVICELIST_QUEUE_COMMAND_INSERT_CALL              =	(6);
+		public const int DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             =	(7);
+		public const int DEVICELIST_QUEUE_COMMAND_LOCK                     =	(8);
 		
 		
 		/**

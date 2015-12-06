@@ -50,8 +50,8 @@ namespace environs
 			LIBEXPORT EBOOL CallConv		GetUseSensorsN ( jint hInst );
 			LIBEXPORT void CallConv			SetUseSensorsN ( jint hInst, EBOOL enable );
 
-			LIBEXPORT EBOOL CallConv		GetUsePushNotificationsN ();
-			LIBEXPORT void CallConv			SetUsePushNotificationsN ( EBOOL enable );
+			LIBEXPORT EBOOL CallConv		GetUsePushNotificationsN ( int hInst );
+			LIBEXPORT void CallConv			SetUsePushNotificationsN ( int hInst, EBOOL enable );
 
 			LIBEXPORT EBOOL CallConv		GetPortalTCPN ( jint hInst );
 			LIBEXPORT void CallConv			SetPortalTCPN ( jint hInst, EBOOL enable );

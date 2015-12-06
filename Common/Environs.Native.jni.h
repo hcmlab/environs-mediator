@@ -9,6 +9,14 @@ extern "C" {
 #endif
 /*
  * Class:     environs_Environs
+ * Method:    LogN
+ * Signature: (Ljava/lang/String;I)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_LogN
+  (JNIEnv *, jclass, jstring, jint);
+
+/*
+ * Class:     environs_Environs
  * Method:    CreateEnvironsN
  * Signature: ()I
  */
@@ -185,10 +193,10 @@ JNIEXPORT jboolean JNICALL Java_environs_Environs_GetPortalEnabledN
 
 /*
  * Class:     environs_Environs
- * Method:    GetPortalIdN
+ * Method:    GetPortalIDN
  * Signature: (III)I
  */
-JNIEXPORT jint JNICALL Java_environs_Environs_GetPortalIdN
+JNIEXPORT jint JNICALL Java_environs_Environs_GetPortalIDN
   (JNIEnv *, jclass, jint, jint, jint);
 
 /*
@@ -738,18 +746,18 @@ JNIEXPORT jboolean JNICALL Java_environs_Environs_GetUseSensorsN
 /*
  * Class:     environs_Environs
  * Method:    SetUsePushNotificationsN
- * Signature: (Z)V
+ * Signature: (IZ)V
  */
 JNIEXPORT void JNICALL Java_environs_Environs_SetUsePushNotificationsN
-  (JNIEnv *, jclass, jboolean);
+  (JNIEnv *, jclass, jint, jboolean);
 
 /*
  * Class:     environs_Environs
  * Method:    GetUsePushNotificationsN
- * Signature: ()Z
+ * Signature: (I)Z
  */
 JNIEXPORT jboolean JNICALL Java_environs_Environs_GetUsePushNotificationsN
-  (JNIEnv *, jclass);
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     environs_Environs

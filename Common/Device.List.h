@@ -53,6 +53,48 @@ namespace environs
 		CLASS DeviceCommandContext;
 
 
+		PUBLIC_CLASS DeviceInstanceUpdateContext
+		{
+		public:
+			sp ( EPSPACE DeviceInstance ) device;
+
+			environs::DeviceInfo OBJ_ptr deviceInfo;
+		};
+
+
+		PUBLIC_CLASS DeviceListQueueItem
+		{
+		public:
+			int     cmd;
+			int     pos;
+
+			sp ( EPSPACE DeviceInstance ) device;
+		};
+
+		PUBLIC_CLASS DeviceListUpdatePack
+		{
+		public:
+            DeviceListUpdatePack () {
+                api         = NULL_ptr;
+                devices     = NULL_ptr;
+                lock        = NULL_ptr;
+            }
+            pthread_mutex_t									OBJ_ptr		lock;
+			devList ( EPSPACE DeviceInstance )							deviceList;
+			NLayerVecTypeObj ( DeviceListQueueItem )		OBJ_ptr		items;
+
+			NLayerListTypeObj ( DeviceInstanceUpdateContext ) OBJ_ptr 	updates;
+
+			NLayerVecType ( EPSPACE DeviceInstance )		vanished;
+			NLayerVecType ( EPSPACE DeviceInstance )		appeared;
+
+			Environs OBJ_ptr		api;
+			int						listType;
+			DeviceListItems			devices;
+			int						devicesCount;
+		};
+
+
 		PUBLIC_CLASS DeviceList DERIVE_c_only ( environs::DeviceList ) DERIVE_DISPOSEABLE
 		{
         
@@ -68,9 +110,11 @@ namespace environs
 
 			ENVIRONS_LIB_API bool	disposed ();
 
-			ENVIRONS_LIB_API void	SetListType ( int MEDIATOR_DEVICE_CLASS_ );
+            ENVIRONS_LIB_API void	SetListType ( int MEDIATOR_DEVICE_CLASS_ );
+        
+            ENVIRONS_LIB_API void	SetIsUIAdapter ( bool enable );
 
-			sp ( PLATFORMSPACE DeviceInstance )	GetItem ( int position );
+			sp ( EPSPACE DeviceInstance )	GetItem ( int position );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetItemRetained ( int position );
@@ -81,7 +125,7 @@ namespace environs
 			ENVIRONS_LIB_API void	AddObserver ( environs::ListObserver OBJ_ptr observer );
 			ENVIRONS_LIB_API void	RemoveObserver ( environs::ListObserver OBJ_ptr observer );
 
-			sp ( PLATFORMSPACE DeviceInstance )   RefreshItem ( PLATFORMSPACE DeviceInstance OBJ_ptr source, DeviceObserver OBJ_ptr observer );
+			sp ( EPSPACE DeviceInstance )   RefreshItem ( EPSPACE DeviceInstance OBJ_ptr source, DeviceObserver OBJ_ptr observer );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr RefreshItemRetained ( environs::DeviceInstance OBJ_ptr source, environs::DeviceObserver OBJ_ptr observer );
@@ -91,7 +135,7 @@ namespace environs
 			*
 			* @return Collection with DeviceInstance objects
 			*/
-			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevices ();
+			c_const devList ( EPSPACE DeviceInstance ) c_ref GetDevices ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::ArrayList * GetDevicesRetained ();
@@ -114,7 +158,7 @@ namespace environs
 			* @param appName		Application name of the application environment
 			* @return DeviceInstance-object
 			*/
-			sp ( PLATFORMSPACE DeviceInstance ) GetDevice ( int deviceID, CString_ptr areaName, CString_ptr appName, int * pos );
+			sp ( EPSPACE DeviceInstance ) GetDevice ( int deviceID, CString_ptr areaName, CString_ptr appName, int * pos );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceRetained ( int deviceID, const char * areaName, const char * appName, int * pos );
@@ -127,7 +171,7 @@ namespace environs
 			 * @param nativeID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDevice ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDevice ( int nativeID );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceRetained ( int nativeID );
@@ -140,7 +184,7 @@ namespace environs
 			* @param nativeID      The device id of the target device.
 			* @return DeviceInstance-object
 			*/
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceAll ( int nativeID );
 
 
 			/**
@@ -152,7 +196,7 @@ namespace environs
 			 * @param deviceID      The portalID that identifies an active portal.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceBestMatch ( int deviceID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceBestMatch ( int deviceID );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceBestMatchRetained ( int deviceID );
@@ -168,7 +212,7 @@ namespace environs
 			 * @param deviceID      The portalID that identifies an active portal.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceBestMatchNative ( int deviceID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceBestMatchNative ( int deviceID );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceBestMatchNativeRetained ( int deviceID );
@@ -180,7 +224,7 @@ namespace environs
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesNearby ();
+			c_const devList ( EPSPACE DeviceInstance ) c_ref GetDevicesNearby ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::ArrayList * GetDevicesNearbyRetained ();
@@ -201,7 +245,7 @@ namespace environs
 			 * @param nativeID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceNearby ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceNearby ( int nativeID );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceNearbyRetained ( int nativeID );
@@ -219,7 +263,7 @@ namespace environs
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevicesFromMediator ();
+			c_const devList ( EPSPACE DeviceInstance ) c_ref GetDevicesFromMediator ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::ArrayList * GetDevicesFromMediatorRetained ();
@@ -232,7 +276,7 @@ namespace environs
 			 * @param nativeID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceFromMediator ( int nativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceFromMediator ( int nativeID );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetDeviceFromMediatorRetained ( int nativeID );
@@ -271,6 +315,7 @@ namespace environs
 			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( DeviceList );
 
 			int                             hEnvirons;
+            bool                            isUIAdapter;
 
 #ifndef CLI_CPP
 			Instance           *			env;
@@ -283,7 +328,7 @@ namespace environs
 
 			pthread_mutex_t     OBJ_ptr		listDevicesLock;
 
-			devList ( PLATFORMSPACE DeviceInstance )      listDevices;
+			devList ( EPSPACE DeviceInstance )      listDevices;
 
 #ifndef CLI_CPP
 			spv ( lib::IIListObserver * )   listDevicesObservers;
@@ -291,17 +336,17 @@ namespace environs
 
 			//void                            PlatformDispose ();
 
-			c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref GetDevices ( int type );
+			c_const devList ( EPSPACE DeviceInstance ) c_ref GetDevices ( int type );
 
-			static sp(PLATFORMSPACE DeviceInstance) GetDevice(c_const devList(PLATFORMSPACE DeviceInstance) c_ref deviceList, pthread_mutex_t OBJ_ptr lock, int deviceID, CString_ptr areaName, CString_ptr appName, int * pos);
+			static sp(EPSPACE DeviceInstance) GetDevice(c_const devList(EPSPACE DeviceInstance) c_ref deviceList, pthread_mutex_t OBJ_ptr lock, int deviceID, CString_ptr areaName, CString_ptr appName, int * pos);
 
-			static sp(PLATFORMSPACE DeviceInstance) GetDevice(c_const devList(PLATFORMSPACE DeviceInstance) c_ref deviceList, pthread_mutex_t OBJ_ptr lock, int nativeID, int * pos);
+			static sp(EPSPACE DeviceInstance) GetDevice(c_const devList(EPSPACE DeviceInstance) c_ref deviceList, pthread_mutex_t OBJ_ptr lock, int nativeID, int * pos);
 
-			sp ( PLATFORMSPACE DeviceInstance ) GetDevice ( int nativeOrDeviceID, bool isNativeID );
+			sp ( EPSPACE DeviceInstance ) GetDevice ( int nativeOrDeviceID, bool isNativeID );
 
-			sp ( PLATFORMSPACE DeviceInstance ) GetDeviceAll ( int nativeOrDeviceID, bool isNativeID );
+			sp ( EPSPACE DeviceInstance ) GetDeviceAll ( int nativeOrDeviceID, bool isNativeID );
 
-			static sp ( PLATFORMSPACE DeviceInstance ) GetDeviceSeeker ( c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, pthread_mutex_t OBJ_ptr lock, int nativeOrDeviceID, bool isNativeID );
+			static sp ( EPSPACE DeviceInstance ) GetDeviceSeeker ( c_const devList ( EPSPACE DeviceInstance ) c_ref list, pthread_mutex_t OBJ_ptr lock, int nativeOrDeviceID, bool isNativeID );
 
 
 			/**
@@ -311,42 +356,60 @@ namespace environs
 
 			void DisposeLists ();
 
-			static void DisposeList ( c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list );
+			static void DisposeList ( bool isUIAdapter, c_const devList ( EPSPACE DeviceInstance ) c_ref list, pthread_mutex_t OBJ_ptr lock );
+
+			static void DisposeListDo ( c_const devList ( EPSPACE DeviceInstance ) c_ref list );
 
 			static void DeviceListUpdater ( environs::lib::Environs OBJ_ptr api, int listType );
 
+			static bool DeviceListUpdaterDo ( Environs OBJ_ptr api, int listType, devListRef ( EPSPACE DeviceInstance ) deviceList,
+				DeviceListItems devices, int devicesCount,
+				NLayerVecTypeObj ( EPSPACE DeviceInstance ) OBJ_ptr vanished, NLayerVecTypeObj ( EPSPACE DeviceInstance ) OBJ_ptr appeared,
+				NLayerListTypeObj ( DeviceInstanceUpdateContext ) OBJ_ptr updates );
+
+			static bool DeviceListUpdateDispatchSync ( c_const sp ( DeviceListUpdatePack ) c_ref updatePacks );
+
+			static bool DeviceListUpdateDataSourceSync ( c_const sp ( DeviceListUpdatePack ) c_ref updatePacks );
+
+			static void TakeOverToOtherLists ( Environs OBJ_ptr api, int listType, NLayerVecTypeObj ( EPSPACE DeviceInstance ) OBJ_ptr vanished );
+
+			static void TakeOverToList ( environs::lib::Environs OBJ_ptr api, c_const devList ( EPSPACE DeviceInstance ) c_ref list, bool getMediator,
+				NLayerVecTypeObj ( EPSPACE DeviceInstance ) OBJ_ptr vanished );
 
 			static void c_OBJ_ptr DeviceListCommandThread ( pthread_param_t pack );
+
+			static bool DeviceInstanceUpdatesApply ( NLayerListTypeObj ( DeviceInstanceUpdateContext ) OBJ_ptr updates );
 
 
 			static void OnDeviceListNotification ( int hInst, environs::ObserverNotifyContext OBJ_ptr ctx );
 
-			static sp ( PLATFORMSPACE DeviceInstance ) RemoveDevice ( c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, pthread_mutex_t OBJ_ptr lock, DeviceCommandContext OBJ_ptr pack );
+			static sp ( EPSPACE DeviceInstance ) RemoveDevice ( c_const devList ( EPSPACE DeviceInstance ) c_ref list, pthread_mutex_t OBJ_ptr lock, DeviceCommandContext OBJ_ptr pack );
 
 			static void RemoveDevice ( DeviceCommandContext OBJ_ptr pack );
 
-			static void UpdateDevice ( DeviceCommandContext OBJ_ptr pack );
-
-			static void InsertDevice ( int hInst, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref deviceList, pthread_mutex_t OBJ_ptr listLock,
-				c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref deviceNew,
-				c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList );
+            static void UpdateDevice ( DeviceCommandContext OBJ_ptr pack );
+        
+            static void InsertDevice ( int hInst, c_const devList ( EPSPACE DeviceInstance ) c_ref deviceList, pthread_mutex_t OBJ_ptr listLock,
+                                  sp ( EPSPACE DeviceInstance ) c_ref deviceNew,
+                                  c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList );
+        
+            static bool InsertDeviceDo ( c_const devList ( EPSPACE DeviceInstance ) c_ref deviceList, sp ( EPSPACE DeviceInstance ) c_ref deviceNew, 
+				NLayerListTypeObj ( DeviceInstanceUpdateContext ) OBJ_ptr updates );
 
 			static void EnqueueCommand ( DeviceCommandContext OBJ_ptr ctx );
 
-			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList, NLayerVecType ( PLATFORMSPACE DeviceInstance ) vanished, NLayerVecType ( PLATFORMSPACE DeviceInstance ) appeared, bool enqueue );
+			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList, NLayerVecType ( EPSPACE DeviceInstance ) vanished, NLayerVecType ( EPSPACE DeviceInstance ) appeared, bool enqueue );
 
 
 
-			static void TakeOverToList ( environs::lib::Environs OBJ_ptr api, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, bool getMediator );
 
+			static void UpdateConnectProgress ( pthread_mutex_t OBJ_ptr lock, c_const devList ( EPSPACE DeviceInstance ) c_ref list, int nativeID, int progress );
 
-			static void UpdateConnectProgress ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, int nativeID, int progress );
+			static void UpdateMessage ( pthread_mutex_t OBJ_ptr lock, c_const devList ( EPSPACE DeviceInstance ) c_ref list, environs::ObserverMessageContext OBJ_ptr ctx );
 
-			static void UpdateMessage ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, environs::ObserverMessageContext OBJ_ptr ctx );
+			static void UpdateData ( pthread_mutex_t OBJ_ptr lock, c_const devList ( EPSPACE DeviceInstance ) c_ref list, environs::ObserverDataContext OBJ_ptr ctx );
 
-			static void UpdateData ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, environs::ObserverDataContext OBJ_ptr ctx );
-
-			static void UpdateSensorData ( pthread_mutex_t OBJ_ptr lock, c_const devList ( PLATFORMSPACE DeviceInstance ) c_ref list, int nativeID, environs::SensorFrame OBJ_ptr pack );
+			static void UpdateSensorData ( pthread_mutex_t OBJ_ptr lock, c_const devList ( EPSPACE DeviceInstance ) c_ref list, int nativeID, environs::SensorFrame OBJ_ptr pack );
 
 		};
 	}

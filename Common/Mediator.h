@@ -21,6 +21,10 @@
 #ifndef INCLUDE_HCM_ENVIRONS_MEDIATOR_H
 #define INCLUDE_HCM_ENVIRONS_MEDIATOR_H
 
+#ifdef MEDIATORDAEMON
+//#define USE_LOCKFREE_SOCKET_ACCESS
+#endif
+
 #include "Interop/Threads.h"
 #include "Interop/Sock.h"
 #include "Device.Info.h"
@@ -135,20 +139,21 @@ namespace environs	/// Namespace: environs ->
 
 		int						deviceID;
 		pthread_t				threadID;
-		pthread_mutex_t			accessMutex;
+		pthread_mutex_t			lock;
 		unsigned int			version;
 		long long				sessionID;
 
 		INTEROPTIMEVAL			aliveLast;
-
-		int						socket;
+        
+        SOCKETSYNC				socket;
 		unsigned short			port;
 		unsigned short			portUdp;
 
 		struct 	sockaddr_in		addr;
 
-		INTEROPTIMEVAL			connectTime;
-		int						spareSocket;
+        INTEROPTIMEVAL			connectTime;
+        SOCKETSYNC				spareSocket;
+        
 		unsigned short			sparePort;
 		short                   filterMode;
 		
@@ -161,29 +166,52 @@ namespace environs	/// Namespace: environs ->
         char					uid [ MAX_NAMEPROPERTY * 6 ];
         char                    ips [ 20 ];
 
-#ifdef __cplusplus
+#ifdef __cplusplus        
+        DAEMONEXP ( bool init );
+
 		sp ( ThreadInstance )	  clientSP;
 		sp ( DeviceInstanceNode ) deviceSP;
-        
+
         DAEMONEXP ( ~ThreadInstance () );
+        
+#ifdef MEDIATORDAEMON
+		bool Init ();
+        bool Lock ( const char * func );
+        bool Unlock ( const char * func );
+#endif
+        
 #endif
 	}
 	ThreadInstance;
 
 
-	typedef struct ApplicationDevices
+	class ILock
 	{
+		bool init;
+
+	public:
+		pthread_mutex_t		lock;
+
+		bool Init ();
+		bool Lock ( const char * func );
+		bool Unlock ( const char * func );
+		ILock ();
+		~ILock ();
+	};
+
+
+	class ApplicationDevices : public ILock
+	{
+	public:
 		unsigned int			id;
 		unsigned int			areaId;
-		pthread_mutex_t			mutex;
 		int						count;
 		long					access;
 		
 		long					latestAssignedID;
 
 		DeviceInstanceNode	*	devices;
-	}
-	ApplicationDevices;
+	};
 
     
     // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
@@ -208,11 +236,10 @@ namespace environs	/// Namespace: environs ->
 		
         CLIENTEXP ( int					hEnvirons; )
 		        
-#ifdef __cplusplus
-        
+#ifdef __cplusplus        
         sp ( DeviceInstanceNode )		baseSP;         // SP used by Mediator base layer
         
-        CLIENTEXP ( sp ( DeviceInstanceNode ) mapSP; )  // SP used by Mediator base layer
+        CLIENTEXP ( sp ( DeviceInstanceNode ) mapSP; )  // SP used by Mediator base layer			
 
 		DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
         {
@@ -356,20 +383,22 @@ namespace environs	/// Namespace: environs ->
 		pthread_t				broadcastThreadID;
 
 		bool					IsLocalIP ( unsigned int ip );
-		static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
-		static bool				IsSocketAlive ( int &sock );
-
+        static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
+        
+        static bool				IsSocketAlive ( SOCKETSYNC &sock );
+        
 		virtual void			OnStarted ( );
 
-		DeviceInstanceNode *	UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
 		void					VanishedDeviceWatcher ();
 
-		virtual DeviceInstanceNode ** GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, void * appDevices ) = 0;
+		virtual sp ( ApplicationDevices ) GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex, int ** pDevicesAvailable, DeviceInstanceNode ** &list ) = 0;
 
 		virtual void			RemoveDevice ( unsigned int ip, char * msg ) {};
 		virtual void			RemoveDevice ( DeviceInstanceNode * device, bool useLock = true ) = 0;
 
 #ifdef __cplusplus
+		sp ( DeviceInstanceNode ) UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
+
 		virtual void			UpdateDeviceInstance ( sp ( DeviceInstanceNode ) device, bool added, bool changed ) = 0;
 #endif
 		virtual void			ReleaseDevices ( ) = 0;

@@ -447,14 +447,14 @@ namespace environs
 
 #	define MutexLock(m,f)			MutexLockBool(m,#m,CLASS_NAME,f)
 #	define MutexLockA(m,f)			MutexLockBool(%m,#m,CLASS_NAME,f)
-	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName );
 
 #	define MutexUnlockV(m,f)		Monitor::Exit(m)
 #	define MutexUnlockVA(m,f)		Monitor::Exit(%m)
 
 #	define MutexUnlock(m,f)			MutexUnlockBool(m,#m,CLASS_NAME,f)
 #	define MutexUnlockA(m,f)		MutexUnlockBool(%m,#m,CLASS_NAME,f)
-	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName );
 
 #	define CondInitA(m)				((m = gcnew System::Threading::AutoResetEvent(false)) != NULL_ptr)
 #	define CondDisposeA(m)			(m = NULL_ptr)

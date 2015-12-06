@@ -51,6 +51,21 @@ using namespace std;
 
 // Default configuration
 
+class ILock1
+{
+	pthread_mutex_t lock1;
+	bool			init1;
+
+public:
+
+	bool Init1 ();
+	bool Lock1 ( const char * func );
+	bool Unlock1 ( const char * func );
+	ILock1 ();
+	~ILock1 ();
+};
+
+
 typedef struct _ValuePack
 {
 	string			value;
@@ -59,20 +74,41 @@ typedef struct _ValuePack
 } ValuePack;
 
 
-typedef struct _areaApps
+class ListValues : public ILock
 {
+public:
+	msp ( string, ValuePack )	values;
+};
+
+
+class AppsList : public ILock
+{
+public:
+	msp ( string, ListValues ) apps;
+};
+
+
+class AreaApps : public ILock, public ILock1
+{
+public:
 	unsigned int						id;
 	msp ( string, ApplicationDevices )	apps;
-    msp ( long long, ThreadInstance )   notifyTargets;
-}
-AreaApps;
+	msp ( long long, ThreadInstance )   notifyTargets;
+};
 
 
-typedef struct _AppsList
+class AreasList : public ILock
 {
-	map<string, map<string, ValuePack*>*> apps;
-}
-AppsList;
+public:
+	msp ( string, AreaApps ) list;
+};
+
+
+class AreasMap : public ILock
+{
+public:
+    msp ( string, AppsList ) list;
+};
 
 
 typedef struct _DeviceMapping
@@ -82,6 +118,27 @@ typedef struct _DeviceMapping
 	char			authToken [ MAX_NAMEPROPERTY + 1 ];
 }
 DeviceMapping;
+
+
+class DeviceMappings : public ILock
+{
+public:
+    msp ( string, DeviceMapping ) list;
+};
+
+
+class InstanceMap : public ILock
+{
+public:
+    msp ( long long, ThreadInstance ) list;
+};
+
+
+class InstanceList : public ILock
+{
+public:
+    vsp ( ThreadInstance ) list;
+};
 
 
 typedef struct _UserItem
@@ -95,11 +152,8 @@ UserItem;
 class NotifyQueueContext
 {
 public:
-
-	int     deviceID;
-	int     notify;
-	string  areaName;
-	string  appName;
+	int                         notify;
+    sp ( DeviceInstanceNode )   device;
 };
 
 
@@ -135,6 +189,7 @@ public:
 	bool									SaveDeviceMappings ();
 
 	bool									CreateThreads ( );
+	bool									ReCreateAcceptor ();
 	void									Run ( );
 
 	void									Dispose ( );
@@ -148,18 +203,19 @@ public:
 	
 private:
 	bool									allocated;
-	pthread_mutex_t							thread_mutex;
+	pthread_mutex_t							thread_lock;
 	pthread_cond_t							thread_condition;
 
 	vector<unsigned short>					ports;
 	vsp ( MediatorThreadInstance )          listeners;
 	unsigned int							networkOK;
 	bool									usersDBDirty;
-	bool									configDirty;
+    bool									configDirty;
+    bool									deviceMappingDirty;
 
 
-	pthread_mutex_t							acceptClientsMutex;
-	vsp ( ThreadInstance )					acceptClients;
+    InstanceList                            acceptClients;
+    bool                                    RemoveAcceptClient ( ThreadInstance * );
 
 	sp ( ApplicationDevices )				GetApplicationDevices ( const char * areaName, const char * appName );
 	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
@@ -172,14 +228,13 @@ private:
 
 	unsigned int							CollectDevicesCount ( DeviceInstanceNode * sourceDevice, int filterMode );
 
-	pthread_mutex_t							areasMutex;
-	msp ( string, AppsList )				areas;
+	AreasMap                                areasMap;
 
 	bool									reqAuth;
-	pthread_mutex_t							usersDBMutex;
+	pthread_mutex_t							usersDBLock;
 	map<string, UserItem *>                 usersDB;
 
-	msp ( string, DeviceMapping )			deviceMappings;
+	DeviceMappings                          deviceMappings;
     
     bool									anonymousLogon;
     char                                    anonymousUser [ MAX_NAMEPROPERTY + 1 ];
@@ -189,11 +244,10 @@ private:
 	char	*								input;
 		
 	unsigned int							sessionCounter;
-	msp ( long long, ThreadInstance )		sessions;
-	pthread_mutex_t							sessionsMutex;
+	InstanceMap                             sessions;
 
-	unsigned int							spareID;
-	msp ( unsigned int, ThreadInstance )	spareClients;
+	unsigned int                            spareID;
+	InstanceMap                             spareClients;
 
 	char								*	privKey;
 	unsigned int							privKeySize;
@@ -201,8 +255,8 @@ private:
     AESContext                              aesCtx;
     char                                    aesKey [ 32 ];
 	
-	DeviceInstanceNode **					GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex,
-													int ** pDevicesAvailable, void * appDevices );
+	sp ( ApplicationDevices )				GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex,
+													int ** pDevicesAvailable, DeviceInstanceNode ** &list );
 	
 	unsigned int							areasCounter;
 	map<unsigned int, string>				areaIDs;
@@ -210,7 +264,7 @@ private:
 	unsigned int							appsCounter;
 	map<unsigned int, string>				appIDs;
 
-	msp ( string, AreaApps ) 				areasList;
+	AreasList 								areas;
 	
 	void									RemoveDevice ( unsigned int ip, char * msg );
 	void									RemoveDevice ( DeviceInstanceNode * device, bool useLock = true );
@@ -221,7 +275,7 @@ private:
 #endif
 
     unsigned int                            bannAfterTries;
-	pthread_mutex_t							bannedIPsMutex;
+	pthread_mutex_t							bannedIPsLock;
     std::map<unsigned int, std::time_t>		bannedIPs;
     std::map<unsigned int, unsigned int>	bannedIPConnects;
 
@@ -231,7 +285,7 @@ private:
 
 	int										ScanForParameters ( char * buffer, unsigned int maxLen, const char * delim, char ** params, int maxParams );
 
-	bool									addToArea ( map<string, ValuePack*> * values, const char * key, const char * value, unsigned int valueSize );
+	bool									addToArea ( sp ( ListValues ) &values, const char * key, const char * value, unsigned int valueSize );
 	bool									addToArea ( const char * project, const char * app, const char * key, const char * value );
 	bool									sendDatabase ( int sock, struct sockaddr * addr );
 	
@@ -251,7 +305,7 @@ private:
 	void *									ClientThread ( void *arg );
 
 	bool									HandleRequest ( char * buffer, ThreadInstance * client );
-	bool									UpdateDeviceRegistry ( DeviceInstanceNode * device, unsigned int ip, char * msg );
+	bool									UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, unsigned int ip, char * msg );
 
 	int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
 
@@ -272,10 +326,12 @@ private:
 
     pthread_t								notifyThreadID;
     pthread_cond_t							notifyEvent;
-    pthread_mutex_t							notifyMutex;
-    pthread_mutex_t							notifyTargetsMutex;
-
-	void									NotifyClients ( unsigned int notify, const char * areaName, const char * appName, int deviceID );
+    pthread_mutex_t							notifyLock;
+    pthread_mutex_t							notifyTargetsLock;
+    
+#ifdef __cplusplus
+	void									NotifyClients ( unsigned int notify, sp ( DeviceInstanceNode ) &device );
+#endif
 	static void 						*	NotifyClientsStarter ( void * daemon );
 	void									NotifyClientsThread ();
 	void									NotifyClients ( NotifyQueueContext * ctx );

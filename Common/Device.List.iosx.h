@@ -45,6 +45,8 @@
 
 - (void) SetListType : (int) MEDIATOR_DEVICE_CLASS_;
 
+- (void) SetIsUIAdapter : (bool) enable;
+
 - (DeviceInstance *) GetItem : (int) position;
 - (int) GetCount;
 

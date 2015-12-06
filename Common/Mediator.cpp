@@ -67,6 +67,36 @@ namespace environs
 	std::map<std::string, int>      nameToAppID;
 #endif
 
+
+	ILock::ILock ()
+	{
+		init =  MutexInit ( &lock );
+	}
+
+	bool ILock::Init ()
+	{
+		if ( !init )
+			init =  MutexInit ( &lock );
+		return init;
+	}
+
+	bool ILock::Lock ( const char * func )
+	{
+		return MutexLockA ( lock, func );
+	}
+
+	bool ILock::Unlock ( const char * func )
+	{
+		return MutexUnlockA ( lock, func );
+	}
+
+	ILock::~ILock ()
+	{
+		if ( init )
+			MutexDispose ( &lock );
+	}
+
+
 	Mediator::Mediator ()
 	{
 		CVerb ( "Construct" );
@@ -217,8 +247,8 @@ namespace environs
 			free ( certificate );
 	}
 
-
-	bool Mediator::IsSocketAlive ( int &sock )
+    
+    bool Mediator::IsSocketAlive ( SOCKETSYNC &sock )
 	{
 		CVerb ( "IsSocketAlive" );
 
@@ -230,14 +260,14 @@ namespace environs
 		int value;
 		socklen_t size = sizeof ( socklen_t );
 
-		int ret = getsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( char * ) &value, &size );
+		int ret = getsockopt ( (int) sock, SOL_SOCKET, SO_REUSEADDR, ( char * ) &value, &size );
 		if ( ret < 0 ) {
 			CInfo ( "IsSocketAlive: disposing invalid socket!" );
 			//LogSocketError ();
 #ifdef MEDIATORDAEMON
 			try {
-				shutdown ( sock, 2 );
-				closesocket ( sock );
+				shutdown ( (int) sock, 2 );
+				closesocket ( (int) sock );
 			}
 			catch ( ... ) {
 			}
@@ -357,7 +387,7 @@ namespace environs
 
 		ThreadInstance * inst = &med->connection.instance;
 
-		int s = inst->socket;
+		int s = (int) inst->socket;
 		if ( s != -1 ) {
 			inst->socket = -1;
 
@@ -877,7 +907,7 @@ namespace environs
 		DeviceInstanceNode	*	device		= 0;
 		pthread_mutex_t		*	mutex		= 0;
 
-		listRoot = GetDeviceList ( NULL_ptr, NULL_ptr, &mutex, NULL_ptr, NULL_ptr );
+		GetDeviceList ( NULL_ptr, NULL_ptr, &mutex, NULL_ptr, listRoot );
 
 		if ( !listRoot )
 			return;
@@ -913,7 +943,7 @@ namespace environs
 				// Remove device and relink the list
 				RemoveDevice ( vanished, false );
 
-				device = *listRoot;;
+				device = *listRoot;
 				continue;
 			}
 
@@ -924,7 +954,7 @@ namespace environs
 	}
 
 
-	DeviceInstanceNode * Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
+	sp ( DeviceInstanceNode ) Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
 	{
 		CVerbVerb ( "UpdateDevices" );
 
@@ -939,19 +969,18 @@ namespace environs
 		char		*	areaName	= 0;
 		char		*	appName		= 0;
 		char		*	userName	= 0;
+
 		DeviceInstanceNode * device		= 0;
 		DeviceInstanceNode * devicePrev	= 0;
 		DeviceInstanceNode ** listRoot	= 0;
+
+		sp ( DeviceInstanceNode ) deviceSP = 0;
+
 		pthread_mutex_t * mutex		= 0;
 
 		int *						pDevicesAvailable	= 0;
 
-#ifdef MEDIATORDAEMON
-		sp ( ApplicationDevices )
-#else
-		void *
-#endif
-			appDevices			= 0;
+        sp ( ApplicationDevices ) appDevices			= 0;
 
 		// Get the id at first (>0)	
 		int * pIntBuffer = ( int * ) ( msg + MEDIATOR_BROADCAST_DEVICEID_START );
@@ -1002,7 +1031,7 @@ namespace environs
 		}
 #endif
 
-		listRoot = GetDeviceList ( areaName, appName, &mutex, &pDevicesAvailable, &appDevices );
+		appDevices = GetDeviceList ( areaName, appName, &mutex, &pDevicesAvailable, listRoot );
 		if ( !listRoot )
 			return 0;
 
@@ -1040,8 +1069,9 @@ namespace environs
 
 #ifdef MEDIATORDAEMON
 		if ( found ) {
+			deviceSP = device->baseSP;
 			MutexUnlockV ( mutex, "UpdateDevices" );
-			return device;
+			return deviceSP;
 		}
 		if ( created )
 			*created = true;
@@ -1050,15 +1080,14 @@ namespace environs
 		while ( !found ) {
 			// Create a new list node
 			DeviceInstanceNode	*		dev		= 0;
-			sp ( DeviceInstanceNode )	devSP	= sp_make ( DeviceInstanceNode );
+			deviceSP	= sp_make ( DeviceInstanceNode );
 
-			if ( !devSP || ( dev = devSP.get () ) == 0 ) {
+			if ( !deviceSP || ( dev = deviceSP.get () ) == 0 ) {
 				CErr ( "UpdateDevices: Failed to allocate memory for new device!" );
 				device = 0;
 				break;
 			}
-
-            dev->baseSP = devSP;
+            dev->baseSP = deviceSP;
 
 			dev->info.deviceID = value;
 			( *pDevicesAvailable )++;
@@ -1188,10 +1217,10 @@ namespace environs
 			}
 
 			if ( changed ) {
-				CLogArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+				CVerbArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
 				if ( device->info.ip != device->info.ipe ) {
-					CLogArg ( "UpdateDevices: Device IPe != IP  [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ip ) ) );
-					CLogArg ( "UpdateDevices: Device IP  != IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+					CVerbArg ( "UpdateDevices: Device IPe != IP  [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ip ) ) );
+					CVerbArg ( "UpdateDevices: Device IP  != IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
 				}
 				else {
 					CListLogArg ( "UpdateDevices: Device IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
@@ -1202,11 +1231,15 @@ namespace environs
 			}
 		}
 
-		if ( !MutexUnlock ( mutex, "UpdateDevices" ) )
-			device = 0;
+		if ( !MutexUnlock ( mutex, "UpdateDevices" ) ) {
+			if ( device ) {
+				device->baseSP = 0;
+				device = 0;
+			}
+		}
 		else {
-            if ( device )
-                UpdateDeviceInstance ( device->baseSP, !found, changed );
+            if ( deviceSP )
+                UpdateDeviceInstance ( deviceSP, !found, changed );
 		}
 
 	Finish:
@@ -1216,7 +1249,7 @@ namespace environs
 			__sync_sub_and_fetch ( &appDevices->access, 1 );
 #endif
 
-		return device;
+		return deviceSP;
 }
 
 

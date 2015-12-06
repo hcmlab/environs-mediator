@@ -96,7 +96,7 @@ namespace environs
 			/**
 			 * A reference to the DeviceInstance that is responsible for this FileInstance.
 			 * */
-			sp ( PLATFORMSPACE DeviceInstance ) device_;
+			sp ( EPSPACE DeviceInstance ) device_;
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr deviceRetained ();
@@ -141,7 +141,7 @@ namespace environs
 
 			unsigned long long created_;
 
-			static sp ( PLATFORMSPACE MessageInstance ) Create ( char * line, int length, c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device );
+			static sp ( EPSPACE MessageInstance ) Create ( char * line, int length, c_const sp ( EPSPACE DeviceInstance ) c_ref device );
 
 			static bool HasPrefix ( char * line, int length );
 

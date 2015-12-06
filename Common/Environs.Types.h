@@ -773,6 +773,10 @@ namespace environs {
 #define	ENVIRONS_DEFAULT_APP_NAME                         		("HCMDefaultApp")
 /** Ignore: for Resolver */
 #define	ENVIRONS_DEFAULT_DEVICE_NAME                      		("DefaultDevice")
+/** Ignore: for Resolver */
+#define	ENVIRONS_STUNT_MAX_TRY                            		(10)
+/** Ignore: for Resolver */
+#define	ENVIRONS_STUN_MAX_TRY                             		(10)
 
 
 /**
@@ -804,6 +808,21 @@ namespace environs {
 #define	DEVICE_TYPE_TABLET                                		('T')
 #define	DEVICE_TYPE_UNKNOWN                               		('U')
 #define	DEVICE_TYPE_SMARTPHONE                            		('P')
+
+
+/**
+ * Device queue commands.
+ * Type: int
+ */
+#define	DEVICELIST_QUEUE_COMMAND_RELOAD                   		(0)
+#define	DEVICELIST_QUEUE_COMMAND_CLEAR                    		(1)
+#define	DEVICELIST_QUEUE_COMMAND_APPEND                   		(2)
+#define	DEVICELIST_QUEUE_COMMAND_UPDATE                   		(3)
+#define	DEVICELIST_QUEUE_COMMAND_INSERT_AT                		(4)
+#define	DEVICELIST_QUEUE_COMMAND_REMOVE_AT                		(5)
+#define	DEVICELIST_QUEUE_COMMAND_INSERT_CALL              		(6)
+#define	DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             		(7)
+#define	DEVICELIST_QUEUE_COMMAND_LOCK                     		(8)
 
 
 /**

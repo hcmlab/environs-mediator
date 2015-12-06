@@ -123,6 +123,9 @@ int main(int argc, char* argv[])
 
     Mediator::DisposeClass ();
     
+#ifdef _WIN32
+	WSACancelBlockingCall ();
+#endif
 	WSACleanup ( );
 
 	return 0;

@@ -21,7 +21,7 @@
 #define INCLUDE_HCM_ENVIRONS_BUILD_OPTIONS_LIBRARY_LINKER_H
 
 
-#ifdef _WIN32
+#if ( defined(_WIN32) && !defined(NDEBUG) )
 
 
 #	ifdef _USE_VLD

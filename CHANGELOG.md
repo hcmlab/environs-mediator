@@ -2,6 +2,12 @@
 
 ---------------------------
 
+* Updated: MD lockfree usage of sockets
+* Added: MD logroll if file is larger than 100MB
+* Updated: MediatorDaemon usage of SPs
+* Added: MediatorDaemon reopen logfile regularly by watchdog
+* Added: Mediator vs2013 solution
+* Fixed: Missing Unlock in MediatorDaemon (HandleSTUNTRequest)
 * Fixed: Bug in MediatorDaemon (HandleSTUNTRequest)
 * Fixed: Uninitialized variable in MediatorDaemon
 * Updated: MediatorDaemon Disposal of ClientThread resources

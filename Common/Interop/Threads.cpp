@@ -133,23 +133,27 @@ namespace environs
 	}
 
 
-	bool MutexLockBool ( pthread_mutex_t ^ mtx, const char * mutexName, const char * className, const char * funcName )
+	bool MutexLockBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
 	{
 		if ( mtx == NULL_ptr ) {
+			//CErr ( "Lock: lock invalid " + className + "." + funcName + " " + mutexName );
 			//MutexErrorLog ( "lock", mutexName, className, funcName );
 			return false;
 		}
+		CVerb ( "Lock: " + className + "." + funcName + " " + mutexName );
 		Monitor::Enter ( mtx );
 		return true;
 	}
 
-	bool MutexUnlockBool ( pthread_mutex_t ^ mtx, const char * mutexName, const char * className, const char * funcName )
+	bool MutexUnlockBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
 	{
 		if ( mtx == NULL_ptr ) {
+			//CErr ( "Unlock: lock invalid " + className + "." + funcName + " " + mutexName );
 			//MutexErrorLog ( "unlock", mutexName, className, funcName );
 			return false;
 		}
-		
+
+		CVerb ( "Unlock: " + className + "." + funcName + " " + mutexName );
 		Monitor::Exit ( mtx );
 		return true;
 	}

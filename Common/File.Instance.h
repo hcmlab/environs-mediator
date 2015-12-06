@@ -128,7 +128,7 @@ namespace environs
 			 *
 			 * */
 #ifdef CLI_CPP
-			ENVIRONS_LIB_API PLATFORMSPACE DeviceInstance OBJ_ptr device ();
+			ENVIRONS_LIB_API EPSPACE DeviceInstance OBJ_ptr device ();
 #else
 			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr deviceRetained ();
 #endif
@@ -219,14 +219,14 @@ namespace environs
 			/**
 			* A reference to the DeviceInstance that is responsible for this FileInstance.
 			* */
-			sp ( PLATFORMSPACE DeviceInstance ) device_;
+			sp ( EPSPACE DeviceInstance ) device_;
 
 			/**
 			 * A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
 			 * */
 			STRING_T		toString_;
 
-			static sp ( PLATFORMSPACE FileInstance ) Create ( c_const sp ( PLATFORMSPACE DeviceInstance ) c_ref device, int fileID, String_ptr fullPath, size_t length );
+			static sp ( EPSPACE FileInstance ) Create ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, int fileID, String_ptr fullPath, size_t length );
 		};
 
 	}

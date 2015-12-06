@@ -2165,6 +2165,18 @@ namespace environs
 #		endif
 		literal String ^  ENVIRONS_DEFAULT_DEVICE_NAME                      =	("DefaultDevice");
 #		define	ENVIRONS_DEFAULT_DEVICE_NAME                      		("DefaultDevice")
+		/** Ignore: for Resolver */
+#		ifdef ENVIRONS_STUNT_MAX_TRY                            
+#		undef ENVIRONS_STUNT_MAX_TRY                            
+#		endif
+		literal int ENVIRONS_STUNT_MAX_TRY                            =	(10);
+#		define	ENVIRONS_STUNT_MAX_TRY                            		(10)
+		/** Ignore: for Resolver */
+#		ifdef ENVIRONS_STUN_MAX_TRY                             
+#		undef ENVIRONS_STUN_MAX_TRY                             
+#		endif
+		literal int ENVIRONS_STUN_MAX_TRY                             =	(10);
+#		define	ENVIRONS_STUN_MAX_TRY                             		(10)
 		
 		
 		/**
@@ -2271,6 +2283,59 @@ namespace environs
 #		endif
 		literal char DEVICE_TYPE_SMARTPHONE                            =	('P');
 #		define	DEVICE_TYPE_SMARTPHONE                            		('P')
+		
+		
+		/**
+		 * Device queue commands.
+		 * Device queue commands.
+		 * Type: int
+		 * Type: int
+		 */
+#		ifdef DEVICELIST_QUEUE_COMMAND_RELOAD                   
+#		undef DEVICELIST_QUEUE_COMMAND_RELOAD                   
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_RELOAD                   =	(0);
+#		define	DEVICELIST_QUEUE_COMMAND_RELOAD                   		(0)
+#		ifdef DEVICELIST_QUEUE_COMMAND_CLEAR                    
+#		undef DEVICELIST_QUEUE_COMMAND_CLEAR                    
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_CLEAR                    =	(1);
+#		define	DEVICELIST_QUEUE_COMMAND_CLEAR                    		(1)
+#		ifdef DEVICELIST_QUEUE_COMMAND_APPEND                   
+#		undef DEVICELIST_QUEUE_COMMAND_APPEND                   
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_APPEND                   =	(2);
+#		define	DEVICELIST_QUEUE_COMMAND_APPEND                   		(2)
+#		ifdef DEVICELIST_QUEUE_COMMAND_UPDATE                   
+#		undef DEVICELIST_QUEUE_COMMAND_UPDATE                   
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_UPDATE                   =	(3);
+#		define	DEVICELIST_QUEUE_COMMAND_UPDATE                   		(3)
+#		ifdef DEVICELIST_QUEUE_COMMAND_INSERT_AT                
+#		undef DEVICELIST_QUEUE_COMMAND_INSERT_AT                
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_INSERT_AT                =	(4);
+#		define	DEVICELIST_QUEUE_COMMAND_INSERT_AT                		(4)
+#		ifdef DEVICELIST_QUEUE_COMMAND_REMOVE_AT                
+#		undef DEVICELIST_QUEUE_COMMAND_REMOVE_AT                
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_REMOVE_AT                =	(5);
+#		define	DEVICELIST_QUEUE_COMMAND_REMOVE_AT                		(5)
+#		ifdef DEVICELIST_QUEUE_COMMAND_INSERT_CALL              
+#		undef DEVICELIST_QUEUE_COMMAND_INSERT_CALL              
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_INSERT_CALL              =	(6);
+#		define	DEVICELIST_QUEUE_COMMAND_INSERT_CALL              		(6)
+#		ifdef DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             
+#		undef DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             =	(7);
+#		define	DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             		(7)
+#		ifdef DEVICELIST_QUEUE_COMMAND_LOCK                     
+#		undef DEVICELIST_QUEUE_COMMAND_LOCK                     
+#		endif
+		literal int DEVICELIST_QUEUE_COMMAND_LOCK                     =	(8);
+#		define	DEVICELIST_QUEUE_COMMAND_LOCK                     		(8)
 		
 		
 		/**

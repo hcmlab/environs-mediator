@@ -36,25 +36,125 @@
 #	include "Core/Callbacks.h"
 #endif
 
+#include "Environs.Utils.h"
 #include "Environs.Native.h"
 #include "Interop/Threads.h"
 #include "Interop/Stat.h"
 
 using namespace environs;
 
-
 #define CLASS_NAME  "Log. . . . . . . . . . ."
 
 
 #define ENVIRONS_LOGFILE_TEMP_MAXSIZE               200000
-
-FILE            *   environsLogFileHandle           = 0;
-int                 environsLogFileErrCount         = 0;
+#define ENVIRONS_LOGBUFFER_MAXCHARS					ENVIRONS_LOGBUFFER_MAXSIZE - 2
+#define ENVIRONS_LOGBUFFER_OUTPUT_MINSIZE			ENVIRONS_LOGBUFFER_MAXSIZE >> 2
+#define ENVIRONS_LOGBUFFER_OUTPUT_AX_MS				500
 
 
 namespace environs
 {
 	pthread_mutex_t     environsLogMutex;
+	FILE            *   environsLogFileHandle		= 0;
+	int                 environsLogFileErrCount     = 0;
+	
+#ifdef NDEBUG
+#	define		LOGBUFFER
+#	define		LOGPOS		
+#	define		LOGPOSADD	
+#	define		ENVIRONS_LOGBUFFER_MAXSIZE		1024
+#	define		LOGBUFFEREMAIN					ENVIRONS_LOGBUFFER_MAXSIZE
+#	define		LOG_OUT_BUFFER_NAME				msg
+#	define		LOG_OUT_BUFFER_NAME_LENGTH		length
+#	define		LOG_OUT_BUFFER_NAME_ARG_CALL	log.buffer
+#else
+#	define		LOGBUFFER						log.
+#	define		LOGPOS							log.length
+#	define		LOGPOSADD						+ 	LOGPOS
+#	define		ENVIRONS_LOGBUFFER_MAXSIZE		256000
+#	define		LOGBUFFEREMAIN					(ENVIRONS_LOGBUFFER_MAXCHARS - LOGPOS)
+#	define		LOG_OUT_BUFFER_NAME				log.buffer
+#	define		LOG_OUT_BUFFER_NAME_LENGTH		log.length
+#	define		LOG_OUT_BUFFER_NAME_ARG_CALL	0
+#endif
+
+	void env_printf ( const char * msg )
+	{
+#ifndef NDEBUG
+
+#	ifdef _WIN32
+		OutputDebugStringA ( msg );
+#	endif // -> end-_WIN32
+
+
+#	ifdef ANDROID
+		__android_log_print ( 0, ENVIRONS_LOG_TAG_ID, "%s", msg );
+#	endif  // -> end-_ANDROID
+
+
+#	if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
+
+		printf ( "%s", msg );
+
+#	endif  // -> end-_ANDROID
+#endif
+
+	}
+
+	struct LogBuffer
+	{
+		bool			alive;
+		bool			push;
+		char			buffer [ ENVIRONS_LOGBUFFER_MAXSIZE ];
+
+		int				length;
+
+#ifndef NDEBUG
+		INTEROPTIMEVAL	lastPrint;
+#endif
+		LogBuffer ()
+		{
+			env_printf ( CLASS_NAME ".LogBuffer: Construct\n" );
+
+			if ( !MutexInit ( &environsLogMutex ) )
+				return;
+
+			alive = true; push = false;
+			*buffer = 0;
+#ifndef NDEBUG
+			length = 0; lastPrint = 0;
+#endif
+		}
+
+		~LogBuffer ()
+		{
+			env_printf ( CLASS_NAME ".LogBuffer: Destruct\n" );
+
+			//native.useLogFile = false;
+
+#ifndef NDEBUG
+			if ( length > 0 ) {
+				push = true;
+
+#	ifdef ANDROID
+				COutLog ( 0, buffer, length, false );
+#	else
+				COutLog ( buffer, length, false );
+#	endif
+
+			}
+#endif
+			//CloseLog ();
+
+			alive = false;
+
+			MutexDispose ( &environsLogMutex );
+
+			env_printf ( CLASS_NAME ".LogBuffer: Destruct done.\n" );
+		}
+	};
+
+	LogBuffer	log;
 
 
     bool OpenLog ()
@@ -104,12 +204,17 @@ namespace environs
     }
     
     
-    void CloseLog ( bool useLock )
+    void CloseLog ()
     {
         CVerbN ( "CloseLog" );
         
-		if ( useLock && pthread_mutex_lock ( &environsLogMutex ) ) {
-            printf ( "CloseLog: ERROR ---> Failed to lock mutex." );
+		bool locked = false;
+
+		if ( log.alive ) {
+			if ( pthread_mutex_lock ( &environsLogMutex ) )
+				printf ( "CloseLog: ERROR ---> Failed to lock mutex." );
+			else
+				locked = true;
         }
         
         if ( environsLogFileHandle ) {
@@ -117,22 +222,31 @@ namespace environs
             environsLogFileHandle = 0;
         }
         
-		if ( useLock && pthread_mutex_unlock ( &environsLogMutex ) ) {
+		if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
             printf ( "CloseLog: ERROR ---> Failed to unlock mutex." );
         }
         CVerbN ( "CloseLog done" );
     }
-    
-    
+
+
     void DisposeLog ()
     {
         CVerbN ( "DisposeLog" );
+
+		bool locked = false;
+
+		if ( log.alive ) {
+			if ( pthread_mutex_lock ( &environsLogMutex ) )
+				printf ( "DisposeLog: ERROR ---> Failed to lock mutex." );
+			else
+				locked = true;
+		}
         
-		MutexLockV ( &environsLogMutex, "DisposeLog" );
-        
-        CloseLog ( false );
-        
-		MutexUnlockV ( &environsLogMutex, "DisposeLog" );
+        CloseLog ();
+
+		if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
+			printf ( "DisposeLog: ERROR ---> Failed to unlock mutex." );
+		}
 
         CVerbN ( "DisposeLog done" );
     }
@@ -141,43 +255,70 @@ namespace environs
 #ifdef ANDROID
     void COutLog ( int tag, const char * msg, int length, bool useLock )
 #else
-    void COutLog ( const char * msg, int length, bool useLock )
+	void COutLog ( const char * msg, int length, bool useLock )
 #endif
-    {
-        if ( length <= 0 ) {
-            length = (int)strlen ( msg );
-            //printf ( "COutLog: Length [%i].", length );
-        }
-        
-        if ( length <= 0 ) {
-            printf ( "COutLog: ERROR ---> Invalid length [%i].", length );
-            return;
-        }
-        
-        if ( useLock && pthread_mutex_lock ( &environsLogMutex ) ) {
-            printf ( "COutLog: ERROR ---> Failed to lock mutex." );
-            return;
-        }
-        
+	{
+		if ( length <= 0 ) {
+			length = ( int ) strlen ( msg );
+			//printf ( "COutLog: Length [%i].", length );
+
+			if ( length <= 0 ) {
+				printf ( "COutLog: ERROR ---> Invalid length [%i].", length );
+				return;
+			}
+		}
+
+		bool locked = false;
+
+		if ( useLock && log.alive ) {
+			if ( pthread_mutex_lock ( &environsLogMutex ) ) {
+				printf ( "COutLog: ERROR ---> Failed to lock mutex." );
+				return;
+			}
+			else
+				locked = true;
+		}
+
+#ifndef NDEBUG
+		if ( msg ) {
+			int len = sprintf_s ( log.buffer LOGPOSADD, LOGBUFFEREMAIN - 1, "%s", msg );
+
+			LOGPOS += len;
+		}
+
+		INTEROPTIMEVAL now = 0;
+
+		// Output if min output size has been exceeded or 500ms has passed since last output
+		if ( log.length < ENVIRONS_LOGBUFFER_OUTPUT_MINSIZE && ( ( now = GetEnvironsTickCount () ) - log.lastPrint ) < ENVIRONS_LOGBUFFER_OUTPUT_AX_MS ) 
+		{
+			if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
+				printf ( "COutLog: ERROR ---> Failed to unlock mutex." );
+			}
+			return;
+		}
+
+		if ( !now )
+			now = GetEnvironsTickCount ();
+#endif
         if ( native.useLogFile ) {
             if ( environsLogFileHandle || OpenLog () ) {
-                fwrite ( msg, 1, length, environsLogFileHandle );
+                fwrite ( LOG_OUT_BUFFER_NAME, 1, LOG_OUT_BUFFER_NAME_LENGTH, environsLogFileHandle );
             }
         }
         
 #ifdef _WIN32
-        OutputDebugStringA ( msg );
+        OutputDebugStringA ( LOG_OUT_BUFFER_NAME );
 #endif // -> end-_WIN32
         
         
 #ifdef ANDROID
-        __android_log_print ( tag,	ENVIRONS_LOG_TAG_ID, "%s", msg );
+        __android_log_print ( tag,	ENVIRONS_LOG_TAG_ID, "%s", LOG_OUT_BUFFER_NAME );
 #endif  // -> end-_ANDROID
         
         
 #if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
         
-        printf ( "%s", msg );
+        printf ( "%s", LOG_OUT_BUFFER_NAME );
         
 #endif  // -> end-_ANDROID
         
@@ -189,15 +330,16 @@ namespace environs
                     break;
                 
                 if ( env->callbacks.doOnStatusMessage )
-                    env->callbacks.OnStatusMessage ( i, msg );
+                    env->callbacks.OnStatusMessage ( i, LOG_OUT_BUFFER_NAME );
             }
         }
-        
-        if ( useLock ) {
-            if ( pthread_mutex_unlock ( &environsLogMutex ) ) {
-                printf ( "COutLog: ERROR ---> Failed to unlock mutex." );
-            }
-        }
+
+#ifndef NDEBUG
+		log.lastPrint = now; log.length = 0;
+#endif
+		if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
+			printf ( "COutLog: ERROR ---> Failed to unlock mutex." );
+		}
     }
     
     
@@ -207,25 +349,33 @@ namespace environs
     void COutArgLog ( const char * format, ... )
 #endif
     {
-        char buffer [1024];
         va_list marker;
-        
-        if ( pthread_mutex_lock ( &environsLogMutex ) ) {
-            printf ( "COutArgLog: ERROR ---> Failed to lock mutex." );
-            return;
+
+		bool locked = false;
+
+		if ( log.alive ) {
+			if ( pthread_mutex_lock ( &environsLogMutex ) ) {
+				printf ( "COutArgLog: ERROR ---> Failed to lock mutex." );
+				return;
+			}
+			locked = true;
         }
         
         va_start ( marker, format );
-        int len = (int) vsnprintf ( buffer, 1024, format, marker );
-        
+        int length = (int) vsnprintf ( log.buffer LOGPOSADD, LOGBUFFEREMAIN - 1, format, marker );
+
+#ifndef NDEBUG
+		LOGPOS += length;
+#endif
+
 #ifdef ANDROID
-        COutLog ( tag, buffer, len, false );
+		COutLog ( tag, LOG_OUT_BUFFER_NAME_ARG_CALL, LOG_OUT_BUFFER_NAME_LENGTH, false );
 #else
-        COutLog ( buffer, len, false );
+		COutLog ( LOG_OUT_BUFFER_NAME_ARG_CALL, LOG_OUT_BUFFER_NAME_LENGTH, false );
 #endif
         va_end ( marker );
         
-        if ( pthread_mutex_unlock ( &environsLogMutex ) ) {
+        if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
             printf ( "COutArgLog: ERROR ---> Failed to unlock mutex." );
         }
     }

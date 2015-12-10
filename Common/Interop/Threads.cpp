@@ -23,6 +23,11 @@
 #ifndef NDEBUG
 //#   define DEBUGVERB
 //#   define DEBUGVERBVerb
+//#   define DEBUGVERBLocks
+#endif
+
+#if ( !defined(NDEBUG) )
+#	define	USE_LOCK_LOG
 #endif
 
 #include "./Threads.h"
@@ -70,7 +75,26 @@
 #	endif
 #	define CWarnArg(msg,...) printf(msg,__VA_ARGS__)
 
+#	ifdef DEBUGVERBLocks
+#		ifdef CVerbLockArg
+#			undef CVerbLockArg
+#		endif
+#		define CVerbLockArg(msg,...) printf(msg,__VA_ARGS__)
+#	else
+#		ifdef CVerbLockArg
+#			undef CVerbLockArg
+#		endif
+#		define CVerbLockArg(msg,...)
+#	endif
 #endif
+
+#ifndef DEBUGVERBLocks
+#	ifdef CVerbLockArg
+#		undef CVerbLockArg
+#	endif
+#	define CVerbLockArg(msg,...)
+#endif
+
 
 #ifdef USE_PTHREADS_FOR_WINDOWS
 #   pragma comment ( lib, "pthreadVC2.lib" )
@@ -391,18 +415,98 @@ namespace environs
 		}
 #endif
 		return true;
-	}
+    }
+    
 
+	/**
+	*	Dispose a thread and reset the threadID variable afterwards.
+	*	Make sure that the thread has not bee detached before.
+	*	Reset the thread variable stored in threadID on success.
+	*
+	*/
+    void DisposeThread ( pthread_t &threadID, const char * threadName )
+    {
+        CVerb ( "DisposeThread" );
+        
+         pthread_t thrd = threadID;
+         
+         pthread_reset ( threadID );
+        
+        
+        if ( !pthread_valid ( thrd ) ) {
+            CVerb ( "DisposeThread: Thread is already closed." );
+            return;
+        }
+        
+        CLogArg ( "Waiting for %s ...", threadName );
+        
+#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
+        
+        //DWORD dw = WaitForSingleObject ( thrd, WAIT_TIME_FOR_THREAD_CLOSING );
+        DWORD dw = WaitForSingleObject ( thrd, INFINITE );
+        if ( dw == WAIT_OBJECT_0 || dw != WAIT_TIMEOUT ) {
+            CloseHandle ( thrd );
+        }
+        else {
+            CErrArg ( "DisposeThread: Waiting for %s thread TIMED OUT!", threadName );
+            if ( TerminateThread ( thrd, 0 ) ) {
+                CWarnArg ( "DisposeThread: Terminated %s thread.", threadName );
+            }
+            else {
+                CErrArg ( "DisposeThread: Failed to terminate %s thread!", threadName );
+            }
+        }
+#else
+        pthread_join ( thrd, NULL );
+        //pthread_kill ( thrd, SIGUSR1 );
+        //pthread_detach_handle ( thrd );
+#endif
+    }
+    
 
-	void DisposeThread ( pthread_t &threadID, const char * threadName )
+	/**
+	*	Detach a thread and reset the threadID variable afterwards.
+	*	Make sure that the thread has not bee detached before.
+	*	Reset the thread variable stored in threadID on success.
+	*
+	*/
+    void DetachThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName )
+    {
+        CVerb ( "DetachThread" );
+        
+        if ( ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE )
+            return;
+        
+        if ( !pthread_valid ( threadID ) ) {
+            CVerb ( "DetachThread: Thread is already detached." );
+            return;
+        }
+        
+        pthread_detach_handle ( threadID );
+        
+        pthread_reset ( threadID );
+    }
+    
+
+	/**
+	*	Dispose a thread and reset the threadID variable afterwards.
+	*	Make sure that the thread has not bee detached before.
+	*	Reset the thread variable stored in threadID on success.
+	*
+	*/
+	void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName )
 	{
 		CVerb ( "DisposeThread" );
 
+        if ( ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE )
+            return;
+        /*
 		pthread_t thrd = threadID;
 
 		pthread_reset ( threadID );
+        */
 
-		if ( !pthread_valid ( thrd ) ) {
+		if ( !pthread_valid ( threadID ) ) {
 			CVerb ( "DisposeThread: Thread is already closed." );
 			return;
 		}
@@ -412,13 +516,13 @@ namespace environs
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
 
 		//DWORD dw = WaitForSingleObject ( thrd, WAIT_TIME_FOR_THREAD_CLOSING );
-		DWORD dw = WaitForSingleObject ( thrd, INFINITE );
+		DWORD dw = WaitForSingleObject ( threadID, INFINITE );
 		if ( dw == WAIT_OBJECT_0 || dw != WAIT_TIMEOUT ) {
-			CloseHandle ( thrd );
+			CloseHandle ( threadID );
 		}
 		else {
 			CErrArg ( "DisposeThread: Waiting for %s thread TIMED OUT!", threadName );
-			if ( TerminateThread ( thrd, 0 ) ) {
+			if ( TerminateThread ( threadID, 0 ) ) {
 				CWarnArg ( "DisposeThread: Terminated %s thread.", threadName );
 			}
 			else {
@@ -426,14 +530,21 @@ namespace environs
 			}
 		}
 #else
-		pthread_join ( thrd, NULL );
+        pthread_join ( threadID, NULL );
+        //pthread_join ( thrd, NULL );
 		//pthread_kill ( thrd, SIGUSR1 );
 		//pthread_detach_handle ( thrd );
 #endif
 	}
 
 
-	void DisposeThread ( pthread_t &threadID, const char * threadName, pthread_cond_t &threadEvent )
+	/**
+	*	Dispose a thread and reset the threadID variable afterwards.
+	*	Make sure that the thread has not bee detached before.
+	*	Reset the thread variable stored in threadID on success.
+	*
+	*/
+	void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName, pthread_cond_t &threadEvent )
 	{
 		if ( !pthread_valid ( threadID ) ) {
 			CVerb ( "DisposeThread: Thread is already closed." );
@@ -449,93 +560,284 @@ namespace environs
 			pthread_cond_signal ( &threadEvent );
 #endif
 		}
-		DisposeThread ( threadID, threadName );
-	}
+		DisposeThread ( threadState, threadID, threadName );
+    }
+    
+	
+	/**
+	*	Dispose a thread and reset the threadID variable afterwards. 
+	*	Make sure that the thread has not bee detached before.
+	*	Reset the thread variable stored in threadID on success.
+	*
+	*/
+    void DisposeThread ( pthread_t &threadID, const char * threadName, pthread_cond_t &threadEvent )
+    {
+        if ( !pthread_valid ( threadID ) ) {
+            CVerb ( "DisposeThread: Thread is already closed." );
+            return;
+        }
+        
+        if ( pthread_cond_valid ( threadEvent ) ) {
+            CVerbArg ( "DisposeThread: Signaling %s thread...", threadName );
+            
+#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
+            SetEvent ( threadEvent );
+#else
+            pthread_cond_signal ( &threadEvent );
+#endif
+        }
+        DisposeThread ( threadID, threadName );
+    }
 
 #ifdef _WIN32
 #pragma warning( pop )
 #endif
-    
+
+
+	/**
+	*	Initialize a condition variable and return success as bool.
+	*
+	*	@return success
+	*/
+#ifdef USE_LOCK_LOG
     bool CondInitBool ( pthread_cond_t * cond, const char * name ) {
+#else
+	bool CondInitBool ( pthread_cond_t * cond )
+	{
+#endif
         if ( !cond ) {
-            CErrArg ( "CondInitBool: Invalid cond object for [%s]", name ? name : "Unknown" );
+#ifdef USE_LOCK_LOG
+            CErrArg ( "CondInitBool: Invalid cond object for [ %s ]", name ? name : "Unknown" );
+#else
+#	ifndef CLI_CPP
+			CErrN ( "CondInitBool: Invalid cond object" );
+#	endif
+#endif
             return false;
         }
         
         memset ( cond, 0, sizeof ( pthread_cond_t ) );
         
         if ( pthread_cond_init ( cond, NULL ) ) {
-            CErrArg ( "CondInitBool: Failed to init [%s]", name ? name : "Unknown" );
-            return false;
-        }
-        return true;
-    }
-    
-    bool CondDisposeBool ( pthread_cond_t * cond, const char * name ) {
-        if ( !cond || pthread_cond_destroy ( cond ) ) {
-            CErrArg ( "CondDisposeBool: Failed to destroy [%s]", name ? name : "Unknown" );
+#ifdef USE_LOCK_LOG
+			CErrArg ( "CondInitBool: Failed to init [ %s ]", name ? name : "Unknown" );
+#else
+#	ifndef CLI_CPP
+			CErrN ( "CondInitBool: Failed to init" );
+#	endif
+#endif
             return false;
         }
         return true;
     }
 
-    
-	bool MutexInitBool ( pthread_mutex_t * mtx, const char * name ) {
+
+	/**
+	*	Dispose a condition variable and return success as bool.
+	*
+	*	@return success
+	*/
+#ifdef USE_LOCK_LOG
+    bool CondDisposeBool ( pthread_cond_t * cond, const char * name ) {
+#else
+	bool CondDisposeBool ( pthread_cond_t * cond )
+	{
+#endif
+        if ( !cond || pthread_cond_destroy ( cond ) ) {
+#ifdef USE_LOCK_LOG
+            CErrArg ( "CondDisposeBool: Failed to destroy [ %s ]", name ? name : "Unknown" );
+#else
+#	ifndef CLI_CPP
+			CErrN ( "CondDisposeBool: Failed to destroy" );
+#	endif
+#endif
+            return false;
+        }
+        return true;
+    }
+
+
+	/**
+	*	Initialize a mutex and return success as bool.
+	*
+	*	@return success
+	*/
+#ifdef USE_LOCK_LOG
+	bool MutexInitBool ( pthread_mutex_t * mtx, const char * name )
+	{
+#else
+	bool MutexInitBool ( pthread_mutex_t * mtx ) {
+#endif
 		if ( !mtx ) {
-			CErrArg ( "MutexInit: Invalid mutex object for [%s]", name ? name : "Unknown" );
+#ifdef USE_LOCK_LOG
+			CErrArg ( "MutexInit: Invalid mutex object for [ %s ]", name ? name : "Unknown" );
+#else
+#	ifndef CLI_CPP
+			CErrN ( "MutexInit: Invalid mutex object" );
+#	endif
+#endif
 			return false;
 		}
 
 		memset ( mtx, 0, sizeof ( pthread_mutex_t ) );
 
 		if ( pthread_mutex_init ( mtx, NULL ) ) {
-			CErrArg ( "MutexInit: Failed to init [%s]", name ? name : "Unknown" );
+#ifdef USE_LOCK_LOG
+			CErrArg ( "MutexInit: Failed to init [ %s ]", name ? name : "Unknown" );
+#else
+#	ifndef CLI_CPP
+			CErrN ( "MutexInit: Failed to init" );
+#	endif
+#endif
 			return false;
 		}
 		return true;
 	}
 
+
+	/**
+	*	Dispose a mutex and return success as bool.
+	*
+	*	@return success
+	*/
+#ifdef USE_LOCK_LOG
 	bool MutexDisposeBool ( pthread_mutex_t * mtx, const char * name ) {
+#else
+	bool MutexDisposeBool ( pthread_mutex_t * mtx )
+	{
+#endif
 		if ( !mtx || pthread_mutex_destroy ( mtx ) ) {
-			CErrArg ( "MutexDispose: Failed to destroy [%s]", name ? name : "Unknown" );
+#ifdef USE_LOCK_LOG
+			CErrArg ( "MutexDispose: Failed to destroy [ %s ]", name ? name : "Unknown" );
+#else
+#	ifndef CLI_CPP
+			CErrN ( "MutexDispose: Failed to destroy" );
+#	endif
+#endif
 			return false;
 		}
 		return true;
 	}
+
+
+	/**
+	*	Log lock error message.
+	*
+	*/
+#ifdef USE_LOCK_LOG
+	void MutexErrorLog ( const char * operation, const char * mutexName, const char * className, const char * funcName ) {
+		CErrArg ( "%s.%s: Failed to %s [ %s ]", className ? className : "Unknown", funcName ? funcName : "Unknown", mutexName ? mutexName : "Unknown", operation );
+	}
+#else
+	void MutexErrorLog ( const char * operation )
+	{
+#	ifndef CLI_CPP
+		CErrArg ( "MutexErrorLog: Failed to %s ", operation  );
+#	endif
+	}
+#endif
 
 #undef CLASS_NAME
 #define CLASS_NAME	""
 
-	void MutexErrorLog ( const char * operation, const char * mutexName, const char * className, const char * funcName ) {
-		CErrArg ( "%s.%s: Failed to %s [%s]", operation, className ? className : "Unknown", funcName ? funcName : "Unknown", mutexName ? mutexName : "Unknown" );
-	}
 
-
-	void MutexLockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+	/**
+	*	Release lock on mutex.
+	*
+	*/
+#ifdef USE_LOCK_LOG
+	void MutexLockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
+	{
+		CVerbLockArg ( "        -------> Lock   [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+#else
+	void MutexLockVoid ( pthread_mutex_t * mtx )
+	{
+#endif
 		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
-			MutexErrorLog ( "lock", mutexName, className, funcName );
-		}
+#ifdef USE_LOCK_LOG
+			MutexErrorLog ( "lock", className, funcName, mutexName );
+            return;
+#else
+			MutexErrorLog ( "lock" );
+#endif
+        }
+#ifdef USE_LOCK_LOG
+        CVerbLockArg ( "        -------> Locked [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+#endif
 	}
 
-	void MutexUnlockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+
+	/**
+	*	Acquire lock on mutex.
+	*
+	*/
+#ifdef USE_LOCK_LOG
+	void MutexUnlockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
+    {
+        CVerbLockArg ( "       <------   Unlock [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+#else
+	void MutexUnlockVoid ( pthread_mutex_t * mtx )
+	{
+#endif
 		if ( !mtx || pthread_mutex_unlock ( mtx ) ) {
-			MutexErrorLog ( "unlock", mutexName, className, funcName );
+#ifdef USE_LOCK_LOG
+			MutexErrorLog ( "unlock", className, funcName, mutexName );
+#else
+			MutexErrorLog ( "unlock" );
+#endif
 		}
 	}
 
-	bool MutexLockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+
+	/**
+	*	Release lock on mutex and return success as bool.
+	*
+	*	@return success
+	*/
+#ifdef USE_LOCK_LOG
+	bool MutexLockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
+	{
+        CVerbLockArg ( "        -------> Lock   [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+#else
+	bool MutexLockBool ( pthread_mutex_t * mtx )
+	{
+#endif
 		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
-			MutexErrorLog ( "lock", mutexName, className, funcName );
+#ifdef USE_LOCK_LOG
+			MutexErrorLog ( "lock", className, funcName, mutexName );
+#else
+			MutexErrorLog ( "lock" );
+#endif
 			return false;
-		}
+        }
+#ifdef USE_LOCK_LOG
+        CVerbLockArg ( "        -------> Locked [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+#endif
 		return true;
 	}
 
-	bool MutexUnlockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) {
+
+	/**
+	*	Acquire lock on mutex and return success as bool.
+	*
+	*	@return success
+	*/
+#ifdef USE_LOCK_LOG
+	bool MutexUnlockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
+	{
+        CVerbLockArg ( "       <------   Unlock [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+#else
+	bool MutexUnlockBool ( pthread_mutex_t * mtx )
+	{
+#endif
 		if ( !mtx || pthread_mutex_unlock ( mtx ) ) {
-			MutexErrorLog ( "unlock", mutexName, className, funcName );
+#ifdef USE_LOCK_LOG
+			MutexErrorLog ( "unlock", className, funcName, mutexName );
+#else
+			MutexErrorLog ( "unlock" );
+#endif
 			return false;
-		}
+        }
 		return true;
 	}
 

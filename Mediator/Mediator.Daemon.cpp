@@ -461,9 +461,9 @@ bool MediatorDaemon::InitMediator ()
 
         allocated = true;
         
-        strcpy_s ( anonymousUser, sizeof(anonymousUser) - 1, MEDIATOR_ANONYMOUS_USER );
+        strlcpy ( anonymousUser, MEDIATOR_ANONYMOUS_USER, sizeof ( anonymousUser ) );
             
-        strcpy_s ( anonymousPassword, sizeof(anonymousPassword) - 1, MEDIATOR_ANONYMOUS_PASSWORD );
+		strlcpy ( anonymousPassword, MEDIATOR_ANONYMOUS_PASSWORD, sizeof ( anonymousPassword ) );
 	}
 
 	return true;
@@ -593,7 +593,7 @@ bool MediatorDaemon::LoadConfig ()
                 CLogArg ( "LoadConfig: Invalid config line: %s", str );
             }
             else {
-                strcpy_s ( anonymousUser, sizeof(anonymousUser) - 1, svalue.c_str() );
+				strlcpy ( anonymousUser, svalue.c_str(), sizeof ( anonymousUser ) );
             }
         }
         else if ( str [ 0 ] == 'A' && str [ 1 ] == 'P' && str [ 2 ] == ':' ) {
@@ -601,7 +601,7 @@ bool MediatorDaemon::LoadConfig ()
                 CLogArg ( "LoadConfig: Invalid config line: %s", str );
             }
             else {
-                strcpy_s ( anonymousPassword, sizeof(anonymousPassword) - 1, svalue.c_str() );
+				strlcpy ( anonymousPassword, svalue.c_str(), sizeof ( anonymousPassword ) );
             }
         }
         else if ( str [ 0 ] == 'C' && str [ 1 ] == ':' ) {
@@ -3159,9 +3159,9 @@ void * MediatorDaemon::Acceptor ( void * arg )
 	}	
 	CVerbArg ( "Acceptor bound to port [%i]", port );
 
-	//ret = listen ( (int) listener->socket, SOMAXCONN );
+	ret = listen ( (int) listener->socket, SOMAXCONN );
 	//ret = listen ( listener->socket, 1024 );
-	ret = listen ( listener->socket, 128 );
+	//ret = listen ( listener->socket, 128 );
 	if ( ret < 0 ) {
 		CErrArg ( "Acceptor: Failed to listen on socket to port [%i]!", port );
 		LogSocketError ();
@@ -3217,7 +3217,7 @@ void * MediatorDaemon::Acceptor ( void * arg )
 
 		memcpy ( &client->addr, &addr, sizeof(addr) );
         
-        strcpy_s ( client->ips, sizeof(client->ips) - 1, ips );
+		strlcpy ( client->ips, ips, sizeof ( client->ips ) );
         
 		if ( !acceptClients.Lock ( "Acceptor" ) )
 			goto NextClient;
@@ -4348,9 +4348,9 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	shortMsg->deviceID = deviceID;
     if ( sourceDevice ) {
         if ( *sourceDevice->info.areaName )
-            strcpy_s ( shortMsg->areaName, sizeof(shortMsg->areaName) - 1, sourceDevice->info.areaName );
+			strlcpy ( shortMsg->areaName, sourceDevice->info.areaName, sizeof ( shortMsg->areaName ) );
         if ( *sourceDevice->info.appName )
-            strcpy_s ( shortMsg->appName, sizeof(shortMsg->appName) - 1, sourceDevice->info.appName );
+			strlcpy ( shortMsg->appName, sourceDevice->info.appName, sizeof ( shortMsg->appName ) );
     }
         
 	CLogArgID ( "HandleShortMessage: send message to device [%u] IP [%u bytes -> %s]", destID, length, inet_ntoa ( destClient->addr.sin_addr ) );
@@ -5061,8 +5061,8 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, int source
 		request.Porti = deviceSP->info.udpPort;
 	}
 
-	strcpy_s ( request.areaName, sizeof ( request.areaName ) - 1, areaName );
-	strcpy_s ( request.appName, sizeof ( request.appName ) - 1, appName );
+	strlcpy ( request.areaName, areaName, sizeof ( request.areaName ) );
+	strlcpy ( request.appName, appName, sizeof ( request.appName ) );
 
 	CLogArg ( "[0x%X].HandleSTUNRequest: Send STUN request to device IP [%s] Port [%u/%u]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ), Porte, request.Porti );
 
@@ -5236,8 +5236,8 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
     response.porti = sourceDevice->info.tcpPort;
     response.porte = portSource;
 
-    strcpy_s ( response.areaName, sizeof(response.areaName) - 1, sourceDevice->info.areaName );
-    strcpy_s ( response.appName, sizeof(response.appName) - 1, sourceDevice->info.appName );
+	strlcpy ( response.areaName, sourceDevice->info.areaName, sizeof ( response.areaName ) );
+	strlcpy ( response.appName, sourceDevice->info.appName, sizeof ( response.appName ) );
 	
 	CLogArgID ( "STUNTRequest: Send request to device IP [%s], port [%d]", inet_ntoa ( destClient->addr.sin_addr ), portSource );
 	
@@ -5317,7 +5317,7 @@ void MediatorDaemon::BuildBroadcastMessage ( )
 	CVerb ( "buildBroadcastMessage" );
 
 	// Format E.Mediator port1 port2 ...
-	strncpy_s ( broadcastMessage + 4, MEDIATOR_BROADCAST_DESC_START, MEDIATOR_BROADCAST, MEDIATOR_BROADCAST_DESC_START );
+	strlcpy ( broadcastMessage + 4, MEDIATOR_BROADCAST, MEDIATOR_BROADCAST_DESC_START );
 	
 	broadcastMessageLen = 16;
 
@@ -5519,7 +5519,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	keyCat = keyBuffer + strlen ( keyBuffer );
 	
 	// ip in register message
-	strcat_s ( keyCat, 100, "ip" );
+	strlcat ( keyCat, "ip", 100 );
 
 	value = inet_ntoa ( *((struct in_addr *) &device->info.ip) );
 
@@ -5529,7 +5529,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	
 	// extern ip
 	*keyCat = 0;
-	strcat_s ( keyCat, 100, "ipe" );
+	strlcat ( keyCat, "ipe", 100 );
 
 	value = inet_ntoa ( *((struct in_addr *) &ip) );
 
@@ -5539,7 +5539,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	
 	// tcp port
 	*keyCat = 0;
-	strcat_s ( keyCat, 100, "cport" );
+	strlcat ( keyCat, "cport", 100 );
 	sprintf_s ( valueBuffer, 128, "%u", device->info.tcpPort );
 
 	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
@@ -5548,7 +5548,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	
 	// udp port
 	*keyCat = 0;
-	strcat_s ( keyCat, 100, "dport" );
+	strlcat ( keyCat, "dport", 100 );
 	sprintf_s ( valueBuffer, 128, "%u", device->info.udpPort );
 
 	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
@@ -5557,7 +5557,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	
 	// device type
 	*keyCat = 0;
-	strcat_s ( keyCat, 100, "type" );
+	strlcat ( keyCat, "type", 100 );
 	sprintf_s ( valueBuffer, 128, "%i", device->info.platform );
 
 	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
@@ -5566,7 +5566,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	
 	// device name
 	*keyCat = 0;
-	strcat_s ( keyCat, 100, "name" );
+	strlcat ( keyCat, "name", 100 );
 
 	if ( !addToArea ( values, keyBuffer, device->info.deviceName, (unsigned int) strlen ( device->info.deviceName ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
@@ -5693,7 +5693,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( sp ( ThreadInstance ) clientSP, 
         
         CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tUsing lowercase uid [%s].", client->ips, suid.c_str () );
 
-		strcpy_s ( client->uid, sizeof(client->uid) - 1, suid.c_str () );
+		strlcpy ( client->uid, suid.c_str (), sizeof ( client->uid ) );
         
 		if ( deviceMappings.Lock ( "HandleDeviceRegistration" ) )
 		{			
@@ -6504,8 +6504,8 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
     const char * appName = device->info.appName;
 
 	if ( *areaName && *appName > 0 ) {
-		strcpy_s ( msg.areaName, sizeof ( msg.areaName ) - 1, areaName );
-		strcpy_s ( msg.appName, sizeof ( msg.appName ) - 1, appName );
+		strlcpy ( msg.areaName, areaName, sizeof ( msg.areaName ) );
+		strlcpy ( msg.appName, appName, sizeof ( msg.appName ) );
 		sendSize = sizeof ( MediatorNotify );
 	}
 	else sendSize = sizeof ( MediatorMsg );
@@ -6661,7 +6661,7 @@ void MediatorDaemon::WatchdogThread ()
 	ThreadInstance		*	client				= 0;
 	const unsigned int		checkDuration		= 1000 * 60 * 2; // 2 min. (in ms)
     const unsigned int      maxTimeout			= checkDuration * 3;
-	const unsigned int		logRollDurationMin	= 1000 * 60 * 10; // 2 min. (in ms)
+	const unsigned int		logRollDurationMin	= 1000 * 60 * 20; // 2 min. (in ms)
 	INTEROPTIMEVAL			timeLogRollLast		= 0;
 
     
@@ -6713,8 +6713,8 @@ void MediatorDaemon::WatchdogThread ()
                     
                     CloseThreadSocket ( &client->socket );
 #else
-                    if ( client->Lock ( "Watchdog" ) )
-                    {
+                    /*if ( client->Lock ( "Watchdog" ) )
+                    {*/
                         sock = client->spareSocket;
                         if ( sock != -1 ) {
                             client->spareSocket = -1;
@@ -6730,8 +6730,8 @@ void MediatorDaemon::WatchdogThread ()
                             shutdown ( sock, 2 );
                             closesocket ( sock );
                         }
-                        client->Unlock ( "Watchdog" );
-                    }
+                        //client->Unlock ( "Watchdog" );
+                    //}
 #endif
 				}
 				else
@@ -6778,7 +6778,7 @@ void MediatorDaemon::WatchdogThread ()
 		if ( !acceptClients.Unlock ( "Watchdog" ) ) break;
         
         
-        for ( size_t i = 0; i < tmpClients.size(); )
+        for ( size_t i = 0; i < tmpClients.size(); ++i )
         {
             clientSP = tmpClients [i];
             if ( clientSP )
@@ -7146,7 +7146,7 @@ bool MediatorDaemon::OpenLog ()
 		goto Finish;
 	}
 	
-	if ( GetSizeOfFile ( LOGFILE )  >= 100 * 1024 * 1024 ) 
+	if ( GetSizeOfFile ( LOGFILE )  >= 300 * 1024 * 1024 ) 
 	{
 		// Find next available
 		int i = 0;

@@ -208,18 +208,10 @@
 #	define vsnprintf_s(dest,destSize,maxChar,format,vlist)		vsnprintf ( dest, destSize, format, vlist )
 #	define sprintf_s(...)					snprintf(__VA_ARGS__)
 #	define sscanf_s(...)					sscanf(__VA_ARGS__)
-#	define strncpy_s(dest,size,source,maxs)	strncpy(dest,source,size)
 #	define strtok_s(buf,delim,context)		strtok_r(buf,delim,context)
 #	define localtime_s(a,b)					localtime_r(b,a)
 #	define Sleep(ms)						usleep(ms * 1000)
 
-#	ifdef XCODE
-#		define strcpy_s(dest,size,source)	strlcpy(dest,source,size)
-#		define strcat_s(dest,size,source)	strlcat(dest,source,size)
-#	else
-#		define strcpy_s(dest,size,source)	strcpy(dest,source)
-#		define strcat_s(dest,size,source)	strcat(dest,source)
-#	endif
 #	endif // _WIN32   
 
 
@@ -347,7 +339,7 @@
 #	define CVString_ptr						const void *
 #	define CString_length(l)				strlen ( l )
 #	define CString_compare(l,r,s)			strncmp ( l, r, s )	
-#	define CString_copy(l,s,r)				strcpy_s ( l, s, r )	
+#	define CString_copy(l,s,r)				strlcpy ( l, r, s )	
 #	define CString_get_cstr(s)				s.c_str ()
 
 #	define STRING_T							std::string

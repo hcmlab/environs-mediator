@@ -53,16 +53,22 @@ namespace environs
     
     extern bool CreateDataDirectory ( char * dir );
 	extern void CreateCopyString ( const char * src, char ** dest );
-    
-#ifndef _WIN32
-#   ifndef ANDROID
-#       ifndef __APPLE__
-			size_t strlcpy ( char *d, char const *s, size_t n );
-#       endif
-    // <- Linux/iOS includes
-#   endif
-    // <- POSIX includes
+
+#if ( !defined(__APPLE__) && (defined(_WIN32) || defined(LINUX)) )
+	size_t strlcpy ( char *d, char const *s, size_t n );
+
+	size_t strlcat ( char *d, char const *s, size_t n );
 #endif
+
+//#ifndef _WIN32
+//#   ifndef ANDROID
+//#       ifndef __APPLE__
+//			size_t strlcpy ( char *d, char const *s, size_t n );
+//#       endif
+//    // <- Linux/iOS includes
+//#   endif
+//    // <- POSIX includes
+//#endif
 }
 
 

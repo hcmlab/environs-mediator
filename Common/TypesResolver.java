@@ -66,6 +66,12 @@ public class TypesResolver extends environs.Types
 				return "ENVIRONS_MAX_ENVIRONS_INSTANCES";
 			case ( -1 ):
 				return "ENVIRONS_DISPLAY_UNINITIALIZED_VALUE";
+			case ( 0 ):
+				return "ENVIRONS_THREAD_NO_THREAD";
+			case ( 1 ):
+				return "ENVIRONS_THREAD_DETACHEABLE";
+			case ( 2 ):
+				return "ENVIRONS_THREAD_RUNNING";
 		} /// -> switch
 
 
@@ -911,6 +917,10 @@ public class TypesResolver extends environs.Types
 				return "DEVICE_ACTIVITY_REQUESTOR";
 			case ( 0x200 ):
 				return "DEVICE_ACTIVITY_RESPONDER";
+			case ( 0x8000 ):
+				return "DEVICE_ACTIVITY_LISTENER_CLOSED";
+			case ( 0x1000 ):
+				return "DEVICE_ACTIVITY_PLATFORM_DISPOSED";
 		} /// -> switch
 		if ( constToResolve == ( 65535 ) )
 			return "MEDIATOR_BUFFER_SIZE_MAX";

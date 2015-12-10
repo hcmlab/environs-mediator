@@ -428,9 +428,12 @@ namespace environs
 	* POSIX Semaphore extensions for Environs.
 	*/
 	extern bool env_sem_create ( sem_tp * sem, int iniVal, const char * name, unsigned int name1, int name2, int name3 );
+    
+    extern void DisposeThread ( pthread_t &threadID, const char * threadName );
 
-
-	extern void DisposeThread ( pthread_t &threadID, const char * threadName );
+    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName );
+    
+    extern void DetachThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName );
 #	endif
 
 #endif
@@ -460,6 +463,41 @@ namespace environs
 #	define CondDisposeA(m)			(m = NULL_ptr)
 #else
 
+#ifdef NDEBUG
+#	define MutexInit(m)			MutexInitBool(m)
+#	define MutexInitA(m)		MutexInitBool(&m)
+	extern bool MutexInitBool ( pthread_mutex_t OBJ_ptr mtx );
+
+#	define MutexDispose(m)		MutexDisposeBool(m)
+#	define MutexDisposeA(m)		MutexDisposeBool(&m)
+	extern bool MutexDisposeBool ( pthread_mutex_t OBJ_ptr mtx );
+
+#	define MutexLockV(m,f)		MutexLockVoid(m)
+#	define MutexLockVA(m,f)		MutexLockVoid(&m)
+	extern void MutexLockVoid ( pthread_mutex_t OBJ_ptr mtx );
+
+#	define MutexUnlockV(m,f)	MutexUnlockVoid(m)
+#	define MutexUnlockVA(m,f)	MutexUnlockVoid(&m)
+	extern void MutexUnlockVoid ( pthread_mutex_t OBJ_ptr mtx );
+
+#	define MutexLock(m,f)		MutexLockBool(m)
+#	define MutexLockA(m,f)		MutexLockBool(&m)
+	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx );
+
+#	define MutexUnlock(m,f)		MutexUnlockBool(m)
+#	define MutexUnlockA(m,f)	MutexUnlockBool(&m)
+	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx );
+
+
+#	define CondInit(m)			CondInitBool(m)
+#	define CondInitA(m)			CondInitBool(&m)
+	extern bool CondInitBool ( pthread_cond_t * mtx );
+
+#	define CondDispose(m)		CondDisposeBool(m)
+#	define CondDisposeA(m)		CondDisposeBool(&m)
+	extern bool CondDisposeBool ( pthread_cond_t * mtx );
+
+#	else
 #	define MutexInit(m)			MutexInitBool(m,#m)
 #	define MutexInitA(m)		MutexInitBool(&m,#m)
 	extern bool MutexInitBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
@@ -492,8 +530,14 @@ namespace environs
 #	define CondDispose(m)		CondDisposeBool(m,#m)
 #	define CondDisposeA(m)		CondDisposeBool(&m,#m)
 	extern bool CondDisposeBool ( pthread_cond_t * mtx, const char * name );
-#endif
+#	endif
 
+#endif
+    
+#ifndef _WIN32
+#    define	GetCurrentThreadId()	pthread_self ( )
+#endif
+ 
     
 #ifdef __cplusplus
 }

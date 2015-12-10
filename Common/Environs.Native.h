@@ -432,6 +432,7 @@ namespace environs {
 #define CErrArgIDN(msg,...)							ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg), nativeID, __VA_ARGS__ )
 
 #define CVerbLock(msg)								ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOCK_PREFIX,	msg ) )
+#define CVerbLockArg(msg,...)						ENVIRONS_VERBRG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
 #define CVerbUnLock(msg)							ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_UNLOCK_PREFIX, msg ) )
 
 #define CVerbLockPortalRecRes(msg)					ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOCK_PREFIX,	msg ": resourcesMutex" ) )

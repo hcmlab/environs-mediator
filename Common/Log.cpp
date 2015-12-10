@@ -36,6 +36,10 @@
 #	include "Core/Callbacks.h"
 #endif
 
+#ifndef NDEBUG
+//#define ENABLE_BUFFERING
+#endif
+
 #include "Environs.Utils.h"
 #include "Environs.Native.h"
 #include "Interop/Threads.h"
@@ -58,7 +62,7 @@ namespace environs
 	FILE            *   environsLogFileHandle		= 0;
 	int                 environsLogFileErrCount     = 0;
 	
-#ifdef NDEBUG
+#ifndef ENABLE_BUFFERING
 #	define		LOGBUFFER
 #	define		LOGPOS		
 #	define		LOGPOSADD	
@@ -80,7 +84,7 @@ namespace environs
 
 	void env_printf ( const char * msg )
 	{
-#ifndef NDEBUG
+#ifdef ENABLE_BUFFERING
 
 #	ifdef _WIN32
 		OutputDebugStringA ( msg );
@@ -109,7 +113,7 @@ namespace environs
 
 		int				length;
 
-#ifndef NDEBUG
+#ifdef ENABLE_BUFFERING
 		INTEROPTIMEVAL	lastPrint;
 #endif
 		LogBuffer ()
@@ -121,7 +125,7 @@ namespace environs
 
 			alive = true; push = false;
 			*buffer = 0;
-#ifndef NDEBUG
+#ifdef ENABLE_BUFFERING
 			length = 0; lastPrint = 0;
 #endif
 		}
@@ -132,7 +136,7 @@ namespace environs
 
 			//native.useLogFile = false;
 
-#ifndef NDEBUG
+#ifdef ENABLE_BUFFERING
 			if ( length > 0 ) {
 				push = true;
 
@@ -279,7 +283,7 @@ namespace environs
 				locked = true;
 		}
 
-#ifndef NDEBUG
+#ifdef ENABLE_BUFFERING
 		if ( msg ) {
 			int len = sprintf_s ( log.buffer LOGPOSADD, LOGBUFFEREMAIN - 1, "%s", msg );
 
@@ -334,7 +338,7 @@ namespace environs
             }
         }
 
-#ifndef NDEBUG
+#ifdef ENABLE_BUFFERING
 		log.lastPrint = now; log.length = 0;
 #endif
 		if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
@@ -364,7 +368,7 @@ namespace environs
         va_start ( marker, format );
         int length = (int) vsnprintf ( log.buffer LOGPOSADD, LOGBUFFEREMAIN - 1, format, marker );
 
-#ifndef NDEBUG
+#ifdef ENABLE_BUFFERING
 		LOGPOS += length;
 #endif
 

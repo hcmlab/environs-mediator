@@ -22,7 +22,7 @@
 #define INCLUDE_HCM_ENVIRONS_MEDIATOR_H
 
 #ifdef MEDIATORDAEMON
-//#define USE_LOCKFREE_SOCKET_ACCESS
+#	define USE_LOCKFREE_SOCKET_ACCESS
 #endif
 
 #include "Interop/Threads.h"
@@ -421,7 +421,7 @@ namespace environs	/// Namespace: environs ->
         static void				ReleaseNetworks ( );
 
 	private:
-        static void				AddNetwork ( NetPack * &pack, unsigned int ip, unsigned int bcast, unsigned int netmask );
+        static void				AddNetwork ( unsigned int ip, unsigned int bcast, unsigned int netmask );
         static unsigned int		GetBroadcast ( unsigned int ip, unsigned int netmask );
 
 		virtual void 			DevicesHasChanged ( int type );

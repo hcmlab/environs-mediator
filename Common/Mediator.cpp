@@ -101,7 +101,6 @@ namespace environs
 	{
 		CVerb ( "Construct" );
 
-		Zero ( localNets );
 		Zero ( mediator );
 		mediator.connection.instance.socket = -1;
 		mediator.connection.instance.spareSocket = -1;
@@ -128,7 +127,7 @@ namespace environs
 
 		if ( allocated )
 		{
-			MutexLockV ( &mediatorMutex, "Destructor" );
+			MutexLockVA ( mediatorMutex, "Destructor" );
 
 			MutexDispose ( &devicesMutex );
 
@@ -140,9 +139,9 @@ namespace environs
 			nameToProjectID.clear ();
 			nameToAppID.clear ();
 
-			MutexUnlockV ( &mediatorMutex, "Destructor" );
+			MutexUnlockVA ( mediatorMutex, "Destructor" );
 
-			MutexDispose ( &mediatorMutex );
+			MutexDisposeA ( mediatorMutex );
 		}
 
 #if ( !defined(MEDIATORDAEMON) )
@@ -162,10 +161,10 @@ namespace environs
 
 		if ( !allocated )
 		{
-			if ( !MutexInit ( &mediatorMutex ) )
+			if ( !MutexInitA ( mediatorMutex ) )
 				return false;
 
-			if ( !MutexInit ( &devicesMutex ) )
+			if ( !MutexInitA ( devicesMutex ) )
 				return false;
 
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
@@ -176,7 +175,7 @@ namespace environs
 			nameToProjectID.clear ();
 			nameToAppID.clear ();
 
-			if ( !MutexInit ( &idMapMutex ) )
+			if ( !MutexInitA ( idMapMutex ) )
 				return false;
 #endif
 			allocated = true;
@@ -202,7 +201,7 @@ namespace environs
 
 		Zero ( localNets );
 
-		if ( !MutexInit ( &localNetsMutex ) )
+		if ( !MutexInitA ( localNetsMutex ) )
 			return false;
 
 		allocatedClass = true;
@@ -215,18 +214,18 @@ namespace environs
 	{
 		CVerb ( "DisposeClass" );
 
+		ReleaseNetworks ();
+
 		if ( !allocatedClass )
 			return;
 
-		ReleaseNetworks ();
-
-		MutexDispose ( &localNetsMutex );
+		MutexDisposeA ( localNetsMutex );
 	}
 
 
 	void Mediator::BroadcastByeBye ()
 	{
-		strcpy_s ( broadcastMessage + 4, sizeof ( MEDIATOR_BROADCAST_BYEBYE ), MEDIATOR_BROADCAST_BYEBYE );
+		strlcpy ( broadcastMessage + 4, MEDIATOR_BROADCAST_BYEBYE, sizeof ( MEDIATOR_BROADCAST_BYEBYE ) );
 		SendBroadcast ();
 	}
 
@@ -240,7 +239,6 @@ namespace environs
 		// Wait for each thread to terminate
 		ReleaseThreads ();
 
-		ReleaseNetworks ();
 		ReleaseMediators ();
 
 		if ( certificate )
@@ -364,7 +362,7 @@ namespace environs
 	{
 		CVerb ( "ReleaseNetworks" );
 
-		if ( !MutexLock ( &localNetsMutex, "ReleaseNetworks" ) )
+		if ( !MutexLockA ( localNetsMutex, "ReleaseNetworks" ) )
 			return;
 
 		NetPack * net = localNets.next;
@@ -377,7 +375,7 @@ namespace environs
 
 		Zero ( localNets );
 
-		MutexUnlock ( &localNetsMutex, "ReleaseNetworks" );
+		MutexUnlockA ( localNetsMutex, "ReleaseNetworks" );
 	}
 
 
@@ -419,11 +417,13 @@ namespace environs
 
 		CondDispose ( &med->connection.rec_signal );
 
-		if ( med->connection.buffer )
+		if ( med->connection.buffer ) {
 			free ( med->connection.buffer );
+			med->connection.buffer = 0;
+		}
 
 		if ( med != &mediator )
-			delete med;
+			free ( med );
 	}
 
 
@@ -455,14 +455,10 @@ namespace environs
 	{
 		CVerb ( "LoadNetworks" );
 
-		ReleaseNetworks ();
-
-		NetPack * pack = &localNets;
-
 		unsigned int	ip;
 		unsigned int	bcast;
 
-		MutexLockV ( &localNetsMutex, "LoadNetworks" );
+		MutexLockVA ( localNetsMutex, "LoadNetworks" );
 
 #ifdef _WIN32
 		char ac [ 256 ];
@@ -525,7 +521,7 @@ namespace environs
 
 			CVerbArg ( "LoadNetworks: Local BC %i: [%s]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-			AddNetwork ( pack, ip, bcast, mask );
+			AddNetwork ( ip, bcast, mask );
 		}
 
 		shutdown ( sock, 2 );
@@ -588,7 +584,7 @@ namespace environs
 			// Retrieve netmask	
 			ifr_mask.ifr_addr.sa_family = PF_INET;
 
-			strncpy ( ifr_mask.ifr_name, ifreqs [ i ].ifr_name, IFNAMSIZ - 1 );
+			strlcpy ( ifr_mask.ifr_name, ifreqs [ i ].ifr_name, IFNAMSIZ - 1 );
 
 			rval = ioctl ( sock, SIOCGIFNETMASK, &ifr_mask );
 			if ( rval < 0 ) {
@@ -606,7 +602,7 @@ namespace environs
 			CVerbArg ( "LoadNetworks: Netmask: '%s'", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 			CVerbArg ( "LoadNetworks: Broadcast: '%s'", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-			AddNetwork ( pack, ip, bcast, mask );
+			AddNetwork ( ip, bcast, mask );
 		}
 		shutdown ( sock, 2 );
 		closesocket ( sock );
@@ -658,7 +654,7 @@ namespace environs
 				CVerbArg ( "LoadNetworks: Netmask:   [%s]", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 				CVerbArg ( "LoadNetworks: Broadcast: [%s]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-				AddNetwork ( pack, ip, bcast, mask );
+				AddNetwork ( ip, bcast, mask );
 			}
 			else if ( ifa->ifa_addr->sa_family == PF_INET6 ) {
 				// We do not support IPv6 yet
@@ -676,7 +672,7 @@ namespace environs
 #endif
 
 	EndOfMethod:
-		MutexUnlockV ( &localNetsMutex, "LoadNetworks" );
+		MutexUnlockVA ( localNetsMutex, "LoadNetworks" );
 
 		return true;
 	}
@@ -693,23 +689,33 @@ namespace environs
 	}
 
 
-	void Mediator::AddNetwork ( NetPack * &pack, unsigned int ip, unsigned int bcast, unsigned int netmask )
+	void Mediator::AddNetwork ( unsigned int ip, unsigned int bcast, unsigned int netmask )
 	{
-		if ( pack->ip ) {
-			// This NetPack is already filled, create and attach a new one
-			NetPack * newPack = ( NetPack * ) malloc ( sizeof ( NetPack ) );
+		NetPack * net = &localNets;
+		NetPack * pack = net;
+
+		while ( net ) {
+			if ( net->ip == ip )
+				return;
+
+			pack = net;
+			net = net->next;
+		}
+
+		if ( localNets.ip ) {
+			// This NetPack has already been completed, create and attach a new one
+			NetPack * newPack = ( NetPack * ) calloc ( 1, sizeof ( NetPack ) );
 			if ( !newPack ) {
-				CErr ( "AddNetwork: ERROR - failed to allocate memory to store ip/broadcast! Low memory problem!" );
+				CErr ( "AddNetwork: Failed to allocate memory!" );
 				return;
 			}
 			pack->next = newPack;
 			pack = newPack;
-			memset ( pack, 0, sizeof ( NetPack ) );
 		}
 
-		pack->ip = ip;
+		pack->ip	= ip;
 		pack->bcast = bcast;
-		pack->mask = netmask;
+		pack->mask	= netmask;
 	}
 
 
@@ -809,7 +815,7 @@ namespace environs
 		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
 		NetPack * net = 0;
 
-		if ( !MutexLock ( &localNetsMutex, "SendBroadcast" ) ) {
+		if ( !MutexLockA ( localNetsMutex, "SendBroadcast" ) ) {
 			ret = false;
 			goto EndWithStatus;
 		}
@@ -827,7 +833,7 @@ namespace environs
 			net = net->next;
 		}
 
-		MutexUnlockV ( &localNetsMutex, "SendBroadcast" );
+		MutexUnlockVA ( localNetsMutex, "SendBroadcast" );
 
 	EndWithStatus:
 
@@ -841,7 +847,7 @@ namespace environs
 
 		CVerb ( "IsLocalIP" );
 
-		if ( !MutexLock ( &localNetsMutex, "IsLocalIP" ) )
+		if ( !MutexLockA ( localNetsMutex, "IsLocalIP" ) )
 			return false;
 
 		NetPack * net = &localNets;
@@ -854,7 +860,7 @@ namespace environs
 			net = net->next;
 		}
 
-		if ( !MutexUnlock ( &localNetsMutex, "IsLocalIP" ) )
+		if ( !MutexUnlockA ( localNetsMutex, "IsLocalIP" ) )
 			return false;
 		return ret;
 	}
@@ -1154,10 +1160,10 @@ namespace environs
 			device = dev;
 
 			changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
-			strcpy_s ( device->info.areaName, sizeof ( device->info.areaName ) - 1, areaName );
-			strcpy_s ( device->info.appName, sizeof ( device->info.appName ) - 1, appName );
+			strlcpy ( device->info.areaName, areaName, sizeof ( device->info.areaName ) );
+			strlcpy ( device->info.appName, appName, sizeof ( device->info.appName ) );
 			//if ( userName ) {
-			//	strcpy_s ( device->userName, sizeof(device->userName) - 1, userName );
+			//	strlcpy ( device->userName, sizeof(device->userName) - 1, userName );
 			//	//flags |= DEVICE_INFO_ATTR_USER_NAME;
 			//}
 			break;
@@ -1204,7 +1210,7 @@ namespace environs
 			}
 
 			if ( strncmp ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) - 1 ) ) {
-				strcpy_s ( device->info.deviceName, sizeof ( device->info.deviceName ) - 1, deviceName ); changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_NAME;
+				strlcpy ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) ); changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_NAME;
 			}
 
 #ifdef MEDIATORDAEMON
@@ -1213,7 +1219,7 @@ namespace environs
 		}
 #endif
 			if ( userName && *userName && strncmp ( device->userName, userName, sizeof ( device->userName ) - 1 ) ) {
-				strcpy_s ( device->userName, sizeof ( device->userName ) - 1, userName ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
+				strlcpy ( device->userName, userName, sizeof ( device->userName ) ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
 			}
 
 			if ( changed ) {
@@ -1355,7 +1361,7 @@ namespace environs
 
 		MediatorInstance * med = ( MediatorInstance * ) calloc ( 1, sizeof ( MediatorInstance ) );
 		if ( !med ) {
-			CErr ( "AddMediator: Failed to allocate memory for new Mediator!" );
+			CErr ( "AddMediator: Failed to allocate memory!" );
 			return false;
 		}
 
@@ -1366,9 +1372,8 @@ namespace environs
 		if ( !MutexInit ( &med->connection.rec_mutex ) )
 			goto Failed;
 
-		//pthread_cond_init ( &med->connection.rec_signal, NULL );
-
 		Zero ( med->connection.rec_signal );
+
 		if ( pthread_cond_manual_init ( &med->connection.rec_signal, NULL ) ) {
 			CErr ( "AddMediator: Failed to init rec_signal!" );
 			goto Failed;
@@ -1376,8 +1381,6 @@ namespace environs
 
 		if ( !MutexInit ( &med->connection.send_mutex ) )
 			goto Failed;
-
-		//pthread_mutex_init	( &med->connection.request_mutex, NULL );
 
 		med->available = false;
 		med->connection.instance.socket = -1;
@@ -1387,7 +1390,7 @@ namespace environs
 
 		med->connection.buffer = ( char * ) malloc ( MEDIATOR_BUFFER_SIZE_MAX );
 		if ( !med->connection.buffer ) {
-			CErr ( "AddMediator: Failed to allocate memory for new Mediator!" );
+			CErr ( "AddMediator: Failed to allocate memory!" );
 			goto Failed;
 		}
 
@@ -1406,16 +1409,15 @@ namespace environs
 		CVerb ( "AddMediator" );
 
 		if ( !med ) {
-			CErr ( "AddMediator: Mediator object passed in is invalid!" );
+			CErr ( "AddMediator: Invalid argument!" );
 			return 0;
 		}
 		MediatorInstance * added = med;
 
 		if ( !MutexLock ( &mediatorMutex, "AddMediator" ) ) {
 			CErr ( "AddMediator: Failed to aquire mutex on mediator!" );
-			free ( med->connection.buffer );
-			free ( med );
-			return 0;
+			added = 0;
+			goto Failed;
 		}
 
 		if ( mediator.ip ) {
@@ -1424,25 +1426,33 @@ namespace environs
 			while ( t->next ) {
 				t = t->next;
 				if ( t->ip == med->ip && t->port == med->port ) {
-					CVerbArg ( "AddMediator: Mediator [%s] Port [%d] is already in our list.", inet_ntoa ( *( ( struct in_addr * ) &t->ip ) ), t->port );
-					free ( med );
+					CVerbArg ( "AddMediator: Mediator [%s] Port [%d] is already in our list.", inet_ntoa ( *((struct in_addr *) &t->ip) ), t->port );
 					added = 0;
-					goto Finish;
+					goto FinishUnlock;
 				}
 			}
 
 			// Attach the new one
 			t->next = med;
+			med = 0;
 		}
 		else {
 			memcpy ( &mediator, med, sizeof ( MediatorInstance ) );
-			free ( med );
+
+			med->connection.buffer = 0;
+
 			added = &mediator;
 		}
 
-	Finish:
+	FinishUnlock:
 		MutexUnlockV ( &mediatorMutex, "AddMediator" );
 
+	Failed:
+		if ( med ) {
+			if ( med->connection.buffer )
+				free ( med->connection.buffer );
+			free ( med );
+		}
 		return added;
 	}
 

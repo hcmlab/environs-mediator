@@ -202,20 +202,56 @@ namespace environs
     mach_timebase_info_data_t environs_time_base_info;
 #endif
 
-    
-    
-#ifndef _WIN32    
-#   ifndef ANDROID
-#       ifndef __APPLE__
-    size_t strlcpy ( char *d, char const *s, size_t n )
-    {
-        return snprintf ( d, n, "%s", s );
-    }
-#       endif
-    // <- Linux/iOS includes
-#   endif
-    // <- POSIX includes
+
+#if ( !defined(__APPLE__) && (defined(_WIN32) || defined(LINUX)) )
+	size_t strlcpy ( char *d, char const *s, size_t n )
+	{
+		if ( !d || !s || n <= 0 )
+			return 0;
+
+		size_t c = 0;
+
+		for ( --n; n > 0 && *s ; --n, ++d, ++s, ++c )
+			*d = *s;
+
+		*d = 0;
+
+		return c;
+	}
+
+	size_t strlcat ( char *d, char const *s, size_t n )
+	{
+		if ( !d || !s || n <= 0 )
+			return 0;
+
+		for ( --n; n > 0 && *d ; --n, ++d );
+
+		if ( n <= 0 )
+			return 0;
+
+		size_t c = 0;
+
+		for ( ; n > 0 && *s ; --n, ++d, ++s, ++c )
+			*d = *s;
+
+		*d = 0;
+
+		return c;
+	}
 #endif
+    
+//#ifndef _WIN32    
+//#   ifndef ANDROID
+//#       ifndef __APPLE__
+//    size_t strlcpy ( char *d, char const *s, size_t n )
+//    {
+//        return snprintf ( d, n, "%s", s );
+//    }
+//#       endif
+//    // <- Linux/iOS includes
+//#   endif
+//    // <- POSIX includes
+//#endif
     
 #ifdef _WIN32
 	// Number of milliseconds since system has started

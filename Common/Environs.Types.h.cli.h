@@ -359,6 +359,30 @@ namespace environs
 		literal int ENVIRONS_DISPLAY_UNINITIALIZED_VALUE              =	(-1);
 #		define	ENVIRONS_DISPLAY_UNINITIALIZED_VALUE              		(-1)
 		
+		/**
+		 * Environs thread states
+		 * Environs thread states
+		 */
+		/** Uninitialized. Usually after creation of an Environs object. */
+#		ifdef ENVIRONS_THREAD_NO_THREAD                         
+#		undef ENVIRONS_THREAD_NO_THREAD                         
+#		endif
+		literal int ENVIRONS_THREAD_NO_THREAD                         =	(0);
+#		define	ENVIRONS_THREAD_NO_THREAD                         		(0)
+		/** Thread is either created and not yet running or terminated. */
+#		ifdef ENVIRONS_THREAD_DETACHEABLE                       
+#		undef ENVIRONS_THREAD_DETACHEABLE                       
+#		endif
+		literal int ENVIRONS_THREAD_DETACHEABLE                       =	(1);
+#		define	ENVIRONS_THREAD_DETACHEABLE                       		(1)
+		/** Thread is running. */
+#		ifdef ENVIRONS_THREAD_RUNNING                           
+#		undef ENVIRONS_THREAD_RUNNING                           
+#		endif
+		literal int ENVIRONS_THREAD_RUNNING                           =	(2);
+#		define	ENVIRONS_THREAD_RUNNING                           		(2)
+		
+		
 		
 		/** Deleteable. Device object has been disabled.&nbsp; 
 		 * "Garbage Collection" should dispose and delete the object on the next occasion. 
@@ -2392,6 +2416,16 @@ namespace environs
 #		endif
 		literal int DEVICE_ACTIVITY_RESPONDER                         =	(0x200);
 #		define	DEVICE_ACTIVITY_RESPONDER                         		(0x200)
+#		ifdef DEVICE_ACTIVITY_LISTENER_CLOSED                   
+#		undef DEVICE_ACTIVITY_LISTENER_CLOSED                   
+#		endif
+		literal int DEVICE_ACTIVITY_LISTENER_CLOSED                   =	(0x8000);
+#		define	DEVICE_ACTIVITY_LISTENER_CLOSED                   		(0x8000)
+#		ifdef DEVICE_ACTIVITY_PLATFORM_DISPOSED                 
+#		undef DEVICE_ACTIVITY_PLATFORM_DISPOSED                 
+#		endif
+		literal int DEVICE_ACTIVITY_PLATFORM_DISPOSED                 =	(0x1000);
+#		define	DEVICE_ACTIVITY_PLATFORM_DISPOSED                 		(0x1000)
 			
 		/**
 		 * Environs common native declarations

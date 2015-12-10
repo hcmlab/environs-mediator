@@ -2,6 +2,17 @@
 
 ---------------------------
 
+* Release: 0.9.2
+* Updated: Lock logs with threadID
+* Enabled: Lockfree access to sockets
+* Updated: Lock logging
+* Reworked: DisposeThread / DetachThread
+* Updated: LoadNetworks / ReleaseNetowrks in Mediator base layer
+* Changed: Using strlcpy/strlcat instead of strcpy_s/strcat_s
+* Reworked: LoadNetworks/AddNetwork in Mediator base layer
+
+
+* Release: 0.9.1
 * Updated: MD lockfree usage of sockets
 * Added: MD logroll if file is larger than 100MB
 * Updated: MediatorDaemon usage of SPs

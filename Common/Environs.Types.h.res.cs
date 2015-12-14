@@ -1118,7 +1118,7 @@ namespace environs
 
 
 
-		return "Unkown";
+		return "Unknown";
 	} /// -> get()
 
 } /// -> class Types

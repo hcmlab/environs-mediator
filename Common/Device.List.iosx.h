@@ -170,10 +170,15 @@
 - (void) ReleaseDevicesMediator;
 
 /**
- * Refresh all device lists. Applications may call this if they manually stopped and started Environs again.
+ * Reload all device lists. Applications may call this if they manually stopped and started Environs again.
  * Environs does not automatically refresh the device lists so as to allow applications to add observers before refreshing of the lists.
  */
-- (void) RefreshDeviceLists;
+- (void) ReloadLists;
+
+/**
+ * Reload device lists.
+ */
+- (void) Reload;
 
 
 @end

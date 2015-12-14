@@ -27,8 +27,9 @@
 //#include <ws2ipdef.h>
 #include <ws2tcpip.h>
 
-#define LogSocketError()					CWarnArg("SocketError: %d",WSAGetLastError())
-#define VerbLogSocketError()				CVerbArg("SocketError: %d",WSAGetLastError())
+#define LogSocketErrorF(f)					CWarnArg("%s: SocketError [%d]",f, WSAGetLastError())
+#define LogSocketError()					CWarnArg("SocketError: [%d]",WSAGetLastError())
+#define VerbLogSocketError()				CVerbArg("SocketError: [%d]",WSAGetLastError())
 #define SOCK_IN_PROGRESS					(WSAGetLastError() == WSAEWOULDBLOCK)
 #define DisableSIGPIPE(socki)				
 
@@ -57,7 +58,8 @@
 #define DisableSIGPIPE(socki)				signal(SIGPIPE, SIG_IGN);
 #endif
 
-#define LogSocketError()					CWarnArg("SocketError: %s",strerror(errno))
+#define LogSocketErrorF(f)					CWarnArg("%s: SocketError [%s]",f, strerror(errno))
+#define LogSocketError()					CWarnArg("SocketError: [%s]",strerror(errno))
 #define SOCK_IN_PROGRESS					(errno == EINPROGRESS || errno == EALREADY)
 #define SOCK_CONNECTED						(errno == EISCONN)
 #define SOCK_CON_REFUSED					(errno == ECONNREFUSED)

@@ -1138,25 +1138,28 @@ namespace environs
 			long                        listNearbyUpdate;
 			long                        listMediatorUpdate;
 
-            bool                                        isUIAdapter;
-			pthread_mutex_t                             listAllLock;
+            bool                                isUIAdapter;
+			pthread_mutex_t                     listAllLock;
 			devList ( EPSPACE DeviceInstance )	listAll;
 
-			pthread_mutex_t                             listNearbyLock;
-			devList ( EPSPACE DeviceInstance )    listNearby;
+			pthread_mutex_t                     listNearbyLock;
+			devList ( EPSPACE DeviceInstance )  listNearby;
 
-			pthread_mutex_t                             listMediatorLock;
-			devList ( EPSPACE DeviceInstance )    listMediator;
+			pthread_mutex_t                     listMediatorLock;
+			devList ( EPSPACE DeviceInstance )  listMediator;
 
 			spv ( lib::IIListObserver * )	listAllObservers;
 			spv ( lib::IIListObserver * )   listNearbyObservers;
 			spv ( lib::IIListObserver * )   listMediatorObservers;
 
 			stdQueue ( DeviceCommandContext OBJ_ptr ) threadDeviceCommandQueue;
+            
+            bool                            threadDeviceCommandRun;
+            ThreadSync                      threadDeviceCommand;
 
 			void DisposeLists ( bool releaseList );
 
-			void RefreshDeviceLists ();
+			void ReloadLists ();
 
 			devList ( EPSPACE DeviceInstance ) c_ref GetDevices ( int type );
 

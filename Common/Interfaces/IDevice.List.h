@@ -245,7 +245,12 @@ namespace environs
 		* Refresh all device lists. Applications may call this if they manually stopped and started Environs again.
 		* Environs does not automatically refresh the device lists so as to allow applications to add observers before refreshing of the lists.
 		*/
-		virtual void RefreshDeviceLists () = 0;
+		virtual void ReloadLists () = 0;
+
+		/**
+		* Reload the device list.
+		*/
+		virtual void Reload () = 0;
 	};
 }
 

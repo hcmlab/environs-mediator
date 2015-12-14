@@ -1113,7 +1113,7 @@ public class TypesResolver extends environs.Types
 
 
 
-		return "Unkown";
+		return "Unknown";
 	} /// -> get()
 
 } /// -> class TypesResolver

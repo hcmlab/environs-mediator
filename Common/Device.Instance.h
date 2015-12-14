@@ -547,7 +547,7 @@ namespace environs
 #ifdef CLI_CPP
 			void			NotifyObservers ( String ^ prop, int flags, bool enqueue );
 
-			virtual void	OnPropertyChanged ( String ^ name, int changed ) = 0;
+			virtual void	OnPropertyChanged ( String ^ prop ) = 0;
 #endif
 			void			NotifyObserversForMessage ( c_const sp ( EPSPACE MessageInstance ) c_ref message, int flags, bool enqueue );
 			void			NotifyObserversForData ( c_const sp ( EPSPACE FileInstance ) c_ref fileInst, int flags, bool enqueue );

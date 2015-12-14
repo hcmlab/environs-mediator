@@ -97,6 +97,29 @@ namespace environs
 	}
 
 
+	ApplicationDevices::ApplicationDevices ()
+	{
+		count				= 0;
+		latestAssignedID	= 0;
+		devices				= 0;
+
+		devicesCache		= 0;
+		deviceCacheCount	= 0;
+		deviceCacheDirty	= false;
+
+		access = 1;
+	}
+
+
+	ApplicationDevices::~ApplicationDevices ()
+	{
+		if ( devicesCache ) {
+			free ( devicesCache );
+			devicesCache = 0;
+		}
+	}
+
+
 	Mediator::Mediator ()
 	{
 		CVerb ( "Construct" );
@@ -127,7 +150,7 @@ namespace environs
 
 		if ( allocated )
 		{
-			MutexLockVA ( mediatorMutex, "Destructor" );
+			MutexLockVA ( mediatorLock, "Destructor" );
 
 			MutexDispose ( &devicesMutex );
 
@@ -139,9 +162,9 @@ namespace environs
 			nameToProjectID.clear ();
 			nameToAppID.clear ();
 
-			MutexUnlockVA ( mediatorMutex, "Destructor" );
+			MutexUnlockVA ( mediatorLock, "Destructor" );
 
-			MutexDisposeA ( mediatorMutex );
+			MutexDisposeA ( mediatorLock );
 		}
 
 #if ( !defined(MEDIATORDAEMON) )
@@ -161,7 +184,7 @@ namespace environs
 
 		if ( !allocated )
 		{
-			if ( !MutexInitA ( mediatorMutex ) )
+			if ( !MutexInitA ( mediatorLock ) )
 				return false;
 
 			if ( !MutexInitA ( devicesMutex ) )
@@ -431,7 +454,7 @@ namespace environs
 	{
 		CVerb ( "ReleaseMediators" );
 
-		MutexLockV ( &mediatorMutex, "ReleaseMediators" );
+		MutexLockV ( &mediatorLock, "ReleaseMediators" );
 
 		MediatorInstance * inst = mediator.next;
 
@@ -447,7 +470,7 @@ namespace environs
 			Zero ( mediator );
 		}
 
-		MutexUnlockV ( &mediatorMutex, "ReleaseMediators" );
+		MutexUnlockV ( &mediatorLock, "ReleaseMediators" );
 	}
 
 
@@ -913,7 +936,7 @@ namespace environs
 		DeviceInstanceNode	*	device		= 0;
 		pthread_mutex_t		*	mutex		= 0;
 
-		GetDeviceList ( NULL_ptr, NULL_ptr, &mutex, NULL_ptr, listRoot );
+		GetDeviceList ( nill, nill, &mutex, nill, listRoot );
 
 		if ( !listRoot )
 			return;
@@ -1108,9 +1131,9 @@ namespace environs
 #ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
 			*( ( int * ) dev->key ) = value;
 
-			int copied = sprintf_s ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
+			int copied = snprintf ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
 #else
-			int copied = sprintf_s ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
+			int copied = snprintf ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
 #endif
 			if ( copied <= 0 ) {
 				CErr ( "UpdateDevices: Failed to build the key for new device!" );
@@ -1178,11 +1201,6 @@ namespace environs
 				if ( ip != device->info.ipe ) {
 					device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;
 				}
-
-			/*if ( device->info.deviceType != msg [MEDIATOR_BROADCAST_DEVICETYPE_START] ) {
-			device->info.deviceType = msg [MEDIATOR_BROADCAST_DEVICETYPE_START]; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
-			}
-			*/
 
 			int platform = *( ( int * ) ( msg + MEDIATOR_BROADCAST_PLATFORM_START ) );
 
@@ -1303,14 +1321,14 @@ namespace environs
 				#ifndef MEDIATORDAEMON
 				if ( (opt_useDefaultMediator || opt_useCustomMediator) && environs::ID ) {
 				#endif
-				if ( pthread_mutex_trylock ( &mediatorMutex ) ) {
+				if ( pthread_mutex_trylock ( &mediatorLock ) ) {
 				CVerb ( "IsKnownMediator: Failed to aquire mutex on mediator!" );
 				return false;
 				}
 
 				RegisterAtMediator ( med );
 
-				if ( pthread_mutex_unlock ( &mediatorMutex ) ) {
+				if ( pthread_mutex_unlock ( &mediatorLock ) ) {
 				CErr ( "IsKnownMediator: Failed to release mutex on mediator!" );
 				}
 				#ifndef MEDIATORDAEMON
@@ -1414,7 +1432,7 @@ namespace environs
 		}
 		MediatorInstance * added = med;
 
-		if ( !MutexLock ( &mediatorMutex, "AddMediator" ) ) {
+		if ( !MutexLock ( &mediatorLock, "AddMediator" ) ) {
 			CErr ( "AddMediator: Failed to aquire mutex on mediator!" );
 			added = 0;
 			goto Failed;
@@ -1445,7 +1463,7 @@ namespace environs
 		}
 
 	FinishUnlock:
-		MutexUnlockV ( &mediatorMutex, "AddMediator" );
+		MutexUnlockV ( &mediatorLock, "AddMediator" );
 
 	Failed:
 		if ( med ) {
@@ -1463,7 +1481,7 @@ namespace environs
 
 		CVerb ( "RemoveMediator" );
 
-		if ( !MutexLock ( &mediatorMutex, "RemoveMediator" ) )
+		if ( !MutexLock ( &mediatorLock, "RemoveMediator" ) )
 			return false;
 
 		// Find the mediator
@@ -1498,7 +1516,7 @@ namespace environs
 			}
 		}
 
-		if ( !MutexUnlock ( &mediatorMutex, "RemoveMediator" ) )
+		if ( !MutexUnlock ( &mediatorLock, "RemoveMediator" ) )
 			ret = false;
 
 		return ret;

@@ -50,6 +50,11 @@
 #endif
 
 #else
+#	ifdef CErr
+#		undef CErr
+#	endif
+#	define CErr(msg) printf(msg)
+
 #	ifdef CVerb
 #		undef CVerb
 #	endif
@@ -159,7 +164,7 @@ namespace environs
 
 	bool MutexLockBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
 	{
-		if ( mtx == NULL_ptr ) {
+		if ( mtx == nill ) {
 			//CErr ( "Lock: lock invalid " + className + "." + funcName + " " + mutexName );
 			//MutexErrorLog ( "lock", mutexName, className, funcName );
 			return false;
@@ -171,7 +176,7 @@ namespace environs
 
 	bool MutexUnlockBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
 	{
-		if ( mtx == NULL_ptr ) {
+		if ( mtx == nill ) {
 			//CErr ( "Unlock: lock invalid " + className + "." + funcName + " " + mutexName );
 			//MutexErrorLog ( "unlock", mutexName, className, funcName );
 			return false;
@@ -423,7 +428,6 @@ namespace environs
 	*	Make sure that the thread has not bee detached before.
 	*	Reset the thread variable stored in threadID on success.
 	*
-	*/
     void DisposeThread ( pthread_t &threadID, const char * threadName )
     {
         CVerb ( "DisposeThread" );
@@ -461,7 +465,8 @@ namespace environs
         //pthread_kill ( thrd, SIGUSR1 );
         //pthread_detach_handle ( thrd );
 #endif
-    }
+     }
+     */
     
 
 	/**
@@ -486,7 +491,7 @@ namespace environs
         
         pthread_reset ( threadID );
     }
-    
+
 
 	/**
 	*	Dispose a thread and reset the threadID variable afterwards.
@@ -500,18 +505,28 @@ namespace environs
 
         if ( ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE )
             return;
-        /*
-		pthread_t thrd = threadID;
-
-		pthread_reset ( threadID );
-        */
 
 		if ( !pthread_valid ( threadID ) ) {
 			CVerb ( "DisposeThread: Thread is already closed." );
 			return;
 		}
 
-		CLogArg ( "Waiting for %s ...", threadName );
+		bool weAreTheThreadID = false;
+
+#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
+
+		weAreTheThreadID = pthread_is_self_thread ( threadID );
+#else
+		pthread_t our_id = pthread_self ();
+
+		weAreTheThreadID = (memcmp ( &our_id, &threadID, sizeof(pthread_t) ) == 0);
+#endif
+		if ( weAreTheThreadID ) {
+			CLogArg ( "DisposeThread: Skip waiting for %s ...", threadName );
+			return;
+		}
+
+		CLogArg ( "DisposeThread: Waiting for %s ...", threadName );
         
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
 
@@ -569,7 +584,6 @@ namespace environs
 	*	Make sure that the thread has not bee detached before.
 	*	Reset the thread variable stored in threadID on success.
 	*
-	*/
     void DisposeThread ( pthread_t &threadID, const char * threadName, pthread_cond_t &threadEvent )
     {
         if ( !pthread_valid ( threadID ) ) {
@@ -587,7 +601,8 @@ namespace environs
 #endif
         }
         DisposeThread ( threadID, threadName );
-    }
+     }
+     */
 
 #ifdef _WIN32
 #pragma warning( pop )
@@ -842,4 +857,308 @@ namespace environs
 	}
 
 #endif
+
+
+
+#undef CLASS_NAME
+#define CLASS_NAME	"ThreadSync . . . . . . ."
+
+	bool ThreadSync::Init ()
+	{
+		if ( allocated )
+			return true;
+
+		if ( !MutexInitA ( lock ) )
+			return false;
+        
+		if ( pthread_cond_manual_init ( c_Addr_of ( signal ), NULL ) ) {
+			CErr ( "Init: Failed to init signal!" );
+			return false;
+		}
+
+		allocated = true;
+		return true;
+	}
+
+
+	ThreadSync::~ThreadSync ()
+	{
+		if ( allocated ) {
+			CondDisposeA ( signal );
+
+			MutexDisposeA ( lock );
+
+			allocated = false;
+		}
+    }
+        
+        
+    ThreadSync::ThreadSync ()
+    {
+        allocated = false;
+        autoreset = true;
+        
+#ifdef CLI_CPP
+		signal = nill;
+		threadID = nill;
+#else
+        Zero ( signal );
+        
+        Zero ( threadID );
+#endif
+        state = ENVIRONS_THREAD_NO_THREAD;
+    }
+        
+    
+    bool ThreadSync::LockCond ( CString_ptr func )
+    {
+        if ( pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
+#ifndef CLI_CPP
+            CErrArg ( "LockCond: Failed [%s]", func );
+#endif
+            return false;
+        }
+        return true;
+    }
+        
+        
+    bool ThreadSync::Lock ( CString_ptr func )
+    {
+        if ( pthread_mutex_lock ( Addr_of ( lock ) ) ) {
+#ifndef CLI_CPP
+            CErrArg ( "Lock: Failed [%s]", func );
+#endif
+            return false;
+        }
+        return true;
+    }
+    
+    
+    bool ThreadSync::ResetSync ( CString_ptr func, bool useLock )
+    {
+        if ( useLock && !LockCond ( func ) )
+            return false;
+            
+        if ( pthread_cond_prepare ( c_Addr_of ( signal ) ) ) {
+#ifndef CLI_CPP
+            CErrArg ( "ResetSync: Failed [%s]", func );
+#endif
+            return false;
+        }
+        
+        if ( useLock && !UnlockCond ( func ) )
+            return false;
+        
+        return true;
+    }
+
+
+	void ThreadSync::ResetState ()
+	{
+		state = ENVIRONS_THREAD_NO_THREAD;
+	}
+        
+        
+    bool ThreadSync::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
+    {
+        if ( useLock && !LockCond ( func ) )
+            return false;
+        
+        if ( WaitLocked ( func, ms ) ) {
+            if ( keepLocked || UnlockCond ( func ) )
+                return true;
+        }
+        else {
+            if ( !keepLocked )
+                UnlockCond ( func );
+        }
+        return false;
+    }
+        
+        
+    bool ThreadSync::WaitLocked ( CString_ptr func, int ms )
+    {
+        if ( ms > 0 ) {
+            if (
+#ifdef _WIN32
+                !pthread_cond_wait_time ( c_Addr_of ( signal ), &lock, ms )
+#else
+                pthread_cond_wait_time ( &signal, &lock, ms ) == 0
+#endif
+                )
+            {
+                if ( autoreset ) {
+                    pthread_cond_preparev ( c_Addr_of ( signal ) );
+                }
+                return true;
+            }
+        }
+        else {
+            if (
+#ifdef _WIN32
+                !pthread_cond_manual_wait ( c_Addr_of ( signal ), &lock )
+#else
+                pthread_cond_wait ( &signal, &lock ) == 0
+#endif
+                )
+            {
+                if ( autoreset ) {
+                    pthread_cond_preparev ( c_Addr_of ( signal ) );
+                }
+                return true;
+            }
+        }
+        
+#ifndef CLI_CPP
+        CErrArg ( "Wait: Failed [%s]", func );
+#endif
+        return false;
+    }
+
+
+	bool ThreadSync::Notify ( CString_ptr func, bool useLock )
+	{
+		if ( useLock && pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
+			CErr ( "Notify: Failed to acquire mutex" );
+			return false;
+		}
+
+		if ( pthread_cond_broadcast ( c_Addr_of ( signal ) ) ) {
+			CErr ( "Notify: Failed to signal thread_signal!" );
+			return false;
+		}
+		CVerb ( "Notify: Thread signaled." );
+
+		if ( useLock && pthread_cond_mutex_unlock ( c_Addr_of ( lock ) ) ) {
+			CErr ( "Notify: Failed to release mutex" );
+			return false;
+		}
+		return true;
+	}
+
+
+	bool ThreadSync::UnlockCond ( CString_ptr func )
+	{
+        if ( pthread_cond_mutex_unlock ( &lock ) ) {
+#ifndef CLI_CPP
+            CErrArg ( "UnlockCond: Failed [%s]", func );
+#endif
+            return false;
+        }
+        return true;
+    }
+        
+        
+    bool ThreadSync::Unlock ( CString_ptr func )
+    {
+        if ( pthread_mutex_unlock ( Addr_of ( lock ) ) ) {
+#ifndef CLI_CPP
+            CErrArg ( "Unlock: Failed [%s]", func );
+#endif
+            return false;
+        }
+        return true;
+    }
+        
+
+	bool ThreadSync::Run ( pthread_start_routine_t startRoutine, pthread_param_t arg, CString_ptr func, bool waitForStart )
+	{
+		if ( ___sync_val_compare_and_swap ( c_ref state, ENVIRONS_THREAD_NO_THREAD, ENVIRONS_THREAD_DETACHEABLE ) != ENVIRONS_THREAD_NO_THREAD ) 
+		{
+#ifndef CLI_CPP
+			CWarnArg ( "Run: [%s] Thread already running!", func );
+#endif
+			return true;
+		}
+
+		int ret;
+
+		if ( waitForStart && !ResetSync ( func, true ) )
+			goto Failed;
+
+#ifndef CLI_CPP
+		ret = pthread_create ( c_Addr_of ( threadID ), 0, startRoutine, arg );
+#else
+		ret = pthread_create_cli ( c_Addr_of ( threadID ), 0, startRoutine, arg );
+#endif
+		if ( ret ) {
+#ifndef CLI_CPP
+			CErrArg ( "Run: [%s] Failed to create thread!", func );
+#endif
+			
+			if ( waitForStart ) 
+				UnlockCond ( func );
+		}
+		else {
+			if ( !waitForStart || WaitOne ( func, 2000, false, false ) )
+				return true;
+
+#ifndef CLI_CPP
+			CErrArg ( "Run: [%s] Failed to wait for thread start!", func );
+#endif
+			Detach ( "Run" );
+			return false;
+		}
+
+	Failed:
+		state = ENVIRONS_THREAD_NO_THREAD;
+		return false;
+	}
+       
+
+	bool ThreadSync::isRunning ()
+	{
+		return ( state != ENVIRONS_THREAD_NO_THREAD );
+	}
+
+
+    void ThreadSync::Join ( CString_ptr func )
+    {
+#ifndef CLI_CPP
+		DisposeThread ( &state, threadID, func );
+#else
+		if ( ___sync_val_compare_and_swap ( state, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE )
+		{
+			return;
+		}
+
+		if ( threadID == nill )
+			return;
+
+		if ( Thread::CurrentThread == threadID )
+			return;
+
+		threadID->Join ();
+		threadID = nill;
+#endif
+    }
+        
+    
+    void ThreadSync::Detach ( CString_ptr func )
+    {
+#ifndef CLI_CPP
+        DetachThread ( &state, threadID, func );
+#else
+		threadID = nill;
+		state = ENVIRONS_THREAD_NO_THREAD;
+#endif
+    }
+    
+
+	bool ThreadSync::areWeTheThread ()
+	{
+#ifndef CLI_CPP
+#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
+
+		return pthread_is_self_thread ( threadID );
+#else
+		pthread_t our_id = pthread_self ();
+
+		return (memcmp ( &our_id, &threadID, sizeof(pthread_t) ) == 0);
+#endif
+#else
+		return ( Thread::CurrentThread == threadID );
+#endif
+	}
+
 }

@@ -52,6 +52,8 @@
 
 
 #ifdef CLI_CPP
+#   define	___sync_val_compare_and_swap(a,c,v)	System::Threading::Interlocked::CompareExchange(a,v,c)
+
 #	define __sync_add_and_fetch(dest,inc)	System::Threading::Interlocked::Increment(dest)
 
 #	define __sync_sub_and_fetch(dest,inc)	System::Threading::Interlocked::Decrement(dest)
@@ -206,7 +208,6 @@
 
 
 #	define vsnprintf_s(dest,destSize,maxChar,format,vlist)		vsnprintf ( dest, destSize, format, vlist )
-#	define sprintf_s(...)					snprintf(__VA_ARGS__)
 #	define sscanf_s(...)					sscanf(__VA_ARGS__)
 #	define strtok_s(buf,delim,context)		strtok_r(buf,delim,context)
 #	define localtime_s(a,b)					localtime_r(b,a)
@@ -220,11 +221,14 @@
 #	if defined(_WIN32)
 
 #		if _MSC_VER < 1700 
-#			define fmax(a,b)	max(a,b)
-#			define fmin(a,b)	min(a,b)
-#	endif
+#			define fmax(a,b)		max(a,b)
+#			define fmin(a,b)		min(a,b)
+#		endif
+#		if _MSC_VER < 1900 
+#			define snprintf(...)	_snprintf(__VA_ARGS__)
+#		endif
 
-#endif	/// end-_WIN32
+#	endif	/// end-_WIN32
 
 
 #if defined(CLI_CPP)
@@ -232,7 +236,7 @@
 
 #	define INTERNAL							internal
 #	define free_m(m)						
-#	define free_plt(m)                      if (m != NULL_ptr) environs::API::FreeNativeMemoryN(m)
+#	define free_plt(m)                      if (m != nill) environs::API::FreeNativeMemoryN(m)
 
 #	define CLASS							ref class
 #	define PUBLIC_CLASS						public ref class
@@ -284,7 +288,7 @@
 #	define PIN_PTR(p,t,n)					pin_ptr<t> p = &n [ 0 ]
 
 #	define new__obj(type)					gcnew type()
-#	define delete__obj(o)					o = NULL_ptr		
+#	define delete__obj(o)					o = nill		
 
 // using namespace System::Runtime::InteropServices;
 #	define CLI_INC							[System::Security::SuppressUnmanagedCodeSecurityAttribute ()] \
@@ -295,7 +299,7 @@
 #	define CLI_VIRTUAL						virtual
 
 #	define TCHAR							char
-#	define NULL_ptr							nullptr
+#	define nill							nullptr
 #   define C_Only(v)                        
 #   define Cli_Only(v)                      v
 
@@ -313,7 +317,7 @@
 #else
 
 #	define INTERNAL							private
-#	define free_m(m)						if (m != NULL_ptr) free(m)
+#	define free_m(m)						if (m != nill) free(m)
 #	define free_plt(m)                      free_m(m)
 #	define CLASS							class
 #	define PUBLIC_CLASS						class
@@ -361,13 +365,13 @@
 #	define PIN_PTR(p,t,n)					t * p = n
 
 #	define new__obj(type)					new type()	
-#	define delete__obj(o)					if (o != NULL_ptr)  { delete o; o = NULL_ptr; }
+#	define delete__obj(o)					if (o != nill)  { delete o; o = nill; }
 
 #	define CLI_INC						
 #	define CLI_INCM(m)			
 #	define CLI_OVERRIDE						
 #	define CLI_VIRTUAL						
-#	define NULL_ptr							NULL
+#	define nill							NULL
 
 #	define StringToCChar(s)					s
 #	define CCharToString(s)					s

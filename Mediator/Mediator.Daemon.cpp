@@ -708,7 +708,7 @@ bool MediatorDaemon::SaveConfig ()
 		configs << "5899";
 	configs << endl;	
 	
-	if ( MutexLock ( &mediatorMutex, "SaveConfig" ) ) 
+	if ( MutexLock ( &mediatorLock, "SaveConfig" ) ) 
 	{
 		MediatorInstance * net = &mediator;
 
@@ -719,7 +719,7 @@ bool MediatorDaemon::SaveConfig ()
 			net = net->next;
 		}
 	
-		MutexUnlock ( &mediatorMutex, "SaveConfig" );
+		MutexUnlock ( &mediatorLock, "SaveConfig" );
     }
 
 	if ( networkOK != 0xFFFFFFFF ) 
@@ -2107,7 +2107,7 @@ void MediatorDaemon::RemoveDevice ( DeviceInstanceNode * device, bool useLock )
 	if ( useLock )
 		appDevs->Lock ( "RemoveDevice" );
 
-	if ( device == appDevs->devices ) { // Crash here when using the sp (get ())
+	if ( device == appDevs->devices ) {
 		if ( device->next ) {
 			CVerbArg ( "RemoveDevice: relocating client [0x%X] to root of list", device->next->info.deviceID );
             
@@ -2403,19 +2403,16 @@ sp ( ApplicationDevices ) MediatorDaemon::GetDeviceList ( char * areaName, char 
 		
 	const msp ( string, ApplicationDevices )::iterator appsIt = areaApps->apps.find ( appsName );
 				
-	if ( appsIt == areaApps->apps.end ( ) ) {
+	if ( appsIt == areaApps->apps.end ( ) )
+    {
 		/// Create a new one...
-		appDevices = make_shared < ApplicationDevices > (); // sp ( ApplicationDevices ) ( new ApplicationDevices ); // make_shared < ApplicationDevices > ();
-		if ( appDevices && appDevices->Init () ) {
-			appDevices->count = 0;
-			appDevices->latestAssignedID = 0;
-			appDevices->devices = 0;
-
-			appDevices->access = 1;
-			
+		appDevices = make_shared < ApplicationDevices > ();
+        
+		if ( appDevices && appDevices->Init () ) 
+		{			
 			appsCounter++;
-			appDevices->id = appsCounter;
-			appDevices->areaId = areaApps->id;
+			appDevices->id		= appsCounter;
+			appDevices->areaId	= areaApps->id;
 			appIDs [ appsCounter ] = appsName;
 
             // Query maxIDs from value packs
@@ -2697,7 +2694,7 @@ void MediatorDaemon::Run ()
 					continue;
 				}
 				else {
-					if ( !MutexLock ( &mediatorMutex, "Run" ) )
+					if ( !MutexLock ( &mediatorLock, "Run" ) )
 						continue;
 
 					CLog ( "Mediators:" );
@@ -2718,7 +2715,7 @@ void MediatorDaemon::Run ()
 					}
 					printf ( "----------------------------------------------------------------\n" );
 
-					MutexUnlockV ( &mediatorMutex, "Run" );
+					MutexUnlockV ( &mediatorLock, "Run" );
 				}
 				continue;
 			}
@@ -3206,13 +3203,14 @@ void * MediatorDaemon::Acceptor ( void * arg )
 			goto NextClient;
 		
 		//pthread_cond_init ( &client->socketSignal, NULL );
-		
+        
 		client->socket		= sock;
 		client->spareSocket	= -1;
 		client->port		= port;
 		client->filterMode	= 2;
 		client->aliveLast	= checkLast;
 		client->daemon		= this;
+        client->stuntTarget = 0;
 		client->connectTime = GetEnvironsTickCount ();
 
 		memcpy ( &client->addr, &addr, sizeof(addr) );
@@ -4289,13 +4287,11 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	DeviceInstanceNode  *       destList    = 0;
     pthread_mutex_t     *       destMutex   = 0;
     sp ( ApplicationDevices )   appDevices  = 0;
-
-	if ( shortMsg->version >= '3' ) {
-		if ( *shortMsg->areaName && *shortMsg->appName ) {
-			areaName = shortMsg->areaName;
-			appName = shortMsg->appName;
-		}
-	}
+    
+    if ( *shortMsg->areaName && *shortMsg->appName ) {
+        areaName = shortMsg->areaName;
+        appName = shortMsg->appName;
+    }
 
 	sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
 
@@ -4658,11 +4654,7 @@ bool MediatorDaemon::HandleQueryDevices ( const sp ( ThreadInstance ) &sourceCli
 	sp ( ApplicationDevices ) appDevices = sourceDevice->rootSP;
 	
 	/// Take over filterMode	
-	if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION )
-		/// Deprecated, to be removed as soon as the public tree has been updated
-		subCmd = query->opt0;
-	else
-		subCmd = query->opt1;
+	subCmd = query->opt1;
 
 	if ( subCmd != MEDIATOR_OPT_NULL ) {
 		filterMode = subCmd;
@@ -4679,23 +4671,13 @@ bool MediatorDaemon::HandleQueryDevices ( const sp ( ThreadInstance ) &sourceCli
 		CVerbID ( "HandleQueryDevices: requested count" );
 		
         length = MEDIATOR_CMD_GET_DEVICES_COUNT_RESP_LEN;
-
-		if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION ) {
-			/// Deprecated, to be removed as soon as the public tree has been updated
-			response->size = length;
-			response->cmd0 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
-			response->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT;
-            
-			response->deviceHead.deviceCountAvailable = CollectDevicesCount ( sourceDevice, filterMode );
-		}
-		else {
-			query->size = length;
-			query->cmdVersion = MEDIATOR_PROTOCOL_VERSION;
-			query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
-			query->opt0 = MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT;
-
-			query->msgID = CollectDevicesCount ( sourceDevice, filterMode );
-		}
+        
+        query->size = length;
+        query->cmdVersion = MEDIATOR_PROTOCOL_VERSION;
+        query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
+        query->opt0 = MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT;
+        
+        query->msgID = CollectDevicesCount ( sourceDevice, filterMode );
 
 		CVerbArgID ( "HandleQueryDevices: Number of devices [%u]", query->msgID );
 		error = false; goto SendResponse;
@@ -4705,15 +4687,8 @@ bool MediatorDaemon::HandleQueryDevices ( const sp ( ThreadInstance ) &sourceCli
 
 	startIndex = query->startIndex;
 		
-	if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION && startIndex > 0 )
-		/// Deprecated, to be removed as soon as the public tree has been updated
-		startIndex--;
 	
-	if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION )
-		/// Deprecated, to be removed as soon as the public tree has been updated
-		subCmd = query->opt1;
-	else
-		subCmd = query->opt0;
+	subCmd = query->opt0;
 
 	if ( subCmd == MEDIATOR_OPT_DEVICE_LIST_DEVICE_ID ) {
 		deviceIDReq = query->deviceID;
@@ -4826,15 +4801,8 @@ Finish:
     response = (MediatorQueryResponse *) FlattenDeviceList ( resultList, resultCount );
     if ( !response ) {
 		query->size = length;
-		if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION ) {
-			/// Deprecated, to be removed as soon as the public tree has been updated
-			query->cmdVersion = MEDIATOR_CMD_DEVICE_LIST_QUERY;
-			query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR;
-		}
-		else {
-			query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
-			query->opt0 = MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR;
-		}
+        query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
+        query->opt0 = MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR;
 		goto SendResponse;
 	}
 
@@ -4855,15 +4823,8 @@ Finish:
 SendResponse:	
 	if ( error ) {
 		sendBuffer = msg;
-		if ( query->cmdVersion < MEDIATOR_PROTOCOL_VERSION ) {
-			/// Deprecated, to be removed as soon as the public tree has been updated
-			query->cmdVersion = MEDIATOR_CMD_DEVICE_LIST_QUERY;
-			query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR;
-		}
-		else {
-			query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
-			query->opt0 = MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR;
-		}
+        query->cmd1 = MEDIATOR_CMD_DEVICE_LIST_QUERY;
+        query->opt0 = MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR;
 		length = query->size = 8;
 	}
 
@@ -4901,9 +4862,10 @@ void MediatorDaemon::HandleCLSGenHelp ( ThreadInstance * client )
     unsigned int certlen = *((unsigned int *) cert) & 0xFFFF;
     unsigned int keylen = *((unsigned int *) key) & 0xFFFF;
     
-    memcpy ( buffer + 4, "3t;;", 4 );
     buffer [ 4 ] = MEDIATOR_PROTOCOL_VERSION;
     buffer [ 5 ] = MEDIATOR_CMD_HELP_TLS_GEN;
+    buffer [ 6 ] = MEDIATOR_OPT_NULL;
+    buffer [ 7 ] = MEDIATOR_OPT_NULL;
     
     int sentSize = certlen + keylen + 16;
     //*((unsigned int *) buffer) = (unsigned int) sentSize;
@@ -4999,10 +4961,10 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 		return false;
 	}
     
-	buffer [ 4 ] = 'y';
-	buffer [ 5 ] = ';';
-	buffer [ 6 ] = ';';
-	buffer [ 7 ] = ';';
+	buffer [ 4 ] = MEDIATOR_CMD_STUN;
+	buffer [ 5 ] = MEDIATOR_OPT_NULL;
+	buffer [ 6 ] = MEDIATOR_OPT_NULL;
+	buffer [ 7 ] = MEDIATOR_OPT_NULL;
 
 	pUI = (unsigned int *) buffer;
 	*pUI = MEDIATOR_STUN_RESP_SIZE; pUI += 2;
@@ -5183,7 +5145,16 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 
 	if ( !destClient || !destDeviceSP ) {
 		CErrArg ( "HandleSTUNTRequest: Failed to find device connection for id [0x%X]!", deviceID ); goto Quit;
-	}
+    }
+    
+    sourceClient->stuntTarget = destClient.get();
+    
+    if ( destClient->stuntTarget == sourceClient ) {
+        CVerb ( "HandleSTUNTRequest: The destination client is already stunt connecting to us." );
+        sourceClient->stuntTarget = 0;
+        
+        status = -1; goto Quit;
+    }
 	
 	// Acquire the mutex on sourceClient
 	if ( !sourceClient->Lock ( "HandleSTUNTRequest" ) ) goto UnlockQuit;
@@ -5228,13 +5199,18 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 
 	response.size = sizeof(response);
 
-	memcpy ( response.ident, "x;;", 3 );
-	response.channel = channelType;
-	response.deviceID = sourceClient->deviceID;
-	response.ip = IP;
-	response.ipe = IPe;
-    response.porti = sourceDevice->info.tcpPort;
-    response.porte = portSource;
+    response.ident [ 0 ] = MEDIATOR_CMD_STUNT;
+    response.ident [ 1 ] = MEDIATOR_OPT_NULL;
+    response.ident [ 2 ] = MEDIATOR_OPT_NULL;
+    
+	//memcpy ( response.ident, "x;;", 3 );
+    
+	response.channel    = channelType;
+	response.deviceID   = sourceClient->deviceID;
+	response.ip         = IP;
+	response.ipe        = IPe;
+    response.porti      = sourceDevice->info.tcpPort;
+    response.porte      = portSource;
 
 	strlcpy ( response.areaName, sourceDevice->info.areaName, sizeof ( response.areaName ) );
 	strlcpy ( response.appName, sourceDevice->info.appName, sizeof ( response.appName ) );
@@ -5278,7 +5254,8 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	destClient->sparePort = 0;
 	sourceClient->sparePort = 0;
 
-	status = 1;
+    status = 1;
+    sourceClient->stuntTarget = 0;
 
 
 UnlockQuit:	
@@ -5306,7 +5283,8 @@ Quit:
 	if ( sentBytes != MEDIATOR_STUNT_ACK_SIZE ) {
 		CErrArgID ( "HandleSTUNTRequest: Failed to send %s message to sourceClient device", reqResponse->respCode == 'e' ? "Failed" : "Retry" );
 		LogSocketError ();
-	}
+    }
+    sourceClient->stuntTarget = 0;
 	
 	return false;
 }
@@ -5514,7 +5492,8 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 
 	char keyBuffer [ 128 ];
 	char valueBuffer [ 256 ];
-	sprintf_s ( keyBuffer, 128, "%i_", device->info.deviceID );
+	if ( snprintf ( keyBuffer, 128, "%i_", device->info.deviceID ) < 0 )
+        goto Failed;
 
 	keyCat = keyBuffer + strlen ( keyBuffer );
 	
@@ -5540,7 +5519,8 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	// tcp port
 	*keyCat = 0;
 	strlcat ( keyCat, "cport", 100 );
-	sprintf_s ( valueBuffer, 128, "%u", device->info.tcpPort );
+    if ( snprintf ( valueBuffer, 128, "%u", device->info.tcpPort ) < 0 )
+        goto Failed;
 
 	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
@@ -5549,7 +5529,8 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	// udp port
 	*keyCat = 0;
 	strlcat ( keyCat, "dport", 100 );
-	sprintf_s ( valueBuffer, 128, "%u", device->info.udpPort );
+    if ( snprintf ( valueBuffer, 128, "%u", device->info.udpPort ) < 0 )
+        goto Failed;
 
 	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
@@ -5558,7 +5539,8 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 	// device type
 	*keyCat = 0;
 	strlcat ( keyCat, "type", 100 );
-	sprintf_s ( valueBuffer, 128, "%i", device->info.platform );
+    if ( snprintf ( valueBuffer, 128, "%i", device->info.platform ) < 0 )
+        goto Failed;
 
 	if ( !addToArea ( values, keyBuffer, valueBuffer, (unsigned int) strlen ( valueBuffer ) ) ) {
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
@@ -5572,6 +5554,7 @@ bool MediatorDaemon::UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, un
 		CWarnArg ( "UpdateDeviceRegistry: Adding key %s failed!", keyBuffer );
 	}
 	
+Failed:
 	values->Unlock ( "UpdateDeviceRegistry" );
 
 Continue:

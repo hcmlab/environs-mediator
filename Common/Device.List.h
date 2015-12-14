@@ -75,13 +75,16 @@ namespace environs
 		{
 		public:
             DeviceListUpdatePack () {
-                api         = NULL_ptr;
-                devices     = NULL_ptr;
-                lock        = NULL_ptr;
+                api         = nill;
+                devices     = nill;
+                lock        = nill;
+                updates     = nill;
             }
+            
             pthread_mutex_t									OBJ_ptr		lock;
+            
 			devList ( EPSPACE DeviceInstance )							deviceList;
-			NLayerVecTypeObj ( DeviceListQueueItem )		OBJ_ptr		items;
+			NLayerVecTypeObj ( DeviceListQueueItem )                    items;
 
 			NLayerListTypeObj ( DeviceInstanceUpdateContext ) OBJ_ptr 	updates;
 
@@ -296,10 +299,15 @@ namespace environs
 			ENVIRONS_LIB_API void ReleaseDevicesMediator ();
 
 			/**
-			 * Refresh all device lists. Applications may call this if they manually stopped and started Environs again.
+			 * Reload all device lists. Applications may call this if they manually stopped and started Environs again.
 			 * Environs does not automatically refresh the device lists so as to allow applications to add observers before refreshing of the lists.
 			 */
-			ENVIRONS_LIB_API void RefreshDeviceLists ();
+			ENVIRONS_LIB_API void ReloadLists ();
+
+			/**
+			* Reload the device list.
+			*/
+			ENVIRONS_LIB_API void Reload ();
 
 
 			/**

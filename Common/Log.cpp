@@ -285,7 +285,9 @@ namespace environs
 
 #ifdef ENABLE_BUFFERING
 		if ( msg ) {
-			int len = sprintf_s ( log.buffer LOGPOSADD, LOGBUFFEREMAIN - 1, "%s", msg );
+			int len = snprintf ( log.buffer LOGPOSADD, LOGBUFFEREMAIN - 1, "%s", msg );
+			if ( len < 0 )
+				len = 0;
 
 			LOGPOS += len;
 		}

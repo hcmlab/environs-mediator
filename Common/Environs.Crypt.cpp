@@ -53,6 +53,10 @@
 #   define ENABLE_DUMMY_CRYPT
 #endif
 
+#if !defined(MEDIATORDAEMON)
+#   define	ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
+#endif
+
 #define CLASS_NAME	"Environs.Crypt . . . . ."
 
 
@@ -1002,7 +1006,7 @@ namespace environs
 		CERT_PUBLIC_KEY_INFO	*	certPubInfo = 0;
 		CERT_INFO				*	certInfo	= 0;
 		DWORD						certInfoLen;
-		char					*	ciphers		= 0;
+		//char					*	ciphers		= 0;
 		char					*	reverseBuffer = 0;
 		BYTE					*	certBin		= (BYTE *) (cert + 4);
 
@@ -1098,7 +1102,7 @@ namespace environs
 		}
 
 		if ( certBin != (BYTE *)(cert + 4)) free ( certBin );
-		if ( ciphers )		free ( ciphers );
+		//if ( ciphers )		free ( ciphers );
 		if ( reverseBuffer ) free ( reverseBuffer );
 		if ( certInfo )		LocalFree ( certInfo );
 		if ( certPubInfo )	LocalFree ( certPubInfo );
@@ -1110,7 +1114,6 @@ namespace environs
 		return ret;
 	}
 
-    
     
 #ifdef ENABLE_DUMMY_CRYPT
     bool dDecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize )
@@ -1129,10 +1132,12 @@ namespace environs
 
 		bool ret = false;
 
+#ifdef ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
 		if ( pthread_mutex_lock ( &privKeyMutex ) ) {
 			CErr ( "DecryptMessage: Failed to acquire lock." );
 			return false;
 		}
+#endif
 
 #ifdef USE_OPENSSL
         RSA     * rsa       = (RSA *) key;
@@ -1282,10 +1287,13 @@ namespace environs
 #endif
 
 #endif
+
+#ifdef ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
 		if ( pthread_mutex_unlock ( &privKeyMutex ) ) {
 			CErr ( "DecryptMessage: Failed to release lock." );
 			ret = false;
 		}
+#endif
 		return ret;
 	}
     

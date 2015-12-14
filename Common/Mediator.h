@@ -175,6 +175,8 @@ namespace environs	/// Namespace: environs ->
         DAEMONEXP ( ~ThreadInstance () );
         
 #ifdef MEDIATORDAEMON
+        volatile ThreadInstance  *	stuntTarget;
+        
 		bool Init ();
         bool Lock ( const char * func );
         bool Unlock ( const char * func );
@@ -203,6 +205,9 @@ namespace environs	/// Namespace: environs ->
 	class ApplicationDevices : public ILock
 	{
 	public:
+		ApplicationDevices ();
+		~ApplicationDevices ();
+
 		unsigned int			id;
 		unsigned int			areaId;
 		int						count;
@@ -211,11 +216,15 @@ namespace environs	/// Namespace: environs ->
 		long					latestAssignedID;
 
 		DeviceInstanceNode	*	devices;
+
+		bool					deviceCacheDirty;
+		int						deviceCacheCount;
+		DeviceInstanceNode	*	devicesCache;
 	};
 
     
     // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
-#define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 5)
+#define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 9)
 
     
 	typedef struct DeviceInstanceNode
@@ -369,7 +378,7 @@ namespace environs	/// Namespace: environs ->
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
         pthread_mutex_t         idMapMutex;
 #endif
-		pthread_mutex_t			mediatorMutex;
+		pthread_mutex_t			mediatorLock;
 		MediatorInstance		mediator;
 
 		pthread_mutex_t			devicesMutex;

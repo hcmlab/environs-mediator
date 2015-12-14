@@ -2,6 +2,19 @@
 
 ---------------------------
 
+### v 0.9.3
+
+---------------------------
+
+* Release: 0.9.3
+* Updated: Usage of snprintf (iOSX, Mediator)
+* Replaced: sprintf_s with snprintf (_snprintf for vs < 2015)
+* Removed: Mediator daemon support for protocol version <= 2
+* Added: ApplicationDevices cache preparation for MD
+* Updated: Added Mediator response timeout 3 min. (in case the provided response buffer is larger than 512 bytes)
+* Added: ThreadSync class
+
+
 * Release: 0.9.2
 * Updated: Lock logs with threadID
 * Enabled: Lockfree access to sockets

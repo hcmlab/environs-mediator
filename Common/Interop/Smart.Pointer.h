@@ -37,9 +37,9 @@
 #	define sp_make_arg(type,arg)	std::make_shared < type > ( arg );
 
 #	define vp_size(v)				v->size()
-#	define vp_sized(v)				v.size()
+#	define vd_size(v)				v.size()
 #	define vp_at(v,i)				v->at ( i )
-#	define vp_atd(v,i)				v.at ( i )
+#	define vd_at(v,i)				v.at ( i )
 
 #	define stdQueue(type)			std::queue < type >
 #	define stdQueue_empty(q)		q.empty()
@@ -74,12 +74,12 @@
 #	define DeviceListClear(l)		l->clear ()
 
 #	define ContainerClear(l)		l->clear ()
-#	define ContainerCleard(l)		l.clear ()
+#	define ContainerdClear(l)		l.clear ()
 #	define ContainerAppend(l,d)		l->push_back (d)
-#	define ContainerAppendd(l,d)	l.push_back (d)
+#	define ContainerdAppend(l,d)	l.push_back (d)
 #	define ContainerInsert(l,i,d)	l->insert ( l->begin () + vctSize i, d )
 #	define ContainerRemoveAt(l,i)	l->erase ( l->begin () + vctSize i )
-#	define ContainerRemoveAtd(l,i)	l.erase ( l.begin () + vctSize i )
+#	define ContainerdRemoveAt(l,i)	l.erase ( l.begin () + vctSize i )
 #	define ContainerRemove(l,i)		l->erase ( i )
 #	define ContainerIfContains(l,i)	
 
@@ -150,10 +150,10 @@ using System::Collections::ObjectModel::ObservableCollection;
 #	define vct(type)				cliext::vector < type >
 
 #	define vp_size(v)				(size_t) v->Count
-#	define vp_sized(v)				(size_t) v.Count
+#	define vd_size(v)				(size_t) v.Count
 
 #	define vp_at(v,i)				v[vctSize i]
-#	define vp_atd(v,i)				v[vctSize i]
+#	define vd_at(v,i)				v[vctSize i]
 
 #	define msp(key,type)			cliext::map < key, type ^ >
 #	define smsp(key,type)			cliext::map < key, type ^ > ^
@@ -164,7 +164,7 @@ using System::Collections::ObjectModel::ObservableCollection;
 #	define devList(type)			ObservableCollection<type ^> ^
 #	define devListRef(type)			devList(type)
 #	define ContainerClear(l)		l->Clear ()
-#	define ContainerCleard(l)		l.Clear ()
+#	define ContainerdClear(l)		l.Clear ()
 
 #	define DeviceListAppend(l,d)	DeviceListAppendFunc ( l, d )
 #	define DeviceListInsert(l,i,d)	DeviceListInsertFunc ( l, d, i )
@@ -174,10 +174,10 @@ using System::Collections::ObjectModel::ObservableCollection;
 
 // TODO need to be done in UI thread
 #	define ContainerAppend(l,d)		l->Add (d)
-#	define ContainerAppendd(l,d)	l.Add (d)
+#	define ContainerdAppend(l,d)	l.Add (d)
 #	define ContainerInsert(l,i,d)	l->Insert ( i, d )
 #	define ContainerRemoveAt(l,i)	l->RemoveAt ( i )
-#	define ContainerRemoveAtd(l,i)	l.RemoveAt ( i )
+#	define ContainerdRemoveAt(l,i)	l.RemoveAt ( i )
 #	define ContainerRemove(l,i)		if (l->ContainsKey(i)) l->Remove ( i )
 #	define ContainerIfContains(l,i)	if (l->ContainsKey(i))
 

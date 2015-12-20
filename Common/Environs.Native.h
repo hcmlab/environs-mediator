@@ -261,6 +261,7 @@ namespace environs {
 #	define ENVIRONS_LOGARG_RCMD(tag,expression,...)         environs::COutArgLog ( tag, expression, __VA_ARGS__ )
 #elif CLI_CPP
 #	define ENVIRONS_LOG_RCMD(tag,expression)                environs::COutLog ( CLASS_NAME, expression )
+#	define ENVIRONS_LOG_RCMD_SBL(logtxt)					environs::COutLog ( logtxt )
 #	define ENVIRONS_LOGARG_RCMD(tag,expression)             environs::COutLog ( CLASS_NAME, expression )
 #else
 #	define ENVIRONS_LOG_RCMD(tag,expression)                environs::COutLog ( expression, 0, true )
@@ -306,6 +307,7 @@ namespace environs {
 
 #ifdef CLI_CPP
 #	define	ENVIRONS_MAKE_BODY(tag,msg)				tag, msg
+#	define	ENVIRONS_MAKE_BODY_SBL(tag,msg)			sbl->Append(tag)->Append(" ")->Append(CLASS_NAME)->Append(" ") msg
 #	define	ANDROID_LOG_INFO						1
 #	define	ANDROID_LOG_WARN						1
 #	define	ANDROID_LOG_ERROR						1
@@ -316,6 +318,11 @@ namespace environs {
 #endif
 
 #define ENVIRONS_VERB_NCMD(expression)				ENVIRONS_LOG_NRCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
+
+#ifdef CLI_CPP
+#	define ENVIRONS_VERB_SBL_CMD(expression)		{ StringBuilder ^ sbl = gcnew StringBuilder (); expression;	ENVIRONS_LOG_RCMD_SBL ( sbl->ToString() ); }
+#endif
+
 #define ENVIRONS_VERB_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
 #define ENVIRONS_LOG_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
 #define ENVIRONS_LOG_NCMD(expression)				ENVIRONS_LOG_NRCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
@@ -345,29 +352,39 @@ namespace environs {
 
 #define CVerbArg(msg,...)							ENVIRONS_VERBRG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
 #define CVerbArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
+
 #ifdef CLI_CPP
-#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+//#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_CMD( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_VERB_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
+
+//#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+//	ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "] " + name2 + ": [" + arg2 + "]" ) )
+#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_VERB_PREFIX,	\
+	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
+	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
 #else
 #	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
-#endif
-#ifdef CLI_CPP
-#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-	ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "] " + name2 + ": [" + arg2 + "]" ) )
-#else
+
 #	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
 	ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
 #endif
 
 #define CVerbVerbArg(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
+
 #ifdef CLI_CPP
-#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+//#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_VERB_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
+
+//#	define CVerbVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+//	ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "] " + name2 + ": [" + arg2 + "]" ) )
+#	define CVerbVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_VERB_PREFIX,	\
+	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
+	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
 #else
 #	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
-#endif
-#ifdef CLI_CPP
-#	define CVerbVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-	ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "] " + name2 + ": [" + arg2 + "]" ) )
-#else
+
 #	define CVerbVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
 	ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
 #endif
@@ -377,9 +394,19 @@ namespace environs {
 #define CLogArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
 
 #ifdef CLI_CPP
-#	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+//#	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+#	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_LOG_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
+
+#	define CLogArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_LOG_PREFIX,	\
+	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
+	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
+
 #else
 #	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
+
+#	define CLogArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+		ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
 #endif
 
 #define CListLogArg1(msg,name1,type1,arg1)			CLogArg1 ( msg,name1,type1,arg1)
@@ -389,9 +416,19 @@ namespace environs {
 #define CErrArg(msg,...)							ENVIRONS_ERRARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg), __VA_ARGS__ )
 
 #ifdef CLI_CPP
-#	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_ERR_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+//#	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_ERR_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
+#	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_ERR_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
+
+#	define CErrArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_ERR_PREFIX,	\
+	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
+	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
+
 #else
 #	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_ERRARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
+
+#	define CErrArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+		ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
 #endif
 
 #define CVerbID(msg)								ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), deviceID )

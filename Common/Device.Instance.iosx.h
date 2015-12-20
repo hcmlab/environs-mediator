@@ -365,6 +365,12 @@
 - (void) ClearMessages;
 
 /**
+ * Clear cached MessageInstance and FileInstance objects for this DeviceInstance.
+ *
+ */
+- (void) DisposeStorageCache;
+
+/**
 * Clear (Delete permanently) all files for this DeviceInstance in the persistent storage.
 *
 */

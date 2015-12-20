@@ -202,7 +202,8 @@ public:
 	void									BuildBroadcastMessage ( );
 	
 private:
-	bool									allocated;
+    bool									allocated;
+    bool									acceptEnabled;
 	pthread_mutex_t							thread_lock;
 	pthread_cond_t							thread_condition;
 

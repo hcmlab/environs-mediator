@@ -278,6 +278,7 @@ MediatorDaemon::MediatorDaemon ()
 	CVerb ( "Construct" );
 
 	allocated				= false;
+    acceptEnabled           = true;
     anonymousLogon          = true;
     *anonymousUser          = 0;
     *anonymousPassword      = 0;
@@ -385,7 +386,8 @@ void MediatorDaemon::PrintHelp ()
 	printf ( "e - error case - reset acceptor\n" );
     printf ( "g - print client resources\n" );
 	printf ( "h - print help\n" );
-	printf ( "i - print interfaces\n" );
+    printf ( "i - print interfaces\n" );
+    printf ( "j - toggle Acceptor\n" );
 	printf ( "l - toggle logging to file\n" );
 	printf ( "m - print mediators\n" );
 	printf ( "o - toggle logging to output (std)\n" );
@@ -2681,7 +2683,13 @@ void MediatorDaemon::Run ()
 
 				MutexUnlockV ( &localNetsMutex, "Run" );
 				continue;
-			}
+            }
+            else if ( c == 'j' ) {
+                acceptEnabled = !acceptEnabled;
+                printf ( "Run: Acceptor is now [%s]\n", acceptEnabled ? "enabled" : "disabled" );
+                CLogArg ( "Run: Acceptor is now [%s]\n", acceptEnabled ? "enabled" : "disabled" );
+                continue;
+            }
 			else if ( c == 'l' ) {
 				logging = !logging;
 				printf ( "Run: File logging is now [%s]\n", logging ? "enabled" : "disabled" );
@@ -3186,56 +3194,59 @@ void * MediatorDaemon::Acceptor ( void * arg )
 		CLogArg ( "Acceptor: New socket [%i] connection with IP [%s], Port [%d]", sock, ips, ntohs ( addr.sin_port ) );
         CLog ( "\n" );
         
-        sp ( ThreadInstance ) client;
-        /*
-        if ( !CheckSocketAlive ( sock ) ) {
-            goto NextClient;
-        }*/
-		
-        client = make_shared < ThreadInstance > (); //( new ThreadInstance ); //make_shared < ThreadInstance > ();
-		if ( !client ) {
-            CErr ( "Acceptor: Failed to allocate memory for client request!" );
-            goto NextClient;
-		}
-		memset ( client.get (), 0, sizeof ( ThreadInstance ) - ( sizeof ( sp ( DeviceInstanceNode ) ) + sizeof ( sp ( ThreadInstance ) ) ) );
-		
-		if ( !client->Init () )
-			goto NextClient;
-		
-		//pthread_cond_init ( &client->socketSignal, NULL );
-        
-		client->socket		= sock;
-		client->spareSocket	= -1;
-		client->port		= port;
-		client->filterMode	= 2;
-		client->aliveLast	= checkLast;
-		client->daemon		= this;
-        client->stuntTarget = 0;
-		client->connectTime = GetEnvironsTickCount ();
-
-		memcpy ( &client->addr, &addr, sizeof(addr) );
-        
-		strlcpy ( client->ips, ips, sizeof ( client->ips ) );
-        
-		if ( !acceptClients.Lock ( "Acceptor" ) )
-			goto NextClient;
-
-		client->clientSP = client;
-		
-		pthread_reset ( client->threadID );
-
-		// Create client thread	
-		s = pthread_create ( &client->threadID, 0, &MediatorDaemon::ClientThreadStarter, (void *)client.get () );
-		if ( s != 0 ) {
-			CWarnArg ( "Acceptor: pthread_create failed [%i]", s );
-			client->clientSP = 0;
-		}
-        else {
-            sock = -1;
-            acceptClients.list.push_back ( client->clientSP );
+        if ( acceptEnabled )
+        {
+            sp ( ThreadInstance ) client;
+            /*
+             if ( !CheckSocketAlive ( sock ) ) {
+             goto NextClient;
+             }*/
+            
+            client = make_shared < ThreadInstance > (); //( new ThreadInstance ); //make_shared < ThreadInstance > ();
+            if ( !client ) {
+                CErr ( "Acceptor: Failed to allocate memory for client request!" );
+                goto NextClient;
+            }
+            memset ( client.get (), 0, sizeof ( ThreadInstance ) - ( sizeof ( sp ( DeviceInstanceNode ) ) + sizeof ( sp ( ThreadInstance ) ) ) );
+            
+            if ( !client->Init () )
+                goto NextClient;
+            
+            //pthread_cond_init ( &client->socketSignal, NULL );
+            
+            client->socket		= sock;
+            client->spareSocket	= -1;
+            client->port		= port;
+            client->filterMode	= 2;
+            client->aliveLast	= checkLast;
+            client->daemon		= this;
+            client->stuntTarget = 0;
+            client->connectTime = GetEnvironsTickCount ();
+            
+            memcpy ( &client->addr, &addr, sizeof(addr) );
+            
+            strlcpy ( client->ips, ips, sizeof ( client->ips ) );
+            
+            if ( !acceptClients.Lock ( "Acceptor" ) )
+                goto NextClient;
+            
+            client->clientSP = client;
+            
+            pthread_reset ( client->threadID );
+            
+            // Create client thread
+            s = pthread_create ( &client->threadID, 0, &MediatorDaemon::ClientThreadStarter, (void *)client.get () );
+            if ( s != 0 ) {
+                CWarnArg ( "Acceptor: pthread_create failed [%i]", s );
+                client->clientSP = 0;
+            }
+            else {
+                sock = -1;
+                acceptClients.list.push_back ( client->clientSP );
+            }
+            
+            acceptClients.Unlock ( "Acceptor" );
         }
-
-		acceptClients.Unlock ( "Acceptor" );
         
     NextClient:
         if ( sock != -1 ) {
@@ -5852,14 +5863,14 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 	client->Unlock ( "SecureChannelAuth" );
 #endif
 
-	if ( (int)length != sentBytes ) {
+	if ( ( int ) length != sentBytes ) {
 		LogSocketError ();
 		CVerbArg ( "SecureChannelAuth: Sending of auth token failed [%u] != [%i].", length, sentBytes );
 		return false;
 	}
-	
+
 	/// Wait for response
-	length = (int)recvfrom ( (int) client->socket, buffer, ENVIRONS_MAX_KEYBUFFER_SIZE - 1, 0, (struct sockaddr*) &client->addr, (socklen_t *) &addrLen );
+	length = ( int ) recvfrom ( ( int ) client->socket, buffer, ENVIRONS_MAX_KEYBUFFER_SIZE - 1, 0, ( struct sockaddr* ) &client->addr, ( socklen_t * ) &addrLen );
 	if ( length <= 0 ) {
 		CLogArg ( "SecureChannelAuth: Socket [%i] closed; Bytes [%i]!", client->socket, length ); return false;
 	}
@@ -5868,7 +5879,7 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 		CWarnArg ( "SecureChannelAuth: Received response is less than the required 260 bytes; Bytes [%i]!", length ); return false;
 	}
 	recvLength = length;
-    buffer [ recvLength ] = 0;
+	buffer [ recvLength ] = 0;
 	
 
 	/// Decrypt the response
@@ -5877,9 +5888,9 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 
 	do
 	{
-		pUI = (unsigned int *) buffer;
+		pUI = ( unsigned int * ) buffer;
 		length = *pUI++;
-        
+
 		if ( length < 260 ) {
 			CLogArg ( "SecureChannelAuth: Received response is not a correct hash; Bytes [%i]!", length ); break;
 		}
@@ -5889,7 +5900,7 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 
 		if ( !DecryptMessage ( privKey, privKeySize, buffer + 4, length, &msg, &msgLen ) ) {
 			CWarn ( "SecureChannelAuth: Failed to decrypt response!" ); break;
-		}        
+		}
 
 		/// Compute the challenge
 		challenge *= 42;
@@ -5928,51 +5939,51 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
             
             /// Look through db for user
             string user = userName;
-            
-            if (anonymousLogon) {
-                if ( !strncmp ( user.c_str(), anonymousUser, MAX_NAMEPROPERTY ) ) {
-                    CLog ( "SecureChannelAuth: Anonymous logon." );
-                    pass = anonymousPassword;
-                    client->authLevel = 0;
-                }
-            }
-            
-            if ( !pass ) {
-                std::transform ( user.begin(), user.end(), user.begin(), ::tolower );
-                
-                const map<string, UserItem *>::iterator iter = usersDB.find ( user );
-                if ( iter == usersDB.end () ) {
-					CLogArg ( "SecureChannelAuth: User [%s] not found.", user.c_str () );
-                }
-                else {
-                    UserItem * item = iter->second;
-                    
-                    pass = item->pass.c_str ();
-                    client->createAuthToken = true;
-                    client->authLevel = item->authLevel;
-                }
-                
-                if ( !pass ) {
-                    CVerbArg ( "SecureChannelAuth: No password for User [%s] available. Treating username as deviceUID and looking for authToken.", user.c_str () );
-                    
-                    string deviceUID = userName;
-					std::transform ( deviceUID.begin(), deviceUID.end(), deviceUID.begin(), ::tolower );
 
-                    if ( deviceMappings.Lock ( "SecureChannelAuth" ) )
-                    {
-                        const msp ( string, DeviceMapping )::iterator devIt = deviceMappings.list.find ( deviceUID );
-                        
-                        if ( devIt != deviceMappings.list.end ( ) ) {
-                            CVerb ( "SecureChannelAuth: Found auth token for the deviceUID." );
-                            pass = devIt->second->authToken;
-                            if ( !*pass )
-                                pass = 0;
-                            client->authLevel = devIt->second->authLevel;
-                        }
-                        deviceMappings.Unlock ( "SecureChannelAuth" );
-                    }
-                }
-            }
+			if ( anonymousLogon ) {
+				if ( !strncmp ( user.c_str (), anonymousUser, MAX_NAMEPROPERTY ) ) {
+					CLog ( "SecureChannelAuth: Anonymous logon." );
+					pass = anonymousPassword;
+					client->authLevel = 0;
+				}
+			}
+
+			if ( !pass ) {
+				std::transform ( user.begin (), user.end (), user.begin (), ::tolower );
+
+				const map<string, UserItem *>::iterator iter = usersDB.find ( user );
+				if ( iter == usersDB.end () ) {
+					CLogArg ( "SecureChannelAuth: User [%s] not found.", user.c_str () );
+				}
+				else {
+					UserItem * item = iter->second;
+
+					pass = item->pass.c_str ();
+					client->createAuthToken = true;
+					client->authLevel = item->authLevel;
+				}
+
+				if ( !pass ) {
+					CVerbArg ( "SecureChannelAuth: No password for User [%s] available. Treating username as deviceUID and looking for authToken.", user.c_str () );
+
+					string deviceUID = userName;
+					std::transform ( deviceUID.begin (), deviceUID.end (), deviceUID.begin (), ::tolower );
+
+					if ( deviceMappings.Lock ( "SecureChannelAuth" ) )
+					{
+						const msp ( string, DeviceMapping )::iterator devIt = deviceMappings.list.find ( deviceUID );
+
+						if ( devIt != deviceMappings.list.end () ) {
+							CVerb ( "SecureChannelAuth: Found auth token for the deviceUID." );
+							pass = devIt->second->authToken;
+							if ( !*pass )
+								pass = 0;
+							client->authLevel = devIt->second->authLevel;
+						}
+						deviceMappings.Unlock ( "SecureChannelAuth" );
+					}
+				}
+			}
 
             if ( !pass ) {
                 CVerbArg ( "SecureChannelAuth: No username and deviceUID [%s] found.", userName );
@@ -5980,7 +5991,7 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
             }
 		}
 
-		CVerbVerbArg ( "SecureChannelAuth: Auth user [%s] pass [%s]", userName, ConvertToHexSpaceString ( pass, (int)strlen(pass) ) );
+		CVerbVerbArg ( "SecureChannelAuth: Auth user [%s] pass [%s]", userName, ConvertToHexSpaceString ( pass, ( int ) strlen ( pass ) ) );
 
 		if ( !BuildEnvironsResponse ( challenge, userName, pass, &hash, &hashLen ) ) {
 			CErr ( "SecureChannelAuth: Failed to build response." ); break;
@@ -6008,8 +6019,8 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
 		memcpy ( buffer, "ae;;", msgLen );
 
 		sentBytes = SendBuffer ( client, buffer, msgLen );
-		
-		if ( sentBytes != (int)msgLen ) {
+
+		if ( sentBytes != ( int ) msgLen ) {
 			CWarn ( "SecureChannelAuth: Failed to send AES ACK message." ); break;
 		}
 

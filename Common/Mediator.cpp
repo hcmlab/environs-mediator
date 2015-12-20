@@ -42,6 +42,10 @@
 #ifndef _WIN32
 #   include <signal.h>
 #   include <unistd.h>
+#else
+#	include <iphlpapi.h>
+
+#	pragma comment(lib, "iphlpapi.lib")
 #endif
 
 #include <map>
@@ -56,6 +60,7 @@ namespace environs
 
 	bool                Mediator::allocatedClass = false;
 	NetPack             Mediator::localNets;
+    int                 Mediator::localNetsSize = 0;
 	pthread_mutex_t     Mediator::localNetsMutex;
 
 
@@ -264,8 +269,10 @@ namespace environs
 
 		ReleaseMediators ();
 
-		if ( certificate )
+		if ( certificate ) {
 			free ( certificate );
+			certificate = 0;
+		}
 	}
 
     
@@ -385,7 +392,9 @@ namespace environs
 	{
 		CVerb ( "ReleaseNetworks" );
 
-		if ( !MutexLockA ( localNetsMutex, "ReleaseNetworks" ) )
+        localNetsSize = 0;
+
+        if ( !MutexLockA ( localNetsMutex, "ReleaseNetworks" ) )
 			return;
 
 		NetPack * net = localNets.next;
@@ -474,6 +483,9 @@ namespace environs
 	}
 
 
+#define USE_WIN_GETADAPTERSINFO
+
+
 	bool Mediator::LoadNetworks ()
 	{
 		CVerb ( "LoadNetworks" );
@@ -484,6 +496,91 @@ namespace environs
 		MutexLockVA ( localNetsMutex, "LoadNetworks" );
 
 #ifdef _WIN32
+
+#ifdef USE_WIN_GETADAPTERSINFO
+		IP_ADAPTER_INFO tmpAdapter;
+		Zero ( tmpAdapter );
+
+		struct sockaddr_in addr;
+
+		PIP_ADAPTER_INFO adapters = &tmpAdapter;
+		PIP_ADAPTER_INFO adapter = nill;
+		DWORD success = 0;
+		int i = 0;
+
+		ULONG bufSize = sizeof ( tmpAdapter );
+
+		if ( GetAdaptersInfo ( adapters, &bufSize ) != ERROR_BUFFER_OVERFLOW ) 
+		{
+			success = NO_ERROR;
+		}
+		else {
+			adapters = ( PIP_ADAPTER_INFO ) malloc ( bufSize );
+
+			if ( adapters == nill ) {
+				CErr ( "LoadNetworks: Failed to allocate memory." );
+				goto EndOfMethod;
+			}
+
+			success = GetAdaptersInfo ( adapters, &bufSize );
+		}
+
+		if ( success == NO_ERROR ) 
+		{
+			adapter = adapters;
+			while ( adapter )
+			{
+				i++;
+				bool add = false;
+
+				switch ( adapter->Type ) {
+				case MIB_IF_TYPE_PPP:
+				case MIB_IF_TYPE_ETHERNET:
+				case MIB_IF_TYPE_TOKENRING:
+				case MIB_IF_TYPE_FDDI:
+					add = true;
+					break;
+
+				default:
+					break;
+				}
+
+				if ( add )
+				{
+					inet_pton ( AF_INET, adapter->IpAddressList.IpAddress.String, &( addr.sin_addr ) );
+					ip = ( unsigned int ) addr.sin_addr.s_addr;
+
+					inet_pton ( AF_INET, adapter->IpAddressList.IpMask.String, &( addr.sin_addr ) );
+					unsigned int mask = ( unsigned int ) addr.sin_addr.s_addr;
+
+					if ( ip && mask ) {
+						CLogArg ( "Local IP %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+						CVerbArg ( "Local SN %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+
+						bcast = GetBroadcast ( ip, mask );
+						if ( !bcast ) {
+							CErrArg ( "LoadNetworks: Failed to calculate broadcast address for interface [ %i ]!", i );
+							continue;
+						}
+
+						inet_pton ( AF_INET, adapter->GatewayList.IpAddress.String, &( addr.sin_addr ) );
+						unsigned int gw = ( unsigned int ) addr.sin_addr.s_addr;
+						if ( gw ) {
+							CLogArg ( "Local GW %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &gw ) ) );
+						}
+
+						CVerbArg ( "LoadNetworks: Local BC %i: [%s]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+
+						AddNetwork ( ip, bcast, mask, gw );
+					}
+				}
+				adapter = adapter->Next;
+			}
+		}
+
+		if ( adapters != &tmpAdapter )
+			free ( adapters );
+#else
 		char ac [ 256 ];
 		if ( gethostname ( ac, sizeof ( ac ) ) == SOCKET_ERROR ) {
 			CErrArg ( "LoadNetworks: Error %i when getting local host name.", WSAGetLastError () );
@@ -549,6 +646,7 @@ namespace environs
 
 		shutdown ( sock, 2 );
 		closesocket ( sock );
+#endif
 
 #else
 
@@ -625,7 +723,7 @@ namespace environs
 			CVerbArg ( "LoadNetworks: Netmask: '%s'", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 			CVerbArg ( "LoadNetworks: Broadcast: '%s'", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-			AddNetwork ( ip, bcast, mask );
+			AddNetwork ( ip, bcast, mask, 0 );
 		}
 		shutdown ( sock, 2 );
 		closesocket ( sock );
@@ -677,7 +775,7 @@ namespace environs
 				CVerbArg ( "LoadNetworks: Netmask:   [%s]", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 				CVerbArg ( "LoadNetworks: Broadcast: [%s]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-				AddNetwork ( ip, bcast, mask );
+				AddNetwork ( ip, bcast, mask, 0 );
 			}
 			else if ( ifa->ifa_addr->sa_family == PF_INET6 ) {
 				// We do not support IPv6 yet
@@ -712,7 +810,7 @@ namespace environs
 	}
 
 
-	void Mediator::AddNetwork ( unsigned int ip, unsigned int bcast, unsigned int netmask )
+	void Mediator::AddNetwork ( unsigned int ip, unsigned int bcast, unsigned int netmask, unsigned int gw )
 	{
 		NetPack * net = &localNets;
 		NetPack * pack = net;
@@ -736,9 +834,21 @@ namespace environs
 			pack = newPack;
 		}
 
+		if ( gw && pack != &localNets ) 
+		{
+			// Swap current network with the first one
+			memcpy ( pack, &localNets, sizeof ( NetPack ) );						
+			
+			pack->next = 0;
+			pack = &localNets;
+		}
+
 		pack->ip	= ip;
 		pack->bcast = bcast;
 		pack->mask	= netmask;
+		pack->gw	= gw;
+        
+        localNetsSize++;
 	}
 
 
@@ -777,7 +887,7 @@ namespace environs
 				return false;
 			}
 
-#ifdef SO_REUSEPORT // Fix for bind error on iOS simulator due to crash of app, leaving the port still bound
+#ifdef SO_REUSEPORT
 			value = 1;
 			if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEPORT, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
 				CErr ( "Start: Failed to set reuseaddr option on socket!" );
@@ -813,7 +923,7 @@ namespace environs
 	{
 		CVerb ( "SendBroadcast" );
 
-		if ( /*!isRunning ||*/ broadcastSocketID == -1 )
+		if ( broadcastSocketID == -1 )
 			return false;
 
 		bool ret = true;
@@ -830,17 +940,24 @@ namespace environs
 		broadcastAddr.sin_addr.s_addr = inet_addr ( "255.255.255.255" );
 
 		sentBytes = sendto ( broadcastSocketID, broadcastMessage + 4, broadcastMessageLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-		if ( sentBytes != broadcastMessageLen ) {
+		if ( sentBytes != broadcastMessageLen )
+        {
 			CErr ( "SendBroadcast: Broadcast failed!" );
-			ret = false;
+			return false;
 		}
 
 		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
 		NetPack * net = 0;
 
+#ifdef NDEBUG
+        if ( localNetsSize <= 1 )
+#else
+        if ( localNetsSize <= 0 )
+#endif
+            return true;
+        
 		if ( !MutexLockA ( localNetsMutex, "SendBroadcast" ) ) {
-			ret = false;
-			goto EndWithStatus;
+			return false;
 		}
 
 		net = &localNets;
@@ -857,8 +974,6 @@ namespace environs
 		}
 
 		MutexUnlockVA ( localNetsMutex, "SendBroadcast" );
-
-	EndWithStatus:
 
 		return ret;
 	}

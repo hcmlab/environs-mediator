@@ -53,6 +53,7 @@ namespace environs
     void COutArgLog ( int tag, const char * format, ... );
 #elif CLI_CPP
 	void COutLog ( CString_ptr className, CString_ptr prefix, CString_ptr msg );
+	void COutLog ( CString_ptr msg );
 #else
     void COutLog ( const char * msg, int length, bool useLock );
     void COutArgLog ( const char * format, ... );

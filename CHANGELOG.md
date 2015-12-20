@@ -1,6 +1,17 @@
-### v 0.9.1
+### v 0.9.5 unreleased
 
 ---------------------------
+
+### v 0.9.4
+
+---------------------------
+
+* Release: 0.9.4
+* Added: Disable DISABLE_MEM_CHECKS to build opts
+* Added: Toggle Acceptor of Mediator Daemon (j)
+* Updated: Environs.Build.Opts.h
+* Updated: Windows Mediator local network adapter detection
+
 
 ### v 0.9.3
 

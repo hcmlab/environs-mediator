@@ -127,6 +127,7 @@ namespace environs	/// Namespace: environs ->
 		unsigned int		ip;
 		unsigned int		bcast;
 		unsigned int		mask;
+		unsigned int		gw;
 		NetPack			*	next;
 	}
 	NetPack;
@@ -373,6 +374,7 @@ namespace environs	/// Namespace: environs ->
 		char			*		certificate;
 
 		static NetPack          localNets;
+        static int              localNetsSize;
         static pthread_mutex_t  localNetsMutex;
         
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
@@ -430,7 +432,7 @@ namespace environs	/// Namespace: environs ->
         static void				ReleaseNetworks ( );
 
 	private:
-        static void				AddNetwork ( unsigned int ip, unsigned int bcast, unsigned int netmask );
+        static void				AddNetwork ( unsigned int ip, unsigned int bcast, unsigned int netmask, unsigned int gw );
         static unsigned int		GetBroadcast ( unsigned int ip, unsigned int netmask );
 
 		virtual void 			DevicesHasChanged ( int type );

@@ -54,7 +54,7 @@
 #endif
 
 #if !defined(MEDIATORDAEMON)
-#   define	ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
+//#   define	ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
 #endif
 
 #define CLASS_NAME	"Environs.Crypt . . . . ."
@@ -63,19 +63,20 @@
 namespace environs
 {
 	/// Some salt to the hash soup...
-	const char * hashSalt = "hcmEnvirons";
+	const char *            hashSalt        = "hcmEnvirons";
 
 	/// A mutex to synchronize access to the private key
-	pthread_mutex_t		privKeyMutex;
+	pthread_mutex_t         privKeyMutex;
     
-    bool allocated = false;
+    bool                    allocated           = false;
+    bool                    openssl_alg_added   = false;
     
-    pEncryptMessage         EncryptMessage = 0;
-    pDecryptMessage         DecryptMessage = 0;
-    pReleaseCert            ReleaseCert = 0;
-    pSHAHashCreate          SHAHashCreate = 0;
-    pAESEncrypt             AESEncrypt = 0;
-    pAESDecrypt             AESDecrypt = 0;
+    pEncryptMessage         EncryptMessage  = 0;
+    pDecryptMessage         DecryptMessage  = 0;
+    pReleaseCert            ReleaseCert     = 0;
+    pSHAHashCreate          SHAHashCreate   = 0;
+    pAESEncrypt             AESEncrypt      = 0;
+    pAESDecrypt             AESDecrypt      = 0;
     pGenerateCertificate    GenerateCertificate = 0;
     
     pAESDeriveKeyContext    AESDeriveKeyContext = 0;
@@ -930,12 +931,16 @@ namespace environs
 		bool ret = false;
 
 #ifdef USE_OPENSSL
+        if ( !openssl_alg_added ) {
 # ifdef OPENSSL_LOAD_CONF
-        dOPENSSL_add_all_algorithms_conf();
+            dOPENSSL_add_all_algorithms_conf();
 # else
-        dOPENSSL_add_all_algorithms_noconf();
+            dOPENSSL_add_all_algorithms_noconf();
 # endif
-        dERR_load_crypto_strings();
+            dERR_load_crypto_strings();
+            
+            openssl_alg_added = true;
+        }
 
         EVP_PKEY    *   pkey	= 0;
         X509		*	cert509 = 0;
@@ -1333,7 +1338,7 @@ namespace environs
 		if ( ctx->decCtx ) {
 			EVP_CIPHER_CTX * ect = (EVP_CIPHER_CTX *) ctx->decCtx;
 			dEVP_CIPHER_CTX_cleanup ( ect );
-			free ( ctx->decCtx );
+            free ( ctx->decCtx );
 		}
 #else
 #ifdef USE_CACHED_HKEY
@@ -1404,10 +1409,16 @@ namespace environs
 			memcpy ( blob, hash, AES_SHA256_KEY_LENGTH );
 			
 			dEVP_CIPHER_CTX_init ( e );
-			ret = dEVP_EncryptInit_ex ( e, dEVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1;
+			ret = (dEVP_EncryptInit_ex ( e, dEVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1);
+            if ( !ret ) {
+                CWarn ( "AESDeriveKeyContexts: Failed to initialize encryption." );
+            }
 
 			dEVP_CIPHER_CTX_init ( d );
-			ret = dEVP_DecryptInit_ex ( d, dEVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1;
+            ret = (dEVP_DecryptInit_ex ( d, dEVP_aes_256_cbc(), NULL, (unsigned char *) blob, NULL ) == 1);
+            if ( !ret ) {
+                CWarn ( "AESDeriveKeyContexts: Failed to decrypt." );
+            }
     
 			CVerbVerbArg ( "AESDeriveKeyContexts: AES key [%s]", ConvertToHexSpaceString ( blob, AES_SHA256_KEY_LENGTH ) );
 
@@ -2353,8 +2364,7 @@ namespace environs
 
 		return ret;
 	}
-#endif
-    
+#endif    
     
     bool InitEnvironsCrypt ()
     {
@@ -2383,12 +2393,17 @@ namespace environs
             DisposePublicKey   = cryptDisposePublicKey;
             DisposePrivateKey = cryptDisposePrivateKey;
 
+            if ( !openssl_alg_added )
+            {
 # ifdef OPENSSL_LOAD_CONF
-            dOPENSSL_add_all_algorithms_conf();
+                dOPENSSL_add_all_algorithms_conf();
 # else
-            dOPENSSL_add_all_algorithms_noconf();
+                dOPENSSL_add_all_algorithms_noconf();
 # endif
-            dERR_load_crypto_strings ();
+                dERR_load_crypto_strings ();
+            
+                openssl_alg_added = true;
+            }
         }
         else {
 #ifndef ANDROID

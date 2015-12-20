@@ -67,7 +67,6 @@ namespace environs
 				accel;
 			}
 			data;
-
 		}
 		SensorFrame;
 
@@ -168,7 +167,7 @@ namespace environs
 	public ref class SensorFrame
 	{
 	public:
-		//DeviceInstance ^ device;
+		DeviceInstance OBJ_ptr device;
 
         // An id that identifies this input entity for its whole lifecycle
         int			id;
@@ -186,7 +185,17 @@ namespace environs
 	};
 
 #else
-	typedef lib::SensorFrame SensorFrame;
+	class DeviceInstance;
+
+	typedef struct SensorFrame
+	{
+		lib::SensorFrame	frame;
+
+		DeviceInstance *	device;
+	}
+	SensorFrame;
+
+	//typedef lib::SensorFrame SensorFrame;
 #endif
 
 

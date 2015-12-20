@@ -257,15 +257,22 @@ sp ( type ) ent ( p1, ::environs::EnvironsDisposer ); \
 
 #else
 
+#ifdef CLI_CPP
+#	define	PLATFORMREF			System::Object ^
+#	define	PLATFORMREFNILL		nill
+#else
+#	define	PLATFORMREF			void *
+#	define	PLATFORMREFNILL		nill
+#endif
 
 #	define ENVIRONS_OUTPUT_ALLOC_RESOURCE(type)	
 #	define ENVIRONS_OUTPUT_DE_ALLOC_DECL()				ENVIRONS_LIB_API void	Release (); \
-														void * platformRef; \
+														PLATFORMREF platformRef; \
 													protected: \
 														LONGSYNC                objID_; \
 													private: 
 
-#	define ENVIRONS_OUTPUT_ALLOC_INIT()					platformRef = 0; __int64 %tRef = objectIdentifiers; objID_ = __sync_add_and_fetch ( tRef, 1 );
+#	define ENVIRONS_OUTPUT_ALLOC_INIT()					platformRef = PLATFORMREFNILL; __int64 %tRef = objectIdentifiers; objID_ = __sync_add_and_fetch ( tRef, 1 );
 
 #	define ENVIRONS_OUTPUT_ALLOC(type)					extern LONGSYNC objectIdentifiers;
 

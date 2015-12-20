@@ -78,6 +78,7 @@ namespace environs
             MAKE_FRIEND_CLASS ( MessageInstance );
             MAKE_FRIEND_CLASS ( FileInstance );
             MAKE_FRIEND_CLASS ( DeviceInstanceProxy );
+            MAKE_FRIEND_CLASS ( DLObserver );
 
 		public:
 			ENVIRONS_LIB_API    DeviceInstance ();
@@ -388,6 +389,12 @@ namespace environs
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API envArrayList OBJ_ptr GetAllFilesRetained ();
 #endif
+        
+            /**
+             * Clear cached MessageInstance and FileInstance objects for this DeviceInstance.
+             *
+             */
+            ENVIRONS_LIB_API void DisposeStorageCache ();
 
 			/**
 			* Get a list with all messages that this device has received (and sent).
@@ -427,8 +434,12 @@ namespace environs
 			 * @return success true = enabled, false = failed.
 			 */
 			ENVIRONS_LIB_API bool SetSensorEventSending ( int ENVIRONS_SENSOR_TYPE_, bool enable );
-
-
+        
+        
+#if ( defined(ENVIRONS_OSX) || defined(ENVIRONS_IOS) )
+            void                    *   platformKeep;
+#endif
+        
 			/**
 			* Release ownership on this interface and mark it disposeable.
 			* Release must be called once for each Interface that the Environs framework returns to client code.
@@ -460,7 +471,7 @@ namespace environs
 			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
 			 * */
 			bool						disposed_;
-
+        
 			void                        PlatformDispose ();
 
 			/** The device properties structure into a DeviceInfo object. */

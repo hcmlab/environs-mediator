@@ -137,7 +137,11 @@ namespace environs
 			ENVIRONS_LIB_API CLI_VIRTUAL CString_ptr ToString () CLI_OVERRIDE;
 
 			ENVIRONS_LIB_API CString_ptr GetPath ();
-
+        
+        
+#if ( defined(ENVIRONS_OSX) || defined(ENVIRONS_IOS) )
+            void                    *   platformKeep;
+#endif
 
 			/**
 			* Release ownership on this interface and mark it disposeable.

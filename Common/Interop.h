@@ -233,6 +233,7 @@
 
 #if defined(CLI_CPP)
 	using namespace System::Runtime::InteropServices;
+	using namespace System::Text;
 
 #	define INTERNAL							internal
 #	define free_m(m)						
@@ -278,7 +279,8 @@
 #	define CString_obj						System::String	
 #	define CString_ptr_empty(s)				STRING_empty(s)
 #	define CVString_ptr						System::String ^	
-#	define String_ptr						System::String ^
+#	define String_ptr						System::String ^	
+#	define String_ptr_reset(s)				s = nill;
 #	define CString_length(l)				l->Length
 #	define CString_compare(l,r,s)			System::String::Compare ( l, r )
 #	define CString_copy(l,s,r)				l = r
@@ -361,6 +363,7 @@
 #	define Addr_value(v)					((int) (size_t) v)
 #	define CLI_NO_STATIC					static
 #	define String_ptr						char *
+#	define String_ptr_reset(s)				if (s != nill) { free(s); s = nill; }
 #	define UCharArray_ptr					unsigned char *
 #	define PIN_PTR(p,t,n)					t * p = n
 

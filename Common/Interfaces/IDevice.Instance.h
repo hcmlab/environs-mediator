@@ -362,13 +362,19 @@ namespace environs
 		* Clear (Delete permanently) all messages for this DeviceInstance in the persistent storage.
 		*
 		*/
-		virtual void ClearMessages () = 0;
+        virtual void ClearMessages () = 0;
 
 		/**
 		* Clear (Delete permanently) all files for this DeviceInstance in the persistent storage.
 		*
 		*/
-		virtual void ClearStorage () = 0;
+        virtual void ClearStorage () = 0;
+        
+        /**
+         * Clear cached MessageInstance and FileInstance objects for this DeviceInstance.
+         *
+         */
+        virtual void DisposeStorageCache () = 0;
 
 
 		/**

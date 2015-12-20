@@ -342,7 +342,7 @@ namespace environs
 			spv ( lib::IIListObserver * )   listDevicesObservers;
 #endif            
 
-			//void                            PlatformDispose ();
+			void                            PlatformDispose ();
 
 			c_const devList ( EPSPACE DeviceInstance ) c_ref GetDevices ( int type );
 

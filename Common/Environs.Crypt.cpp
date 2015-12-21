@@ -53,7 +53,7 @@
 #   define ENABLE_DUMMY_CRYPT
 #endif
 
-#if !defined(MEDIATORDAEMON)
+#if ( defined(ENVIRONS_IOS) )
 //#   define	ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
 #endif
 
@@ -1326,8 +1326,8 @@ namespace environs
 		if ( !ctx || !ctx->encCtx )
 			return;
         
-        MutexDispose ( &ctx->encMutex );
-        MutexDispose ( &ctx->decMutex );
+        MutexDispose ( &ctx->encLock );
+        MutexDispose ( &ctx->decLock );
 
 #ifdef USE_OPENSSL_AES
 		if ( ctx->encCtx ) {
@@ -1368,10 +1368,10 @@ namespace environs
 
 		char		*	blob		= 0;
         
-        if ( !MutexInit ( &ctx->encMutex ) )
+        if ( !MutexInit ( &ctx->encLock ) )
             return false;
         
-        if ( !MutexInit ( &ctx->decMutex ) )
+        if ( !MutexInit ( &ctx->decLock ) )
             return false;
 
 		bool ret = false;
@@ -1547,7 +1547,7 @@ namespace environs
 		//CVerbVerbArgID ( "AESEncrypt: [%s]", ConvertToHexSpaceString ( buffer, *bufferLen ) );
 
 #ifdef USE_OPENSSL_AES
-		if ( pthread_mutex_lock ( &ctx->encMutex ) ) {
+		if ( pthread_mutex_lock ( &ctx->encLock ) ) {
 			CErrID ( "AESEncrypt: Failed to acquire mutex." );
 			return false;
 		}
@@ -1603,7 +1603,7 @@ namespace environs
 		}
 		while ( 0 );
         
-		if ( pthread_mutex_unlock ( &ctx->encMutex ) ) {
+		if ( pthread_mutex_unlock ( &ctx->encLock ) ) {
 			CErrID ( "AESEncrypt: Failed to release mutex." );
 			ret = false;
 		}
@@ -1621,7 +1621,7 @@ namespace environs
 		memcpy ( &blob.raw, ctx->encCtx, ctx->size );
 #endif
         
-		if ( pthread_mutex_lock ( &ctx->decMutex ) ) {
+		if ( pthread_mutex_lock ( &ctx->decLock ) ) {
 			CErrID ( "AESEncrypt: Failed to acquire mutex." );
 			return false;
 		}
@@ -1697,7 +1697,7 @@ namespace environs
 		if ( hCSP )		CryptReleaseContext ( hCSP, 0 );
 #endif
         
-		if ( pthread_mutex_unlock ( &ctx->decMutex ) ) {
+		if ( pthread_mutex_unlock ( &ctx->decLock ) ) {
 			CErrID ( "AESEncrypt: Failed to release mutex." );
 			ret = false;
 		}
@@ -1738,7 +1738,7 @@ namespace environs
 			CErr ( "AESDecrypt: Called with at least one NULL argument or encrypted packet is < 36." ); return false;
 		}
 		        
-		if ( pthread_mutex_lock ( &ctx->decMutex ) ) {
+		if ( pthread_mutex_lock ( &ctx->decLock ) ) {
 			CErr ( "AESDecrypt: Failed to acquire mutex." );
 			return false;
 		}
@@ -1884,7 +1884,7 @@ namespace environs
 			}
 		}
 
-		if ( pthread_mutex_unlock ( &ctx->decMutex ) ) {
+		if ( pthread_mutex_unlock ( &ctx->decLock ) ) {
 			CErrID ( "AESDecrypt: Failed to release mutex." );
 			ret = false;
 		}

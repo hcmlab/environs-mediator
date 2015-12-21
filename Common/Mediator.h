@@ -375,7 +375,7 @@ namespace environs	/// Namespace: environs ->
 
 		static NetPack          localNets;
         static int              localNetsSize;
-        static pthread_mutex_t  localNetsMutex;
+        static pthread_mutex_t  localNetsLock;
         
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
         pthread_mutex_t         idMapMutex;
@@ -383,7 +383,7 @@ namespace environs	/// Namespace: environs ->
 		pthread_mutex_t			mediatorLock;
 		MediatorInstance		mediator;
 
-		pthread_mutex_t			devicesMutex;
+		pthread_mutex_t			devicesLock;
 
 		unsigned int			broadcastMessageLen;
 		char					broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName

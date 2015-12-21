@@ -2671,7 +2671,7 @@ void MediatorDaemon::Run ()
 				continue;
 			}
 			else if ( c == 'i' ) {
-				if ( !MutexLock ( &localNetsMutex, "Run" ) )
+				if ( !MutexLock ( &localNetsLock, "Run" ) )
 					continue;
 
 				NetPack * net = &localNets;
@@ -2681,7 +2681,7 @@ void MediatorDaemon::Run ()
 					net = net->next;
 				}
 
-				MutexUnlockV ( &localNetsMutex, "Run" );
+				MutexUnlockV ( &localNetsLock, "Run" );
 				continue;
             }
             else if ( c == 'j' ) {
@@ -6216,8 +6216,6 @@ Finish:
 
 std::string escapeJsonString(const std::string& input) {
     std::ostringstream ss;
-    //for (auto iter = input.cbegin(); iter != input.cend(); iter++) {
-    //C++98/03:
     for (std::string::const_iterator iter = input.begin(); iter != input.end(); iter++) {
         switch (*iter) {
             case '\\': ss << "\\\\"; break;
@@ -6346,10 +6344,10 @@ void MediatorDaemon::NotifyClients ( unsigned int notifyID, sp ( DeviceInstanceN
 	ctx->device     = device;
 
 	if ( !MutexLockA ( notifyLock, "NotifyClients" ) ) {
-		delete ctx;
-		return;
+        delete ctx;
+        return;
 	}
-
+    
 	notifyQueue.push ( ctx );
 	CVerb ( "NotifyClients: Enqueue" );
     
@@ -6528,7 +6526,8 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         
         while ( clientIt != notifyTargets.end () )
         {
-			dests.push_back ( clientIt->second );
+            if ( clientIt->second->socket != -1 )
+                dests.push_back ( clientIt->second );
             clientIt++;
         }
     }
@@ -6560,7 +6559,8 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         
         while ( clientIt != areaApps->notifyTargets.end () )
         {
-            dests.push_back ( clientIt->second );
+            if ( clientIt->second->socket != -1 )
+                dests.push_back ( clientIt->second );
             clientIt++;
         }
 
@@ -6577,8 +6577,8 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
 			while ( device )
 			{		
 				clientSP = device->clientSP;
-                
-                if ( clientSP && clientSP->filterMode == MEDIATOR_FILTER_AREA_AND_APP )
+
+                if ( clientSP && clientSP->filterMode == MEDIATOR_FILTER_AREA_AND_APP && clientSP->socket != -1 )
                 {
                     dests.push_back ( clientSP );
                 }
@@ -6619,11 +6619,11 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
 		if ( !dest->Lock ( "NotifyClients" ) )
 			continue;
 
-        if ( IsSocketAlive ( dest->socket ) ) {
+        //if ( IsSocketAlive ( dest->socket ) ) {
 			CLogArg ( "NotifyClients: Notify device [0x%X]", dest->deviceID );
         
 			sendto ( dest->socket, (char *)&msg, sendSize, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
-		}
+		//}
 
         dest->Unlock ( "NotifyClients" );
 #endif

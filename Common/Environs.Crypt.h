@@ -60,8 +60,8 @@ namespace environs
 		char		*	keyCtx;
 		char		*	encCtx;
 		char		*	decCtx;
-		pthread_mutex_t	encMutex;
-		pthread_mutex_t	decMutex;
+		pthread_mutex_t	encLock;
+		pthread_mutex_t	decLock;
 		unsigned int	size;
         unsigned int    version;
 		int				deviceID;

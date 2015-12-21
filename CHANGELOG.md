@@ -7,6 +7,8 @@
 ---------------------------
 
 * Release: 0.9.4
+* Updated: MediatorDaemon NotifyClients
+* Updated: Environs crypt layer
 * Added: Disable DISABLE_MEM_CHECKS to build opts
 * Added: Toggle Acceptor of Mediator Daemon (j)
 * Updated: Environs.Build.Opts.h

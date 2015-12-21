@@ -61,7 +61,7 @@ namespace environs
 	bool                Mediator::allocatedClass = false;
 	NetPack             Mediator::localNets;
     int                 Mediator::localNetsSize = 0;
-	pthread_mutex_t     Mediator::localNetsMutex;
+	pthread_mutex_t     Mediator::localNetsLock;
 
 
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
@@ -157,10 +157,10 @@ namespace environs
 		{
 			MutexLockVA ( mediatorLock, "Destructor" );
 
-			MutexDispose ( &devicesMutex );
+            MutexDisposeA ( devicesLock );
 
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
-			MutexDispose ( &idMapMutex );
+			MutexDisposeA ( idMapMutex );
 #endif
 			projectIDToNames.clear ();
 			appIDToNames.clear ();
@@ -192,8 +192,8 @@ namespace environs
 			if ( !MutexInitA ( mediatorLock ) )
 				return false;
 
-			if ( !MutexInitA ( devicesMutex ) )
-				return false;
+			if ( !MutexInitA ( devicesLock ) )
+                return false;
 
 #ifdef USE_INTEGER_PROJECT_APP_MAPS
 			Zero ( idMapMutex );
@@ -214,7 +214,7 @@ namespace environs
 			return false;
 		}
 
-		lastGreetUpdate			= GetEnvironsTickCount ();
+		lastGreetUpdate			= 0;
 
 		return true;
 	}
@@ -229,8 +229,8 @@ namespace environs
 
 		Zero ( localNets );
 
-		if ( !MutexInitA ( localNetsMutex ) )
-			return false;
+		if ( !MutexInitA ( localNetsLock ) )
+            return false;
 
 		allocatedClass = true;
 
@@ -245,9 +245,9 @@ namespace environs
 		ReleaseNetworks ();
 
 		if ( !allocatedClass )
-			return;
+            return;
 
-		MutexDisposeA ( localNetsMutex );
+		MutexDisposeA ( localNetsLock );
 	}
 
 
@@ -394,7 +394,7 @@ namespace environs
 
         localNetsSize = 0;
 
-        if ( !MutexLockA ( localNetsMutex, "ReleaseNetworks" ) )
+        if ( !MutexLockA ( localNetsLock, "ReleaseNetworks" ) )
 			return;
 
 		NetPack * net = localNets.next;
@@ -407,7 +407,7 @@ namespace environs
 
 		Zero ( localNets );
 
-		MutexUnlockA ( localNetsMutex, "ReleaseNetworks" );
+		MutexUnlockA ( localNetsLock, "ReleaseNetworks" );
 	}
 
 
@@ -493,7 +493,7 @@ namespace environs
 		unsigned int	ip;
 		unsigned int	bcast;
 
-		MutexLockVA ( localNetsMutex, "LoadNetworks" );
+		MutexLockVA ( localNetsLock, "LoadNetworks" );
 
 #ifdef _WIN32
 
@@ -554,8 +554,8 @@ namespace environs
 					unsigned int mask = ( unsigned int ) addr.sin_addr.s_addr;
 
 					if ( ip && mask ) {
-						CLogArg ( "Local IP %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-						CVerbArg ( "Local SN %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+						CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+						CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 
 						bcast = GetBroadcast ( ip, mask );
 						if ( !bcast ) {
@@ -566,10 +566,10 @@ namespace environs
 						inet_pton ( AF_INET, adapter->GatewayList.IpAddress.String, &( addr.sin_addr ) );
 						unsigned int gw = ( unsigned int ) addr.sin_addr.s_addr;
 						if ( gw ) {
-							CLogArg ( "Local GW %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &gw ) ) );
+							CLogArg ( "Local GW %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &gw ) ) );
 						}
 
-						CVerbArg ( "LoadNetworks: Local BC %i: [%s]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+						CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
 						AddNetwork ( ip, bcast, mask, gw );
 					}
@@ -630,8 +630,8 @@ namespace environs
 			pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiNetmask );
 			unsigned int mask = pAddress->sin_addr.s_addr;
 
-			CLogArg ( "Local IP %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-			CVerbArg ( "Local SN %i: %s", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+			CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+			CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 
 			bcast = GetBroadcast ( ip, mask );
 			if ( !bcast ) {
@@ -639,7 +639,7 @@ namespace environs
 				continue;
 			}
 
-			CVerbArg ( "LoadNetworks: Local BC %i: [%s]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+			CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
 			AddNetwork ( ip, bcast, mask );
 		}
@@ -684,7 +684,7 @@ namespace environs
 		{
 			ip = ( ( struct sockaddr_in * )&ifreqs [ i ].ifr_ifru.ifru_addr )->sin_addr.s_addr;
 
-			CLogArg ( "LoadNetworks: Interface name: '%s' - ip: '%s'", ifreqs [ i ].ifr_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+			CLogArg ( "LoadNetworks: Interface name: '%s' - ip: [ %s ]", ifreqs [ i ].ifr_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 
 			if ( strlen ( ifreqs [ i ].ifr_name ) < 1 ) {
 				CVerb ( "LoadNetworks: Omiting invalid interface name." );
@@ -720,8 +720,8 @@ namespace environs
 				CErr ( "LoadNetworks: Failed to calculate broadcast address!" );
 				continue;
 			}
-			CVerbArg ( "LoadNetworks: Netmask: '%s'", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
-			CVerbArg ( "LoadNetworks: Broadcast: '%s'", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+			CVerbArg ( "LoadNetworks: Netmask:   [ %s ]'", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+			CVerbArg ( "LoadNetworks: Broadcast: [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
 			AddNetwork ( ip, bcast, mask, 0 );
 		}
@@ -745,7 +745,7 @@ namespace environs
 				// IPv4
 				ip = ( ( struct sockaddr_in * ) ifa->ifa_addr )->sin_addr.s_addr;
 
-				CLogArg ( "LoadNetworks: [%s] => IP: [%s]", ifa->ifa_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+				CLogArg ( "LoadNetworks: [%s] => IP: [ %s ]", ifa->ifa_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 
 				if ( !ip ) {
 					CVerb ( "LoadNetworks: Omiting invalid interface." );
@@ -772,8 +772,8 @@ namespace environs
 					CErr ( "LoadNetworks: ERROR - Failed to calculate broadcast address!" );
 					continue;
 				}
-				CVerbArg ( "LoadNetworks: Netmask:   [%s]", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
-				CVerbArg ( "LoadNetworks: Broadcast: [%s]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+				CVerbArg ( "LoadNetworks: Netmask:   [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+				CVerbArg ( "LoadNetworks: Broadcast: [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
 				AddNetwork ( ip, bcast, mask, 0 );
 			}
@@ -782,7 +782,7 @@ namespace environs
 				tmp=&( ( struct sockaddr_in6 * )ifa->ifa_addr )->sin6_addr;
 				char addressBuffer [ INET6_ADDRSTRLEN ];
 				inet_ntop ( PF_INET6, tmp, addressBuffer, INET6_ADDRSTRLEN );
-				CVerbArg ( "LoadNetworks: IPv6 not supported yet: [%s] IP Address [%s]", ifa->ifa_name, addressBuffer );
+				CVerbArg ( "LoadNetworks: IPv6 not supported yet: [%s] IP Address [ %s ]", ifa->ifa_name, addressBuffer );
 			}
 		}
 
@@ -793,7 +793,7 @@ namespace environs
 #endif
 
 	EndOfMethod:
-		MutexUnlockVA ( localNetsMutex, "LoadNetworks" );
+		MutexUnlockVA ( localNetsLock, "LoadNetworks" );
 
 		return true;
 	}
@@ -956,7 +956,7 @@ namespace environs
 #endif
             return true;
         
-		if ( !MutexLockA ( localNetsMutex, "SendBroadcast" ) ) {
+		if ( !MutexLockA ( localNetsLock, "SendBroadcast" ) ) {
 			return false;
 		}
 
@@ -973,7 +973,7 @@ namespace environs
 			net = net->next;
 		}
 
-		MutexUnlockVA ( localNetsMutex, "SendBroadcast" );
+		MutexUnlockVA ( localNetsLock, "SendBroadcast" );
 
 		return ret;
 	}
@@ -985,7 +985,7 @@ namespace environs
 
 		CVerb ( "IsLocalIP" );
 
-		if ( !MutexLockA ( localNetsMutex, "IsLocalIP" ) )
+		if ( !MutexLockA ( localNetsLock, "IsLocalIP" ) )
 			return false;
 
 		NetPack * net = &localNets;
@@ -998,7 +998,7 @@ namespace environs
 			net = net->next;
 		}
 
-		if ( !MutexUnlockA ( localNetsMutex, "IsLocalIP" ) )
+		if ( !MutexUnlockA ( localNetsLock, "IsLocalIP" ) )
 			return false;
 		return ret;
 	}
@@ -1065,7 +1065,7 @@ namespace environs
 		{
 			CVerbVerbArg ( "VanishedDeviceWatcher: Checking [0x%X] Area [%s] App [%s]", device->info.deviceID, device->info.areaName, device->info.appName );
 
-			if ( device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST && ( lastGreetUpdate - device->info.updates ) > 120000 ) 
+			if ( device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST && ( lastGreetUpdate - device->info.updates ) > 90000 )
 			{
 				// Device has vanished
 				DeviceInstanceNode	*	vanished = device;

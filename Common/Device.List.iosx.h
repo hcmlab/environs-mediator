@@ -47,6 +47,8 @@
 
 - (void) SetIsUIAdapter : (bool) enable;
 
+- (void) DisposeList;
+
 - (DeviceInstance *) GetItem : (int) position;
 - (int) GetCount;
 

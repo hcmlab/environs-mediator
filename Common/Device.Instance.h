@@ -48,6 +48,10 @@ namespace environs
 	namespace lib
 	{
         CLASS Environs;
+        
+#ifndef EnvironsPtr
+#	define	EnvironsPtr	 Environs OBJ_ptr
+#endif
 
 #ifndef CLI_CPP
         class PortalInstance;
@@ -55,12 +59,12 @@ namespace environs
         class MessageInstance;
 #endif
 
-		CLASS NotifierContext
+		CLASS DeviceNotifierContext
 		{
 		public:
 			int                     type;
 			int                     flags;
-			sp ( DeviceInstance )   device;
+            sp ( DeviceInstance )   device;
 			sp ( EPSPACE MessageInstance )  message;
 			sp ( EPSPACE FileInstance )     fileData;
 
@@ -68,7 +72,13 @@ namespace environs
 			String ^				propertyName;
 #endif
 		};
-
+        
+		#define DeviceNotifierContextPtr	DeviceNotifierContext OBJ_ptr
+        
+        
+#ifndef DeviceInstancePtr
+#	define	DeviceInstancePtr	 DeviceInstance OBJ_ptr
+#endif
 
 		PUBLIC_CLASS DeviceInstance CLI_ABSTRACT DERIVE_c_only ( environs::DeviceInstance ) DERIVE_DISPOSEABLE 
 		{
@@ -90,14 +100,14 @@ namespace environs
 			 *
 			 * @param observer A DeviceObserver
 			 */
-			ENVIRONS_LIB_API void AddObserver ( environs::DeviceObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void AddObserver ( environs::DeviceObserverPtr observer );
 
 			/**
 			 * Remove an observer (DeviceObserver) that was added before.
 			 *
 			 * @param observer A DeviceObserver
 			 */
-			ENVIRONS_LIB_API void RemoveObserver ( environs::DeviceObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void RemoveObserver ( environs::DeviceObserverPtr observer );
 
 
 			/**
@@ -105,7 +115,7 @@ namespace environs
 			 *
 			 * @param observer A DataObserver
 			 */
-			ENVIRONS_LIB_API void AddObserverForData ( environs::DataObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void AddObserverForData ( environs::DataObserverPtr observer );
 
 
 			/**
@@ -113,7 +123,7 @@ namespace environs
 			 *
 			 * @param observer A DataObserver
 			 */
-			ENVIRONS_LIB_API void RemoveObserverForData ( environs::DataObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void RemoveObserverForData ( environs::DataObserverPtr observer );
 
 
 			/**
@@ -121,7 +131,7 @@ namespace environs
 			 *
 			 * @param observer A DataObserver
 			 */
-			ENVIRONS_LIB_API void AddObserverForSensors ( environs::SensorObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void AddObserverForSensors ( environs::SensorObserverPtr observer );
 
 
 			/**
@@ -129,7 +139,7 @@ namespace environs
 			 *
 			 * @param observer A DataObserver
 			 */
-			ENVIRONS_LIB_API void RemoveObserverForSensors ( environs::SensorObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void RemoveObserverForSensors ( environs::SensorObserverPtr observer );
 
 
 			/**
@@ -137,7 +147,7 @@ namespace environs
 			 *
 			 * @param observer A MessageObserver
 			 */
-			ENVIRONS_LIB_API void AddObserverForMessages ( environs::MessageObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void AddObserverForMessages ( environs::MessageObserverPtr observer );
 
 
 			/**
@@ -145,7 +155,7 @@ namespace environs
 			 *
 			 * @param observer A MessageObserver
 			 */
-			ENVIRONS_LIB_API void RemoveObserverForMessages ( environs::MessageObserver OBJ_ptr observer );
+			ENVIRONS_LIB_API void RemoveObserverForMessages ( environs::MessageObserverPtr observer );
 
 
 			/**
@@ -165,17 +175,17 @@ namespace environs
 
 			ENVIRONS_LIB_API CString_ptr ipes ();
 
-			ENVIRONS_LIB_API bool EqualsAppEnv ( environs::DeviceInfo OBJ_ptr equalTo );
+			ENVIRONS_LIB_API bool EqualsAppEnv ( environs::DeviceInfoPtr equalTo );
 			ENVIRONS_LIB_API bool EqualsAppEnv ( CString_ptr areaName, CString_ptr appName );
 
-			ENVIRONS_LIB_API bool LowerThanAppEnv ( environs::DeviceInfo OBJ_ptr compareTo );
+			ENVIRONS_LIB_API bool LowerThanAppEnv ( environs::DeviceInfoPtr compareTo );
 			ENVIRONS_LIB_API bool LowerThanAppEnv ( CString_ptr areaName, CString_ptr appName );
 
-			ENVIRONS_LIB_API bool EqualsID ( environs::DeviceInstance OBJ_ptr equalTo );
+			ENVIRONS_LIB_API bool EqualsID ( environs::DeviceInstancePtr equalTo );
 			ENVIRONS_LIB_API bool EqualsID ( int deviceID, CString_ptr areaName, CString_ptr appName );
 
 
-			ENVIRONS_LIB_API CString_ptr DeviceTypeString ( environs::DeviceInfo OBJ_ptr info );
+			ENVIRONS_LIB_API CString_ptr DeviceTypeString ( environs::DeviceInfoPtr info );
 			ENVIRONS_LIB_API CString_ptr DeviceTypeString ();
 
 			ENVIRONS_LIB_API CString_ptr GetBroadcastString ( bool fullText );
@@ -186,6 +196,8 @@ namespace environs
 #ifdef CLI_CPP
 			/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
 			bool                  async;
+
+			static bool			  notifyPropertyChangedDefault;
 #endif
 			/**
 			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.
@@ -461,6 +473,8 @@ namespace environs
 #ifndef CLI_CPP
 			Instance                *   env;
 #endif
+            EnvironsPtr                 envObj;
+        
 			pthread_mutex_t				devicePortalsLock;
 
 			/** A collection of PortalInstances that this device has established or is managing. */
@@ -523,6 +537,8 @@ namespace environs
 			static CString_ptr DefAppName = "HCMApp";
 
 			virtual EPSPACE DeviceInstance ^ GetPlatformObj () = 0;
+
+			bool					notifyPropertyChanged;
 #endif
 			pthread_cond_t          changeEvent;
 			pthread_mutex_t			changeEventLock;
@@ -534,13 +550,9 @@ namespace environs
 			/** A DeviceDisplay structure that describes the device's display properties. */
 			environs::DeviceDisplay display;
 
-			static stdQueue ( NotifierContext OBJ_ptr ) notifierQueue;
-			static pthread_mutex_t						notifierMutex;
+			void            EnqueueNotification ( DeviceNotifierContextPtr ctx );
 
-			static void     EnqueueNotification ( NotifierContext OBJ_ptr ctx );
-
-			static void     NotifierThread ();
-			static void c_OBJ_ptr   NotifierThreadStarter ( pthread_param_t );
+			static void c_OBJ_ptr   NotifierThread ( pthread_param_t envObj );
 
 			static sp ( EPSPACE DeviceInstance )	Create ( int hInst, environs::DeviceInfo OBJ_ptr device );
 			bool							Init ( int hInst );
@@ -616,7 +628,6 @@ namespace environs
 
 			sp ( EPSPACE PortalInstance ) PortalGet ( bool outgoing );
 		};
-
 	}
 
 } /* namepace Environs */

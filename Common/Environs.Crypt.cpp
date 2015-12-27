@@ -367,7 +367,8 @@ namespace environs
                 
                 if ( !dd2i_RSA_PUBKEY ( &rsaPub, &certIn, certSize ) ) {
                     CErr ( "SignCertificate: Read cert file and RSA public key failed." );
-                    dERR_print_errors_fp ( stderr ); break;
+                    dERR_print_errors_fp ( stderr );
+                    break;
                 }
                 CVerb ( "SignCertificate: Read RSA public key ok." );
                 pPubKey = dEVP_PKEY_new ();
@@ -389,7 +390,8 @@ namespace environs
             
             if ( !x509 ) {
                 CErr ( "SignCertificate: Read cert data failed." );
-                dERR_print_errors_fp ( stderr ); break;
+                dERR_print_errors_fp ( stderr );
+                break;
             }
             
             dASN1_INTEGER_set ( dX509_get_serialNumber ( x509 ), rand () );
@@ -436,6 +438,10 @@ namespace environs
         if ( x509 )     dX509_free ( x509 );
         if ( pKey )     dEVP_PKEY_free ( pKey );
         if ( certData ) free ( certData );
+        
+        if ( !ret ) {
+            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+        }
 #else
 #ifdef _WIN32
 		bool						imported	= false;
@@ -954,7 +960,8 @@ namespace environs
 			cert509 = dd2i_X509 ( 0, &certD, certSize );
             if ( !cert509 ) {
 				CErrArgID ( "EncryptMessage: Read X509 cert file (format %c) failed.", format );
-                dERR_print_errors_fp ( stderr ); break;
+                dERR_print_errors_fp ( stderr );
+                break;
             }
             
             pkey = dX509_get_pubkey ( cert509 );
@@ -1001,6 +1008,10 @@ namespace environs
         if ( pkey )		dEVP_PKEY_free ( pkey );
         if ( cert509 )	dX509_free ( cert509 );
         if ( rsaKey )	dRSA_free ( rsaKey );
+        
+        if ( !ret ) {
+            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+        }
 #else
 		
 
@@ -1135,7 +1146,7 @@ namespace environs
         }
 		CVerbArg ( "DecryptMessage: Decrypting msg of size [%i]", msgLen );
 
-		bool ret = false;
+		bool success = false;
 
 #ifdef ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
 		if ( pthread_mutex_lock ( &privKeyMutex ) ) {
@@ -1201,7 +1212,7 @@ namespace environs
 			}
 
 			if ( decSize > (int)rsaSize ) {
-				dERR_print_errors_fp ( stderr );
+                dERR_print_errors_fp ( stderr );
 				CErrArg ( "DecryptMessage: Decrypted message size [%u] is larger than RSA buffer.", decSize ); break;
 			}
 
@@ -1211,12 +1222,16 @@ namespace environs
             *decrypted = (char *)decrypt;
             decrypt = 0;
             *decryptedSize = (unsigned int)decSize;
-            ret = true;            
+            success = true;
         }
         while (0);
 
 		if ( decrypt )
 			free ( decrypt );
+        
+        if ( !success ) {
+            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+        }
 #else
 
 #ifdef _WIN32
@@ -1250,28 +1265,28 @@ namespace environs
             
 			plainSize = msgLen;
 			if ( CryptDecrypt ( hKey, NULL, TRUE, CRYPT_OAEP, (BYTE *) plainText, &plainSize ) && plainSize )
-				ret = true;
+				success = true;
 			else
 			{
 				CVerb ( "DecryptMessage: CryptDecrypt failed with OAEP padding." );
 
 				plainSize = msgLen;
 				if ( CryptDecrypt ( hKey, NULL, TRUE, 0, (BYTE *) plainText, &plainSize ) && plainSize )
-					ret = true;
+					success = true;
 				else
 				{
 					CVerb ( "DecryptMessage: CryptDecrypt failed without specific padding flags." );
 
 					plainSize = msgLen;
 					if ( CryptDecrypt ( hKey, NULL, TRUE, CRYPT_DECRYPT_RSA_NO_PADDING_CHECK, (BYTE *) plainText, &plainSize ) && plainSize )
-						ret = true;
+						success = true;
 					else {
 						CErr ( "DecryptMessage: CryptDecrypt failed with no padding check." ); break;
 					}
 				}
 			}
 			
-			if ( ret ) {
+			if ( success ) {
 				*decryptedSize = plainSize;
 				plainText [plainSize] = 0;
 				CVerbVerbArg ( "DecryptMessage: size [%u] ", plainSize );
@@ -1282,7 +1297,7 @@ namespace environs
 		}
 		while ( 0 );
 
-		if ( !ret ) {
+		if ( !success ) {
 			CErrArg ( "DecryptMessage: Last error [0x%08x]", GetLastError ( ) );
 		}
 
@@ -1296,10 +1311,10 @@ namespace environs
 #ifdef ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
 		if ( pthread_mutex_unlock ( &privKeyMutex ) ) {
 			CErr ( "DecryptMessage: Failed to release lock." );
-			ret = false;
+			success = false;
 		}
 #endif
-		return ret;
+		return success;
 	}
     
 #ifdef ENABLE_DUMMY_CRYPT
@@ -2178,7 +2193,8 @@ namespace environs
             
             if ( !dPEM_read_X509 ( fp, &cert509, NULL, NULL) ) {
                 CErr ( "LoadPublicCertificate: Read X509 cert file failed." );
-                dERR_print_errors_fp ( stderr ); break;
+                dERR_print_errors_fp ( stderr );
+                break;
             }
 
             certDataSize = di2d_X509 ( cert509, 0 );
@@ -2208,6 +2224,9 @@ namespace environs
             dX509_free ( cert509 );
         if ( fp )
             fclose ( fp );
+        if ( !ret ) {
+            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+        }
 #else       
 		int certSize = 0;
 		char * certBin = LoadBinary ( pathFile, &certSize );
@@ -2283,7 +2302,7 @@ namespace environs
 		if ( !dPEM_read_RSAPrivateKey ( fp, &rsaKey, NULL, NULL) )
 		{
 			CErr ( "LoadPrivateKey: Read RSA file failed." );
-			dERR_print_errors_fp ( stderr );
+            dERR_print_errors_fp ( stderr );
 			goto Finish;
         }
 
@@ -2296,6 +2315,9 @@ namespace environs
 			dRSA_free ( rsaKey );
 		if ( fp )
 			fclose ( fp );
+        if ( !ret ) {
+            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+        }
 #else
 		int size = 0;
 		char * keyBin = LoadBinary ( pathFile, &size );

@@ -167,7 +167,7 @@ namespace environs
 	public ref class SensorFrame
 	{
 	public:
-		DeviceInstance OBJ_ptr device;
+		DeviceInstancePtr device;
 
         // An id that identifies this input entity for its whole lifecycle
         int			id;

@@ -24,6 +24,7 @@
 #include "Interop.h"
 #include "Interop/Smart.Pointer.h"
 #include "Environs.Platforms.h"
+#include "Environs.Platform.Decls.h"
 
 using namespace System;
 using namespace System::Runtime::InteropServices;
@@ -66,7 +67,8 @@ namespace environs
 		CLASS PortalInstance;
 		CLASS FileInstance;
 
-		CLASS DeviceCommandContext;
+		CLASS ListCommandContext;
+		CLASS DeviceNotifierContext;
 
 		typedef System::Object 		IIEnvironsObserver;
 	}

@@ -36,7 +36,11 @@
 namespace environs
 {
 	class ArrayList;
+
 	class ListObserver;
+#ifndef ListObserverPtr
+#	define	ListObserverPtr	 ListObserver OBJ_ptr
+#endif
 
 	namespace lib
 	{
@@ -75,24 +79,26 @@ namespace environs
 			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetItemRetained ( pos ) );
 		}
 
-
+        
+        virtual void					DisposeList () = 0;
+        
 		virtual int						GetCount () = 0;
 
-		virtual DeviceInstance *       GetItemRetained ( int pos ) = 0;
+		virtual DeviceInstance *        GetItemRetained ( int pos ) = 0;
 
-		virtual DeviceInstance *       RefreshItemRetained ( DeviceInstance * source, DeviceObserver * observer ) = 0;
+		virtual DeviceInstance *        RefreshItemRetained ( DeviceInstance * source, DeviceObserver * observer ) = 0;
 
 		/**
 		* Get a collection that holds all available devices. This list ist updated dynamically by Environs.
 		*
 		* @return ArrayList with DeviceInstance objects
 		*/
-		sp ( DeviceInstanceList )	GetDevices ()
+		sp ( DeviceInstanceList )       GetDevices ()
 		{
 			ENVIRONS_IR_SP1_RETURN ( DeviceInstanceList, GetDevicesRetained () );
 		}
 
-		virtual ArrayList *			GetDevicesRetained () = 0;
+		virtual ArrayList *             GetDevicesRetained () = 0;
 
 
 		/**

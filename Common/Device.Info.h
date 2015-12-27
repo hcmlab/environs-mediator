@@ -22,6 +22,7 @@
 #define INCLUDE_HCM_ENVIRONS_DEVICEINFO_H
 
 #include "Environs.Types.h"
+#include "Environs.Platform.Decls.h"
 #include "Interop/Threads.h"
 
 

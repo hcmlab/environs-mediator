@@ -279,6 +279,44 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 - (bool) RegisterAtMediators;
 
 
+
+/**
+ * Enable or disable device list update notifications from Mediator layer.
+ * In particular, mobile devices should disable notifications if the devicelist is not
+ * visible to users or the app transitioned to background.
+ * This helps recuding cpu load and network traffic when not required.
+ *
+ * @param enable      true = enable, false = disable
+ */
+- (void) SetMediatorNotificationSubscription : (bool) enable;
+
+
+/**
+ * Get subscription status of device list update notifications from Mediator layer.
+ *
+ * @return enable      true = enable, false = disable
+ */
+- (bool) GetMediatorNotificationSubscription;
+
+
+/**
+ * Enable or disable short messages from Mediator layer.
+ * In particular, mobile devices should disable short messages if the app transitioned to background or mobile network only.
+ * This helps recuding cpu load and network traffic when not necessary.
+ *
+ * @param enable      true = enable, false = disable
+ */
+- (void) SetMessagesSubscription : (bool) enable;
+
+
+/**
+ * Get subscription status of short messages from Mediator layer.
+ *
+ * @return enable      true = enable, false = disable
+ */
+- (bool) GetMessagesSubscription;
+
+
 /**
  * Start Environs.&nbsp;This is a non-blocking call and returns immediately.&nbsp;
  * 		Since starting Environs includes starting threads and activities that may take longer,&nbsp;

@@ -23,6 +23,7 @@
 #define INCLUDE_HCM_ENVIRONS_LIBRARY_OBJECT__IMPL_H
 
 #include "Environs.Platforms.h"
+#include "Environs.Platform.Decls.h"
 #include "Environs.Build.Opts.h"
 
 /** Include iOSX declarations */
@@ -87,11 +88,11 @@ namespace environs
 	{
 		CLASS Environs;
 
-		CLASS DeviceCommandContext
+		CLASS ListCommandContext
 		{
 		public:
 			int					hEnvirons;
-			Environs OBJ_ptr	envObj;
+			EnvironsPtr         envObj;
 			int					deviceID;
 			int					type;
 
@@ -158,7 +159,44 @@ namespace environs
 			*
 			* @param enable      true = enable, false = disable
 			*/
-			ENVIRONS_LIB_API void SetDebug ( int enable );
+            ENVIRONS_LIB_API void SetDebug ( int enable );
+            
+            
+            /**
+             * Enable or disable device list update notifications from Mediator layer.
+             * In particular, mobile devices should disable notifications if the devicelist is not
+             * visible to users or the app transitioned to background.
+             * This helps recuding cpu load and network traffic when not required.
+             *
+             * @param enable      true = enable, false = disable
+             */
+            ENVIRONS_LIB_API void SetMediatorNotificationSubscription ( bool enable );
+            
+            
+            /**
+             * Get subscription status of device list update notifications from Mediator layer.
+             *
+             * @return enable      true = enable, false = disable
+             */
+            ENVIRONS_LIB_API bool GetMediatorNotificationSubscription ( );
+            
+            
+            /**
+             * Enable or disable short messages from Mediator layer.
+             * In particular, mobile devices should disable short messages if the app transitioned to background or mobile network only.
+             * This helps recuding cpu load and network traffic when not necessary.
+             *
+             * @param enable      true = enable, false = disable
+             */
+            ENVIRONS_LIB_API void SetMessagesSubscription ( bool enable );
+            
+            
+            /**
+             * Get subscription status of short messages from Mediator layer.
+             *
+             * @return enable      true = enable, false = disable
+             */
+            ENVIRONS_LIB_API bool GetMessagesSubscription ( );
 
 
 			/**
@@ -1132,7 +1170,7 @@ namespace environs
 
 			pthread_mutex_t             queryLock;
 			pthread_mutex_t             listLock;
-			pthread_mutex_t             threadDeviceCommandMutex;
+			pthread_mutex_t             listCommandThreadLock;
 
 			long                        listAllUpdate;
 			long                        listNearbyUpdate;
@@ -1148,16 +1186,24 @@ namespace environs
 			pthread_mutex_t                     listMediatorLock;
 			devList ( EPSPACE DeviceInstance )  listMediator;
 
-			spv ( lib::IIListObserver * )	listAllObservers;
-			spv ( lib::IIListObserver * )   listNearbyObservers;
-			spv ( lib::IIListObserver * )   listMediatorObservers;
+			spv ( lib::IIListObserver * )       listAllObservers;
+			spv ( lib::IIListObserver * )       listNearbyObservers;
+			spv ( lib::IIListObserver * )       listMediatorObservers;
 
-			stdQueue ( DeviceCommandContext OBJ_ptr ) threadDeviceCommandQueue;
+			stdQueue ( ListCommandContextPtr )  listCommandQueue;
             
-            bool                            threadDeviceCommandRun;
-            ThreadSync                      threadDeviceCommand;
+            bool                                listCommandThreadRun;
+            ThreadSync                          listCommandThread;
 
-			void DisposeLists ( bool releaseList );
+            
+            stdQueue ( DeviceNotifierContextPtr ) deviceNotifierQueue;
+            pthread_mutex_t						deviceNotifierLock;
+            bool                                deviceNotifierThreadRun;
+            ThreadSync                          deviceNotifierThread;
+            
+            void DisposeLists ( bool releaseList );
+            
+            void DisposeList ( int listType );
 
 			void ReloadLists ();
 

@@ -57,6 +57,38 @@ JNIEXPORT jboolean JNICALL Java_environs_Environs_GetMediatorLoginDialogDismissD
 
 /*
  * Class:     environs_Environs
+ * Method:    SetMediatorNotificationSubscriptionN
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_SetMediatorNotificationSubscriptionN
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    GetMediatorNotificationSubscriptionN
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_environs_Environs_GetMediatorNotificationSubscriptionN
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    SetMessagesSubscriptionN
+ * Signature: (II)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_SetMessagesSubscriptionN
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    GetMessagesSubscriptionN
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_environs_Environs_GetMessagesSubscriptionN
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     environs_Environs
  * Method:    SetMediatorLoginDialogDismissDisableN
  * Signature: (IZ)V
  */

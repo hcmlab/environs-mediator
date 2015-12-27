@@ -26,6 +26,7 @@
 //#define DEBUGVERBVerb
 //#define DEBUGVERBLocks
 //#define DEBUGCIPHERS
+//#define DEBUGVERBMEM
 
 #include "Environs.Platforms.h"
 #include "Environs.Build.Opts.h"
@@ -80,6 +81,7 @@
 
 #define MAX_CONNECTED_DEVICES               120
 
+#define MAX_BULK_SEND_SIZE					2000000000
 
 //#define USE_MEDIATOR_OPT_KEY_MAPS_COMP
 
@@ -88,6 +90,8 @@
 #else
 #	define ENVIRONS_DEVICE_KEY_EXT
 #endif
+
+#define ENABLE_DONT_LINGER_SOCKETS
 
 //#define USE_NSLOG
 //#define USE_PORTAL_THREADS_FOR_IOSX_CAM

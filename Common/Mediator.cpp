@@ -99,7 +99,35 @@ namespace environs
 	{
 		if ( init )
 			MutexDispose ( &lock );
-	}
+    }
+    
+    
+    void LimitSpareSocketsCount ( ThreadInstance * client )
+    {
+        int size = client->spareSocketsCount;
+        
+        if ( size >= MAX_SPARE_SOCKETS_IN_QUEUE_CHECK )
+        {
+            int count = size - MAX_SPARE_SOCKETS_IN_QUEUE;
+            
+            for ( int i = 0; i < count; ++i )
+            {
+                int sock = client->spareSockets [i];
+                if ( sock != -1 )
+                {
+                    shutdown ( sock, 2 );
+                    closesocket ( sock );
+                }
+            }
+
+            for ( int i = 0; i < MAX_SPARE_SOCKETS_IN_QUEUE; ++i, ++count )
+            {
+				client->spareSockets [i] = client->spareSockets [count];
+            }
+			
+            client->spareSocketsCount = MAX_SPARE_SOCKETS_IN_QUEUE;
+        }
+    }
 
 
 	ApplicationDevices::ApplicationDevices ()
@@ -316,16 +344,8 @@ namespace environs
 	{
 		CVerb ( "VerifySockets" );
 		 
-		if ( !IsSocketAlive ( inst->socket ) ) {
-			// Close spare socket as well
-			/*if ( inst->spareSocket != -1 ) {
-				CVerb ( "VerifySockets: disposing spare socket!" );
-
-				shutdown ( inst->spareSocket, 2 );
-				closesocket ( inst->spareSocket );
-				inst->spareSocket = -1;
-			}*/
-
+		if ( !IsSocketAlive ( inst->socket ) )
+        {
 			if ( !waitThread )
 				return;
 
@@ -438,8 +458,20 @@ namespace environs
 			if ( pthread_wait_fail ( s ) ) {
 				CErrArg ( "ReleaseMediator: Error waiting for mediator listener thread (pthread_join:%i)", s );
 			}
+            
 			pthread_close ( thrd );
 		}
+                
+        for ( int i = 0; i < inst->spareSocketsCount; ++i )
+        {
+            int sock = inst->spareSockets [i];
+            if ( sock != -1 )
+            {
+                shutdown ( sock, 2 );
+                closesocket ( sock );
+            }
+        }
+		inst->spareSocketsCount = 0;
 		
 		AESDisposeKeyContext ( &med->connection.instance.aes );
 		med->connection.instance.encrypt = 0;
@@ -496,8 +528,8 @@ namespace environs
 		MutexLockVA ( localNetsLock, "LoadNetworks" );
 
 #ifdef _WIN32
+		bool adaptersFound = 0;
 
-#ifdef USE_WIN_GETADAPTERSINFO
 		IP_ADAPTER_INFO tmpAdapter;
 		Zero ( tmpAdapter );
 
@@ -572,6 +604,7 @@ namespace environs
 						CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
 						AddNetwork ( ip, bcast, mask, gw );
+						adaptersFound++;
 					}
 				}
 				adapter = adapter->Next;
@@ -580,74 +613,75 @@ namespace environs
 
 		if ( adapters != &tmpAdapter )
 			free ( adapters );
-#else
-		char ac [ 256 ];
-		if ( gethostname ( ac, sizeof ( ac ) ) == SOCKET_ERROR ) {
-			CErrArg ( "LoadNetworks: Error %i when getting local host name.", WSAGetLastError () );
-			goto EndOfMethod;
-		}
-		CLogArg ( "LoadNetworks: Host name [%s]", ac );
 
-		SOCKET sock = WSASocket ( PF_INET, SOCK_DGRAM, 0, 0, 0, 0 );
-		if ( sock == SOCKET_ERROR ) {
-			CErrArg ( "LoadNetworks: Failed to get a socket. Error %i", WSAGetLastError () );
-			goto EndOfMethod;
-		}
-		DisableSIGPIPE ( sock );
-
-		INTERFACE_INFO InterfaceList [ 20 ];
-		unsigned long nBytesReturned;
-
-		if ( WSAIoctl ( sock, SIO_GET_INTERFACE_LIST, 0, 0, &InterfaceList,
-			sizeof ( InterfaceList ), &nBytesReturned, 0, 0 ) == SOCKET_ERROR )
+		if ( !adaptersFound )
 		{
-			CErrArg ( "LoadNetworks: Failed calling WSAIoctl: error %i", WSAGetLastError () );
+			char ac [ 256 ];
+			if ( gethostname ( ac, sizeof ( ac ) ) == SOCKET_ERROR ) {
+				CErrArg ( "LoadNetworks: Error %i when getting local host name.", WSAGetLastError () );
+				goto EndOfMethod;
+			}
+			CLogArg ( "LoadNetworks: Host name [%s]", ac );
+
+			SOCKET sock = WSASocket ( PF_INET, SOCK_DGRAM, 0, 0, 0, 0 );
+			if ( sock == SOCKET_ERROR ) {
+				CErrArg ( "LoadNetworks: Failed to get a socket. Error %i", WSAGetLastError () );
+				goto EndOfMethod;
+			}
+			DisableSIGPIPE ( sock );
+
+			INTERFACE_INFO InterfaceList [ 20 ];
+			unsigned long nBytesReturned;
+
+			if ( WSAIoctl ( sock, SIO_GET_INTERFACE_LIST, 0, 0, &InterfaceList,
+				sizeof ( InterfaceList ), &nBytesReturned, 0, 0 ) == SOCKET_ERROR )
+			{
+				CErrArg ( "LoadNetworks: Failed calling WSAIoctl: error %i", WSAGetLastError () );
+				shutdown ( sock, 2 );
+				closesocket ( sock );
+				goto EndOfMethod;
+			}
+
+			int nNumInterfaces = nBytesReturned / sizeof ( INTERFACE_INFO );
+			CVerbArg ( "LoadNetworks: There are [%i] interfaces:", nNumInterfaces );
+
+			// Skip loopback interfaces
+			for ( i = 0; i < nNumInterfaces; ++i ) {
+				u_long nFlags = InterfaceList [ i ].iiFlags;
+				if ( nFlags & IFF_LOOPBACK ) {
+					CVerb ( "LoadNetworks: Omiting loopback interface." );
+					continue;
+				}
+
+				sockaddr_in * pAddress;
+				//int max_length = 20;
+
+				// Retrieve ip address
+				pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiAddress );
+
+				ip = pAddress->sin_addr.s_addr;
+
+				// Retrieve netmask	
+				pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiNetmask );
+				unsigned int mask = pAddress->sin_addr.s_addr;
+
+				CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+				CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+
+				bcast = GetBroadcast ( ip, mask );
+				if ( !bcast ) {
+					CErrArg ( "LoadNetworks: Failed to calculate broadcast address for interface [%i]!", i );
+					continue;
+				}
+
+				CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+
+				AddNetwork ( ip, bcast, mask, 0 );
+			}
+
 			shutdown ( sock, 2 );
 			closesocket ( sock );
-			goto EndOfMethod;
 		}
-
-		int nNumInterfaces = nBytesReturned / sizeof ( INTERFACE_INFO );
-		CVerbArg ( "LoadNetworks: There are [%i] interfaces:", nNumInterfaces );
-
-		// Skip loopback interfaces
-		for ( int i = 0; i < nNumInterfaces; ++i ) {
-			u_long nFlags = InterfaceList [ i ].iiFlags;
-			if ( nFlags & IFF_LOOPBACK ) {
-				CVerb ( "LoadNetworks: Omiting loopback interface." );
-				continue;
-			}
-
-			sockaddr_in * pAddress;
-			//int max_length = 20;
-
-			// Retrieve ip address
-			pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiAddress );
-
-			ip = pAddress->sin_addr.s_addr;
-
-			// Retrieve netmask	
-			pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiNetmask );
-			unsigned int mask = pAddress->sin_addr.s_addr;
-
-			CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-			CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
-
-			bcast = GetBroadcast ( ip, mask );
-			if ( !bcast ) {
-				CErrArg ( "LoadNetworks: Failed to calculate broadcast address for interface [%i]!", i );
-				continue;
-			}
-
-			CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
-
-			AddNetwork ( ip, bcast, mask );
-		}
-
-		shutdown ( sock, 2 );
-		closesocket ( sock );
-#endif
-
 #else
 
 #ifdef ANDROID
@@ -893,6 +927,16 @@ namespace environs
 				CErr ( "Start: Failed to set reuseaddr option on socket!" );
 				return false;
 			}
+#endif
+            
+#ifdef ENABLE_DONT_LINGER_SOCKETS
+            linger ling;
+            ling.l_onoff     = 0;
+            ling.l_linger    = 0;
+            
+            if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) != 0 ) {
+                CErr ( "Start: Failed to set SO_LINGER on socket" ); LogSocketError ();
+            }
 #endif
 
 			/// Create broadcast thread
@@ -1515,7 +1559,8 @@ namespace environs
 		if ( !MutexInit ( &med->connection.send_mutex ) )
 			goto Failed;
 
-		med->available = false;
+        med->available = false;
+        med->listening = false;
 		med->connection.instance.socket = -1;
 		med->connection.instance.spareSocket = -1;
 		med->ip = ip;

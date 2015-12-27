@@ -2669,6 +2669,12 @@ namespace environs
 		literal int ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               =	(60);
 #		define	ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               		(60)
 		
+#		ifdef MAX_TCP_SEND_PACKET_SIZE                          
+#		undef MAX_TCP_SEND_PACKET_SIZE                          
+#		endif
+		literal int MAX_TCP_SEND_PACKET_SIZE                          =	(1200000);
+#		define	MAX_TCP_SEND_PACKET_SIZE                          		(1200000)
+		
 		
 		/**
 		 * Environs detectable platforms.

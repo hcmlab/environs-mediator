@@ -46,6 +46,10 @@ namespace environs
     {
 #ifndef CLI_CPP
         class DeviceInstance;
+
+#ifndef DeviceInstancePtr
+#	define	DeviceInstancePtr	 DeviceInstance OBJ_ptr
+#endif
 #endif
 
 		PUBLIC_CLASS MessageInstance DERIVE_c_only ( environs::MessageInstance ) DERIVE_DISPOSEABLE
@@ -99,7 +103,7 @@ namespace environs
 			sp ( EPSPACE DeviceInstance ) device_;
 
 #ifndef CLI_CPP
-			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr deviceRetained ();
+			ENVIRONS_LIB_API environs::DeviceInstancePtr deviceRetained ();
 #endif
 			ENVIRONS_LIB_API CLI_VIRTUAL CString_ptr ToString () CLI_OVERRIDE;
 

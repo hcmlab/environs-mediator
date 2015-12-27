@@ -57,6 +57,8 @@ namespace environs
     
     pERR_load_ERR_strings                dERR_load_ERR_strings = 0;
     pERR_load_crypto_strings             dERR_load_crypto_strings = 0;
+    pERR_remove_state                    dERR_remove_state = 0;
+    pERR_free_strings                    dERR_free_strings = 0;
     
     pBN_free                             dBN_free = 0;
     pBN_new                              dBN_new = 0;
@@ -231,6 +233,8 @@ namespace environs
         
         dERR_load_ERR_strings               = (pERR_load_ERR_strings) dlsym ( hLib, "ERR_load_ERR_strings" );
         dERR_load_crypto_strings            = (pERR_load_crypto_strings) dlsym ( hLib, "ERR_load_crypto_strings" );
+        dERR_remove_state                   = (pERR_remove_state) dlsym ( hLib, "ERR_remove_state" );
+        dERR_free_strings                   = (pERR_free_strings) dlsym ( hLib, "ERR_free_strings" );
         
         dBN_free                            = (pBN_free) dlsym ( hLib, "BN_free" );
         dBN_new                             = (pBN_new) dlsym ( hLib, "BN_new" );
@@ -341,6 +345,8 @@ namespace environs
         
         dERR_load_ERR_strings               = (pERR_load_ERR_strings) ERR_load_ERR_strings;
         dERR_load_crypto_strings            = (pERR_load_crypto_strings) ERR_load_crypto_strings;
+        dERR_remove_state                   = (pERR_remove_state) ERR_remove_state;
+        dERR_free_strings                   = (pERR_free_strings) ERR_free_strings;
         
         dBN_free                            = (pBN_free) BN_free;
         dBN_new                             = (pBN_new) BN_new;

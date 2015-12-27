@@ -22,6 +22,7 @@
 #define INCLUDE_HCM_ENVIRONS_DEVICEINSTANCE_INTERFACE_H
 
 #include "Environs.Platforms.h"
+#include "Environs.Platform.Decls.h"
 #include "Interfaces/IMessage.List.h"
 #include "Interfaces/IFile.List.h"
 #include "Interfaces/IPortal.Instance.h"
@@ -435,7 +436,7 @@ namespace environs
 		virtual ArrayList * GetAllMessagesRetained () = 0;
 
 
-	};
+    };
 
 } /* namepace Environs */
 

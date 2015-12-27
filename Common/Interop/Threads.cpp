@@ -479,7 +479,7 @@ namespace environs
     {
         CVerb ( "DetachThread" );
         
-        if ( ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE )
+        if ( threadState != nill && (___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE) )
             return;
         
         if ( !pthread_valid ( threadID ) ) {

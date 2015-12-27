@@ -21,7 +21,7 @@
 
 /// Compiler flag that enables verbose debug output
 #ifndef NDEBUG
-#	define DEBUGVERB
+//#	define DEBUGVERB
 //#	define DEBUGVERBVerb
 //#	define DEBUGSOCKETWATCH
 #endif
@@ -127,9 +127,7 @@ SOCKETSYNC InvalidateThreadSocket ( SOCKETSYNC * psock )
 SOCKETSYNC ReplaceThreadSocket ( SOCKETSYNC * psock, int replace )
 {
     SOCKETSYNC sock = *psock;
-    if ( sock != -1 ) {
-        sock = ___sync_val_compare_and_swap ( psock, sock, replace );
-    }
+    sock = ___sync_val_compare_and_swap ( psock, sock, replace );
     return sock;
 }
 
@@ -142,6 +140,54 @@ SOCKETSYNC CloseReplaceThreadSocket ( SOCKETSYNC * psock, int replace )
         closesocket ( (int) sock );
     }
     return sock;
+}
+
+
+void ClearSpareSockets ( ThreadInstance * client )
+{    
+    if ( MutexLockA ( client->spareSocketsLock, "ClearSpareSockets" ) )
+    {
+        size_t size = client->spareSocketsCount;
+        if ( size > 0 )
+        {
+            INTEROPTIMEVAL check = GetEnvironsTickCount ();
+            
+            if ( (check - client->spareSocketTime) > maxSpareSocketAlive )
+            {
+                for ( size_t i = 0; i < size; ++i )
+                {
+                    int sock = (int) client->spareSockets [i];
+                    if ( sock != -1 )
+                    {
+                        shutdown ( sock, 2 );
+                        closesocket ( sock );
+                    }
+                }
+				client->spareSocketsCount = 0;
+            }
+        }
+        
+        MutexUnlockA ( client->spareSocketsLock, "ClearSpareSockets" );
+    }
+}
+
+
+void ReplaceSpareSocket ( ThreadInstance * client, int replace )
+{
+    SOCKETSYNCNV sock = ReplaceThreadSocket ( &client->spareSocket, replace );
+    if ( sock != -1 )
+    {
+        //if ( MutexLockA ( client->spareSocketsLock, "ReplaceSpareSocket" ) )
+        //{
+            client->spareSockets [ client->spareSocketsCount ] = (int) sock;
+			client->spareSocketsCount++;
+            client->spareSocketTime = GetEnvironsTickCount ();
+        
+            LimitSpareSocketsCount ( client );
+            
+            MutexUnlockA ( client->spareSocketsLock, "ReplaceSpareSocket" );
+        //}
+    }
 }
 
 
@@ -161,7 +207,13 @@ bool CloseThreadSocket ( SOCKETSYNC * psock )
 
 bool ThreadInstance::Init ()
 {
+    spareSocketTime = 0;
+    
 	init = MutexInit ( &lock );
+    
+    if ( init )
+        init = MutexInit ( &spareSocketsLock );
+    
 	return init;
 }
 
@@ -214,15 +266,32 @@ ThreadInstance::~ThreadInstance ()
 	if ( init )
 		Unlock ( "ThreadInstance: Destruct" );
 #endif
-
-    if ( init ) {
-        CVerbVerbArg ( "ThreadInstance [ %s:%i ]: Disposing accessMutex.", ips, port );
-        MutexDispose ( &lock );
-    }
     
     if ( aes.encCtx ) {
         CVerbVerb ( "ThreadInstance: Disposing AES key context." );
         AESDisposeKeyContext ( &aes );
+    }
+
+    if ( init )
+	{
+		//MutexLockA ( spareSocketsLock, "ThreadInstance" );
+
+		for ( size_t i = 0; i < spareSocketsCount; ++i )
+		{
+			int sock = ( int ) spareSockets [ i ];
+			if ( sock != -1 )
+			{
+				shutdown ( sock, 2 );
+				closesocket ( sock );
+			}
+		}
+		spareSocketsCount = 0;
+
+		//MutexUnlockA ( spareSocketsLock, "ThreadInstance" );
+		
+		CVerbVerbArg ( "ThreadInstance [ %s:%i ]: Disposing accessMutex.", ips, port );
+        MutexDispose ( &lock );
+        MutexDispose ( &spareSocketsLock );
     }
 }
 
@@ -367,35 +436,6 @@ MediatorDaemon::~MediatorDaemon ()
         MutexDispose ( &notifyTargetsLock );
 		MutexDispose ( &logMutex );
 	}
-}
-
-
-void MediatorDaemon::PrintSmallHelp ()
-{
-	printf ( "Press ESC to quit; h for help.\n" );
-}
-
-
-void MediatorDaemon::PrintHelp ()
-{
-	printf ( "-------------------------------------------------------\n" );
-	printf ( "a - add/update user\n" );
-	printf ( "b - send broadcast packet to clients\n" );
-	printf ( "c - print configuration\n" );
-	printf ( "d - print database\n" );
-	printf ( "e - error case - reset acceptor\n" );
-    printf ( "g - print client resources\n" );
-	printf ( "h - print help\n" );
-    printf ( "i - print interfaces\n" );
-    printf ( "j - toggle Acceptor\n" );
-	printf ( "l - toggle logging to file\n" );
-	printf ( "m - print mediators\n" );
-	printf ( "o - toggle logging to output (std)\n" );
-    printf ( "p - print active devices\n" );
-	printf ( "r - reload pkcs keys\n" );
-	printf ( "t - toggle authentication\n" );
-	printf ( "z - clear bann list\n" );
-	printf ( "-------------------------------------------------------\n" );
 }
 
 
@@ -845,10 +885,19 @@ bool MediatorDaemon::LoadProjectValues ()
 		
 		std::istringstream iss ( line );
 		string key, value;
+        std::time_t timestamp;
 		unsigned int size = 0;
-		if ( !(iss >> key >> size >> value) ) {
+        
+		if ( !(iss >> key >> size >> value >> timestamp) ) {
 			CErrArg ( "LoadProjectValues: Failed to read key/value (%s)!", line.c_str() );
-			break;
+
+			std::istringstream iss1 ( line );
+			if ( !( iss1 >> key >> size >> value ) ) {
+				CErrArg ( "LoadProjectValues: Failed to read key/value (%s)!", line.c_str () );
+				break;
+			}
+
+			timestamp = 0;
 		}
 
 		sp ( ValuePack ) pack = make_shared < ValuePack > ();
@@ -857,7 +906,7 @@ bool MediatorDaemon::LoadProjectValues ()
 			break;
 		}
 
-		pack->timestamp = 0;
+		pack->timestamp = timestamp;
 		pack->value = value;
 		pack->size = size;
 
@@ -1016,7 +1065,7 @@ bool MediatorDaemon::SaveProjectValues ()
 					if ( value ) {
 						if ( maxID > 0 && itv->first.c_str () [ 0 ] == '0' )
 							continue;
-						conffile << itv->first << " " << value->size << " " << value->value << endl;
+						conffile << itv->first << " " << value->size << " " << value->value << " " << value->timestamp << endl;
 					}
 				}
 
@@ -1954,56 +2003,72 @@ void MediatorDaemon::ReleaseDevices ()
 {
 	CLog ( "ReleaseDevices" );
 
+	vsp ( AreaApps ) tmpAreas;
+
 	areas.Lock ( "ReleaseDevices" );
 
 	for ( msp ( string, AreaApps )::iterator it = areas.list.begin(); it != areas.list.end(); ++it )
 	{
-		if ( it->second ) {
-			sp ( AreaApps ) areaApps = it->second;
-
-			if ( !areaApps )
-				continue;
-
-			areaApps->Lock ( "ReleaseDevices" );
-
-			for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin(); ita != areaApps->apps.end(); ++ita )
-			{
-				sp ( ApplicationDevices ) appDevices = ita->second;
-				if ( appDevices )
-				{
-					appDevices->Lock ( "ReleaseDevices" );
-
-					DeviceInstanceNode * device = appDevices->devices;
-			
-					while ( device ) {
-						DeviceInstanceNode * toDispose = device;
-						device = device->next;
-
-						CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", toDispose->info.deviceID );
-
-						ReleaseClient ( toDispose->clientSP.get () );
-
-
-						toDispose->baseSP = 0;
-					}	
-
-					appDevices->devices = 0;
-					
-					appDevices->Unlock ( "ReleaseDevices" );
-
-					ita->second = 0;
-				}
-			}
-
-			areaApps->apps.clear ();
-			areaApps->Unlock ( "ReleaseDevices" );
-
-			it->second = 0;
-		}
+		if ( it->second )
+			tmpAreas.push_back ( it->second );
 	}
+
 	areas.list.clear ();
 
 	areas.Unlock ( "ReleaseDevices" );
+
+
+	for ( vsp ( AreaApps )::iterator it = tmpAreas.begin (); it != tmpAreas.end (); ++it )
+	{
+		sp ( AreaApps ) areaApps = *it;
+		if ( !areaApps )
+			continue;
+
+		areaApps->Lock ( "ReleaseDevices" );
+
+		vsp ( ApplicationDevices ) tmpAppDevices;
+
+		for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin (); ita != areaApps->apps.end (); ++ita )
+		{
+			sp ( ApplicationDevices ) appDevices = ita->second;
+			if ( ita->second )
+				tmpAppDevices.push_back ( appDevices );
+		}
+
+		areaApps->apps.clear ();
+		areaApps->Unlock ( "ReleaseDevices" );
+
+		for ( vsp ( ApplicationDevices )::iterator ita = tmpAppDevices.begin (); ita != tmpAppDevices.end (); ++ita )
+		{
+			sp ( ApplicationDevices ) appDevices = *ita;
+			if ( appDevices )
+			{
+				appDevices->Lock ( "ReleaseDevices" );
+
+				DeviceInstanceNode * device = appDevices->devices;
+
+				while ( device ) {
+					DeviceInstanceNode * toDispose = device;
+					device = device->next;
+
+					CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", toDispose->info.deviceID );
+
+					ReleaseClient ( toDispose->clientSP.get () );
+
+
+					toDispose->baseSP = 0;
+				}
+
+				appDevices->devices = 0;
+
+				appDevices->Unlock ( "ReleaseDevices" );
+			}
+		}
+
+		tmpAppDevices.clear ();
+	}
+
+	tmpAreas.clear ();
 }
 
 
@@ -2475,16 +2540,28 @@ Finish:
 	return appDevices;
 }
 
+bool printStdOut    = true;
+
 
 void printDevice ( DeviceInstanceNode * device )
 {
-    CLogArg ( "Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
-    CLogArg ( "UID         = [%d / %s]", device->clientSP ? device->clientSP->authLevel : -1, device->clientSP ? device->clientSP->uid : ".-." );
+    CLogArg ( "\nDevice      = [ 0x%X : %s : %s ]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+    if ( printStdOut )
+        printf ( "\nDevice      = [0x%X : %s : %s ]\n", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+    CLogArg ( "UID         = [ %d : %s]", device->clientSP ? device->clientSP->authLevel : -1, device->clientSP ? device->clientSP->uid : ".-." );
+    if ( printStdOut )
+        printf ( "UID         = [ %d : %s ]\n", device->clientSP ? device->clientSP->authLevel : -1, device->clientSP ? device->clientSP->uid : ".-." );
     if ( device->info.ip != device->info.ipe ) {
-        CLogArg ( "Device IPe != IP [%s]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
+        CLogArg ( "Device IPe != IP [ %s ]", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
+        if ( printStdOut )
+            printf ( "Device IPe != IP [ %s ]\n", inet_ntoa ( *((struct in_addr *) &device->info.ip) ) );
     }
-    CLogArg ( "Area/App = [%s / %s]", device->info.areaName, device->info.appName );
-    CLogArg ( "Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ), device->info.tcpPort, device->info.udpPort );
+    CLogArg ( "Area/App    = [ %s : %s ]", device->info.areaName, device->info.appName );
+    if ( printStdOut )
+        printf ( "Area/App    = [ %s : %s ]\n", device->info.areaName, device->info.appName );
+    CLogArg ( "Device  IPe = [ %s (from socket) [ tcp %d ]  [ udp %d ]]", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ), device->info.tcpPort, device->info.udpPort );
+    if ( printStdOut )
+        printf ( "Device  IPe = [ %s (from socket) [ tcp %d ]  [ udp %d ]]\n", inet_ntoa ( *((struct in_addr *) &device->info.ipe) ), device->info.tcpPort, device->info.udpPort );
 }
 
 
@@ -2496,6 +2573,36 @@ void printDeviceList ( DeviceInstanceNode * device )
         
 		device = device->next;
 	}
+}
+
+
+void MediatorDaemon::PrintSmallHelp ()
+{
+    printf ( "Press ESC to quit; h for help.\n" );
+}
+
+
+void MediatorDaemon::PrintHelp ()
+{
+    printf ( "-------------------------------------------------------\n" );
+    printf ( "a - add/update user\n" );
+    printf ( "b - send broadcast packet to clients\n" );
+    printf ( "c - print configuration\n" );
+    printf ( "d - print database\n" );
+    printf ( "e - error case - reset acceptor\n" );
+    printf ( "g - print client resources\n" );
+    printf ( "h - print help\n" );
+    printf ( "i - print interfaces\n" );
+    printf ( "j - toggle Acceptor\n" );
+    printf ( "l - toggle logging to file\n" );
+    printf ( "m - print mediators\n" );
+    printf ( "o - toggle logging to output (std)\n" );
+    printf ( "p - print active devices\n" );
+    printf ( "r - reload pkcs keys\n" );
+    printf ( "s - toggle output to stdout\n" );
+    printf ( "t - toggle authentication\n" );
+    printf ( "z - clear bann list\n" );
+    printf ( "-------------------------------------------------------\n" );
 }
 
 
@@ -2540,20 +2647,28 @@ void MediatorDaemon::Run ()
 				if ( input > inputBuffer )
 					input--;
 				*input = 0;
-
-				printf ( "\r\n" );
-				printf ( "%s", inputBuffer );
+                
+                CLog ( "" );
+                CLogArg ( "%s", inputBuffer );
+                if ( printStdOut ) {
+                    printf ( "\r\n" );
+                    printf ( "%s", inputBuffer );
+                }
 			}
 			continue;
 		}
 		
 		if ( input == inputBuffer && !command ) {
 			if ( c == 'a' ) {
-				CLog ( "Add new user:" );
-				printf ( "Add new user:\n" );
-				printf ( "----------------------------------------------------------------\n" );
-				CLog ( "Please enter an access level (0 - 10). Default [3]:" );
-				printf ( "Please enter an access level (0 - 10). Default [3]: " );
+                CLog ( "Add new user:" );
+                CLog ( "----------------------------------------------------------------" );
+                if ( printStdOut ) {
+                    printf ( "Add new user:\n" );
+                    printf ( "----------------------------------------------------------------\n" );
+                }
+                CLog ( "Please enter an access level (0 - 10). Default [3]:" );
+                if ( printStdOut )
+                    printf ( "Please enter an access level (0 - 10). Default [3]: " );
 				command = 'a';
 				accessLevel = -1;
 				userName = "a";
@@ -2563,20 +2678,33 @@ void MediatorDaemon::Run ()
 				SendBroadcast ();
 				continue;
 			}
-			else if ( c == 'c' ) {
-				CLog ( "Configuration:" );
-				printf ( "----------------------------------------------------------------\n" );
-				CLog ( "Ports: " );
+            else if ( c == 'c' ) {
+                CLog ( "Configuration:" );
+                CLog ( "----------------------------------------------------------------" );
+                CLog ( "Ports: " );
+                if ( printStdOut ) {
+                    printf ( "Configuration:\n" );
+                    printf ( "----------------------------------------------------------------\n" );
+                    printf ( "Ports:\n " );
+                }
 				for ( unsigned int pos = 0; pos < ports.size (); pos++ ) {
-					CLogArg ( " %i", ports [ pos ] );
+                    CLogArg ( " %i", ports [ pos ] );
+                    if ( printStdOut )
+                        printf ( " %i\n", ports [ pos ] );
 				}
-				//printf ( "\n" );
-				printf ( "----------------------------------------------------------------\n" );
+                //printf ( "\n" );
+                CLog ( "----------------------------------------------------------------" );
+                if ( printStdOut )
+                    printf ( "----------------------------------------------------------------\n" );
 				continue;
 			}
 			else if ( c == 'd' ) {
-				CLog ( "Database:" );
-				printf ( "----------------------------------------------------------------\n" );
+                CLog ( "Database:" );
+                CLog ( "----------------------------------------------------------------" );
+                if ( printStdOut ) {
+                    printf ( "Database:\n" );
+                    printf ( "----------------------------------------------------------------\n" );
+                }
 				if ( areasMap.Lock ( "Run" ) )
 				{
 					for ( msp ( string, AppsList )::iterator it = areasMap.list.begin (); it != areasMap.list.end (); it++ )
@@ -2634,12 +2762,19 @@ void MediatorDaemon::Run ()
 			}
 			else if ( c == 'e' ) {
 				CLog ( "Reseting acceptor thread ..." );
+                if ( printStdOut )
+                    printf ( "Reseting acceptor thread ...\n" );
 				ReCreateAcceptor ();
 				continue;
 			}
 			else if ( c == 'g' ) {
 				CLog ( "Active clients:" );
 				CLog ( "----------------------------------------------------------------" );
+                
+                if ( printStdOut ) {
+                    printf ( "Active clients:\n" );
+                    printf ( "----------------------------------------------------------------\n" );
+                }
                 
 				if ( acceptClients.Lock ( "Run" ) )
 				{
@@ -2653,17 +2788,26 @@ void MediatorDaemon::Run ()
 							{
 								CLogArg ( "[%i]: [%i]", i, client->deviceID );
 
+                                if ( printStdOut )
+                                    printf ( "[%zu]: [%i]\n", i, client->deviceID );
+                                
 								printDevice ( deviceSP.get () );
 							}
 						}
-						else {
-							CErrArg ( "[%i]: **** Invalid Client\n\n", i );
+                        else {
+                            CErrArg ( "[%i]: **** Invalid Client\n\n", i );
+                            if ( printStdOut )
+                                printf ( "[%zu]: **** Invalid Client\n\n", i );
 						}
 						CLog ( "----------------------------------------------------------------" );
+                        if ( printStdOut )
+                            printf ( "----------------------------------------------------------------\n" );
 					}
 					acceptClients.Unlock ( "Run" );
 				}
-				CLog ( "----------------------------------------------------------------" );
+                CLog ( "----------------------------------------------------------------" );
+                if ( printStdOut )
+                    printf ( "----------------------------------------------------------------\n" );
 				continue;
 			}
 			else if ( c == 'h' ) { // Help requested
@@ -2678,6 +2822,11 @@ void MediatorDaemon::Run ()
 				while ( net ) {
 					CLogArg ( "Interface ip:%s", inet_ntoa ( *( ( struct in_addr * ) &net->ip ) ) );
 					CLogArg ( "Interface bcast:%s", inet_ntoa ( *( ( struct in_addr * ) &net->bcast ) ) );
+                    
+                    if ( printStdOut ) {
+                        printf ( "Interface ip:%s\n", inet_ntoa ( *( ( struct in_addr * ) &net->ip ) ) );
+                        printf ( "Interface bcast:%s\n", inet_ntoa ( *( ( struct in_addr * ) &net->bcast ) ) );
+                    }
 					net = net->next;
 				}
 
@@ -2686,19 +2835,23 @@ void MediatorDaemon::Run ()
             }
             else if ( c == 'j' ) {
                 acceptEnabled = !acceptEnabled;
-                printf ( "Run: Acceptor is now [%s]\n", acceptEnabled ? "enabled" : "disabled" );
-                CLogArg ( "Run: Acceptor is now [%s]\n", acceptEnabled ? "enabled" : "disabled" );
+                if ( printStdOut )
+                    printf ( "Run: Acceptor is now [%s]\n", acceptEnabled ? "enabled" : "disabled" );
+                CLogArg ( "Run: Acceptor is now [%s]", acceptEnabled ? "enabled" : "disabled" );
                 continue;
             }
 			else if ( c == 'l' ) {
-				logging = !logging;
-				printf ( "Run: File logging is now [%s]\n", logging ? "enabled" : "disabled" );
-				CLogArg ( "Run: File logging is now [%s]\n", logging ? "enabled" : "disabled" );
+                logging = !logging;
+                if ( printStdOut )
+                    printf ( "Run: File logging is now [%s]\n", logging ? "enabled" : "disabled" );
+				CLogArg ( "Run: File logging is now [%s]", logging ? "enabled" : "disabled" );
 				continue;
 			}
 			else if ( c == 'm' ) {
 				if ( !mediator.ip ) {
 					CLog ( "No more mediators known yet!" );
+                    if ( printStdOut )
+                        printf ( "No more mediators known yet!\n" );
 					continue;
 				}
 				else {
@@ -2706,36 +2859,53 @@ void MediatorDaemon::Run ()
 						continue;
 
 					CLog ( "Mediators:" );
-					CLog ( "----------------------------------------------------------------" );
+                    CLog ( "----------------------------------------------------------------" );
+                    if ( printStdOut ) {
+                        printf ( "Mediators:\n" );
+                        printf ( "----------------------------------------------------------------\n" );
+                    }
 
 					MediatorInstance * net = &mediator;
 
 					while ( net ) {
-						CLogArg ( "\tIP: %s\tPorts: ", inet_ntoa ( *( ( struct in_addr * ) &net->ip ) ) );
+                        CLogArg ( "\tIP: %s\tPorts: ", inet_ntoa ( *( ( struct in_addr * ) &net->ip ) ) );
+                        if ( printStdOut )
+                            printf ( "\tIP: %s\tPorts: \n", inet_ntoa ( *( ( struct in_addr * ) &net->ip ) ) );
 
 						for ( int i=0; i<MAX_MEDIATOR_PORTS; i++ ) {
 							if ( !net->port )
 								break;
-							CLogArg ( "%i ", net->port );
+                            CLogArg ( "%i ", net->port );
+                            if ( printStdOut )
+                                printf ( "%i \n", net->port );
 						}
-						CLog ( "\n" );
+                        CLog ( "\n" );
+                        if ( printStdOut )
+                            printf ( "\n" );
 						net = net->next;
-					}
-					printf ( "----------------------------------------------------------------\n" );
+                    }
+                    CLog ( "----------------------------------------------------------------" );
+                    if ( printStdOut )
+                        printf ( "----------------------------------------------------------------\n" );
 
 					MutexUnlockV ( &mediatorLock, "Run" );
 				}
 				continue;
 			}
 			else if ( c == 'o' ) {
-				stdlog = !stdlog;
-				printf ( "Run: Std output logging is now [%s]\n", stdlog ? "enabled" : "disabled" );
-				CLogArg ( "Run: Std output logging is now [%s]\n", stdlog ? "enabled" : "disabled" );
+                stdlog = !stdlog;
+                if ( printStdOut )
+                    printf ( "Run: Std output logging is now [%s]\n", stdlog ? "enabled" : "disabled" );
+				CLogArg ( "Run: Std output logging is now [%s]", stdlog ? "enabled" : "disabled" );
 				continue;
 			}
 			else if ( c == 'p' ) {
 				CLog ( "Active devices:" );
-				CLog ( "----------------------------------------------------------------" );
+                CLog ( "----------------------------------------------------------------" );
+                if ( printStdOut ) {
+                    printf ( "Active devices:\n" );
+                    printf ( "----------------------------------------------------------------\n" );
+                }
 
 				if ( areas.Lock ( "Run" ) )
 				{
@@ -2744,6 +2914,8 @@ void MediatorDaemon::Run ()
 						if ( it->second ) {
 							sp ( AreaApps ) areaApps = it->second;
 							CLogArg ( "P: [%s]", it->first.c_str () );
+                            if ( printStdOut )
+                                printf ( "P: [%s]\n", it->first.c_str () );
 
 							if ( !areaApps || !areaApps->Lock ( "Run" ) )
 								continue;
@@ -2754,9 +2926,13 @@ void MediatorDaemon::Run ()
 								if ( appDevices ) 
 								{					
 									if ( appDevices->devices ) 
-									{
-										CLog ( "----------------------------------------------------------------" );
-										CLogArg ( "A: [%s]", ita->first.c_str () );
+                                    {
+                                        CLog ( "----------------------------------------------------------------" );
+                                        CLogArg ( "A: [%s]", ita->first.c_str () );
+                                        if ( printStdOut ) {
+                                            printf ( "----------------------------------------------------------------\n" );
+                                            printf ( "A: [%s]\n", ita->first.c_str () );
+                                        }
 
 										// Deadlock here
 										if ( appDevices->Lock ( "Run" ) )
@@ -2765,10 +2941,14 @@ void MediatorDaemon::Run ()
 
 											appDevices->Unlock ( "Run" );
 										}
-										CLog ( "----------------------------------------------------------------" );
+                                        CLog ( "----------------------------------------------------------------" );
+                                        if ( printStdOut )
+                                            printf ( "----------------------------------------------------------------\n" );
 									}
-									else {
-										CLogArg ( "A: No devices in [%s]", ita->first.c_str () );
+                                    else {
+                                        CLogArg ( "A: No devices in [%s]", ita->first.c_str () );
+                                        if ( printStdOut )
+                                            printf ( "A: No devices in [%s]\n", ita->first.c_str () );
 									}
 								}
 							}
@@ -2780,6 +2960,8 @@ void MediatorDaemon::Run ()
 					areas.Unlock ( "Run" );
 				}
 				CLog ( "----------------------------------------------------------------" );
+                if ( printStdOut )
+                    printf ( "----------------------------------------------------------------\n" );
 				continue;
             }
 			else if ( c == 'q' ) {
@@ -2789,22 +2971,32 @@ void MediatorDaemon::Run ()
 				// Stop the threads
 				break;
 			}
-			else if ( c == 'r' ) {
-				printf ( "Run: Reloading keys" );
+            else if ( c == 'r' ) {
+                if ( printStdOut )
+                    printf ( "Run: Reloading keys\n" );
 				CLog ( "Run: Reloading keys" );
 				LoadKeys ();
 				continue;
 			}
-			else if ( c == 't' ) {
-				reqAuth = !reqAuth;
-				printf ( "Run: Authentication is now [%s]\n", reqAuth ? "required" : "disabled" );
-				CLogArg ( "Run: Authentication is now [%s]\n", reqAuth ? "required" : "disabled" );
+			else if ( c == 's' ) {
+                printStdOut = !printStdOut;
+                if ( printStdOut )
+                    printf ( "Run: Stdout is now [%s]\n", printStdOut ? "required" : "disabled" );
+				CLogArg ( "Run: Stdout is now [%s]", printStdOut ? "required" : "disabled" );
 				continue;
-			}
+            }
+            else if ( c == 't' ) {
+                reqAuth = !reqAuth;
+                if ( printStdOut )
+                    printf ( "Run: Authentication is now [%s]\n", reqAuth ? "required" : "disabled" );
+                CLogArg ( "Run: Authentication is now [%s]", reqAuth ? "required" : "disabled" );
+                continue;
+            }
 			else if ( c == 'z' ) {
-				if ( MutexLockA ( bannedIPsLock, "Run" ) ) {
-					printf ( "Run: Clearing bannlist with [%u] entries.\n", ( unsigned int ) bannedIPs.size () );
-					CLogArg ( "Run: Clearing bannlist with [%u] entries.\n", ( unsigned int ) bannedIPs.size () );
+                if ( MutexLockA ( bannedIPsLock, "Run" ) ) {
+                    if ( printStdOut )
+                        printf ( "Run: Clearing bannlist with [%u] entries.\n", ( unsigned int ) bannedIPs.size () );
+					CLogArg ( "Run: Clearing bannlist with [%u] entries.", ( unsigned int ) bannedIPs.size () );
 					bannedIPs.clear ();
 					bannedIPConnects.clear ();
 
@@ -2825,19 +3017,22 @@ void MediatorDaemon::Run ()
                     input = inputBuffer;
                     
                     CLog ( "Please enter the username (email):" );
-                    printf ( "\nPlease enter the username (email): " );
+                    if ( printStdOut )
+                        printf ( "\nPlease enter the username (email): " );
                 }
 				else if ( userName.c_str()[0] == 'a' && userName.length() == 1 ) {
 					userName = inputBuffer;
 					if ( userName.find ( '@', 0 ) == string::npos ) {
 						command = 0;
 						userName = "";
-						CLog ( "The username must be a valid email address!" );
-						printf ( "The username must be a valid email address!\n" );
+                        CLog ( "The username must be a valid email address!" );
+                        if ( printStdOut )
+                            printf ( "The username must be a valid email address!\n" );
 					}
 					else {
-						CLog ( "Please enter the passphrase:" );
-						printf ( "\nPlease enter the passphrase: " );
+                        CLog ( "Please enter the passphrase:" );
+                        if ( printStdOut )
+                            printf ( "\nPlease enter the passphrase: " );
 						input = inputBuffer;
 						hideInput = true;
 						continue;
@@ -2846,20 +3041,24 @@ void MediatorDaemon::Run ()
 				else {
 					hideInput = false;
 					if ( AddUser ( accessLevel, userName.c_str(), inputBuffer ) ) {
-						CLogArg ( "User: [%s] successfully added.", userName.c_str() );
-						printf ( "\nUser: [%s] successfully added.\n", userName.c_str() );
+                        CLogArg ( "User: [%s] successfully added.", userName.c_str() );
+                        if ( printStdOut )
+                            printf ( "\nUser: [%s] successfully added.\n", userName.c_str() );
 					}
 					else {
-						CErrArg ( "User: Failed to add user [%s]", userName.c_str() );
-						printf ( "\nUser: Failed to add user [%s]\n", userName.c_str() );
+                        CErrArg ( "User: Failed to add user [%s]", userName.c_str() );
+                        if ( printStdOut )
+                            printf ( "\nUser: Failed to add user [%s]\n", userName.c_str() );
 					}
 					command = 0;
 					userName = "";
 					printf ( "----------------------------------------------------------------\n" );
 				}
 			}
-
-			printf ( "\n" );
+            
+            CLog ("");
+            if ( printStdOut )
+                printf ( "\n" );
 			input = inputBuffer;
 			continue;
 		}
@@ -2875,7 +3074,9 @@ void MediatorDaemon::Run ()
 				// Buffer overflow now
 				input = inputBuffer;
 
-				CLog ("\nInput too long! Try again!");
+                CLog ("\nInput too long! Try again!");
+                if ( printStdOut )
+                    printf ("\nInput too long! Try again!\n");
 				PrintSmallHelp ();
 			}
 		}
@@ -3099,30 +3300,6 @@ void * MediatorDaemon::AcceptorStarter ( void * arg )
 }
 
 
-//bool CheckSocketAlive ( int sock )
-//{
-//	CVerb ( "CheckSocketAlive" );
-//
-//	if ( sock == -1 ) {
-//		CVerb ( "CheckSocketAlive: socket argument is invalid" );
-//		return false;
-//	}
-//
-//	int value;
-//	socklen_t size = sizeof ( socklen_t );
-//
-//	int ret = getsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( char * ) &value, &size );
-//	if ( ret < 0 ) {
-//		CInfo ( "CheckSocketAlive: Socket is invalid!!" );
-//		LogSocketError ();
-//		return false;
-//	}
-//
-//	CVerb ( "CheckSocketAlive: socket is alive" );
-//	return true;
-//}
-
-
 void * MediatorDaemon::Acceptor ( void * arg )
 {
 	CVerb ( "Acceptor started." );
@@ -3221,6 +3398,8 @@ void * MediatorDaemon::Acceptor ( void * arg )
             client->aliveLast	= checkLast;
             client->daemon		= this;
             client->stuntTarget = 0;
+            client->subscribedToNotifications   = true;
+            client->subscribedToMessages        = true;
             client->connectTime = GetEnvironsTickCount ();
             
             memcpy ( &client->addr, &addr, sizeof(addr) );
@@ -3264,51 +3443,55 @@ void * MediatorDaemon::ClientThreadStarter ( void *arg )
 {
     if ( !arg  )
 		return 0;
-	
+    
 	ThreadInstance * client = ( ThreadInstance * ) arg;
 
 	CVerbArg ( "ClientThreadStarter: Address of arg [0x%p].", &client );
 	
 	MediatorDaemon * daemon = (MediatorDaemon *)client->daemon;
 	if ( !daemon )
-		return 0;
-
-	sp ( ThreadInstance ) clientSP = client->clientSP;
-	if ( clientSP )
-	{	
-		if ( daemon ) {
-			// Execute thread
-			daemon->ClientThread ( client );
-		}
-	}
-
-	if ( daemon->isRunning ) 
-	{
+        return 0;
+    
+    sp ( ThreadInstance ) clientSP = client->clientSP;
+    if ( clientSP )
+    {
+        // Execute thread
+        daemon->ClientThread ( client );
+    }
+    
+    if ( daemon->isRunning )
+    {
         daemon->RemoveAcceptClient ( client );
-		
-
-		CVerbArg ( "Client [ %s:%i ]:\tDisposing memory for client", client->ips, client->port );
+        
+        
+        CVerbArg ( "Client [ %s:%i ]:\tDisposing memory for client", client->ips, client->port );
         
         sp ( DeviceInstanceNode ) deviceSP = client->deviceSP;
         
         if ( deviceSP ) {
             CVerbArg ( "Client [ %s:%i ]:\tReleasing deviceSP", client->ips, client->port );
             
-			daemon->RemoveDevice ( deviceSP.get () );
-			client->deviceSP = 0;
-		}
-		
-		daemon->sessions.Lock ( "Client" );
-
-		const msp ( long long, ThreadInstance )::iterator sessionIt = daemon->sessions.list.find ( client->sessionID );
-		if ( sessionIt != daemon->sessions.list.end () ) {
-			daemon->sessions.list.erase ( sessionIt );
-		}
-		
-		daemon->sessions.Unlock ( "Client" );
-		
+            daemon->RemoveDevice ( deviceSP.get () );
+            client->deviceSP = 0;
+        }
+        
+        daemon->sessions.Lock ( "Client" );
+        
+        const msp ( long long, ThreadInstance )::iterator sessionIt = daemon->sessions.list.find ( client->sessionID );
+        if ( sessionIt != daemon->sessions.list.end () ) {
+            daemon->sessions.list.erase ( sessionIt );
+        }
+        
+        daemon->sessions.Unlock ( "Client" );
+        
+        pthread_t thrd = client->threadID;
+        if ( pthread_valid ( thrd ) )
+        {
+            pthread_reset ( client->threadID );
+            pthread_detach_handle ( thrd );
+        }
         client->daemon = 0;
-	}
+    }
 	return 0;
 }
 
@@ -3394,26 +3577,29 @@ bool MediatorDaemon::addToArea ( sp ( ListValues ) &values, const char * pKey, c
 	// Look whether we already have a value for the key
 	const msp ( string, ValuePack )::iterator valueIt = values->values.find ( key );
 	
-	if ( valueIt != values->values.end() )
-	{
-		pack = valueIt->second;
+    if ( valueIt != values->values.end() )
+        pack = valueIt->second;
+    
+    // Update the old value
+    if ( pack ) {
+        pack->timestamp = std::time(0);
+        pack->value = string ( pValue );
+        pack->size = valueSize;
+    }
+    else
+    {
+        pack = make_shared < ValuePack > (); // new ValuePack ();
+        if ( !pack ) {
+            CErrArg ( "addToArea: Failed to create new value object for %s! Memory low problem!", pKey );
+            goto EndWithStatus;
+        }
+        pack->timestamp = std::time(0);
+        pack->value = string ( pValue );
+        pack->size = valueSize;
+        
+        values->values [ key ] = pack;
+    }
 
-		// Delete the old value
-		if ( pack )
-            valueIt->second = 0;
-		values->values.erase ( valueIt );
-	}
-
-    pack = make_shared < ValuePack > (); // new ValuePack ();
-	if ( !pack ) {
-		CErrArg ( "addToArea: Failed to create new value object for %s! Memory low problem!", pKey );
-		goto EndWithStatus;
-	}
-	pack->timestamp = 0;
-	pack->value = string ( pValue );
-	pack->size = valueSize;
-
-	values->values [ key ] = pack;
 	ret = true;
 
 	//CVerbArg ( "addToArea: added %s -> %s", pKey, pValue );
@@ -4176,6 +4362,20 @@ void * MediatorDaemon::ClientThread ( void * arg )
                     CErrArgID ( "Client [ %s ]:\tFailed to response Mediator version", client->ips );
                 }
             }
+            // COMMAND:
+            else if ( command == MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE )
+            {
+                MediatorMsg * medMsg = (MediatorMsg *) msgDec;
+                
+                client->subscribedToNotifications = (medMsg->ids.id2.msgID == 1 ? true : false);
+            }
+            // COMMAND:
+            else if ( command == MEDIATOR_CMD_MESSAGE_SUBSCRIBE )
+            {
+                MediatorMsg * medMsg = (MediatorMsg *) msgDec;
+                
+                client->subscribedToMessages = (medMsg->ids.id2.msgID == 1 ? true : false);
+            }
 			else {
 				msgDec [ msgDecLength - 1 ] = 0;
 
@@ -4241,13 +4441,6 @@ ShutdownClient:
         
         if ( !isBanned )
             UpdateNotifyTargets ( clientSP, -1 );
-
-		pthread_t thrd = client->threadID;
-		if ( pthread_valid ( thrd ) ) 
-		{
-			pthread_reset ( client->threadID );
-			pthread_detach_handle ( thrd );
-		}
 	}
     else {
         UpdateNotifyTargets ( clientSP, -1 );
@@ -4347,7 +4540,7 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 	if ( device )
 		destClient = device->clientSP;
 
-	if ( !destClient || destClient->socket == -1 ) {
+	if ( !destClient || destClient->socket == -1 || !destClient->subscribedToMessages ) {
 		CErrArgID ( "HandleShortMessage: Failed to find device connection for id [0x%X]!", destID );
 		goto SendResponse;
 	}
@@ -6141,20 +6334,18 @@ void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClien
 	}
 	
 	if ( deviceID != device->info.deviceID ){
-		CWarnID ( "HandleSpareSocketRegistration: deviceIDs don't match!" );
-		goto Finish;
+		CWarnID ( "HandleSpareSocketRegistration: deviceIDs don't match!" ); goto Finish;
 	}	
 	
 	// Check for matching IP
 	if ( !orgClient->daemon || spareClient->addr.sin_addr.s_addr != orgClient->addr.sin_addr.s_addr ) {
-		CWarnID ( "HandleSpareSocketRegistration: Requestor has been disposed or IP address of requestor does not match!" );
-		goto Finish;
+		CWarnID ( "HandleSpareSocketRegistration: Requestor has been disposed or IP address of requestor does not match!" ); goto Finish;
     }
     
 #ifdef USE_LOCKFREE_SOCKET_ACCESS
     spareSocket = (int) ReplaceThreadSocket ( &spareClient->socket, -1 );
     
-    CloseReplaceThreadSocket ( &orgClient->spareSocket, spareSocket );
+    ReplaceSpareSocket ( orgClient.get (), spareSocket );
     
     orgClient->sparePort = ntohs ( spareClient->addr.sin_port );
 #else
@@ -6183,10 +6374,11 @@ void MediatorDaemon::HandleSpareSocketRegistration ( ThreadInstance * spareClien
 	sock = 1;
 	
 Finish:
-	pthread_t thrd = spareClient->threadID;
+	/*pthread_t thrd = spareClient->threadID;
 	if ( pthread_valid ( thrd ) ) {
 		pthread_detach_handle ( thrd );
 	}
+    */
 
 	if ( sock != 1 ) {        
 #ifdef USE_LOCKFREE_SOCKET_ACCESS
@@ -6526,7 +6718,7 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         
         while ( clientIt != notifyTargets.end () )
         {
-            if ( clientIt->second->socket != -1 )
+            if ( clientIt->second->socket != -1 && clientIt->second->subscribedToNotifications )
                 dests.push_back ( clientIt->second );
             clientIt++;
         }
@@ -6559,7 +6751,7 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         
         while ( clientIt != areaApps->notifyTargets.end () )
         {
-            if ( clientIt->second->socket != -1 )
+            if ( clientIt->second->socket != -1 && clientIt->second->subscribedToNotifications )
                 dests.push_back ( clientIt->second );
             clientIt++;
         }
@@ -6578,7 +6770,7 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
 			{		
 				clientSP = device->clientSP;
 
-                if ( clientSP && clientSP->filterMode == MEDIATOR_FILTER_AREA_AND_APP && clientSP->socket != -1 )
+                if ( clientSP && clientSP->filterMode == MEDIATOR_FILTER_AREA_AND_APP && clientSP->socket != -1 && clientSP->subscribedToNotifications )
                 {
                     dests.push_back ( clientSP );
                 }
@@ -6604,7 +6796,7 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         ThreadInstance * dest = destClient.get ();
         //CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
         
-        if ( !dest->deviceID || dest->socket == -1 )
+        if ( !dest->deviceID || dest->socket == -1 || !dest->subscribedToNotifications )
             continue;
         
 #ifdef USE_LOCKFREE_SOCKET_ACCESS
@@ -6636,6 +6828,82 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
 }
 
 
+void MediatorDaemon::CheckProjectValues ()
+{
+    std::time_t now = std::time(0);
+    
+	const unsigned long long maxAliveSecs = 60 * 60 * 1;
+
+    if ( !areasMap.Lock ( "CheckProjectValues" ) )
+        return;
+    
+    // Collect areas
+    msp ( string, AppsList ) tmpAreas;
+    for ( msp ( string, AppsList )::iterator it = areasMap.list.begin(); it != areasMap.list.end(); ++it )
+    {
+        sp ( AppsList ) appsList = it->second;
+        if ( !appsList )
+            continue;
+        
+        tmpAreas [ it->first ] = appsList;
+    }
+    
+    if ( !areasMap.Unlock ( "CheckProjectValues" ) )
+        return;
+    
+    // Save areas
+    for ( msp ( string, AppsList )::iterator it = tmpAreas.begin (); it != tmpAreas.end (); ++it )
+    {
+        sp ( AppsList ) appsList = it->second;
+        if ( !appsList )
+            continue;
+        
+        if ( !appsList->Lock ( "CheckProjectValues" ) )
+            continue;
+        
+        msp ( string, ListValues ) tmpListValues;
+        
+        for ( msp ( string, ListValues )::iterator ita = appsList->apps.begin (); ita != appsList->apps.end (); ita++ )
+        {
+            sp ( ListValues ) listValues = ita->second;
+            if ( !listValues )
+                continue;
+            
+            tmpListValues [ ita->first ] = listValues;
+        }
+        
+        appsList->Unlock ( "CheckProjectValues" );
+        
+        
+        for ( msp ( string, ListValues )::iterator ita = tmpListValues.begin (); ita != tmpListValues.end (); ita++ )
+        {
+            sp ( ListValues ) listValues = ita->second;
+            
+            if ( !listValues || !listValues->Lock ( "CheckProjectValues" ) )
+                continue;
+            
+            
+            for ( msp ( string, ValuePack )::iterator itv = listValues->values.begin (); itv != listValues->values.end (); )
+            {
+                bool addIt = true;
+                
+                sp ( ValuePack ) value = itv->second;
+                if ( value ) {
+                    if ( (now - value->timestamp) > maxAliveSecs ) {
+                        listValues->values.erase ( itv++ );
+                        addIt = false;
+                    }
+                }
+                if ( addIt )
+                    itv++;
+            }
+            
+            listValues->Unlock ( "CheckProjectValues" );
+        }
+    }
+}
+
+
 void * MediatorDaemon::WatchdogThreadStarter ( void * daemon )
 {
 	if ( daemon )
@@ -6647,7 +6915,7 @@ void * MediatorDaemon::WatchdogThreadStarter ( void * daemon )
 void MediatorDaemon::WatchdogThread ()
 {
 	CLog ( "Watchdog started..." );
-					
+    
 #ifndef USE_LOCKFREE_SOCKET_ACCESS
 	int						sock;
 #endif
@@ -6655,8 +6923,10 @@ void MediatorDaemon::WatchdogThread ()
 	ThreadInstance		*	client				= 0;
 	const unsigned int		checkDuration		= 1000 * 60 * 2; // 2 min. (in ms)
     const unsigned int      maxTimeout			= checkDuration * 3;
-	const unsigned int		logRollDurationMin	= 1000 * 60 * 20; // 2 min. (in ms)
-	INTEROPTIMEVAL			timeLogRollLast		= 0;
+	const unsigned int		logRollDurationMin	= 1000 * 60 * 20; // 20 min. (in ms)
+    INTEROPTIMEVAL			timeLogRollLast		= 0;
+    const unsigned int		projectValuesDurationMin	= 1000 * 60 * 60; // 1 h. (in ms)
+    INTEROPTIMEVAL			timeProjectValues	= 0;
 
     
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
@@ -6728,8 +6998,13 @@ void MediatorDaemon::WatchdogThread ()
                     //}
 #endif
 				}
-				else
+                else {
+                    /*if ( client->spareSockets.size () > 0 && (checkLast - client->spareSocketTime) > maxSpareSocketAlive ) {
+                        ClearSpareSockets ( client );
+                    }*/
+                    
 					VerifySockets ( client, false );
+                }
 			}
 
 			++sessionItv;
@@ -6797,7 +7072,12 @@ void MediatorDaemon::WatchdogThread ()
 			timeLogRollLast = checkLast;
 			CloseLog ();
 			OpenLog ();
-		}
+        }
+        
+        if ( ( checkLast - timeProjectValues ) > projectValuesDurationMin ) {
+            timeProjectValues = checkLast;
+            CheckProjectValues ();
+        }
 
         pthread_cond_timedwait ( &hWatchdogEvent, &thread_lock, &timeout );
         

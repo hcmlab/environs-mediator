@@ -68,9 +68,9 @@ public:
 
 typedef struct _ValuePack
 {
-	string			value;
-	unsigned int	size;
-	int				timestamp;
+	string          value;
+	unsigned int    size;
+	std::time_t     timestamp;
 } ValuePack;
 
 
@@ -342,6 +342,8 @@ private:
 	INTEROPTIMEVAL							checkLast;
 	static void 						*	WatchdogThreadStarter ( void * daemon );
 	void									WatchdogThread ();
+    
+    void                                    CheckProjectValues ();
 
 };
 

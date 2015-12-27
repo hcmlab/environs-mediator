@@ -70,7 +70,9 @@
 #define	MEDIATOR_CMD_SET_FILTERMODE				'f'
 #define	MEDIATOR_CMD_QUIT						'q'
 #define	MEDIATOR_CMD_NATSTAT					'n'
+#define	MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE		'N'
 #define	MEDIATOR_CMD_SHORT_MESSAGE				'm'
+#define	MEDIATOR_CMD_MESSAGE_SUBSCRIBE          'M'
 #define	MEDIATOR_CMD_REQ_SPARE_ID				'r'
 #define	MEDIATOR_SRV_CMD_ALIVE_REQUEST			'A'
 #define	MEDIATOR_SRV_CMD_SESSION_RETRY			'R'
@@ -119,6 +121,12 @@
 #   define  DAEMONEXP(exp)
 #   define  CLIENTEXP(exp)      exp
 #endif
+
+#define MAX_SPARE_SOCKETS_IN_QUEUE			20
+#define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK	26
+
+const unsigned int		maxSpareSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
+
 
 namespace environs	/// Namespace: environs ->
 {
@@ -169,14 +177,22 @@ namespace environs	/// Namespace: environs ->
 
 #ifdef __cplusplus        
         DAEMONEXP ( bool init );
+        DAEMONEXP ( bool subscribedToNotifications );
+        DAEMONEXP ( bool subscribedToMessages );
 
 		sp ( ThreadInstance )	  clientSP;
 		sp ( DeviceInstanceNode ) deviceSP;
 
         DAEMONEXP ( ~ThreadInstance () );
         
+		int							spareSocketsCount;
+        int							spareSockets [ MAX_SPARE_SOCKETS_IN_QUEUE_CHECK + 1 ];
+        INTEROPTIMEVAL              spareSocketTime;
+        
 #ifdef MEDIATORDAEMON
         volatile ThreadInstance  *	stuntTarget;
+        
+        pthread_mutex_t             spareSocketsLock;
         
 		bool Init ();
         bool Lock ( const char * func );
@@ -187,6 +203,8 @@ namespace environs	/// Namespace: environs ->
 	}
 	ThreadInstance;
 
+    extern void LimitSpareSocketsCount ( ThreadInstance * client );
+    
 
 	class ILock
 	{

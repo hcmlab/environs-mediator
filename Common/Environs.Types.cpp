@@ -1022,11 +1022,13 @@ namespace environs
 			case ( 1 ):
 				return "APP_STATUS_SLEEPING";
 		} /// -> switch
+		if ( constToResolve == ( 60 ) )
+			return "ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT";
+		if ( constToResolve == ( 1200000 ) )
+			return "MAX_TCP_SEND_PACKET_SIZE";
 
 
 		switch ( constToResolve ) {
-			case ( 60 ):
-				return "ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT";
 			case ( 2048 ):
 				return "ENVIRONS_DEVICES_KEYSIZE";
 			case ( (1 << 24) ):

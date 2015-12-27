@@ -65,7 +65,7 @@
 #	define msp(key,type)			std::map < key, std::shared_ptr < type > >
 #	define smsp(key,type)			std::shared_ptr < std::map < key, std::shared_ptr < type > > >
 
-#	define devListNew(type)			make_shared < vsp ( type ) > ()
+#	define devListNew(UIControl,type) make_shared < vsp ( type ) > ()
 #	define devList(type)			svsp(type)
 #	define devListRef(type)			vsp(type) *
 #	define DeviceListAppend(l,d)	l->push_back (d)
@@ -141,7 +141,8 @@ using System::Collections::ObjectModel::ObservableCollection;
 #	define sp_make_arg(type,arg)	gcnew type ( arg );
 
 #	define spv(type)				ArrayList ^
-#	define spvc(type)				ObservableCollection<type> ^
+//#	define spvc(type)				ObservableCollection<type> ^
+#	define spvc(type)				Collection<type> ^
 
 #	define svsp(type)				cliext::vector < type ^ > ^
 #	define vsp(type)				cliext::vector < type ^ >
@@ -159,9 +160,11 @@ using System::Collections::ObjectModel::ObservableCollection;
 #	define smsp(key,type)			cliext::map < key, type ^ > ^
 
 #	define sp_assign(type,name,val) type ^ name = ((type ^ )val)
-#	define devListNew(type)			gcnew ObservableCollection<type ^> ()
+//#	define devListNew(type)			gcnew ObservableCollection<type ^> ()
+#	define devListNew(UIControl,type)	(UIControl ? gcnew ObservableCollection<type ^> () : gcnew Collection<type ^> ())
 
-#	define devList(type)			ObservableCollection<type ^> ^
+#	define devList(type)			Collection<type ^> ^
+//#	define devList(type)			ObservableCollection<type ^> ^
 #	define devListRef(type)			devList(type)
 #	define ContainerClear(l)		l->Clear ()
 #	define ContainerdClear(l)		l.Clear ()

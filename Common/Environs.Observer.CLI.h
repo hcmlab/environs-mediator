@@ -20,6 +20,7 @@
 #pragma once
 
 #include "Environs.Cli.Forwards.h"
+#include "Environs.Platform.Decls.h"
 #include "Interop/jni.h"
 
 #ifndef INCLUDE_HCM_ENVIRONS_OBSERVERS_CLI_H
@@ -30,6 +31,7 @@
 namespace environs
 {
 	typedef System::Collections::Specialized::NotifyCollectionChangedEventHandler	ListObserver;
+
 
 	/**
 	* OnPortalRequestOrProvided is called when a portal request from another devices came in, or when a portal has been provided by another device.
@@ -50,6 +52,7 @@ namespace environs
 	*/
 	public delegate void DeviceObserver ( DeviceInstance ^device, int Environs_NOTIFY_ );
 
+
 	/**
 	* MessageObserver: Attachable to **DeviceInstance** objects in order to receive messages of a particular device.
 	*/
@@ -60,6 +63,7 @@ namespace environs
 	* @param MESSAGE_INFO_ATTR_changed     Flags that indicate the object change.
 	*/
 	public delegate void MessageObserver ( MessageInstance ^messageInst, int MESSAGE_INFO_ATTR_changed );
+
 
 	/**
 	* DataObserver: Attachable to **DeviceInstance** objects in order to receive data transmissions of a particular device.
@@ -73,6 +77,7 @@ namespace environs
 	*/
 	public delegate void DataObserver ( FileInstance ^fileData, int FILE_INFO_ATTR_changed );
 
+
 	/**
 	* SensorObserver: Attachable to **DeviceInstance** objects in order to receive sensor data from a particular device.
 	*/
@@ -83,12 +88,14 @@ namespace environs
 	*/
 	public delegate void SensorObserver ( environs::SensorFrame ^ pack );
 
+
 	/**
 	* OnStatus is called whenever the framework status changes.&nbsp;
 	*
 	* @param status      A status constant of type STATUS_*
 	*/
 	public delegate void StatusObserver ( int Environs_STATUS_ );
+
 
 	/**
 	* PortalObserver: Attachable to **PortalInstance** objects in order to receive changes of a particular interactive portal.
@@ -100,6 +107,7 @@ namespace environs
 	* @param Environs_NOTIFY_PORTAL_	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
 	*/
 	public delegate void PortalObserver ( PortalInstance ^portal, int Environs_NOTIFY_ );
+
 
 
 	/// <summary>

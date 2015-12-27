@@ -153,11 +153,17 @@ namespace environs
     ///
     /// We map these to those in lib (non cli)
     ///
-	typedef lib::ObserverNotifyContext  ObserverNotifyContext;
+    typedef lib::ObserverNotifyContext  ObserverNotifyContext;
+    
+#define ObserverNotifyContextPtr    ObserverNotifyContext  OBJ_ptr;
 
-	typedef lib::ObserverMessageContext  ObserverMessageContext;
+    typedef lib::ObserverMessageContext  ObserverMessageContext;
+    
+#define ObserverMessageContextPtr    ObserverMessageContext  OBJ_ptr;
 
-	typedef lib::ObserverDataContext  ObserverDataContext;
+    typedef lib::ObserverDataContext  ObserverDataContext;
+    
+#define ObserverDataContextPtr    ObserverDataContext  OBJ_ptr;
 
 #endif
 

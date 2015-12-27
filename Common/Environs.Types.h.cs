@@ -1026,6 +1026,8 @@ namespace environs
 		
 		public const int ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               =	(60);
 		
+		public const int MAX_TCP_SEND_PACKET_SIZE                          =	(1200000);
+		
 		
 		/**
 		 * Environs detectable platforms.

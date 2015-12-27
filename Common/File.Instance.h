@@ -23,6 +23,7 @@
 
 #include "Interop/Smart.Pointer.h"
 #include "Interfaces/IEnvirons.Dispose.h"
+#include "Environs.Platform.Decls.h"
 
 #ifndef CLI_CPP
 #	include "Interfaces/IFile.Instance.h"
@@ -128,9 +129,9 @@ namespace environs
 			 *
 			 * */
 #ifdef CLI_CPP
-			ENVIRONS_LIB_API EPSPACE DeviceInstance OBJ_ptr device ();
+			ENVIRONS_LIB_API EPSPACE DeviceInstancePtr device ();
 #else
-			ENVIRONS_LIB_API environs::DeviceInstance OBJ_ptr deviceRetained ();
+			ENVIRONS_LIB_API environs::DeviceInstancePtr deviceRetained ();
 #endif
 
 

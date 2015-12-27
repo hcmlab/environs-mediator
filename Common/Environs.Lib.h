@@ -131,6 +131,45 @@ namespace environs
 
 			CLI_INC LIBEXPORT void CallConv			SetMediatorFilterLevelN ( int hInst, int level );
 
+            
+            
+            /**
+             * Enable or disable device list update notifications from Mediator layer.
+             * In particular, mobile devices should disable notifications if the devicelist is not
+             * visible to users or the app transitioned to background.
+             * This helps recuding cpu load and network traffic when not required.
+             *
+             * @param enable      true = enable, false = disable
+             */
+            CLI_INC LIBEXPORT void SetMediatorNotificationSubscriptionN ( int hInst, int enable );
+            
+            
+            /**
+             * Get subscription status of device list update notifications from Mediator layer.
+             *
+             * @return enable      true = enable, false = disable
+             */
+            CLI_INC LIBEXPORT int GetMediatorNotificationSubscriptionN ( int hInst );
+            
+            
+            /**
+             * Enable or disable short messages from Mediator layer.
+             * In particular, mobile devices should disable short messages if the app transitioned to background or mobile network only.
+             * This helps recuding cpu load and network traffic when not necessary.
+             *
+             * @param enable      true = enable, false = disable
+             */
+            CLI_INC LIBEXPORT void SetMessagesSubscriptionN ( int hInst, int enable );
+            
+            
+            /**
+             * Get subscription status of short messages from Mediator layer.
+             *
+             * @return enable      true = enable, false = disable
+             */
+            CLI_INC LIBEXPORT int GetMessagesSubscriptionN ( int hInst );
+            
+            
 			CLI_INC LIBEXPORT int CallConv			GetIPAddressN ();
 
 			CLI_INC LIBEXPORT int CallConv			GetSubnetMaskN ();

@@ -84,6 +84,43 @@ namespace environs
         
         
         /**
+         * Enable or disable device list update notifications from Mediator layer.
+         * In particular, mobile devices should disable notifications if the devicelist is not
+         * visible to users or the app transitioned to background.
+         * This helps recuding cpu load and network traffic when not necessary.
+         *
+         * @param enable      true = enable, false = disable
+         */
+        virtual void SetMediatorNotificationSubscription ( bool enable ) = 0;
+        
+        
+        /**
+         * Get subscription status of device list update notifications from Mediator layer.
+         *
+         * @return enable      true = enable, false = disable
+         */
+        virtual bool GetMediatorNotificationSubscription ( ) = 0;
+        
+        
+        /**
+         * Enable or disable short messages from Mediator layer.
+         * In particular, mobile devices should disable short messages if the app transitioned to background or mobile network only.
+         * This helps recuding cpu load and network traffic when not necessary.
+         *
+         * @param enable      true = enable, false = disable
+         */
+        virtual void SetMessagesSubscription ( bool enable ) = 0;
+        
+        
+        /**
+         * Get subscription status of short messages from Mediator layer.
+         *
+         * @return enable      true = enable, false = disable
+         */
+        virtual bool GetMessagesSubscription ( ) = 0;
+        
+        
+        /**
          * Ignore autodetection of the actual runtime platform and enforce the given platform.
          *
          * @param		platform of type Environs.platform

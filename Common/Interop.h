@@ -105,8 +105,10 @@
 
 #   ifdef USE_LOCKFREE_SOCKET_ACCESS
 #       define SOCKETSYNC           		long volatile
+#       define SOCKETSYNCNV           		long
 #   else
 #       define SOCKETSYNC           		int
+#       define SOCKETSYNCNV           		int
 #   endif
 #	define LONGSYNCNV          				unsigned long
 
@@ -143,9 +145,11 @@
 #	define LONGSYNC           				long
 
 #   ifdef USE_LOCKFREE_SOCKET_ACCESS
-#       define SOCKETSYNC           			long
+#       define SOCKETSYNC           		long
+#       define SOCKETSYNCNV           		SOCKETSYNC
 #   else
-#       define SOCKETSYNC           			int
+#       define SOCKETSYNC           		int
+#       define SOCKETSYNCNV           		SOCKETSYNC
 #   endif
 
 #	define WNDHANDLE           				void *
@@ -237,7 +241,7 @@
 
 #	define INTERNAL							internal
 #	define free_m(m)						
-#	define free_plt(m)                      if (m != nill) environs::API::FreeNativeMemoryN(m)
+#	define free_plt(m)                      if (m != nill) { environs::API::FreeNativeMemoryN(m); m = nill; }
 
 #	define CLASS							ref class
 #	define PUBLIC_CLASS						public ref class
@@ -319,7 +323,7 @@
 #else
 
 #	define INTERNAL							private
-#	define free_m(m)						if (m != nill) free(m)
+#	define free_m(m)						if (m != nill) { free(m); m = nill; }
 #	define free_plt(m)                      free_m(m)
 #	define CLASS							class
 #	define PUBLIC_CLASS						class

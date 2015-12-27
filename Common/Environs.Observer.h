@@ -22,6 +22,7 @@
 #define INCLUDE_HCM_ENVIRONS_OBSERVERS_H
 
 #include "Environs.Observer.IAPI.h"
+#include "Environs.Platform.Decls.h"
 
 
 namespace environs
@@ -339,6 +340,7 @@ namespace environs
 		*/
 		virtual void OnPortalChangedInterface ( PortalInstance * portal, int Environs_NOTIFY_PORTAL_ ) { OnPortalChangedInterface_ = false; };
 	};
+
 }
 
 #endif

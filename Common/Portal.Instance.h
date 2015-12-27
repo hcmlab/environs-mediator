@@ -22,6 +22,7 @@
 #define INCLUDE_HCM_ENVIRONS_PORTALINSTANCE_H
 
 #include "Environs.Platforms.h"
+#include "Environs.Platform.Decls.h"
 #include "Interop/Smart.Pointer.h"
 #include "Notify.Context.h"
 #include "Portal.Info.h"
@@ -50,7 +51,6 @@ namespace environs
 #ifndef CLI_CPP
 		class DeviceInstance;
 		class PortalObserver;
-
 		class IIPortalObserver;
 #endif
 
@@ -83,7 +83,7 @@ namespace environs
             /**
              * Get an Interface to the DeviceInstance that this PortalInstance is attached to.
              * */
-			environs::DeviceInstance OBJ_ptr  deviceRetained ();
+			environs::DeviceInstancePtr  deviceRetained ();
             
             
             environs::PortalInfo OBJ_ptr  info ();

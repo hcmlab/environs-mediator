@@ -1,6 +1,24 @@
-### v 0.9.5 unreleased
+### v 0.9.6 unreleased
 
 ---------------------------
+
+### v 0.9.5
+
+---------------------------
+
+* Added: SetMessagesSubscription/GetMessagesSubscription to Mediator layer
+* Added: SetMediatorNotificationSubscription/GetMediatorNotificationSubscription to Mediator layer
+* Added: ERR_remove_state to cleanup crypto resources on error
+* Added: ENABLE_DONT_LINGER_SOCKETS to native layer
+* Added: Lock to spare sockets container
+* Updated: ReplaceThreadSocket in MediatorDaemon
+* Updated: Disposal of ThreadInstances on shutdown of MediatorDaemon
+* Updated: Handling of spare sockets in MediatorDaemon
+* Fixed: Detaching of ClientThreads for spare socket registrations
+* Added: Check for outdated project values in MediatorDaemon (WatchDog)
+* Added: Option s to toggle stdout
+* Added: Fallback to LoadNetworks for Windows in Mediator base layer
+
 
 ### v 0.9.4
 

@@ -39,6 +39,9 @@ namespace environs
     typedef void (CallConv * pERR_load_ERR_strings)(void);
     typedef void (CallConv * pERR_load_crypto_strings)(void);
     
+    typedef void (CallConv * pERR_remove_state)(unsigned long pid);
+    typedef void (CallConv * pERR_free_strings)(void);
+
     typedef int (CallConv * pEVP_PKEY_set1_RSA)(EVP_PKEY *pkey, struct rsa_st *key);
     typedef RSA * (CallConv * pd2i_RSA_PUBKEY)(RSA **a, const unsigned char **pp, long length);
     
@@ -158,6 +161,8 @@ namespace environs
     
     extern pERR_load_ERR_strings                dERR_load_ERR_strings;
     extern pERR_load_crypto_strings             dERR_load_crypto_strings;
+    extern pERR_remove_state                    dERR_remove_state;
+    extern pERR_free_strings                    dERR_free_strings;
     
     extern pBN_new                              dBN_new;
     extern pBN_set_word                         dBN_set_word;

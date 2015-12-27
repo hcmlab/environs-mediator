@@ -286,12 +286,14 @@ namespace environs
 #		ifdef USE_CRIT_SEC_MUTEX	 // USE_CRIT_SEC_MUTEX
 #			ifdef CLI_CPP
 #				define pthread_mutex_t				System::Object
+#				define pthread_mutex_t_ptr			pthread_mutex_t ^
 #			else
 			/*
 			* Use critical section objects for windows mutex
 			*/
 
 #			define pthread_mutex_t					CRITICAL_SECTION
+#			define pthread_mutex_t_ptr				pthread_mutex_t *
 
 #			ifdef WINDOWS_PHONE
 #				define pthread_mutex_init(m,d)			
@@ -329,6 +331,7 @@ namespace environs
 		* Use mutex objects for windows mutex
 		*/
 #		define pthread_mutex_t					HANDLE
+#		define pthread_mutex_t_ptr				pthread_mutex_t *
 #		define pthread_mutex_valid(m)			m
 #		define PTHREAD_MUTEX_INITIALIZER		CreateMutex ( NULL, FALSE, NULL )
 #		define pthread_mutex_init(m,d)			( (*m = CreateMutex ( NULL, FALSE, NULL )) == 0 )
@@ -361,6 +364,8 @@ namespace environs
 #else 	 // _WIN32 - Section for __APPLE__, ANDROID, _GNUC_
 	extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
 	extern INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
+
+#	define pthread_mutex_t_ptr				pthread_mutex_t *
 
 	/*
 	* Android/iOS/MacOS/Linux specific definintions
@@ -613,6 +618,8 @@ namespace environs
 		void Join ( CString_ptr func );
 		void Detach ( CString_ptr func );
 	};
+    
+    typedef ThreadSync OBJ_ptr  ThreadSyncPtr;
 }
 #endif
 #endif // INCLUDE_HCM_ENVIRONS_INTEROP_H

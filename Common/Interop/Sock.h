@@ -70,5 +70,16 @@
 #define WSAStartup(a,b)						((*b = 0) == (WSAData)1)
 #endif
 
+#ifdef __cplusplus
+namespace environs
+{
+#endif
+
+	extern void DisableLinger ( int sock );
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif // INCLUDE_HCM_ENVIRONS_INTEROP_SOCKETS_H

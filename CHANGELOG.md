@@ -6,6 +6,7 @@
 
 ---------------------------
 
+* Moved: Disable linger to closesocket
 * Added: SetMessagesSubscription/GetMessagesSubscription to Mediator layer
 * Added: SetMediatorNotificationSubscription/GetMediatorNotificationSubscription to Mediator layer
 * Added: ERR_remove_state to cleanup crypto resources on error

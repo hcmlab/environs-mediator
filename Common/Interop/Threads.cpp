@@ -39,6 +39,7 @@
 
 #ifndef _WIN32
 #   include <sys/time.h>
+#   include "./Sock.h"
 #endif
 
 #include "Environs.Native.h"
@@ -109,7 +110,8 @@
 #define CLASS_NAME	"Threads. . . . . . . . ."
 
 namespace environs
-{
+{    
+
 #ifdef ANDROID
 	INCLINEFUNC long ___sync_val_compare_and_swap ( long * destination, unsigned int compare, unsigned int swap )
 	{

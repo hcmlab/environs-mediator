@@ -115,6 +115,7 @@ namespace environs
                 int sock = client->spareSockets [i];
                 if ( sock != -1 )
                 {
+                    DisableLinger ( sock );
                     shutdown ( sock, 2 );
                     closesocket ( sock );
                 }
@@ -128,6 +129,17 @@ namespace environs
             client->spareSocketsCount = MAX_SPARE_SOCKETS_IN_QUEUE;
         }
     }
+
+	void DisableLinger ( int sock )
+	{
+		linger ling;
+		ling.l_onoff = 0;
+		ling.l_linger = 0;
+
+		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
+			CErr ( "DisableLinger: Failed to set SO_LINGER on socket" ); LogSocketError ();
+		}
+	}
 
 
 	ApplicationDevices::ApplicationDevices ()
@@ -321,13 +333,15 @@ namespace environs
 			CInfo ( "IsSocketAlive: disposing invalid socket!" );
 			//LogSocketError ();
 #ifdef MEDIATORDAEMON
-			try {
+            try {
+                DisableLinger ( (int) sock );
 				shutdown ( (int) sock, 2 );
 				closesocket ( (int) sock );
 			}
 			catch ( ... ) {
 			}
 #else
+            DisableLinger ( sock );
 			shutdown ( sock, 2 );
 			closesocket ( sock );
 #endif
@@ -382,7 +396,8 @@ namespace environs
 		if ( value != -1 ) {
 			CVerb ( "ReleaseThreads: Closing broadcast socket." );
 
-			broadcastSocketID = -1;
+            broadcastSocketID = -1;
+            DisableLinger ( value );
 			shutdown ( value, 2 );
 			closesocket ( value );
 		}
@@ -441,7 +456,8 @@ namespace environs
 		if ( s != -1 ) {
 			inst->socket = -1;
 
-			CVerb ( "ReleaseMediator: closing cocket" );
+            CVerb ( "ReleaseMediator: closing cocket" );
+            DisableLinger ( s );
 			shutdown ( s, 2 );
 			closesocket ( s );
 		}
@@ -467,6 +483,7 @@ namespace environs
             int sock = inst->spareSockets [i];
             if ( sock != -1 )
             {
+                DisableLinger ( sock );
                 shutdown ( sock, 2 );
                 closesocket ( sock );
             }
@@ -636,7 +653,7 @@ namespace environs
 			if ( WSAIoctl ( sock, SIO_GET_INTERFACE_LIST, 0, 0, &InterfaceList,
 				sizeof ( InterfaceList ), &nBytesReturned, 0, 0 ) == SOCKET_ERROR )
 			{
-				CErrArg ( "LoadNetworks: Failed calling WSAIoctl: error %i", WSAGetLastError () );
+                CErrArg ( "LoadNetworks: Failed calling WSAIoctl: error %i", WSAGetLastError () );
 				shutdown ( sock, 2 );
 				closesocket ( sock );
 				goto EndOfMethod;
@@ -677,7 +694,7 @@ namespace environs
 				CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
 				AddNetwork ( ip, bcast, mask, 0 );
-			}
+            }
 
 			shutdown ( sock, 2 );
 			closesocket ( sock );
@@ -704,7 +721,8 @@ namespace environs
 
 		rval = ioctl ( sock, SIOCGIFCONF, ( char* ) &ifconf );
 		if ( rval < 0 ) {
-			CErr ( "LoadNetworks: ioctl SIOCGIFCONF failed!" );
+            CErr ( "LoadNetworks: ioctl SIOCGIFCONF failed!" );
+            DisableLinger ( sock );
 			shutdown ( sock, 2 );
 			closesocket ( sock );
 			goto EndOfMethod;
@@ -758,7 +776,8 @@ namespace environs
 			CVerbArg ( "LoadNetworks: Broadcast: [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
 			AddNetwork ( ip, bcast, mask, 0 );
-		}
+        }
+        DisableLinger ( sock );
 		shutdown ( sock, 2 );
 		closesocket ( sock );
 
@@ -928,17 +947,6 @@ namespace environs
 				return false;
 			}
 #endif
-            
-#ifdef ENABLE_DONT_LINGER_SOCKETS
-            linger ling;
-            ling.l_onoff     = 0;
-            ling.l_linger    = 0;
-            
-            if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) != 0 ) {
-                CErr ( "Start: Failed to set SO_LINGER on socket" ); LogSocketError ();
-            }
-#endif
-
 			/// Create broadcast thread
 			int s = pthread_create ( &broadcastThreadID, 0, BroadcastThreadStarter, ( void * )this );
 			if ( s ) {

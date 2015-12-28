@@ -137,7 +137,7 @@ namespace environs
 		ling.l_linger = 0;
 
 		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
-			CErr ( "DisableLinger: Failed to set SO_LINGER on socket" ); LogSocketError ();
+			CVerb ( "DisableLinger: Failed to set SO_LINGER on socket" ); LogSocketError ();
 		}
 	}
 
@@ -580,50 +580,35 @@ namespace environs
 			while ( adapter )
 			{
 				i++;
-				bool add = false;
 
-				switch ( adapter->Type ) {
-				case MIB_IF_TYPE_PPP:
-				case MIB_IF_TYPE_ETHERNET:
-				case MIB_IF_TYPE_TOKENRING:
-				case MIB_IF_TYPE_FDDI:
-					add = true;
-					break;
+				inet_pton ( AF_INET, adapter->IpAddressList.IpAddress.String, &( addr.sin_addr ) );
+				ip = ( unsigned int ) addr.sin_addr.s_addr;
 
-				default:
-					break;
-				}
+				inet_pton ( AF_INET, adapter->IpAddressList.IpMask.String, &( addr.sin_addr ) );
+				unsigned int mask = ( unsigned int ) addr.sin_addr.s_addr;
 
-				if ( add )
-				{
-					inet_pton ( AF_INET, adapter->IpAddressList.IpAddress.String, &( addr.sin_addr ) );
-					ip = ( unsigned int ) addr.sin_addr.s_addr;
+				if ( ip && mask ) {
+					CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+					CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 
-					inet_pton ( AF_INET, adapter->IpAddressList.IpMask.String, &( addr.sin_addr ) );
-					unsigned int mask = ( unsigned int ) addr.sin_addr.s_addr;
-
-					if ( ip && mask ) {
-						CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-						CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
-
-						bcast = GetBroadcast ( ip, mask );
-						if ( !bcast ) {
-							CErrArg ( "LoadNetworks: Failed to calculate broadcast address for interface [ %i ]!", i );
-							continue;
-						}
-
-						inet_pton ( AF_INET, adapter->GatewayList.IpAddress.String, &( addr.sin_addr ) );
-						unsigned int gw = ( unsigned int ) addr.sin_addr.s_addr;
-						if ( gw ) {
-							CLogArg ( "Local GW %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &gw ) ) );
-						}
-
-						CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
-
-						AddNetwork ( ip, bcast, mask, gw );
-						adaptersFound++;
+					bcast = GetBroadcast ( ip, mask );
+					if ( !bcast ) {
+						CErrArg ( "LoadNetworks: Failed to calculate broadcast address for interface [ %i ]!", i );
+						continue;
 					}
+
+					inet_pton ( AF_INET, adapter->GatewayList.IpAddress.String, &( addr.sin_addr ) );
+					unsigned int gw = ( unsigned int ) addr.sin_addr.s_addr;
+					if ( gw ) {
+						CLogArg ( "Local GW %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &gw ) ) );
+					}
+
+					CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
+
+					AddNetwork ( ip, bcast, mask, gw );
+					adaptersFound++;
 				}
+
 				adapter = adapter->Next;
 			}
 		}

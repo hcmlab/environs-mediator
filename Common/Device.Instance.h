@@ -195,9 +195,9 @@ namespace environs
 
 #ifdef CLI_CPP
 			/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-			bool                  async;
+			int					async;
 
-			static bool			  notifyPropertyChangedDefault;
+			static bool			notifyPropertyChangedDefault;
 #endif
 			/**
 			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.

@@ -30,8 +30,28 @@
 #	define DeviceInstancePtr		DeviceInstance OBJ_ptr
 #endif
 
+#ifndef DeviceInstanceEP
+#	define DeviceInstanceEP         EPSPACE DeviceInstance
+#endif
+
+#ifndef DeviceInstanceEPtr
+#	define DeviceInstanceEPtr         EPSPACE DeviceInstance OBJ_ptr
+#endif
+
+#ifndef DeviceInstanceSP
+#	define DeviceInstanceSP         sp ( DeviceInstance )
+#endif
+
+#ifndef DeviceInstanceESP
+#	define DeviceInstanceESP         sp ( EPSPACE DeviceInstance )
+#endif
+
 #ifndef DeviceInfoPtr
 #	define	DeviceInfoPtr			DeviceInfo OBJ_ptr
+#endif
+
+#ifndef DeviceNotifierContextPtr
+#   define DeviceNotifierContextPtr	DeviceNotifierContext OBJ_ptr
 #endif
 
 #ifndef ListCommandContextPtr
@@ -40,6 +60,46 @@
 
 #ifndef DeviceNotifierContextPtr
 #	define DeviceNotifierContextPtr	DeviceNotifierContext OBJ_ptr
+#endif
+
+#ifndef FileInstanceEP
+#	define FileInstanceEP         EPSPACE FileInstance
+#endif
+
+#ifndef FileInstanceESP
+#	define FileInstanceESP         sp ( EPSPACE FileInstance )
+#endif
+
+#ifndef MessageInstanceEP
+#	define MessageInstanceEP         EPSPACE MessageInstance
+#endif
+
+#ifndef MessageInstanceESP
+#	define MessageInstanceESP         sp ( EPSPACE MessageInstance )
+#endif
+
+#ifndef PortalInstancePtr
+#	define PortalInstancePtr         PortalInstance OBJ_ptr
+#endif
+
+#ifndef PortalInstanceSP
+#	define PortalInstanceSP         sp ( PortalInstance )
+#endif
+
+#ifndef PortalInstanceESP
+#	define PortalInstanceESP         sp ( EPSPACE PortalInstance )
+#endif
+
+#ifndef PortalInstanceEP
+#	define PortalInstanceEP         EPSPACE PortalInstance
+#endif
+
+#ifndef PortalInfoBaseSP
+#	define PortalInfoBaseSP         sp ( PortalInfoBase )
+#endif
+
+#ifndef PortalInfoBasePtr
+#	define PortalInfoBasePtr         PortalInfoBase OBJ_ptr
 #endif
 
 #ifndef ListCommandContextPtr
@@ -91,6 +151,10 @@
 
 #ifndef PortalObserverPtr
 #	define	PortalObserverPtr		PortalObserver OBJ_ptr
+#endif
+
+#ifndef ThreadPackPortalPresenterPtr
+#	define	ThreadPackPortalPresenterPtr		ThreadPackPortalPresenter OBJ_ptr
 #endif
 
 #endif  // -> INCLUDE_HCM_ENVIRONS_NATIVE_PLATFORMS_H

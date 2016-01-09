@@ -946,10 +946,10 @@ JNIEXPORT jint JNICALL Java_environs_Environs_GetBufferHeaderBytesToStartValueN
 /*
  * Class:     environs_Environs
  * Method:    SendMessageN
- * Signature: (IILjava/lang/String;Ljava/lang/String;ILjava/lang/String;I)Z
+ * Signature: (IILjava/lang/String;Ljava/lang/String;I[BI)Z
  */
 JNIEXPORT jboolean JNICALL Java_environs_Environs_SendMessageN
-  (JNIEnv *, jclass, jint, jint, jstring, jstring, jint, jstring, jint);
+  (JNIEnv *, jclass, jint, jint, jstring, jstring, jint, jbyteArray, jint);
 
 /*
  * Class:     environs_Environs
@@ -1189,6 +1189,14 @@ JNIEXPORT jobject JNICALL Java_environs_Environs_GetDeviceN
  * Signature: (II)Ljava/nio/ByteBuffer;
  */
 JNIEXPORT jobject JNICALL Java_environs_Environs_GetDeviceForPortalN
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    GetDeviceByObjIDN
+ * Signature: (II)Ljava/nio/ByteBuffer;
+ */
+JNIEXPORT jobject JNICALL Java_environs_Environs_GetDeviceByObjIDN
   (JNIEnv *, jclass, jint, jint);
 
 /*

@@ -68,6 +68,11 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 #endif
 
 
+/** Perform calls to the Environs object asynchronously. If set to Environs.CALL_WAIT, then all commands will block until the call finishes.
+ * If set to Environs.CALL_NOWAIT, then certain calls (which may take longer) will be performed asynchronously. */
+@property (nonatomic) int   async;
+
+
 /**
  * Create an Environs object.
  *
@@ -178,7 +183,19 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 - (bool) GetIsReleaseBuild;
 
 
+/**
+ * Instruct Environs to output verbose debug logging.
+ *
+ * @param level      debug level 0 ... 16
+ */
 - (void) SetDebug:(int)value;
+
+/**
+ * Get output debug level.
+ *
+ * @return level      debug level 0 ... 16
+ */
+- (int) GetDebug;
 
 
 /**
@@ -913,13 +930,13 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 
 /**
- * Get a collection that holds all devices of given list type. This list ist updated dynamically by Environs.
+ * Create a new collection that holds all devices of given list type. This list ist updated dynamically by Environs.
  * After client code is done with the list, the list->Release () method MUST be called by the client code,
  * in order to release the resource (give ownership) back to Environs.
  *
  * @return Collection of IDeviceInstance objects
  */
-- (DeviceList *) GetDeviceList : (int) MEDIATOR_DEVICE_CLASS_;
+- (DeviceList *) CreateDeviceList : (int) MEDIATOR_DEVICE_CLASS_;
 
 @end
 

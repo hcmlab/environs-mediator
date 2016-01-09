@@ -36,7 +36,12 @@ namespace environs
 
 	PUBLIC_CLASS Environs CLI_ABSTRACT : public lib::IEnvironsDispose
 	{
-	public:
+    public:
+        
+        /** Perform calls to the Environs object asynchronously. If set to Environs.CALL_WAIT, then all commands will block until the call finishes.
+         * If set to Environs.CALL_NOWAIT, then certain calls (which may take longer) will be performed asynchronously. */
+        bool					async;
+        
 		/**
 		* Construction of Environs objects have to be done using Environs.CreateInstance() or Environs.New()
 		*/
@@ -81,6 +86,13 @@ namespace environs
 		* @param enable      true = enable, false = disable
 		*/
         virtual void SetDebug ( int enable ) = 0;
+        
+        /**
+         * Instruct Environs to output verbose debug logging.
+         *
+         * @return level      debug level 0 ... 16
+         */
+        virtual int GetDebug () = 0;
         
         
         /**
@@ -799,18 +811,18 @@ namespace environs
 		virtual bool RemoveObserverForSensorData ( EnvironsSensorDataObserver * observer ) = 0;
 
 		/**
-		* Get a collection that holds all devices of given list type. This list ist updated dynamically by Environs.
+		* Create a new collection that holds all devices of given list type. This list ist updated dynamically by Environs.
 		* After client code is done with the list, the list->Release () method MUST be called by the client code,
 		* in order to release the resource (give ownership) back to Environs.
 		*
 		* @return Collection of IDeviceInstance objects
 		*/
-        sp ( DeviceList ) GetDeviceList ( int MEDIATOR_DEVICE_CLASS_ )
+        sp ( DeviceList ) CreateDeviceList ( int MEDIATOR_DEVICE_CLASS_ )
 		{
-			ENVIRONS_IR_SP1_RETURN ( DeviceList, GetDeviceListRetained ( MEDIATOR_DEVICE_CLASS_ ) );
+			ENVIRONS_IR_SP1_RETURN ( DeviceList, CreateDeviceListRetained ( MEDIATOR_DEVICE_CLASS_ ) );
 		}
 
-		virtual DeviceList OBJ_ptr GetDeviceListRetained ( int MEDIATOR_DEVICE_CLASS_ ) = 0;
+		virtual DeviceList OBJ_ptr CreateDeviceListRetained ( int MEDIATOR_DEVICE_CLASS_ ) = 0;
 
 
 		virtual bool GetPortalNativeResolution () = 0;

@@ -111,7 +111,9 @@ namespace environs
 
 			CLI_INC LIBEXPORT void CallConv			RegisterMainThreadN ( int hInst );
 
-			CLI_INC LIBEXPORT void CallConv			SetDebugN ( int mode );
+            CLI_INC LIBEXPORT void CallConv			SetDebugN ( int mode );
+            
+            CLI_INC LIBEXPORT int CallConv			GetDebugN ();
 
 			CLI_INC LIBEXPORT void CallConv			SetOSLevelN ( int level );
 
@@ -286,7 +288,7 @@ namespace environs
 				LIBEXPORT void CallConv			DeviceRemovedN ( int hInst, int nativeID, int portalID, int async, int x, int y, float angle );
 			CLI_INC
 				LIBEXPORT void CallConv			DeviceRemovedIDN ( int hInst, int nativeID, int portalID, int async );
-
+                        
 			CLI_INC
 				LIBEXPORT int CallConv			GetStatusN ( int hInst );
 			CLI_INC
@@ -317,7 +319,7 @@ namespace environs
 				LIBEXPORT EBOOL CallConv		SendFileN ( int hInst, int nativeID, int async, int fileID, CString_ptr fileDescriptor, CString_ptr file );
 
 			CLI_INC
-				LIBEXPORT EBOOL CallConv		SendMessageN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int async, CString_ptr message, int length );
+				LIBEXPORT EBOOL CallConv		SendMessageN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int async, jvoidArray message, int length );
 
 			CLI_INC
 				LIBEXPORT EBOOL CallConv		SendPushNotificationN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, CString_ptr message );
@@ -574,7 +576,9 @@ namespace environs
 			CLI_INC
 				LIBEXPORT void * CallConv		GetDevicesN ( int hInst, int listType );
 			CLI_INC
-				LIBEXPORT void * CallConv		GetDeviceN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int fromType );
+                LIBEXPORT void * CallConv		GetDeviceN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int fromType );
+            CLI_INC
+                LIBEXPORT void * CallConv		GetDeviceByObjIDN ( int hInst, OBJIDType objID );
 			CLI_INC
 				LIBEXPORT void * CallConv		GetDeviceForPortalN ( int hInst, int portalID );
 

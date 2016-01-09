@@ -291,7 +291,7 @@ namespace environs
 		* @param nativeID      The native identifier that targets the device.
 		* @param pack          The frame containing the sensor data
 		*/
-		virtual void OnSensorData ( int nativeID, ::environs::SensorFrame * pack ) { OnSensorData_ = false; };
+		virtual void OnSensorData ( OBJIDType objID, ::environs::SensorFrame * pack ) { OnSensorData_ = false; };
 	};
 
 

@@ -85,6 +85,10 @@
 
 #include "Interop/Time.Val.h"
 
+#	define OBJIDType          				int
+#	define OBJIDTypeV          				volatile unsigned int
+
+
 #if (defined(_WIN32) && !defined(CLI_CPP))
 #	define	IWinRelease(IInst)				if (IInst) {IInst->Release(); IInst = 0;}
 
@@ -102,6 +106,7 @@
 #	endif /// <- WINDOWS_PHONE
 
 #	define LONGSYNC           				unsigned long volatile
+#	define LONGSYNCNV          				unsigned long
 
 #   ifdef USE_LOCKFREE_SOCKET_ACCESS
 #       define SOCKETSYNC           		long volatile
@@ -215,7 +220,12 @@
 #	define sscanf_s(...)					sscanf(__VA_ARGS__)
 #	define strtok_s(buf,delim,context)		strtok_r(buf,delim,context)
 #	define localtime_s(a,b)					localtime_r(b,a)
-#	define Sleep(ms)						usleep(ms * 1000)
+
+#   ifdef __APPLE__
+#       define Sleep(ms)					usleep(ms * 1000)
+#   else
+#       define Sleep(ms)					usleep(ms * 1000)
+#   endif
 
 #	endif // _WIN32   
 
@@ -240,7 +250,8 @@
 	using namespace System::Text;
 
 #	define INTERNAL							internal
-#	define free_m(m)						
+#	define free_m(m)
+#	define free_n(m)						
 #	define free_plt(m)                      if (m != nill) { environs::API::FreeNativeMemoryN(m); m = nill; }
 
 #	define CLASS							ref class
@@ -262,6 +273,7 @@
 #	define CLIBSPACE						
 
 #	define StringToCChar(s)					( const char* ) ( Marshal::StringToHGlobalAnsi ( s ) ).ToPointer ()
+#	define DisposePlatCChar(v)				Marshal::FreeHGlobal ( IntPtr ( (void *) v ) )
 #	define CCharToString(s)					Marshal::PtrToStringAnsi ( IntPtr ( (void *) (s) ) )
 
 #	define STRING_T							System::String ^
@@ -270,6 +282,8 @@
 #	define STRING_empty(s)					System::String::IsNullOrEmpty(s)
 #	define STRING_get_cstr(s)				StringToCChar ( s )
 
+#	define ToPlatPointer(v)					Marshal::StringToHGlobalAnsi ( v ).ToPointer ()
+#	define DisposePlatPointer(v)			Marshal::FreeHGlobal ( IntPtr ( v ) )
 #	define Addr_ptr							System::IntPtr ^
 #	define Addr_obj							System::IntPtr
 #	define Addr_pvalue(v)					v->ToPointer()
@@ -324,6 +338,7 @@
 
 #	define INTERNAL							private
 #	define free_m(m)						if (m != nill) { free(m); m = nill; }
+#	define free_n(m)						if (m != nill) { free(m); }
 #	define free_plt(m)                      free_m(m)
 #	define CLASS							class
 #	define PUBLIC_CLASS						class
@@ -358,6 +373,8 @@
 #	define STRING_get(s)					s.c_str ()	
 #	define STRING_get_cstr(s)				s.c_str ()	
 
+#	define ToPlatPointer(v)					( (void *) v )
+#	define DisposePlatPointer(v)			
 #	define Addr_ptr							void *
 #	define Addr_obj							void *
 #	define Addr_pvalue(v)					v
@@ -381,6 +398,7 @@
 #	define nill							NULL
 
 #	define StringToCChar(s)					s
+#	define DisposePlatCChar(v)				
 #	define CCharToString(s)					s
 
 #   define C_Only(v)                        v

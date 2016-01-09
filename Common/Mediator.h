@@ -21,9 +21,23 @@
 #ifndef INCLUDE_HCM_ENVIRONS_MEDIATOR_H
 #define INCLUDE_HCM_ENVIRONS_MEDIATOR_H
 
+
 #ifdef MEDIATORDAEMON
+#   define  DAEMONEXP(exp)                      exp
+#   define  CLIENTEXP(exp)
+
+#   define MAX_SPARE_SOCKETS_IN_QUEUE			20
+#   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     26
+
 #	define USE_LOCKFREE_SOCKET_ACCESS
+#else
+#   define  DAEMONEXP(exp)
+#   define  CLIENTEXP(exp)                      exp
+
+#   define MAX_SPARE_SOCKETS_IN_QUEUE			50
+#   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     60
 #endif
+
 
 #include "Interop/Threads.h"
 #include "Interop/Sock.h"
@@ -31,9 +45,6 @@
 #include "Environs.Crypt.h"
 #include "Interop/Smart.Pointer.h"
 
-
-#define USE_INTEGER_PROJECT_APP
-#define USE_INTEGER_PROJECT_APP_MAPS
 
 #define DEFAULT_MEDIATOR_PORT					5898
 #define DEFAULT_BROADCAST_PORT					5899
@@ -56,7 +67,7 @@
 #define MEDIATOR_BROADCAST_GREET				"E.D.Helo"
 #define MEDIATOR_BROADCAST_BYEBYE				"E.D.Bye"
 #define MEDIATOR_PROTOCOL_VERSION_MIN			'2'
-#define MEDIATOR_PROTOCOL_VERSION				'3'
+#define MEDIATOR_PROTOCOL_VERSION				'4'
 
 #define	MEDIATOR_CMD_SET						's'
 #define	MEDIATOR_CMD_GET						'g'
@@ -114,16 +125,6 @@
 #define MEDIATOR_DEVICE_CHANGE_NEARBY			1
 #define MEDIATOR_DEVICE_CHANGE_MEDIATOR			2
 
-#ifdef MEDIATORDAEMON
-#   define  DAEMONEXP(exp)      exp
-#   define  CLIENTEXP(exp)
-#else
-#   define  DAEMONEXP(exp)
-#   define  CLIENTEXP(exp)      exp
-#endif
-
-#define MAX_SPARE_SOCKETS_IN_QUEUE			20
-#define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK	26
 
 const unsigned int		maxSpareSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
 
@@ -146,8 +147,12 @@ namespace environs	/// Namespace: environs ->
 	{
 		void				*	daemon;
 
-		int						deviceID;
-		pthread_t				threadID;
+        int						deviceID;
+        
+        DAEMONEXP ( pthread_t   threadID );
+        
+        CLIENTEXP ( ThreadSync  listener; )
+        
 		pthread_mutex_t			lock;
 		unsigned int			version;
 		long long				sessionID;
@@ -161,6 +166,9 @@ namespace environs	/// Namespace: environs ->
 		struct 	sockaddr_in		addr;
 
         INTEROPTIMEVAL			connectTime;
+        
+        CLIENTEXP ( pthread_mutex_t spareSocketLock; )
+
         SOCKETSYNC				spareSocket;
         
 		unsigned short			sparePort;
@@ -204,7 +212,7 @@ namespace environs	/// Namespace: environs ->
 	ThreadInstance;
 
     extern void LimitSpareSocketsCount ( ThreadInstance * client );
-    
+    extern int GetSpareSocket ( ThreadInstance * inst );
 
 	class ILock
 	{
@@ -244,7 +252,9 @@ namespace environs	/// Namespace: environs ->
     
     // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
 #define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 9)
-
+    
+    CLIENTEXP ( class DeviceController; )
+    
     
 	typedef struct DeviceInstanceNode
 	{
@@ -267,18 +277,11 @@ namespace environs	/// Namespace: environs ->
 #ifdef __cplusplus        
         sp ( DeviceInstanceNode )		baseSP;         // SP used by Mediator base layer
         
-        CLIENTEXP ( sp ( DeviceInstanceNode ) mapSP; )  // SP used by Mediator base layer			
-
-		DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
-        {
-			Zero ( info );			
-            *userName = 0;
-            baseSP = 0;
-			
-            CLIENTEXP ( hEnvirons = 0; )
-            CLIENTEXP ( *key = 0; )
-            CLIENTEXP ( mapSP = 0; )
-		}
+        CLIENTEXP ( sp ( DeviceInstanceNode ) mapSP; )  // SP used by Mediator client layer
+        
+        CLIENTEXP ( wp ( DeviceController ) deviceSP; )  // WP used by Mediator client layer
+        
+        DeviceInstanceNode ();
         
 		~DeviceInstanceNode ();
 #endif
@@ -317,9 +320,11 @@ namespace environs	/// Namespace: environs ->
 		pthread_mutex_t			rec_mutex;
 		pthread_cond_t			rec_signal;
 		char				*	responseBuffer;
+        bool                    longReceive;
 
 		INTEROPTIMEVAL			lastSpareSocketRenewal;
-		LONGSYNC                renewerAccess;
+        LONGSYNC                renewerAccess;
+        LONGSYNC                renewerQueue;
         
         Instance            *   env;
 	}
@@ -331,7 +336,7 @@ namespace environs	/// Namespace: environs ->
 		unsigned int			ip;
 		unsigned short			port;
         
-		bool					available;
+		bool					enabled;
 		bool					listening;
 		MediatorConnection		connection;
         void                *   mediatorObject;
@@ -395,9 +400,6 @@ namespace environs	/// Namespace: environs ->
         static int              localNetsSize;
         static pthread_mutex_t  localNetsLock;
         
-#ifdef USE_INTEGER_PROJECT_APP_MAPS
-        pthread_mutex_t         idMapMutex;
-#endif
 		pthread_mutex_t			mediatorLock;
 		MediatorInstance		mediator;
 

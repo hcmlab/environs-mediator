@@ -58,7 +58,16 @@ namespace environs
     pERR_load_ERR_strings                dERR_load_ERR_strings = 0;
     pERR_load_crypto_strings             dERR_load_crypto_strings = 0;
     pERR_remove_state                    dERR_remove_state = 0;
+    pERR_remove_thread_state             dERR_remove_thread_state = 0;
+    
     pERR_free_strings                    dERR_free_strings = 0;
+    
+    pCRYPTO_num_locks                    dCRYPTO_num_locks = 0;
+    pCRYPTO_set_locking_callback         dCRYPTO_set_locking_callback = 0;
+    pCRYPTO_set_id_callback              dCRYPTO_set_id_callback = 0;
+    pCRYPTO_set_dynlock_create_callback  dCRYPTO_set_dynlock_create_callback = 0;
+    pCRYPTO_set_dynlock_lock_callback    dCRYPTO_set_dynlock_lock_callback = 0;
+    pCRYPTO_set_dynlock_destroy_callback dCRYPTO_set_dynlock_destroy_callback = 0;
     
     pBN_free                             dBN_free = 0;
     pBN_new                              dBN_new = 0;
@@ -131,7 +140,8 @@ namespace environs
             || !dRSA_size || !dRSA_public_encrypt || !dRSA_private_decrypt || !dERR_print_errors_fp || !dEVP_CIPHER_CTX_cleanup || !dEVP_CIPHER_CTX_init
             || !dEVP_EncryptInit_ex || !dEVP_DecryptInit_ex || !dEVP_DecryptUpdate || !dEVP_DecryptFinal_ex || !dEVP_EncryptUpdate || !dEVP_EncryptFinal_ex
             || !dSHA256_Init || !dSHA256_Update || !dSHA256_Final || !dSHA512_Init || !dSHA512_Update || !dSHA512_Final || !dX509_new || !dEVP_sha1
-            || !dEVP_aes_256_cbc || !dRSA_new || !dBN_new || !dBN_set_word || !dBN_free
+            || !dEVP_aes_256_cbc || !dRSA_new || !dBN_new || !dBN_set_word || !dBN_free || !dCRYPTO_set_dynlock_destroy_callback
+            || !dCRYPTO_set_locking_callback || !dCRYPTO_num_locks || !dCRYPTO_set_id_callback || !dCRYPTO_set_dynlock_create_callback || !dCRYPTO_set_dynlock_lock_callback
 #ifdef MEDIATORDAEMON
             || !dEVP_PKEY_set1_RSA || !dd2i_RSA_PUBKEY || !dPEM_read_X509 || !dPEM_read_RSAPrivateKey
 #endif
@@ -174,6 +184,12 @@ namespace environs
             
             CLogArg ( "VerifyLibOpenSSLAccess: dEVP_aes_256_cbc [%i], dBN_new [%i], dBN_set_word [%i], dRSA_new [%i], dBN_free [%i]",
                      dEVP_aes_256_cbc ? 1 : 0, dBN_new ? 1 : 0, dBN_set_word ? 1 : 0, dRSA_new ? 1 : 0, dBN_free ? 1 : 0  );
+            
+            CLogArg ( "VerifyLibOpenSSLAccess: dCRYPTO_num_locks [%i], dCRYPTO_set_locking_callback [%i], dCRYPTO_set_id_callback [%i], dCRYPTO_set_dynlock_create_callback [%i]",
+                     dCRYPTO_num_locks ? 1 : 0, dCRYPTO_set_locking_callback ? 1 : 0, dCRYPTO_set_id_callback ? 1 : 0, dCRYPTO_set_dynlock_create_callback ? 1 : 0  );
+            
+            CLogArg ( "VerifyLibOpenSSLAccess: dCRYPTO_set_dynlock_lock_callback [%i], dCRYPTO_set_dynlock_destroy_callback [%i]",
+                     dCRYPTO_set_dynlock_lock_callback ? 1 : 0, dCRYPTO_set_dynlock_destroy_callback ? 1 : 0  );
             
 #ifdef MEDIATORDAEMON
             
@@ -234,7 +250,16 @@ namespace environs
         dERR_load_ERR_strings               = (pERR_load_ERR_strings) dlsym ( hLib, "ERR_load_ERR_strings" );
         dERR_load_crypto_strings            = (pERR_load_crypto_strings) dlsym ( hLib, "ERR_load_crypto_strings" );
         dERR_remove_state                   = (pERR_remove_state) dlsym ( hLib, "ERR_remove_state" );
+        dERR_remove_thread_state            = (pERR_remove_thread_state) dlsym ( hLib, "ERR_remove_thread_state" );
+        
         dERR_free_strings                   = (pERR_free_strings) dlsym ( hLib, "ERR_free_strings" );
+        
+        dCRYPTO_num_locks                   = (pCRYPTO_num_locks) dlsym ( hLib, "CRYPTO_num_locks" );
+        dCRYPTO_set_locking_callback        = (pCRYPTO_set_locking_callback) dlsym ( hLib, "CRYPTO_set_locking_callback" );
+        dCRYPTO_set_id_callback             = (pCRYPTO_set_id_callback) dlsym ( hLib, "CRYPTO_set_id_callback" );
+        dCRYPTO_set_dynlock_create_callback = (pCRYPTO_set_dynlock_create_callback) dlsym ( hLib, "CRYPTO_set_dynlock_create_callback" );
+        dCRYPTO_set_dynlock_lock_callback   = (pCRYPTO_set_dynlock_lock_callback) dlsym ( hLib, "CRYPTO_set_dynlock_lock_callback" );
+        dCRYPTO_set_dynlock_destroy_callback    = (pCRYPTO_set_dynlock_destroy_callback) dlsym ( hLib, "CRYPTO_set_dynlock_destroy_callback" );
         
         dBN_free                            = (pBN_free) dlsym ( hLib, "BN_free" );
         dBN_new                             = (pBN_new) dlsym ( hLib, "BN_new" );
@@ -346,7 +371,16 @@ namespace environs
         dERR_load_ERR_strings               = (pERR_load_ERR_strings) ERR_load_ERR_strings;
         dERR_load_crypto_strings            = (pERR_load_crypto_strings) ERR_load_crypto_strings;
         dERR_remove_state                   = (pERR_remove_state) ERR_remove_state;
+        dERR_remove_thread_state            = (pERR_remove_thread_state) ERR_remove_thread_state;
+        
         dERR_free_strings                   = (pERR_free_strings) ERR_free_strings;
+        
+        dCRYPTO_num_locks                   = (pCRYPTO_num_locks) CRYPTO_num_locks;
+        dCRYPTO_set_locking_callback        = (pCRYPTO_set_locking_callback) CRYPTO_set_locking_callback;
+        dCRYPTO_set_id_callback             = (pCRYPTO_set_id_callback) CRYPTO_set_id_callback;
+        dCRYPTO_set_dynlock_create_callback = (pCRYPTO_set_dynlock_create_callback) CRYPTO_set_dynlock_create_callback;
+        dCRYPTO_set_dynlock_lock_callback   = (pCRYPTO_set_dynlock_lock_callback) CRYPTO_set_dynlock_lock_callback;
+        dCRYPTO_set_dynlock_destroy_callback    = (pCRYPTO_set_dynlock_destroy_callback) CRYPTO_set_dynlock_destroy_callback;
         
         dBN_free                            = (pBN_free) BN_free;
         dBN_new                             = (pBN_new) BN_new;

@@ -2050,6 +2050,11 @@ namespace environs
 #		endif
 		literal int DEVICEINFO_APPNAME_START                          =	(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1));
 #		define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1))
+#		ifdef DEVICEINFO_OBJID_START                            
+#		undef DEVICEINFO_OBJID_START                            
+#		endif
+		literal int DEVICEINFO_OBJID_START                            =	(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2);
+#		define	DEVICEINFO_OBJID_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2)
 		
 		
 		/**
@@ -2193,8 +2198,8 @@ namespace environs
 #		ifdef ENVIRONS_STUNT_MAX_TRY                            
 #		undef ENVIRONS_STUNT_MAX_TRY                            
 #		endif
-		literal int ENVIRONS_STUNT_MAX_TRY                            =	(10);
-#		define	ENVIRONS_STUNT_MAX_TRY                            		(10)
+		literal int ENVIRONS_STUNT_MAX_TRY                            =	(15);
+#		define	ENVIRONS_STUNT_MAX_TRY                            		(15)
 		/** Ignore: for Resolver */
 #		ifdef ENVIRONS_STUN_MAX_TRY                             
 #		undef ENVIRONS_STUN_MAX_TRY                             
@@ -2618,12 +2623,17 @@ namespace environs
 #		endif
 		literal int DEVICE_INFO_ATTR_APP_CONTEXT                      =	(0x8000);
 #		define	DEVICE_INFO_ATTR_APP_CONTEXT                      		(0x8000)
-		
 #		ifdef DEVICE_INFO_ATTR_PORTAL_CREATED                   
 #		undef DEVICE_INFO_ATTR_PORTAL_CREATED                   
 #		endif
 		literal int DEVICE_INFO_ATTR_PORTAL_CREATED                   =	(0x10000);
 #		define	DEVICE_INFO_ATTR_PORTAL_CREATED                   		(0x10000)
+#		ifdef DEVICE_INFO_ATTR_OBJID                            
+#		undef DEVICE_INFO_ATTR_OBJID                            
+#		endif
+		literal int DEVICE_INFO_ATTR_OBJID                            =	(0x20000);
+#		define	DEVICE_INFO_ATTR_OBJID                            		(0x20000)
+		
 		
 #		ifdef FILE_INFO_ATTR_CREATED                            
 #		undef FILE_INFO_ATTR_CREATED                            

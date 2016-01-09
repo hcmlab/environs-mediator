@@ -222,6 +222,8 @@ private:
 	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
 	DeviceInstanceNode *					GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
 
+    sp ( ThreadInstance )                   GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName );
+    
 	sp ( ThreadInstance ) 					GetSessionClient ( long long sessionID );
 
     msp ( long long, ThreadInstance )       notifyTargets;

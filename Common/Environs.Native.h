@@ -93,6 +93,8 @@
 
 #define ENABLE_DONT_LINGER_SOCKETS
 
+#define USE_LOCAL_MEDIATOR_CACHE_PARAMS
+
 //#define USE_NSLOG
 //#define USE_PORTAL_THREADS_FOR_IOSX_CAM
 
@@ -327,6 +329,8 @@ namespace environs {
 #	define ENVIRONS_VERB_SBL_CMD(expression)		{ StringBuilder ^ sbl = gcnew StringBuilder (); expression;	ENVIRONS_LOG_RCMD_SBL ( sbl->ToString() ); }
 #endif
 
+#define DLEVEL(level)                               if ( g_Debug >= level )
+
 #define ENVIRONS_VERB_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
 #define ENVIRONS_LOG_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
 #define ENVIRONS_LOG_NCMD(expression)				ENVIRONS_LOG_NRCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
@@ -343,6 +347,8 @@ namespace environs {
 #define ENVIRONS_ERRARG_CMD(expression,...)			ENVIRONS_LOGARG_RCMD ( ENVIRONS_LOGTAG_ERROR,	expression, __VA_ARGS__ )
 
 #define CVerb(msg)									ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
+#define CVerbs(level,msg)							CVerb ( msg )
+
 #define CVerbN(msg)									ENVIRONS_VERB_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
 #define CVerbVerb(msg)								ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
 #define CVerbVerbN(msg)								ENVIRONS_VERB_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg ) )
@@ -355,91 +361,105 @@ namespace environs {
 #define CErrN(msg)									ENVIRONS_ERR_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg ) )
 
 #define CVerbArg(msg,...)							ENVIRONS_VERBRG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
+#define CVerbsArg(level,msg,...)					CVerbArg ( msg, __VA_ARGS__ )
+
 #define CVerbArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
 
-#ifdef CLI_CPP
-//#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_CMD( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
-#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_VERB_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
-
-//#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-//	ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "] " + name2 + ": [" + arg2 + "]" ) )
-#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_VERB_PREFIX,	\
-	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
-	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
-#else
-#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
-
-#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-	ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
-#endif
-
 #define CVerbVerbArg(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg), __VA_ARGS__ )
+#define CVerbsVerbArg(level,msg,...)                CVerbVerbArg ( msg, __VA_ARGS__ )
 
 #ifdef CLI_CPP
-//#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
-#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_VERB_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
+#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_VERB_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ]") ) )
 
-//#	define CVerbVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-//	ENVIRONS_VERB_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg + " " + name1 + ": [" + arg1 + "] " + name2 + ": [" + arg2 + "]" ) )
 #	define CVerbVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
 	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_VERB_PREFIX,	\
-	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
-	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
+	->Append(msg)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ] ") \
+	->Append(name2)->Append(": [ ")->Append(arg2)->Append(" ]") ) )
 #else
-#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
+#	define CVerbVerbArg1(msg,name1,type1,arg1)		ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [ %" type1 " ]" ), arg1 )
 
 #	define CVerbVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-	ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
+	ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [ %" type1 " ] " name2 ": [ %" type2 " ] " ), arg1, arg2 )
 #endif
 
 #define CLogArg(msg,...)							ENVIRONS_LOGARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
+#define CLogsArg(level,msg,...)                     DLEVEL ( level ) { CLogArg ( msg, __VA_ARGS__ ); }
+
 #define CListLogArg(msg,...)						ENVIRONS_LOGARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
 #define CLogArgN(msg,...)							ENVIRONS_VERBRG_NCMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg), __VA_ARGS__ )
 
 #ifdef CLI_CPP
-//#	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_LOG_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
-#	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_LOG_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
+#	define CLogArg1(msgFormat,name1,type1,arg1)		ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_LOG_PREFIX, ->Append(msgFormat)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
 
-#	define CLogArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+#	define CLogArg2(msgFormat,name1,type1,arg1,name2,type2,arg2)		\
 	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_LOG_PREFIX,	\
-	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
-	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
+	->Append(msgFormat)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ] ") \
+	->Append(name2)->Append(": [ ")->Append(arg2)->Append(" ]") ) )
 
 #else
-#	define CLogArg1(msg,name1,type1,arg1)			ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
+#	define CLogArg1(msgFormat,name1,type1,arg1)			ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msgFormat " " name1 ": [ %" type1 " ]" ), arg1 )
 
-#	define CLogArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-		ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
+#	define CLogArg2(msgFormat,name1,type1,arg1,name2,type2,arg2)		\
+		ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msgFormat " " name1 ": [ %" type1 " ] " name2 ": [ %" type2 " ]" ), arg1, arg2 )
+#endif
+
+#ifdef CLI_CPP
+#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_VERB_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ]") ) )
+
+#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_VERB_PREFIX,	\
+	->Append(msg)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ] ") \
+	->Append(name2)->Append(": [ ")->Append(arg2)->Append(" ]") ) )
+
+#	define CVerbsArg2(level,msg,...)                CVerbArg2(msg,__VA_ARGS__);
+#	define CVerbsArg1(level,msg,...)                CVerbArg1(msg,__VA_ARGS__);
+#else
+#	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [ %" type1 " ]" ), arg1 )
+
+#	define CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
+		ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [ %" type1 " ] " name2 ": [ %" type2 " ] " ), arg1, arg2 )
+
+#	ifdef __APPLE__
+#		define CVerbsArg2(level,...)				DLEVEL ( level ) { CLogArg2(__VA_ARGS__); }
+#		define CVerbsArg1(level,...)				DLEVEL ( level ) { CLogArg1(__VA_ARGS__); }
+#	else
+#		define CVerbsArg2(level,...)				DLEVEL ( level ) { CVerbArg2(__VA_ARGS__); }
+#		define CVerbsArg1(level,...)				DLEVEL ( level ) { CVerbArg1(__VA_ARGS__); }
+#	endif
 #endif
 
 #define CListLogArg1(msg,name1,type1,arg1)			CLogArg1 ( msg,name1,type1,arg1)
 
 #define CInfoArg(msg,...)							ENVIRONS_INFOARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg), __VA_ARGS__ )
 #define CWarnArg(msg,...)							ENVIRONS_WARNARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg), __VA_ARGS__ )
+#define CWarnsArg(level,msg,...)					CWarnArg(msg, __VA_ARGS__)
 #define CErrArg(msg,...)							ENVIRONS_ERRARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg), __VA_ARGS__ )
 
 #ifdef CLI_CPP
-//#	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_ERR_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg + " " + name1 + ": [" + arg1 + "]" ) )
 #	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_ERR_PREFIX, ->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
 
 #	define CErrArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
 	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_ERR_PREFIX,	\
-	->Append(msg)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("] ") \
-	->Append(name2)->Append(": [")->Append(arg2)->Append("]") ) )
+	->Append(msg)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ] ") \
+	->Append(name2)->Append(": [ ")->Append(arg2)->Append(" ]") ) )
 
 #else
-#	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_ERRARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg " " name1 ": [%" type1 "]" ), arg1 )
+#	define CErrArg1(msg,name1,type1,arg1)			ENVIRONS_ERRARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg " " name1 ": [ %" type1 " ]" ), arg1 )
 
 #	define CErrArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
-		ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg " " name1 ": [%" type1 "] " name2 ": [%" type2 "] " ), arg1, arg2 )
+		ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg " " name1 ": [ %" type1 " ] " name2 ": [ %" type2 " ] " ), arg1, arg2 )
 #endif
 
 #define CVerbID(msg)								ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), deviceID )
+#define CVerbsID(level,msg)							CVerbID(msg)
+
 #define CVerbVerbID(msg)							ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), deviceID )
 #define CLogID(msg)									ENVIRONS_LOGARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg ), deviceID )
 #define CInfoID(msg)								ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg ), deviceID )
+
 #define CWarnID(msg)								ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg ), deviceID )
+#define CWarnsID(level,msg)							DLEVEL ( level ) { CWarnID( msg ); }
+
 #define CErrID(msg)									ENVIRONS_ERRARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg ), deviceID )
 
 #ifdef CLI_CPP
@@ -459,11 +479,21 @@ namespace environs {
 #endif
 
 #define CVerbArgID(msg,...)							ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), deviceID, __VA_ARGS__ )
+#define CVerbsArgID(level,msg,...)					CVerbArgID ( msg, __VA_ARGS__ )
+
 #define CVerbVerbArgID(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), deviceID, __VA_ARGS__ )
+#define CVerbsVerbArgID(level,msg,...)				CVerbVerbArgID ( msg, __VA_ARGS__ )
+
 #define CLogArgID(msg,...)							ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg), deviceID, __VA_ARGS__ )
+#define CLogsArgID(level,msg,...)                   DLEVEL ( level ) { CLogArgID ( msg, __VA_ARGS__); }
+
+
 #define CInfoArgID(msg,...)							ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg), deviceID, __VA_ARGS__ )
 #define CWarnArgID(msg,...)							ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg), deviceID, __VA_ARGS__ )
+#define CWarnsArgID(level,msg,...)					DLEVEL ( level ) { CWarnArgID ( msg, __VA_ARGS__); }
+
 #define CErrArgID(msg,...)							ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg), deviceID, __VA_ARGS__ )
+#define CErrsArgID(level,msg,...)					DLEVEL ( level ) { CErrArgID ( msg, __VA_ARGS__); }
 
 #define CVerbArgIDN(msg,...)						ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), nativeID, __VA_ARGS__ )
 #define CVerbVerbArgIDN(msg,...)					ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg), nativeID, __VA_ARGS__ )
@@ -482,139 +512,201 @@ namespace environs {
 
 #if (!defined(DEBUGVERBList) || defined(NDEBUG))
 #	undef	CListLog
-#	define CListLog(msg)
+#	define  CListLog(msg)
 #	undef	CListLogArg
-#	define CListLogArg(msg,...)
+#	define  CListLogArg(msg,...)
 #	undef	CListLogArg1
-#	define CListLogArg1(msg,...)
+#	define  CListLogArg1(msg,...)
 #endif
 
-#if (!defined(DEBUGVERB) || defined(NDEBUG))
-#	undef	CVerbN
-#	define CVerbN(msg)
-#	undef	CVerb
-#	define CVerb(msg)
-#	undef	CVerbArg
-#	define CVerbArg(msg,...)
-#	undef	CVerbArg1
-#	define CVerbArg1(msg,...)
-#	undef	CVerbArg2
-#	define CVerbArg2(msg,...)
-#	undef	CVerbArgN
-#	define CVerbArgN(msg,...)
-#	undef	CVerbID
-#	define CVerbID(msg)
-#	undef	CVerbIDN
-#	define CVerbIDN(msg)
-#	undef	CVerbArgID
-#	define CVerbArgID(msg,...)
-#	undef	CVerbArgIDN
-#	define CVerbArgIDN(msg,...)
+#if (!defined(DEBUGVERB) )
+#   undef	CVerbN
+#   undef	CVerb
+#   undef	CVerbs
+#   undef	CVerbArg
+#   undef	CVerbsArg
+#   undef	CVerbArg1
+#   undef	CVerbArg2
+#   undef	CVerbArgN
+#   undef	CVerbID
+#   undef	CVerbsID
+#   undef	CVerbIDN
+#   undef	CVerbArgID
+#   undef	CVerbsArgID
+#   undef	CVerbArgIDN
+
+#   if defined(NDEBUG)
+#       define  CVerbN(msg)
+#       define  CVerb(msg)
+#       define  CVerbs(level,msg)
+#       define  CVerbArg(msg,...)
+#       define  CVerbsArg(level,msg,...)
+#       define  CVerbArg1(msg,...)
+#       define  CVerbArg2(msg,...)
+#       define  CVerbArgN(msg,...)
+#       define  CVerbID(msg)
+#       define  CVerbsID(level,msg)
+#       define  CVerbIDN(msg)
+#       define  CVerbArgID(msg,...)
+#       define  CVerbsArgID(level,msg,...)
+#       define  CVerbArgIDN(msg,...)
+#   else
+#       define  CVerbN(msg)
+#       define  CVerb(msg)
+#       define  CVerbs(level,msg)                           DLEVEL ( level ) { CLog ( msg ); }
+#       define  CVerbArg(msg,...)
+#       define  CVerbsArg(level,msg,...)                    DLEVEL ( level ) { CLogArg ( msg, __VA_ARGS__ ); }
+#       define  CVerbArg1(msg,...)
+#       define  CVerbArg2(msg,...)
+#       define  CVerbArgN(msg,...)
+#       define  CVerbID(msg)
+#       define  CVerbsID(level,msg)                         DLEVEL ( level ) { CLogID ( msg ); }
+#       define  CVerbIDN(msg)
+#       define  CVerbArgID(msg,...)
+#       define  CVerbsArgID(level,msg,...)					DLEVEL ( level ) { CLogArgID ( msg, __VA_ARGS__ ); }
+#       define  CVerbArgIDN(msg,...)
+#   endif
 #endif
 
-#if (!defined(DEBUGVERBVerb) || defined(NDEBUG))
-#	undef	CVerbVerb
-#	define CVerbVerb(msg)
-#	undef	CVerbVerbN
-#	define CVerbVerbN(msg)
-#	undef	CVerbVerbArg
-#	define CVerbVerbArg(msg,...)
-#	undef	CVerbVerbArg1
-#	define CVerbVerbArg1(msg,...)
-#	undef	CVerbVerbArg2
-#	define CVerbVerbArg2(msg,...)
-#	undef	CVerbVerbID
-#	define CVerbVerbID(msg)
-#	undef	CVerbVerbIDN
-#	define CVerbVerbIDN(msg)
-#	undef	CVerbVerbArgID
-#	define CVerbVerbArgID(msg,...)
-#	undef	CVerbVerbArgIDN
-#	define CVerbVerbArgIDN(msg,...)
+#if (!defined(DEBUGVERBVerb))
+#   undef	CVerbVerb
+#   undef	CVerbVerbN
+#   undef	CVerbVerbArg
+#   undef	CVerbsVerbArg
+#   undef	CVerbVerbArg1
+#   undef	CVerbVerbArg2
+#   undef	CVerbVerbID
+#   undef	CVerbVerbIDN
+#   undef   CVerbsVerbArgID
+#   undef	CVerbVerbArgID
+#   undef	CVerbVerbArgIDN
+
+#   if (defined(NDEBUG))
+#       define  CVerbVerb(msg)
+#       define  CVerbVerbN(msg)
+#       define  CVerbVerbArg(msg,...)
+#       define  CVerbsVerbArg(level,msg,...)
+#       define  CVerbVerbArg1(msg,...)
+#       define  CVerbVerbArg2(msg,...)
+#       define  CVerbVerbID(msg)
+#       define  CVerbVerbIDN(msg)
+#       define  CVerbsVerbArgID(level,msg,...)
+#       define  CVerbVerbArgID(msg,...)
+#       define  CVerbVerbArgIDN(msg,...)
+#   else
+#       define  CVerbVerb(msg)
+#       define  CVerbVerbN(msg)
+#       define  CVerbVerbArg(msg,...)
+#       define  CVerbsVerbArg(level,msg,...)                DLEVEL ( level ) { CLogArg ( msg, __VA_ARGS__ ); }
+#       define  CVerbVerbArg1(msg,...)
+#       define  CVerbVerbArg2(msg,...)
+#       define  CVerbVerbID(msg)
+#       define  CVerbVerbIDN(msg)
+#       define  CVerbsVerbArgID(level,msg,...)				DLEVEL ( level ) { CLogArgID ( msg, __VA_ARGS__ ); }
+#       define  CVerbVerbArgID(msg,...)
+#       define  CVerbVerbArgIDN(msg,...)
+#   endif
 #endif
+
+
 
 #if (!defined(DEBUGVERBLocks) || defined(NDEBUG))
 #	undef	CVerbLock
-#	define CVerbLock(msg)
+#	define  CVerbLock(msg)
 #	undef	CVerbUnLock
-#	define CVerbUnLock(msg)
+#	define  CVerbUnLock(msg)
 #	undef	CVerbLockPortalRecRes
-#	define CVerbLockPortalRecRes(msg)
+#	define  CVerbLockPortalRecRes(msg)
 #	undef	CVerbUnLockPortalRecRes
-#	define CVerbUnLockPortalRecRes(msg)
+#	define  CVerbUnLockPortalRecRes(msg)
 #endif
 
-#if (defined(CLI_CPP1) || (defined(NDEBUG) && defined(RELEASELIB)))
+#if ( defined(NDEBUG) && defined(RELEASELIB) )
 #	undef	CLog
-#	define CLog(msg)
+#	define  CLog(msg)
 #	undef	CLogArg
-#	define CLogArg(msg,...)
+#	define  CLogArg(msg,...)
 #	undef	CLogArg1
-#	define CLogArg1(msg,...)
+#	define  CLogArg1(msg,...)
 #	undef	CLogID
-#	define CLogID(msg)
+#	define  CLogID(msg)
 #	undef	CLogArgID
-#	define CLogArgID(msg,...)
+#	define  CLogArgID(msg,...)
 #	undef	CLogN
-#	define CLogN(msg)
+#	define  CLogN(msg)
 #	undef	CLogArgN
-#	define CLogArNg(msg,...)
+#	define  CLogArNg(msg,...)
 #	undef	CLogIDN
-#	define CLogIDN(msg)
+#	define  CLogIDN(msg)
 #	undef	CLogArgIDN
-#	define CLogArgIDN(msg,...)
+#	define  CLogArgIDN(msg,...)
 #	undef	CInfo
-#	define CInfo(msg)
+#	define  CInfo(msg)
 #	undef	CInfoID
-#	define CInfoID(msg)
+#	define  CInfoID(msg)
 #	undef	CInfoArg
-#	define CInfoArg(msg,...)
+#	define  CInfoArg(msg,...)
 #	undef	CInfoArgID
-#	define CInfoArgID(msg,...)
+#	define  CInfoArgID(msg,...)
 #	undef	CInfoN
-#	define CInfoN(msg)
+#	define  CInfoN(msg)
 #	undef	CInfoIDN
-#	define CInfoIDN(msg)
+#	define  CInfoIDN(msg)
 #	undef	CInfoArgN
-#	define CInfoArgN(msg,...)
+#	define  CInfoArgN(msg,...)
 #	undef	CInfoArgIDN
-#	define CInfoArgIDN(msg,...)
+#	define  CInfoArgIDN(msg,...)
 #	undef	CWarn
-#	define CWarn(msg)
+#	define  CWarn(msg)
 #	undef	CWarnID
-#	define CWarnID(msg)
+#	define  CWarnID(msg)
 #	undef	CWarnArg
-#	define CWarnArg(msg,...)
+#	define  CWarnArg(msg,...)
+#	undef	CWarnsArg
+#	define	CWarnsArg(level,msg,...)
 #	undef	CWarnArgID
-#	define CWarnArgID(msg,...)
+#	define  CWarnArgID(msg,...)
 #	undef	CWarnN
-#	define CWarnN(msg)
+#	define  CWarnN(msg)
 #	undef	CWarnIDN
-#	define CWarnIDN(msg)
+#	define  CWarnIDN(msg)
 #	undef	CWarnArgN
-#	define CWarnArgN(msg,...)
+#	define  CWarnArgN(msg,...)
 #	undef	CWarnArgIDN
-#	define CWarnArgIDN(msg,...)
+#	define  CWarnArgIDN(msg,...)
 #	undef	CErr
-#	define CErr(msg)
+#	define  CErr(msg)
 #	undef	CErrID
-#	define CErrID(msg)
+#	define  CErrID(msg)
 #	undef	CErrArg
-#	define CErrArg(msg,...)
+#	define  CErrArg(msg,...)
 #	undef	CErrArgID
-#	define CErrArgID(msg,...)
+#	define  CErrArgID(msg,...)
 #	undef	CListLog
-#	define CListLog(msg,...)
+#	define  CListLog(msg,...)
 #	undef	CErrN
-#	define CErrN(msg)
+#	define  CErrN(msg)
 #	undef	CErrIDN
-#	define CErrIDN(msg)
+#	define  CErrIDN(msg)
 #	undef	CErrArgN
-#	define CErrArgN(msg,...)
+#	define  CErrArgN(msg,...)
 #	undef	CErrArgIDN
-#	define CErrArgIDN(msg,...)
+#	define  CErrArgIDN(msg,...)
 #	undef	CListLogN
-#	define CListLogN(msg,...)
+#	define  CListLogN(msg,...)
+
+#	if (!defined(ENVIRONS_CORE_LIB))
+#       undef   CLogsArg
+#       define  CLogsArg(level,msg,...)
+#	endif
+#else
+#	if (defined(ENVIRONS_CORE_LIB))
+#		undef	CWarnsArg
+#		define	CWarnsArg(level,msg,...)					DLEVEL ( level ) { CWarnArg(msg, __VA_ARGS__); }
+#   else
+#       undef   CLogsArg
+#       define  CLogsArg(level,msg,...)
+#	endif
 #endif
 
 #endif  /// end-INCLUDE_HCM_ENVIRONS_NATIVE_COMMON_H

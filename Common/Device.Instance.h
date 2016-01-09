@@ -49,10 +49,6 @@ namespace environs
 	{
         CLASS Environs;
         
-#ifndef EnvironsPtr
-#	define	EnvironsPtr	 Environs OBJ_ptr
-#endif
-
 #ifndef CLI_CPP
         class PortalInstance;
         class FileInstance;
@@ -62,23 +58,17 @@ namespace environs
 		CLASS DeviceNotifierContext
 		{
 		public:
-			int                     type;
-			int                     flags;
-            sp ( DeviceInstance )   device;
-			sp ( EPSPACE MessageInstance )  message;
-			sp ( EPSPACE FileInstance )     fileData;
+			int                 type;
+			int                 flags;
+			DeviceInstanceSP	device;
+			MessageInstanceESP  message;
+			FileInstanceESP     fileData;
 
 #ifdef CLI_CPP
-			String ^				propertyName;
+			String ^			propertyName;
 #endif
-		};
+		};        
         
-		#define DeviceNotifierContextPtr	DeviceNotifierContext OBJ_ptr
-        
-        
-#ifndef DeviceInstancePtr
-#	define	DeviceInstancePtr	 DeviceInstance OBJ_ptr
-#endif
 
 		PUBLIC_CLASS DeviceInstance CLI_ABSTRACT DERIVE_c_only ( environs::DeviceInstance ) DERIVE_DISPOSEABLE 
 		{
@@ -169,7 +159,7 @@ namespace environs
 			/** The device properties structure into a DeviceInfo object. */
 			environs::DeviceInfo OBJ_ptr info ();
 
-			ENVIRONS_LIB_API CLI_VIRTUAL CString_ptr ToString () CLI_OVERRIDE;
+			ENVIRONS_LIB_API CString_ptr toString ();
 
 			ENVIRONS_LIB_API CString_ptr ips ();
 
@@ -276,7 +266,7 @@ namespace environs
 			*
 			* @return 	PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalRequest ( CPP_CLI ( PortalType_t, Environs::PortalType ) portalType );
+			PortalInstanceESP PortalRequest ( CPP_CLI ( PortalType_t, Environs::PortalType ) portalType );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::PortalInstance OBJ_ptr PortalRequestRetained ( environs::PortalType_t portalType );
@@ -289,7 +279,7 @@ namespace environs
 			*
 			* @return 	PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalProvide ( CPP_CLI ( PortalType_t, Environs::PortalType ) portalType );
+			PortalInstanceESP PortalProvide ( CPP_CLI ( PortalType_t, Environs::PortalType ) portalType );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::PortalInstance OBJ_ptr PortalProvideRetained ( environs::PortalType_t portalType );
@@ -301,7 +291,7 @@ namespace environs
 			*
 			* @return PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalGetOutgoing ();
+			PortalInstanceESP PortalGetOutgoing ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::PortalInstance OBJ_ptr PortalGetOutgoingRetained ();
@@ -313,7 +303,7 @@ namespace environs
 			*
 			* @return PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalGetIncoming ();
+			PortalInstanceESP PortalGetIncoming ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::PortalInstance OBJ_ptr PortalGetIncomingRetained ();
@@ -478,7 +468,7 @@ namespace environs
 			pthread_mutex_t				devicePortalsLock;
 
 			/** A collection of PortalInstances that this device has established or is managing. */
-			NLayerVecTypeObj ( EPSPACE PortalInstance )	devicePortals;
+			NLayerVecTypeObj ( PortalInstanceEP )	devicePortals;
 
 			/**
 			 * disposed is true if DeviceInstance is no longer valid. Nothing will be updated anymore.
@@ -488,8 +478,12 @@ namespace environs
         
 			void                        PlatformDispose ();
 
+			static environs::DeviceInfo emptyInfo;
+
 			/** The device properties structure into a DeviceInfo object. */
-			environs::DeviceInfo cli_OBJ_ptr	info_;
+			environs::DeviceInfoPtr 	info_;
+        
+			OBJIDType					objIDPrevious;
 
 			/** A collection of observers that observe this device instance for changes and events. */
 			ENVOBSERVER ( lib::IIDeviceObserver, environs::DeviceObserver )	observers;
@@ -536,7 +530,7 @@ namespace environs
 			static CString_ptr DefAreaName = "Environs";
 			static CString_ptr DefAppName = "HCMApp";
 
-			virtual EPSPACE DeviceInstance ^ GetPlatformObj () = 0;
+			virtual DeviceInstanceEP ^ GetPlatformObj () = 0;
 
 			bool					notifyPropertyChanged;
 #endif
@@ -554,17 +548,20 @@ namespace environs
 
 			static void c_OBJ_ptr   NotifierThread ( pthread_param_t envObj );
 
-			static sp ( EPSPACE DeviceInstance )	Create ( int hInst, environs::DeviceInfo OBJ_ptr device );
-			bool							Init ( int hInst );
+			static DeviceInstanceESP	Create ( int hInst, environs::DeviceInfoPtr device );
+			bool						Init ( int hInst );
 
-			bool			CopyInfo ( environs::DeviceInfo OBJ_ptr device );
-			bool			Update ( environs::DeviceInfo OBJ_ptr device );
+			bool			CopyInfo ( environs::DeviceInfoPtr device );
+			bool			Update ( environs::DeviceInfoPtr device );
 
 			void			SetProgress ( int progress );
 			bool			SetDirectContact ( int status );
 			bool			SetFileProgress ( int fileID, int progress, bool send );
 
-			void			DisposeInstance ();
+            void			DisposeInstance ();
+            void			DisposeMessages ();
+            void			DisposeFiles ();
+        
 			void			NotifyObservers ( int flags, bool enqueue );
 
 #ifdef CLI_CPP
@@ -572,8 +569,8 @@ namespace environs
 
 			virtual void	OnPropertyChanged ( String ^ prop ) = 0;
 #endif
-			void			NotifyObserversForMessage ( c_const sp ( EPSPACE MessageInstance ) c_ref message, int flags, bool enqueue );
-			void			NotifyObserversForData ( c_const sp ( EPSPACE FileInstance ) c_ref fileInst, int flags, bool enqueue );
+			void			NotifyObserversForMessage ( c_const MessageInstanceESP c_ref message, int flags, bool enqueue );
+			void			NotifyObserversForData ( c_const FileInstanceESP c_ref fileInst, int flags, bool enqueue );
 			void			NotifySensorObservers ( environs::SensorFrame OBJ_ptr pack );
 
 			void			ClearMessagesThread ();
@@ -590,7 +587,7 @@ namespace environs
 			static void c_OBJ_ptr	FileParseThread ( pthread_param_t pack );
 			bool			ParseStoragePath ( bool wait );
 
-			static void		ParseAllFiles ( c_const NLayerVecType ( EPSPACE DeviceInstance ) c_ref devices );
+			static void		ParseAllFiles ( c_const NLayerVecType ( DeviceInstanceEP ) c_ref devices );
 
 			/**
 			* Creates a portal instance.
@@ -598,7 +595,7 @@ namespace environs
 			* @param request   The portal request.
 			* @return PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalCreate ( int request );
+			PortalInstanceESP PortalCreate ( int request );
 
 			/**
 			* Creates a portal instance.
@@ -608,7 +605,7 @@ namespace environs
 			* @param slot
 			* @return PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalCreate ( int Environs_PORTAL_DIR, CPP_CLI ( PortalType_t, Environs::PortalType ) portalType, int slot );
+			PortalInstanceESP PortalCreate ( int Environs_PORTAL_DIR, CPP_CLI ( PortalType_t, Environs::PortalType ) portalType, int slot );
 
 			/**
 			* Creates a portal instance with a given portalID.
@@ -616,7 +613,7 @@ namespace environs
 			* @param portalID   The portalID received from native layer.
 			* @return PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalCreateID ( int portalID );
+			PortalInstanceESP PortalCreateID ( int portalID );
 
 
 			/**
@@ -624,9 +621,9 @@ namespace environs
 			*
 			* @return PortalInstance-object
 			*/
-			sp ( EPSPACE PortalInstance ) PortalGetWaiting ( bool outgoing );
+			PortalInstanceESP PortalGetWaiting ( bool outgoing );
 
-			sp ( EPSPACE PortalInstance ) PortalGet ( bool outgoing );
+			PortalInstanceESP PortalGet ( bool outgoing );
 		};
 	}
 

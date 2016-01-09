@@ -65,8 +65,10 @@ namespace environs
 	/// Some salt to the hash soup...
 	const char *            hashSalt        = "hcmEnvirons";
 
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 	/// A mutex to synchronize access to the private key
 	pthread_mutex_t         privKeyMutex;
+#endif
     
     bool                    allocated           = false;
     bool                    openssl_alg_added   = false;
@@ -86,20 +88,6 @@ namespace environs
     pDisposePublicKey       DisposePublicKey = 0;
     pDisposePrivateKey      DisposePrivateKey = 0;
 
-    
-	void ReleaseEnvironsCrypt ()
-	{
-        if ( allocated ) {
-            MutexDispose ( &privKeyMutex );
-            
-            allocated = false;
-        }
-        
-#ifdef USE_OPENSSL
-        ReleaseLibOpenSSL();
-#endif
-	}
-
 	
 	const char * ConvertToHexString ( const char * src, unsigned int length )
 	{
@@ -109,10 +97,10 @@ namespace environs
 		static char buffer [4096];
 
 #ifdef _WIN32
-#pragma warning( push )
-#pragma warning( disable: 4996 )
-#pragma warning( push )
-#pragma warning( disable: 4995 )
+#   pragma warning( push )
+#   pragma warning( disable: 4996 )
+#   pragma warning( push )
+#   pragma warning( disable: 4995 )
 #endif
 		for ( unsigned int i = 0; i < length; i++ )
 		{
@@ -121,8 +109,8 @@ namespace environs
 		}
 
 #ifdef _WIN32
-#pragma warning( pop )
-#pragma warning( pop )
+#   pragma warning( pop )
+#   pragma warning( pop )
 #endif
 		return buffer;
 	}
@@ -135,10 +123,10 @@ namespace environs
 		static char buffer [4096];
         
 #ifdef _WIN32
-#pragma warning( push )
-#pragma warning( disable: 4996 )
-#pragma warning( push )
-#pragma warning( disable: 4995 )
+#   pragma warning( push )
+#   pragma warning( disable: 4996 )
+#   pragma warning( push )
+#   pragma warning( disable: 4995 )
 #endif
 		for ( unsigned int i = 0; i < length; i++ )
 		{
@@ -147,18 +135,45 @@ namespace environs
 		}
         
 #ifdef _WIN32
-#pragma warning( pop )
-#pragma warning( pop )
+#   pragma warning( pop )
+#   pragma warning( pop )
 #endif
 		return buffer;
-	}
+    }
+    
+    const char * ConvertToHexSpaceBuffer ( const char * src, unsigned int length, char * buffer, bool limit )
+    {
+        if ( !src || !length )
+            return 0;
+        
+#ifdef _WIN32
+#   pragma warning( push )
+#   pragma warning( disable: 4996 )
+#   pragma warning( push )
+#   pragma warning( disable: 4995 )
+#endif
+		if ( limit && length > 300 )
+			length = 300;
+        for ( unsigned int i = 0; i < length; i++ )
+        {
+            sprintf ( buffer + (i * 3), "%02X ", (unsigned char)src [i] );
+            //	CLogArg ( "%02x", (unsigned char)blob [i] );
+        }
+        
+        buffer [ length * 3 ] = 0;
+#ifdef _WIN32
+#   pragma warning( pop )
+#   pragma warning( pop )
+#endif
+        return buffer;
+    }
 
 
 	char * ConvertToByteBuffer ( const char * src, unsigned int length, char * buffer )
 	{
 #ifdef _WIN32
-#pragma warning( push )
-#pragma warning( disable: 4996 )
+#   pragma warning( push )
+#   pragma warning( disable: 4996 )
 #endif
 		length >>= 1;
 		for ( unsigned int i = 0; i < length; i++ )
@@ -171,7 +186,7 @@ namespace environs
 		buffer [ length ] = 0;
 
 #ifdef _WIN32
-#pragma warning( pop )
+#   pragma warning( pop )
 #endif
 		return buffer;
 	}
@@ -203,7 +218,148 @@ namespace environs
 		}
 		return bufferNew;
 	}
-
+    
+    
+#ifdef USE_OPENSSL_AES
+    
+    /*
+     * Additional functions for dynamic locks
+     */
+    struct CRYPTO_dynlock_value {
+        pthread_mutex_t lock;
+    };
+    
+    struct CRYPTO_dynlock_value * CryptDynLockCreate ( const char * file, int line )
+    {
+        CVerbVerbArg ( "CryptDynLockCreate: line [%i] file [%s]", line, file );
+        
+        struct CRYPTO_dynlock_value * value;
+        
+        value = (struct CRYPTO_dynlock_value *) malloc ( sizeof(struct CRYPTO_dynlock_value) );
+        if ( !value ) {
+            return 0;
+        }
+        
+        if ( !MutexInitA ( value->lock ) ) {
+            free ( value );
+            return 0;
+        }
+        
+        return value;
+    }
+    
+    void CryptDynLockDispose ( struct CRYPTO_dynlock_value * l, const char * file, int line )
+    {
+        CVerbVerbArg ( "CryptDynLockDispose: line [%i] file [%s]", line, file );
+        
+        if ( !l )
+            return;
+        
+        MutexDisposeA ( l->lock );
+        
+        free ( l );
+    }
+    
+    
+    unsigned long CryptoGetThreadID ( void )
+    {
+        unsigned long threadID;
+        
+        threadID = (unsigned long) GetCurrentThreadId (); // pthread_self();
+        
+        return threadID;
+    }
+    
+    
+    void CryptDynLockLock ( int mode, struct CRYPTO_dynlock_value * lock, const char *file, int line )
+    {
+        CVerbVerbArg ( "CryptDynLockLock: mode [%i] lock [%b] line [%i] file [%s]", mode, lock, line, file );
+        
+        if ( mode & CRYPTO_LOCK ) {
+            pthread_mutex_lock ( &lock->lock );
+        } else {
+            pthread_mutex_unlock ( &lock->lock );
+        }
+    }
+    
+    // Static locks used by crypt layer
+    pthread_mutex_t *    cryptLocks = 0;
+    
+    /*
+     * Required for muti-threading
+     */
+    void CryptLock ( int mode, int n, const char * file, int line )
+    {
+        CVerbVerbArg ( "CryptLock: mode [%i] n [%i] line [%i] file [%s]", mode, n, line, file );
+        
+        if ( mode & CRYPTO_LOCK ) {
+            pthread_mutex_lock ( &cryptLocks[n] );
+        } else {
+            pthread_mutex_unlock ( &cryptLocks[n] );
+        }
+    }
+    
+    
+    bool CryptLocksCreate ()
+    {
+        CVerb ( "CryptLocksCreate" );
+        
+        cryptLocks = (pthread_mutex_t *) malloc ( dCRYPTO_num_locks () * sizeof(pthread_mutex_t) );
+        if ( !cryptLocks ) {
+            return false;
+        }
+        
+        for ( int i = 0; i < dCRYPTO_num_locks (); i++ )
+        {
+            if ( !MutexInitA ( cryptLocks [ i ] ) )
+                return false;
+        }
+        
+        dCRYPTO_set_locking_callback            ( CryptLock );
+        dCRYPTO_set_id_callback                 ( CryptoGetThreadID );
+        
+        dCRYPTO_set_dynlock_create_callback     ( CryptDynLockCreate );
+        dCRYPTO_set_dynlock_destroy_callback    ( CryptDynLockDispose );
+        dCRYPTO_set_dynlock_lock_callback       ( CryptDynLockLock );
+        
+        CVerbVerb ( "CryptLocksCreate: ok" );
+        return true;
+    }
+    
+    
+    void CryptLocksDispose ()
+    {
+        CVerb ( "CryptLocksDispose" );
+        
+        if ( !cryptLocks )
+            return;
+        
+        for ( int i = 0; i < dCRYPTO_num_locks (); i++ )
+        {
+            MutexDisposeA ( cryptLocks [ i ] );
+        }
+        
+        free ( cryptLocks );
+        cryptLocks = 0;
+        
+        dCRYPTO_set_locking_callback            ( 0 );
+        dCRYPTO_set_id_callback                 ( 0 );
+        
+        dCRYPTO_set_dynlock_create_callback     ( 0 );
+        dCRYPTO_set_dynlock_destroy_callback    ( 0 );
+        dCRYPTO_set_dynlock_lock_callback       ( 0 );
+        
+        CVerbVerb ( "CryptLocksDispose: ok" );
+    }
+    
+#else
+    
+#   define CryptLocksCreate()     true
+#   define CryptLocksDispose()
+#   define ReleaseLibOpenSSL()
+    
+#endif
+    
     
 #if (!defined(ANDROID))
     void dAESUpdateKeyContext ( AESContext * ctx, int deviceID )
@@ -440,7 +596,9 @@ namespace environs
         if ( certData ) free ( certData );
         
         if ( !ret ) {
-            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+            if ( dERR_remove_thread_state ) dERR_remove_thread_state ( 0 );
+            else
+                if ( dERR_remove_state ) dERR_remove_state ( 0 );
         }
 #else
 #ifdef _WIN32
@@ -1010,7 +1168,9 @@ namespace environs
         if ( rsaKey )	dRSA_free ( rsaKey );
         
         if ( !ret ) {
-            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+            if ( dERR_remove_thread_state ) dERR_remove_thread_state ( 0 );
+            else
+                if ( dERR_remove_state ) dERR_remove_state ( 0 );
         }
 #else
 		
@@ -1196,13 +1356,14 @@ namespace environs
                     dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_PKCS1_PSS_PADDING Decrypted message size is [%i].", decSize );
                 }
-                else break;
-
+                /*
+                 else break;
                 decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_NO_PADDING );
                 if ( decSize <= 0 ) {
                     dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_NO_PADDING Decrypted message size is [%i].", decSize );
                 }
+                */
             }
             while ( 0 );
 
@@ -1230,7 +1391,9 @@ namespace environs
 			free ( decrypt );
         
         if ( !success ) {
-            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+            if ( dERR_remove_thread_state ) dERR_remove_thread_state ( 0 );
+            else
+                if ( dERR_remove_state ) dERR_remove_state ( 0 );
         }
 #else
 
@@ -1336,13 +1499,15 @@ namespace environs
 	
 	void cryptAESDisposeKeyContext ( AESContext * ctx )
 	{
-		CVerb ( "AESDisposeKeyContexts" );
+		CVerb ( "AESDisposeKeyContext" );
 
 		if ( !ctx || !ctx->encCtx )
 			return;
         
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
         MutexDispose ( &ctx->encLock );
         MutexDispose ( &ctx->decLock );
+#endif
 
 #ifdef USE_OPENSSL_AES
 		if ( ctx->encCtx ) {
@@ -1383,11 +1548,13 @@ namespace environs
 
 		char		*	blob		= 0;
         
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
         if ( !MutexInit ( &ctx->encLock ) )
             return false;
         
         if ( !MutexInit ( &ctx->decLock ) )
             return false;
+#endif
 
 		bool ret = false;
 
@@ -1562,11 +1729,13 @@ namespace environs
 		//CVerbVerbArgID ( "AESEncrypt: [%s]", ConvertToHexSpaceString ( buffer, *bufferLen ) );
 
 #ifdef USE_OPENSSL_AES
+        
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_lock ( &ctx->encLock ) ) {
 			CErrID ( "AESEncrypt: Failed to acquire mutex." );
 			return false;
 		}
-        
+#endif
 		do
 		{
 			EVP_CIPHER_CTX * e = (EVP_CIPHER_CTX *) ctx->encCtx;
@@ -1589,7 +1758,7 @@ namespace environs
             
             CVerbVerb ( "AESEncrypt: dEVP_EncryptInit_ex" );
             
-            if ( !dEVP_EncryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) (ciphers + 4) ) ) {
+            if ( dEVP_EncryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) (ciphers + 4) ) != 1 ) {
 				CErrID ( "AESEncrypt: EVP_EncryptInit_ex IV failed." ); break;
             }
 
@@ -1600,14 +1769,14 @@ namespace environs
             
             CVerbVerbArg ( "AESEncrypt: bufferLen [%i]", *bufferLen );
             
-			if ( !dEVP_EncryptUpdate ( e, (unsigned char *)cipherStart, (int *)&ciphersSize, (unsigned char *)buffer, *bufferLen ) ) {
+			if ( dEVP_EncryptUpdate ( e, (unsigned char *)cipherStart, (int *)&ciphersSize, (unsigned char *)buffer, *bufferLen ) != 1 ) {
 				CErrID ( "AESEncrypt: EVP_EncryptUpdate failed." ); break;
 			}
         
             /* update ciphertext with the final remaining bytes */
             CVerbVerbArg ( "AESEncrypt: ciphersSize [%i]", ciphersSize );
             
-			if ( !dEVP_EncryptFinal_ex ( e, (unsigned char *) (cipherStart + ciphersSize), &finalSize ) ) {
+			if ( dEVP_EncryptFinal_ex ( e, (unsigned char *) (cipherStart + ciphersSize), &finalSize ) != 1 ) {
 				CErrID ( "AESEncrypt: EVP_EncryptFinal_ex failed." ); break;
             }
             
@@ -1618,14 +1787,17 @@ namespace environs
 		}
 		while ( 0 );
         
+#   ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_unlock ( &ctx->encLock ) ) {
 			CErrID ( "AESEncrypt: Failed to release mutex." );
 			ret = false;
 		}
+#   endif
+        
 #else
-#ifdef USE_CACHED_HKEY
+#   ifdef USE_CACHED_HKEY
 		HCRYPTKEY		hKey		= (HCRYPTKEY) ctx->encCtx;
-#else
+#   else
 		HCRYPTPROV		hCSP		= 0;
 		HCRYPTKEY		hKey		= 0;
 		AES_256_BLOB blob = {
@@ -1634,16 +1806,18 @@ namespace environs
 			{ },
 		};
 		memcpy ( &blob.raw, ctx->encCtx, ctx->size );
-#endif
+#   endif
         
+#   ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_lock ( &ctx->decLock ) ) {
 			CErrID ( "AESEncrypt: Failed to acquire mutex." );
 			return false;
 		}
+#   endif
         
 		do
 		{
-#ifndef USE_CACHED_HKEY
+#   ifndef USE_CACHED_HKEY
 			if ( !CryptAcquireContext ( &hCSP, NULL, NULL, PROV_RSA_AES, CRYPT_VERIFYCONTEXT ) )
 			{
 				CErrID ( "AESEncrypt: CryptAcquireContext failed." ); break;
@@ -1653,7 +1827,7 @@ namespace environs
 			{
 				CErrID ( "AESEncrypt: CryptImportKey failed." ); break;
 			}
-#endif
+#   endif
 			/*DWORD param = 0;
 			DWORD paramSize = sizeof(param);
 			if ( !CryptGetKeyParam ( hKey, KP_BLOCKLEN, (BYTE*) &param, &paramSize, 0 ) )
@@ -1712,10 +1886,12 @@ namespace environs
 		if ( hCSP )		CryptReleaseContext ( hCSP, 0 );
 #endif
         
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_unlock ( &ctx->decLock ) ) {
 			CErrID ( "AESEncrypt: Failed to release mutex." );
 			ret = false;
 		}
+#endif
 #endif
 		if ( ret ) {
 			cipherStart [ ciphersSize ] = 0;
@@ -1752,12 +1928,13 @@ namespace environs
 		if ( !ctx || !ctx->decCtx || !buffer || !bufferLen || *bufferLen < 36 || !decrypted ) {
 			CErr ( "AESDecrypt: Called with at least one NULL argument or encrypted packet is < 36." ); return false;
 		}
-		        
+        
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_lock ( &ctx->decLock ) ) {
 			CErr ( "AESDecrypt: Failed to acquire mutex." );
 			return false;
 		}
-
+#endif
 		bool			ret				= false;
 		char		*	decrypt			= 0;
         char        *   IV              = buffer + 4;
@@ -1777,21 +1954,21 @@ namespace environs
 
 			decryptedSize = *bufferLen;
 			int finalSize = 0;
-			decrypt = (char *) malloc ( decryptedBufSize );
+			decrypt = (char *) malloc ( decryptedBufSize + 2 );
 			if ( !decrypt ) {
 				CErrArg ( "AESDecrypt: Memory allocation [%i bytes] failed.", decryptedBufSize ); break;
 			}
             
-            if ( !dEVP_DecryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) IV ) ) {
+            if ( dEVP_DecryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) IV ) != 1 ) {
                 CErrID ( "AESDecrypt: EVP_DecryptInit_ex for IV failed." ); break;
             }
             
             unsigned int len = *bufferLen - 20;
-            if ( !dEVP_DecryptUpdate ( e, (unsigned char *)decrypt, (int *)&decryptedSize, (unsigned char *)(buffer + 20), len ) ) {
+            if ( dEVP_DecryptUpdate ( e, (unsigned char *)decrypt, (int *)&decryptedSize, (unsigned char *)(buffer + 20), len ) != 1 ) {
                 CErrID ( "AESDecrypt: EVP_DecryptUpdate failed." ); break;
             }
             
-			if ( !dEVP_DecryptFinal_ex ( e, (unsigned char *) (decrypt + decryptedSize), &finalSize ) ) {
+			if ( dEVP_DecryptFinal_ex ( e, (unsigned char *) (decrypt + decryptedSize), &finalSize ) != 1 ) {
 				CErrID ( "AESDecrypt: EVP_DecryptFinal_ex failed." ); break;
 			}
 
@@ -1804,7 +1981,7 @@ namespace environs
 		DWORD			decryptedSize	= 0;
 #ifdef USE_CACHED_HKEY
 		HCRYPTKEY		hKey			= (HCRYPTKEY)ctx->decCtx;
-#else
+#   else
 		HCRYPTKEY		hKey			= 0;
 		HCRYPTPROV		hCSP			= 0;
 		
@@ -1854,7 +2031,7 @@ namespace environs
 				CErrID ( "AESDecrypt: CryptSetKeyParam KP_PADDING failed." ); break;
 			}*/
 
-			decrypt	= (char *) malloc ( decryptedBufSize );
+			decrypt	= (char *) malloc ( decryptedBufSize + 2 );
 			if ( !decrypt ) {
 				CErrArgID ( "AESDecrypt: Memory allocation [%i bytes] failed.", decryptedBufSize ); break;
 			}
@@ -1879,10 +2056,10 @@ namespace environs
 			CErrArgID ( "AESDecrypt: Last error [0x%08x] [%u]", err, err );
 		}
 
-#ifndef USE_CACHED_HKEY
+#   ifndef USE_CACHED_HKEY
 		if ( hKey )		CryptDestroyKey ( hKey );
 		if ( hCSP )		CryptReleaseContext ( hCSP, 0 );
-#endif
+#   endif
 #endif
 		if ( ret ) {
 			if ( decryptedSize >= decryptedBufSize ) {
@@ -1898,11 +2075,13 @@ namespace environs
 				*bufferLen = decryptedSize;
 			}
 		}
-
+        
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_unlock ( &ctx->decLock ) ) {
 			CErrID ( "AESDecrypt: Failed to release mutex." );
 			ret = false;
 		}
+#endif
 
 		if ( decrypt ) free ( decrypt );
 		return ret;
@@ -2225,7 +2404,9 @@ namespace environs
         if ( fp )
             fclose ( fp );
         if ( !ret ) {
-            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+            if ( dERR_remove_thread_state ) dERR_remove_thread_state ( 0 );
+            else
+                if ( dERR_remove_state ) dERR_remove_state ( 0 );
         }
 #else       
 		int certSize = 0;
@@ -2316,7 +2497,9 @@ namespace environs
 		if ( fp )
 			fclose ( fp );
         if ( !ret ) {
-            if ( dERR_remove_state ) dERR_remove_state ( 0 );
+            if ( dERR_remove_thread_state ) dERR_remove_thread_state ( 0 );
+            else
+                if ( dERR_remove_state ) dERR_remove_state ( 0 );
         }
 #else
 		int size = 0;
@@ -2386,16 +2569,27 @@ namespace environs
 
 		return ret;
 	}
-#endif    
+#endif
+    
+    
+    void ReleaseEnvironsCrypt ()
+    {
+        if ( allocated )
+        {
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+            MutexDispose ( &privKeyMutex );
+            
+            CryptLocksDispose ();
+#endif
+            allocated = false;
+        }
+        
+        ReleaseLibOpenSSL();
+    }
+    
     
     bool InitEnvironsCrypt ()
     {
-        if ( !allocated ) {            
-            if ( !MutexInit ( &privKeyMutex ) )
-                return false;
-            allocated = true;
-        }
-        
 #ifdef USE_OPENSSL
         
         if ( InitLibOpenSSL ( 0 ) ) {
@@ -2476,6 +2670,17 @@ namespace environs
         DisposePrivateKey = dDisposePrivateKey;
 #endif
 #endif
+        if ( !allocated )
+        {
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+            if ( !MutexInit ( &privKeyMutex ) )
+                return false;
+            
+            if ( !CryptLocksCreate () )
+                return false;
+#endif
+            allocated = true;
+        }
         return true;
     }
     

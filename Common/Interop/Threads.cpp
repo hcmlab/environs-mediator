@@ -94,11 +94,18 @@
 #	endif
 #endif
 
-#ifndef DEBUGVERBLocks
-#	ifdef CVerbLockArg
-#		undef CVerbLockArg
-#	endif
-#	define CVerbLockArg(msg,...)
+#if ( !defined(DEBUGVERBLocks) )
+#   if  ( defined(ENVIRONS_CORE_LIB) && !defined(MEDIATORDAEMON) )
+#       ifdef CVerbLockArg
+#           undef CVerbLockArg
+#       endif
+#       define CVerbLockArg(l,msg,...)  if ( g_Debug > l ) { CLogArg(msg,__VA_ARGS__); }
+#   else
+#       ifdef CVerbLockArg
+#           undef CVerbLockArg
+#       endif
+#       define CVerbLockArg(msg,...)
+#   endif
 #endif
 
 
@@ -528,7 +535,7 @@ namespace environs
 			return;
 		}
 
-		CLogArg ( "DisposeThread: Waiting for %s ...", threadName );
+		CLogsArg ( 2, "DisposeThread: Waiting for %s ...", threadName );
         
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
 
@@ -552,6 +559,8 @@ namespace environs
 		//pthread_kill ( thrd, SIGUSR1 );
 		//pthread_detach_handle ( thrd );
 #endif
+        
+        CLogsArg ( 3, "DisposeThread: Waiting for %s done.", threadName );
 	}
 
 
@@ -765,7 +774,7 @@ namespace environs
 #ifdef USE_LOCK_LOG
 	void MutexLockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
 	{
-		CVerbLockArg ( "        -------> Lock   [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+		CVerbLockArg ( 12, "        -------> Lock   [ %-30s ]    | %16llX | %s.%s", mutexName, (long long) GetCurrentThreadId (), className, funcName );
 #else
 	void MutexLockVoid ( pthread_mutex_t * mtx )
 	{
@@ -779,7 +788,7 @@ namespace environs
 #endif
         }
 #ifdef USE_LOCK_LOG
-        CVerbLockArg ( "        -------> Locked [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+        CVerbLockArg ( 12, "        -------> Locked [ %-30s ]    | %16llX | %s.%s", mutexName, (long long) GetCurrentThreadId (), className, funcName );
 #endif
 	}
 
@@ -791,7 +800,7 @@ namespace environs
 #ifdef USE_LOCK_LOG
 	void MutexUnlockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
     {
-        CVerbLockArg ( "       <------   Unlock [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+        CVerbLockArg ( 12, "       <------   Unlock [ %-30s ]    | %16llX | %s.%s", mutexName, (long long) GetCurrentThreadId (), className, funcName );
 #else
 	void MutexUnlockVoid ( pthread_mutex_t * mtx )
 	{
@@ -814,7 +823,7 @@ namespace environs
 #ifdef USE_LOCK_LOG
 	bool MutexLockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
 	{
-        CVerbLockArg ( "        -------> Lock   [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+        CVerbLockArg ( 12, "        -------> Lock   [ %-30s ]    | %16llX | %s.%s", mutexName, (long long) GetCurrentThreadId (), className, funcName );
 #else
 	bool MutexLockBool ( pthread_mutex_t * mtx )
 	{
@@ -828,7 +837,7 @@ namespace environs
 			return false;
         }
 #ifdef USE_LOCK_LOG
-        CVerbLockArg ( "        -------> Locked [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+        CVerbLockArg ( 12, "        -------> Locked [ %-30s ]    | %16llX | %s.%s", mutexName, (long long) GetCurrentThreadId (), className, funcName );
 #endif
 		return true;
 	}
@@ -842,7 +851,7 @@ namespace environs
 #ifdef USE_LOCK_LOG
 	bool MutexUnlockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName ) 
 	{
-        CVerbLockArg ( "       <------   Unlock [ %-30s ]    | %16X | %s.%s", mutexName, GetCurrentThreadId (), className, funcName );
+        CVerbLockArg ( 12, "       <------   Unlock [ %-30s ]    | %16llX | %s.%s", mutexName, (long long) GetCurrentThreadId (), className, funcName );
 #else
 	bool MutexUnlockBool ( pthread_mutex_t * mtx )
 	{
@@ -894,6 +903,18 @@ namespace environs
 		}
     }
         
+        
+    void ThreadSync::DisposeInstance ()
+    {
+        if ( allocated ) {
+            CondDisposeA ( signal );
+            
+            MutexDisposeA ( lock );
+            
+            allocated = false;
+        }
+    }
+       
         
     ThreadSync::ThreadSync ()
     {
@@ -959,6 +980,14 @@ namespace environs
 	{
 		state = ENVIRONS_THREAD_NO_THREAD;
 	}
+
+
+	void ThreadSync::Reset ()
+	{
+		state = ENVIRONS_THREAD_NO_THREAD;
+
+		pthread_reset ( threadID );
+	}
         
         
     bool ThreadSync::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
@@ -1012,7 +1041,14 @@ namespace environs
         }
         
 #ifndef CLI_CPP
-        CErrArg ( "Wait: Failed [%s]", func );
+		if ( ms <= 0 ) {
+			CErrArg ( "WaitLocked: Failed [%s]", func );
+		}
+#ifdef ENVIRONS_CORE_LIB
+		else {
+			CVerbsArg ( 3, "WaitLocked: time out [%s]", func );
+		}
+#endif
 #endif
         return false;
     }
@@ -1068,7 +1104,7 @@ namespace environs
 		if ( ___sync_val_compare_and_swap ( c_ref state, ENVIRONS_THREAD_NO_THREAD, ENVIRONS_THREAD_DETACHEABLE ) != ENVIRONS_THREAD_NO_THREAD ) 
 		{
 #ifndef CLI_CPP
-			CWarnArg ( "Run: [%s] Thread already running!", func );
+			CWarnsArg ( 6, "Run: [%s] Thread already running!", func );
 #endif
 			return true;
 		}

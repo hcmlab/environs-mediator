@@ -787,6 +787,8 @@ public class TypesResolver extends environs.Types
 				return "DEVICEINFO_AREANAME_START";
 			case ( DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1) ):
 				return "DEVICEINFO_APPNAME_START";
+			case ( DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2 ):
+				return "DEVICEINFO_OBJID_START";
 		} /// -> switch
 
 
@@ -993,6 +995,8 @@ public class TypesResolver extends environs.Types
 				return "DEVICE_INFO_ATTR_APP_CONTEXT";
 			case ( 0x10000 ):
 				return "DEVICE_INFO_ATTR_PORTAL_CREATED";
+			case ( 0x20000 ):
+				return "DEVICE_INFO_ATTR_OBJID";
 		} /// -> switch
 
 

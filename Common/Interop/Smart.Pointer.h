@@ -50,6 +50,7 @@
 #	define envArrayList				environs::ArrayList
 
 #	define sp(type)					std::shared_ptr < type >
+#	define wp(type)					std::weak_ptr < type >
 
 #	define sp_assign(type,name,val) sp(type) name ((type *)val)
 
@@ -93,8 +94,8 @@
 #	define NLayerMapRaw(key,t)		std::map < key, t * >
 
 #	define DeviceListItems						DeviceInfo    *
-#	define DevicesToPlatform(devHead)			&devHead->device
-#	define DevicesPlatformCount(devHead,devs)	devHead->header.deviceCount
+#	define DevicesToPlatform(devHead)			(DeviceListItems)(((char *) devHead ) + DEVICES_HEADER_SIZE)
+#	define DevicesPlatformCount(devHead,devs)	devHead->deviceCount
 #	define DevicesPlatformAt(devs,pos)			devices + pos
 
 #	define DisplayPropsToPlatform(d,i)			d
@@ -144,11 +145,11 @@ using System::Collections::ObjectModel::ObservableCollection;
 //#	define spvc(type)				ObservableCollection<type> ^
 #	define spvc(type)				Collection<type> ^
 
-#	define svsp(type)				cliext::vector < type ^ > ^
-#	define vsp(type)				cliext::vector < type ^ >
+#	define svsp(type)				ArrayList ^
+#	define vsp(type)				ArrayList
 
 #	define vctSize					(int)
-#	define vct(type)				cliext::vector < type >
+#	define vct(type)				ArrayList 
 
 #	define vp_size(v)				(size_t) v->Count
 #	define vd_size(v)				(size_t) v.Count
@@ -156,8 +157,8 @@ using System::Collections::ObjectModel::ObservableCollection;
 #	define vp_at(v,i)				v[vctSize i]
 #	define vd_at(v,i)				v[vctSize i]
 
-#	define msp(key,type)			cliext::map < key, type ^ >
-#	define smsp(key,type)			cliext::map < key, type ^ > ^
+#	define msp(key,type)			Dictionary < key, type ^ >
+#	define smsp(key,type)			Dictionary < key, type ^ > ^
 
 #	define sp_assign(type,name,val) type ^ name = ((type ^ )val)
 //#	define devListNew(type)			gcnew ObservableCollection<type ^> ()

@@ -35,6 +35,10 @@ namespace environs
 	namespace lib
 	{
 #endif
+        
+#ifdef _WIN32
+#	pragma pack(push, 1)
+#endif
 		/**
 		* Environs DeviceInstance struct Start bytes
 		*/
@@ -85,11 +89,27 @@ namespace environs
 
 															   /** The application name of the appliction environment. */
 			char			appName [ MAX_LENGTH_APP_NAME ]; // 31
+            
+            /** Padding to fullfil 4 byte alignment. Compiler will do it anyway. */
+            unsigned short	pad1;  // 2
+            
+#ifndef MEDIATORDAEMON
+			OBJIDType		objID; // 4
+#endif
 		}
-		DeviceInfo;
+#ifndef _WIN32
+        __attribute__ ((packed))
+#endif
+        DeviceInfo;
+        
+        
+#ifdef _WIN32
+#	pragma	pack(pop)
+#endif
 
 #define DEVICES_HEADER_SIZE				20
 #define DEVICE_PACKET_SIZE				sizeof(DeviceInfo)
+#define DEVICE_MEDIATOR_PACKET_SIZE		(sizeof(DeviceInfo) - sizeof(OBJIDType))
 
 
 		typedef struct DeviceHeader
@@ -101,7 +121,7 @@ namespace environs
 		DeviceHeader;
 
 
-		typedef struct DevicePackage
+		typedef struct DevicePack
 		{
 			DeviceHeader	header;
 			unsigned int    pad0;
@@ -109,7 +129,7 @@ namespace environs
 			DeviceInfo		device;
 			unsigned int    pad2;
 		}
-		DevicePackage;
+		DevicePack;
         
 #ifdef __cplusplus
     }
@@ -164,8 +184,12 @@ namespace environs
 		System::String^	areaName; // 31
 
 		/** The application name of the appliction environment. */
-		System::String^	appName; // 31
-
+        System::String^	appName; // 31
+        
+        /** The udp port on which the device listens for device connections. */
+        unsigned short	pad1;  // 2
+        
+		OBJIDType		objID;
 	};
 #else
     

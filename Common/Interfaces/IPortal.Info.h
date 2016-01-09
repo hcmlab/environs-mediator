@@ -61,7 +61,7 @@ namespace environs
 #else
 		sp ( lib::PortalInstance ) portal;
 #endif
-        virtual std::string ToString ( ) = 0;
+        virtual std::string toString ( ) = 0;
         
         virtual void NotifyObservers ( int notification ) = 0;
         

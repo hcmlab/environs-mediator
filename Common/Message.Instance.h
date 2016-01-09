@@ -23,6 +23,7 @@
 
 #include "Interop/Smart.Pointer.h"
 #include "Interfaces/IEnvirons.Dispose.h"
+#include "Environs.Platform.Decls.h"
 
 #ifndef CLI_CPP
 #	include "Interfaces/IMessage.Instance.h"
@@ -46,10 +47,6 @@ namespace environs
     {
 #ifndef CLI_CPP
         class DeviceInstance;
-
-#ifndef DeviceInstancePtr
-#	define	DeviceInstancePtr	 DeviceInstance OBJ_ptr
-#endif
 #endif
 
 		PUBLIC_CLASS MessageInstance DERIVE_c_only ( environs::MessageInstance ) DERIVE_DISPOSEABLE
@@ -100,14 +97,14 @@ namespace environs
 			/**
 			 * A reference to the DeviceInstance that is responsible for this FileInstance.
 			 * */
-			sp ( EPSPACE DeviceInstance ) device_;
+			DeviceInstanceESP device_;
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstancePtr deviceRetained ();
 #endif
-			ENVIRONS_LIB_API CLI_VIRTUAL CString_ptr ToString () CLI_OVERRIDE;
+			ENVIRONS_LIB_API CString_ptr toString ();
 
-			ENVIRONS_LIB_API CString_ptr ShortText ();
+			ENVIRONS_LIB_API CString_ptr shortText ();
 
 			/**
 			* Release ownership on this interface and mark it disposeable.
@@ -131,7 +128,7 @@ namespace environs
 			 * */
 			bool			disposed_;
 
-			STRING_T		toString;
+			STRING_T		toString_;
 
 #ifdef CLI_CPP
 			String_ptr		textShortEnd;
@@ -145,7 +142,7 @@ namespace environs
 
 			unsigned long long created_;
 
-			static sp ( EPSPACE MessageInstance ) Create ( char * line, int length, c_const sp ( EPSPACE DeviceInstance ) c_ref device );
+			static MessageInstanceESP Create ( char * line, int length, c_const DeviceInstanceESP c_ref device );
 
 			static bool HasPrefix ( char * line, int length );
 

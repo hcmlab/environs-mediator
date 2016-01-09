@@ -104,8 +104,8 @@ namespace environs
 		virtual DeviceInstance * deviceRetained () = 0;
 
 
-		virtual const char * ToString () = 0;
-		virtual const char * ShortText () = 0;
+		virtual const char * toString () = 0;
+		virtual const char * shortText () = 0;
 
 	};
 }

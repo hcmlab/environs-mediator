@@ -60,6 +60,7 @@
 
 #define LogSocketErrorF(f)					CWarnArg("%s: SocketError [%s]",f, strerror(errno))
 #define LogSocketError()					CWarnArg("SocketError: [%s]",strerror(errno))
+#define VerbLogSocketError()				CVerbArg("SocketError: [%s]",strerror(errno))
 #define SOCK_IN_PROGRESS					(errno == EINPROGRESS || errno == EALREADY)
 #define SOCK_CONNECTED						(errno == EISCONN)
 #define SOCK_CON_REFUSED					(errno == ECONNREFUSED)
@@ -75,7 +76,7 @@ namespace environs
 {
 #endif
 
-	extern void DisableLinger ( int sock );
+	extern void DisableLingerAndClose ( int sock );
 
 #ifdef __cplusplus
 }

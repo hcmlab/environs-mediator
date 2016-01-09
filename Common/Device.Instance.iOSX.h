@@ -115,7 +115,7 @@
 /** An identifier that is unique for this object. */
 @property (readonly, nonatomic) long			objID;
 
-@property (readonly, nonatomic) NSString * ToString;
+@property (readonly, nonatomic, copy) NSString * toString;
 
 /**
 * Add an observer (DeviceObserver) that notifies about device property changes.

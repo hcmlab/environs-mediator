@@ -739,6 +739,7 @@ namespace environs {
 #define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_DEVICETYPE_START + 1)
 #define	DEVICEINFO_AREANAME_START                         		(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1))
 #define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1))
+#define	DEVICEINFO_OBJID_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2)
 
 
 /**
@@ -785,7 +786,7 @@ namespace environs {
 /** Ignore: for Resolver */
 #define	ENVIRONS_DEFAULT_DEVICE_NAME                      		("DefaultDevice")
 /** Ignore: for Resolver */
-#define	ENVIRONS_STUNT_MAX_TRY                            		(10)
+#define	ENVIRONS_STUNT_MAX_TRY                            		(15)
 /** Ignore: for Resolver */
 #define	ENVIRONS_STUN_MAX_TRY                             		(10)
 
@@ -1058,8 +1059,9 @@ namespace environs {
 #define	DEVICE_INFO_ATTR_BROADCAST_FOUND                  		(0x2000)
 #define	DEVICE_INFO_ATTR_DIRECT_CONTACT                   		(0x4000)
 #define	DEVICE_INFO_ATTR_APP_CONTEXT                      		(0x8000)
-
 #define	DEVICE_INFO_ATTR_PORTAL_CREATED                   		(0x10000)
+#define	DEVICE_INFO_ATTR_OBJID                            		(0x20000)
+
 
 #define	FILE_INFO_ATTR_CREATED                            		(0x10000)
 #define	FILE_INFO_ATTR_AVAILABLE                          		(0x20000)

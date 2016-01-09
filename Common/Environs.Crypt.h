@@ -53,15 +53,23 @@
 
 #endif
 
+#ifndef OPENSSL1
+#   define ENABLE_CRYPT_AES_LOCKED_ACCESS
+#endif
+
 
 namespace environs
 {
 	typedef struct AESContext {
 		char		*	keyCtx;
 		char		*	encCtx;
-		char		*	decCtx;
+        char		*	decCtx;
+        
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		pthread_mutex_t	encLock;
 		pthread_mutex_t	decLock;
+#endif
+        
 		unsigned int	size;
         unsigned int    version;
 		int				deviceID;
@@ -163,7 +171,7 @@ namespace environs
                                 *dpUS = (unsigned short) rand ( ); dpUS++;\
                               } }
 
-    typedef bool (CallConv * pAESEncrypt)(AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** cipher);
+    typedef bool (CallConv * pAESEncrypt)(AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** cipher );
 
     extern pAESEncrypt AESEncrypt;
 	extern bool dAESEncrypt ( AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** cipher );
@@ -175,8 +183,9 @@ namespace environs
 	extern bool dAESDecrypt ( AESContext * ctx, char * buffer, unsigned int * bufferLen, char ** decrypted );
 	
 	extern const char * ConvertToHexString ( const char * src, unsigned int length );
-	extern const char * ConvertToHexSpaceString ( const char * src, unsigned int length );
-    
+    extern const char * ConvertToHexSpaceString ( const char * src, unsigned int length );
+    extern const char * ConvertToHexSpaceBuffer ( const char * src, unsigned int length, char * buffer, bool limit = true );
+
 	extern const char * ConvertToBytes ( const char * src, unsigned int length );
 	extern char * ConvertToNewBytes ( const char * src, unsigned int length );
 	extern char * ConvertToByteBuffer ( const char * src, unsigned int length, char * buffer );

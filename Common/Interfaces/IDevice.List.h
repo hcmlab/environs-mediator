@@ -131,12 +131,12 @@ namespace environs
 		* @param nativeID      The device id of the target device.
 		* @return DeviceInstance-object
 		*/
-		sp ( DeviceInstance )  GetDevice ( int nativeID )
+		sp ( DeviceInstance )  GetDevice ( OBJIDType objID )
 		{
-			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetDeviceRetained ( nativeID ) );
+			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetDeviceRetained ( objID ) );
 		}
 
-		virtual DeviceInstance * GetDeviceRetained ( int nativeID ) = 0;
+		virtual DeviceInstance * GetDeviceRetained ( OBJIDType objID ) = 0;
 
 		/**
 		* Query a DeviceInstance object that best match the deviceID only.
@@ -197,12 +197,12 @@ namespace environs
 		* @param nativeID      The device id of the target device.
 		* @return DeviceInstance-object
 		*/
-		sp ( DeviceInstance )  GetDeviceNearby ( int nativeID )
+		sp ( DeviceInstance )  GetDeviceNearby ( OBJIDType objID )
 		{
-			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetDeviceNearbyRetained ( nativeID ) );
+			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetDeviceNearbyRetained ( objID ) );
 		}
 
-		virtual DeviceInstance * GetDeviceNearbyRetained ( int nativeID ) = 0;
+		virtual DeviceInstance * GetDeviceNearbyRetained ( OBJIDType objID ) = 0;
 
 		/**
 		* Release the ArrayList that holds the nearby devices.
@@ -228,12 +228,12 @@ namespace environs
 		* @param nativeID      The device id of the target device.
 		* @return DeviceInstance-object
 		*/
-		sp ( DeviceInstance )  GetDeviceFromMediator ( int nativeID )
+		sp ( DeviceInstance )  GetDeviceFromMediator ( OBJIDType objID )
 		{
-			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetDeviceFromMediatorRetained ( nativeID ) );
+			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetDeviceFromMediatorRetained ( objID ) );
 		}
 
-		virtual DeviceInstance * GetDeviceFromMediatorRetained ( int nativeID ) = 0;
+		virtual DeviceInstance * GetDeviceFromMediatorRetained ( OBJIDType objID ) = 0;
 
 		/**
 		* Query the number of Mediator managed devices within the environment.

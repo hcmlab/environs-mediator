@@ -56,38 +56,51 @@
 
 namespace environs
 {
-	void refactorBuffer ( char * &curStart, char * bufferStart, unsigned int remainingMsg, char * &curEnd )
+	void refactorBuffer ( char * &curStart, char * bufferStart, unsigned int bytesInBuffer, char * &curEnd )
 	{
-		CVerbVerbArg ( "refactorBuffer: Refactoring memory usage, remainingMsg = %i", remainingMsg );
+		CVerbVerbArg ( "refactorBuffer: Refactoring memory usage, bytesInBuffer = %i", bytesInBuffer );
 
 		// Refactor memory usage
 		int chunkSize = (int) (curStart - bufferStart);
 		if ( chunkSize <= 0 ) {
-			CVerbVerb ( "refactorBuffer: Refactoring not neccessary since buffer is already at beginning." );
+			CVerbVerb ( "refactorBuffer: Refactoring not neccessary since buffer is already pointing to the start." );
 			return;
 		}
 
-		if ( remainingMsg < (unsigned int) chunkSize ) { // No overlap
-			memcpy ( bufferStart, curStart, remainingMsg );
+		if ( bytesInBuffer < (unsigned int) chunkSize ) { // No overlap
+			memcpy ( bufferStart, curStart, bytesInBuffer );
 		}
-		else { // Overlap, so copy multipass
-			char * dest = bufferStart;
-			char * src = curStart;
-
-			int remain = remainingMsg - chunkSize;
-			while ( remain > 0 ) {
-				if ( remain < chunkSize )
-					chunkSize = remain;
-				memcpy ( dest, src, chunkSize );
-
-				dest += chunkSize;
-				src += chunkSize;
-				remain -= chunkSize;
-				chunkSize += chunkSize;
-			}
-		}
+		else { // Overlap, so alloc heap space
+            void * tmp = malloc ( bytesInBuffer );
+            if ( !tmp ) {
+                CErrArg ( "refactorBuffer: Allocation of memory failed [ %i ]", bytesInBuffer );
+                return;
+            }
+            
+            memcpy ( tmp, curStart, bytesInBuffer );
+            
+            memcpy ( bufferStart, tmp, bytesInBuffer );
+            
+            free ( tmp );
+        }
+        /*else { // Overlap, so copy multipass
+            char * dest = bufferStart;
+            char * src = curStart;
+            
+            int remain = bytesInBuffer - chunkSize;
+            while ( remain > 0 ) {
+                if ( remain < chunkSize )
+                    chunkSize = remain;
+                memcpy ( dest, src, chunkSize );
+                
+                dest += chunkSize;
+                src += chunkSize;
+                remain -= chunkSize;
+                chunkSize += chunkSize;
+            }
+        }*/
 		curStart = bufferStart;
-		curEnd = curStart + remainingMsg;
+		curEnd = curStart + bytesInBuffer;
 	}
 
 

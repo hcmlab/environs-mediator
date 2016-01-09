@@ -40,8 +40,27 @@ namespace environs
     typedef void (CallConv * pERR_load_crypto_strings)(void);
     
     typedef void (CallConv * pERR_remove_state)(unsigned long pid);
+    typedef void (CallConv * pERR_remove_thread_state)(const CRYPTO_THREADID *tid);
+    
     typedef void (CallConv * pERR_free_strings)(void);
-
+    
+    typedef int (CallConv * pCRYPTO_num_locks)(void);
+    typedef void (CallConv * pCRYPTO_set_locking_callback)(void (*func) (int mode, int type, const char *file, int line));
+    
+    typedef void (CallConv * pCRYPTO_set_id_callback)(unsigned long (*func) (void));
+    
+    struct CRYPTO_dynlock_value;
+    
+    typedef void (CallConv * pCRYPTO_set_dynlock_create_callback)(struct CRYPTO_dynlock_value *(*dyn_create_function) (const char *file, int line));
+    
+    typedef void (CallConv * pCRYPTO_set_dynlock_lock_callback)
+                                                                (void (*dyn_lock_function)
+                                          (int mode, struct CRYPTO_dynlock_value *l, const char *file, int line));
+                                                                
+    typedef void (CallConv * pCRYPTO_set_dynlock_destroy_callback) (void (*dyn_destroy_function)
+                                             (struct CRYPTO_dynlock_value *l,
+                                              const char *file, int line));
+    
     typedef int (CallConv * pEVP_PKEY_set1_RSA)(EVP_PKEY *pkey, struct rsa_st *key);
     typedef RSA * (CallConv * pd2i_RSA_PUBKEY)(RSA **a, const unsigned char **pp, long length);
     
@@ -162,7 +181,16 @@ namespace environs
     extern pERR_load_ERR_strings                dERR_load_ERR_strings;
     extern pERR_load_crypto_strings             dERR_load_crypto_strings;
     extern pERR_remove_state                    dERR_remove_state;
+    extern pERR_remove_thread_state             dERR_remove_thread_state;
+
     extern pERR_free_strings                    dERR_free_strings;
+    
+    extern pCRYPTO_num_locks                    dCRYPTO_num_locks;
+    extern pCRYPTO_set_locking_callback         dCRYPTO_set_locking_callback;
+    extern pCRYPTO_set_id_callback              dCRYPTO_set_id_callback;
+    extern pCRYPTO_set_dynlock_create_callback  dCRYPTO_set_dynlock_create_callback;
+    extern pCRYPTO_set_dynlock_lock_callback    dCRYPTO_set_dynlock_lock_callback;
+    extern pCRYPTO_set_dynlock_destroy_callback dCRYPTO_set_dynlock_destroy_callback;    
     
     extern pBN_new                              dBN_new;
     extern pBN_set_word                         dBN_set_word;

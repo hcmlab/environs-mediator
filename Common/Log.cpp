@@ -26,6 +26,7 @@
 
 #	ifdef _WIN32
 #		include "windows.h"
+#		include <time.h>
 #	endif
 
 #	ifdef ANDROID
@@ -161,6 +162,28 @@ namespace environs
 	LogBuffer	log;
 
 
+#ifndef ANDROID
+	size_t GetTimeString ( char * timeBuffer, unsigned int bufferSize )
+	{
+		time_t now;
+		struct tm timeInfo;
+
+		time ( &now );
+#ifdef WIN32
+		if ( localtime_s ( &timeInfo, &now ) ) {
+#else
+		if ( !localtime_s ( &timeInfo, &now ) ) {
+#endif
+			timeBuffer [ 0 ] = 'e';
+			timeBuffer [ 1 ] = 0;
+			return 1;
+		}
+
+		return strftime ( timeBuffer, bufferSize, "%a %b %d %H:%M:%S: ", &timeInfo );
+	}
+#endif
+
+        
     bool OpenLog ()
     {
         CVerbN ( "OpenLog" );
@@ -273,7 +296,12 @@ namespace environs
 		}
 
 		bool locked = false;
-
+        
+#ifndef ANDROID
+        char timeString [ 256 ];
+        size_t timeLen = GetTimeString ( timeString, sizeof(timeString) );
+#endif
+        
 		if ( useLock && log.alive ) {
 			if ( pthread_mutex_lock ( &environsLogMutex ) ) {
 				printf ( "COutLog: ERROR ---> Failed to lock mutex." );
@@ -308,11 +336,15 @@ namespace environs
 #endif
         if ( native.useLogFile ) {
             if ( environsLogFileHandle || OpenLog () ) {
+#ifndef ANDROID
+                fwrite ( timeString, 1, timeLen, environsLogFileHandle );
+#endif
                 fwrite ( LOG_OUT_BUFFER_NAME, 1, LOG_OUT_BUFFER_NAME_LENGTH, environsLogFileHandle );
             }
         }
         
 #ifdef _WIN32
+        OutputDebugStringA ( timeString );
         OutputDebugStringA ( LOG_OUT_BUFFER_NAME );
 #endif // -> end-_WIN32
         
@@ -324,7 +356,7 @@ namespace environs
         
 #if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
         
-        printf ( "%s", LOG_OUT_BUFFER_NAME );
+        printf ( "%s%s", timeString, LOG_OUT_BUFFER_NAME );
         
 #endif  // -> end-_ANDROID
         

@@ -70,9 +70,6 @@
 	using namespace System;
 	using namespace System::Collections::ObjectModel;
 	using namespace System::Runtime::InteropServices;
-
-#	include <cliext/queue>
-	using namespace cliext;
 #endif
 	
 
@@ -93,7 +90,7 @@ namespace environs
 		public:
 			int					hEnvirons;
 			EnvironsPtr         envObj;
-			int					deviceID;
+			OBJIDType			destID;
 			int					type;
 
 			STRING_T			areaName;
@@ -104,8 +101,8 @@ namespace environs
 #else
 			spv ( lib::IIEnvironsObserver OBJ_ptr ) observerList;
 #endif
-			NLayerVecType ( EPSPACE DeviceInstance ) vanished;
-			NLayerVecType ( EPSPACE DeviceInstance ) appeared;
+			NLayerVecType ( DeviceInstanceEP ) vanished;
+			NLayerVecType ( DeviceInstanceEP ) appeared;
 
 			int     notification;
 
@@ -122,7 +119,13 @@ namespace environs
             MAKE_FRIEND_CLASS ( EnvironsProxy );
             MAKE_FRIEND_CLASS ( FactoryProxy );
 
-		public:
+        public:
+            
+#ifdef CLI_CPP
+            /** Perform calls to the Environs object asynchronously. If set to Environs.CALL_WAIT, then all commands will block until the call finishes.
+             * If set to Environs.CALL_NOWAIT, then certain calls (which may take longer) will be performed asynchronously. */
+            int					async;
+#endif
 			/**
 			 * Construction of Environs objects have to be done using Environs.CreateInstance() or Environs.New()
 			 */
@@ -157,9 +160,17 @@ namespace environs
 			/**
 			* Instruct Environs to output verbose debug logging.
 			*
-			* @param enable      true = enable, false = disable
+			* @param level      debug level 0 ... 16
 			*/
-            ENVIRONS_LIB_API void SetDebug ( int enable );
+            ENVIRONS_LIB_API void SetDebug ( int level );
+            
+            
+            /**
+             * Get output debug level.
+             *
+             * @return level      debug level 0 ... 16
+             */
+            ENVIRONS_LIB_API int GetDebug ();
             
             
             /**
@@ -887,7 +898,7 @@ namespace environs
 
 
 			/**
-			 * Get a DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
+			 * Create a new DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
 			 * After client code is done with the list, the list->Release () method MUST be called by the client code,
 			 * in order to release the resource (give ownership) back to Environs.
 			 *
@@ -895,11 +906,11 @@ namespace environs
 
 			 * @return A DeviceList object
 			 */
-			ENVIRONS_LIB_API EPSPACE DeviceList OBJ_ptr GetDeviceList ( int MEDIATOR_DEVICE_CLASS_ );
+			ENVIRONS_LIB_API EPSPACE DeviceList OBJ_ptr CreateDeviceList ( int MEDIATOR_DEVICE_CLASS_ );
 
 #ifndef CLI_CPP
 			/**
-			 * Get a DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
+			 * Create a new DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
 			 * After client code is done with the list, the list->Release () method MUST be called by the client code,
 			 * in order to release the resource (give ownership) back to Environs.
 			 *
@@ -907,7 +918,7 @@ namespace environs
 
 			 * @return An interface of type IDeviceList
 			 */
-			ENVIRONS_LIB_API DeviceList OBJ_ptr GetDeviceListRetained ( int MEDIATOR_DEVICE_CLASS_ );
+			ENVIRONS_LIB_API DeviceList OBJ_ptr CreateDeviceListRetained ( int MEDIATOR_DEVICE_CLASS_ );
 #endif
 
 			ENVIRONS_LIB_API bool GetPortalNativeResolution ();
@@ -1088,12 +1099,13 @@ namespace environs
 			* 		such as when a connection has been established or closed.
 			*
 			* @param hInst			A handle to the Environs instance
-			* @param nativeID      The native device id of the sender device.
+			* @param objID          The native device id of the sender device.
 			* @param notification  The received notification.
 			* @param sourceIdent   A value of the enumeration type Types.EnvironsSource
-			* @param context       A value that provides additional context information (if available).
+            * @param contextPtr    A value that provides additional context information (if available).
+            * @param context       A value that provides additional context information (if available).
 			*/
-			CLI_NO_STATIC void BridgeForNotify ( int hInst, int nativeID, int notification, int sourceIdent, Addr_obj contextPtr );
+			CLI_NO_STATIC void BridgeForNotify ( int hInst, OBJIDType objID, int notification, int sourceIdent, Addr_obj contextPtr, int context );
 
 
 			/**
@@ -1115,12 +1127,12 @@ namespace environs
 			* BridgeForMessage static method to be called by native layer in order to notify about incoming messages.
 			*
 			* @param hInst			A handle to the Environs instance
-			* @param nativeID      The native device id of the sender device.
+			* @param objID          The native device id of the sender device.
 			* @param type          The type of this message.
 			* @param msg           The message.
 			* @param length        The length of the message.
 			*/
-			CLI_NO_STATIC void BridgeForMessage ( int hInst, int nativeID, int type, CVString_ptr message, int length );
+			CLI_NO_STATIC void BridgeForMessage ( int hInst, OBJIDType objID, int type, CVString_ptr message, int length );
 
 
 			/**
@@ -1150,23 +1162,24 @@ namespace environs
 			* BridgeForData static method to be called by native layer in order to notify about data received from a device.
 			*
 			* @param hInst			A handle to the Environs instance
-			* @param nativeID      The native device id of the sender device.
-			* @param type          The type of this message.
-			* @param fileID        A fileID that was attached to the buffer.
-			* @param descriptor    A descriptor that was attached to the buffer.
+			* @param objID			The object id of the sender device.
+			* @param nativeID		The native device id of the sender device.
+			* @param type			The type of this message.
+			* @param fileID			A fileID that was attached to the buffer.
+			* @param descriptor		A descriptor that was attached to the buffer.
 			* @param size          The size of the data buffer.
 			*/
-			CLI_NO_STATIC void BridgeForData ( int hInst, int nativeID, int type, int fileID, CString_ptr descriptor, int size );
+			CLI_NO_STATIC void BridgeForData ( int hInst, OBJIDType objID, int nativeID, int type, int fileID, CString_ptr descriptor, int size );
 
 
 			/**
 			* BridgeForSensorData is called (by the native layer) when a sensor input event has been received from a connected device.
 			*
 			* @param hInst			A handle to the Environs instance
-			* @param nativeID       The native device id of the sender device.
+			* @param objID          The native device id of the sender device.
 			* @param pack			The sensor data frame.
 			*/
-			CLI_NO_STATIC void BridgeForSensorData ( int hInst, int nativeID, Addr_obj pack );
+			CLI_NO_STATIC void BridgeForSensorData ( int hInst, OBJIDType objID, Addr_obj pack );
 
 			pthread_mutex_t             queryLock;
 			pthread_mutex_t             listLock;
@@ -1178,13 +1191,13 @@ namespace environs
 
             bool                                isUIAdapter;
 			pthread_mutex_t                     listAllLock;
-			devList ( EPSPACE DeviceInstance )	listAll;
+			devList ( DeviceInstanceEP )	listAll;
 
 			pthread_mutex_t                     listNearbyLock;
-			devList ( EPSPACE DeviceInstance )  listNearby;
+			devList ( DeviceInstanceEP )  listNearby;
 
 			pthread_mutex_t                     listMediatorLock;
-			devList ( EPSPACE DeviceInstance )  listMediator;
+			devList ( DeviceInstanceEP )  listMediator;
 
 			spv ( lib::IIListObserver * )       listAllObservers;
 			spv ( lib::IIListObserver * )       listNearbyObservers;
@@ -1201,39 +1214,44 @@ namespace environs
             bool                                deviceNotifierThreadRun;
             ThreadSync                          deviceNotifierThread;
             
+            void                    DoStop ();
+            static void c_OBJ_ptr   EnvironsStop ( pthread_param_t arg );
+            
             void DisposeLists ( bool releaseList );
             
             void DisposeList ( int listType );
 
 			void ReloadLists ();
 
-			devList ( EPSPACE DeviceInstance ) c_ref GetDevices ( int type );
+			devList ( DeviceInstanceEP ) c_ref GetDevices ( int type );
 
-			devList ( EPSPACE DeviceInstance ) c_ref GetDevicesBest ( pthread_mutex_t OBJ_ptr OBJ_ref lock );
+			devList ( DeviceInstanceEP ) c_ref GetDevicesBest ( pthread_mutex_t OBJ_ptr OBJ_ref lock );
 
-			sp ( EPSPACE DeviceInstance ) GetDeviceByNativeID ( int nativeID );
+			DeviceInstanceESP GetDeviceByObjectID ( OBJIDType objID );
 
-			sp ( EPSPACE DeviceInstance ) GetDeviceByDeviceID ( int deviceID );
+			DeviceInstanceESP GetDeviceByDeviceID ( int deviceID );
+
+			DeviceInstanceESP GetDeviceByNativeID ( int nativeID );
 
 
 			/**
 			 * Query a DeviceInstance object from all available devices within the environment (including those of the Mediator).
 			 *
-			 * @param nativeID      The device id of the target device.
+			 * @param objID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( EPSPACE DeviceInstance ) GetDeviceAll ( int nativeID );
+			DeviceInstanceESP GetDeviceAll ( OBJIDType objID );
 
-			sp ( EPSPACE DeviceInstance ) GetDeviceAll ( int nativeOrDeviceID, bool isNativeID );
+			DeviceInstanceESP GetDeviceAll ( OBJIDType nativeOrDeviceID, bool isNativeID );
 
 
 			/**
 			 * Query a DeviceInstance object of nearby (broadcast visible) devices within the environment.
 			 *
-			 * @param nativeID      The device id of the target device.
+			 * @param objID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( EPSPACE DeviceInstance ) GetDeviceNearby ( int nativeID );
+			DeviceInstanceESP GetDeviceNearby ( OBJIDType objID );
 
 
 			/**
@@ -1241,16 +1259,16 @@ namespace environs
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( EPSPACE  DeviceInstance ) c_ref GetDevicesNearby ();
+			c_const devList ( DeviceInstanceEP ) c_ref GetDevicesNearby ();
 
 
 			/**
 			 * Query a DeviceInstance object of Mediator managed devices within the environment.
 			 *
-			 * @param nativeID      The device id of the target device.
+			 * @param objID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			sp ( EPSPACE DeviceInstance ) GetDeviceFromMediator ( int nativeID );
+			DeviceInstanceESP GetDeviceFromMediator ( OBJIDType objID );
 
 
 			/**
@@ -1258,7 +1276,7 @@ namespace environs
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( EPSPACE DeviceInstance ) c_ref GetDevicesFromMediator ();
+			c_const devList ( DeviceInstanceEP ) c_ref GetDevicesFromMediator ();
 
 #ifndef CLI_CPP
 			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver * ) c_ref observerList, svsp ( DeviceInstance ) vanished, svsp ( DeviceInstance ) appeared, bool enqueue );
@@ -1271,11 +1289,11 @@ namespace environs
 			void OnDeviceListUpdate ();
 			void DeviceListUpdate ( int listType );
 
-			void UpdateConnectProgress ( int nativeID, int progress );
+			void UpdateConnectProgress ( OBJIDType objID, int progress );
 
 			void OnDeviceListNotification ( environs::ObserverNotifyContext OBJ_ptr ctx );
 
-			void OnDeviceListNotification1 ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, environs::ObserverNotifyContext OBJ_ptr ctx );
+			void OnDeviceListNotification1 ( c_const DeviceInstanceESP c_ref device, environs::ObserverNotifyContext OBJ_ptr ctx );
 
 			void UpdateMessage ( environs::ObserverMessageContext OBJ_ptr ctx );
 
@@ -1283,7 +1301,7 @@ namespace environs
 
 			void UpdateData ( environs::ObserverDataContext OBJ_ptr ctx );
 
-			void UpdateSensorData ( int nativeID, environs::SensorFrame OBJ_ptr pack );
+			void UpdateSensorData ( OBJIDType objID, environs::SensorFrame OBJ_ptr pack );
 		};
 	}
 }

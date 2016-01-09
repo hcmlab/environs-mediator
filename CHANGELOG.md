@@ -1,6 +1,22 @@
-### v 0.9.6 unreleased
+### v 0.9.7 unreleased
 
 ---------------------------
+
+
+### v 0.9.6 
+
+---------------------------
+
+* Updated: MediatorDaemon WatchDog client alive check
+* Added: (Fix for mediator responses) Padding to DeviceInfo
+* Added: Safe dispose of session clients in MediatorDaemon
+* Fixed: Bug in MediatorDaemon where mssing areaMaps lead to failing of registration of new clients
+* Updated: Use of lock callback in crypt layer (CryptoGetThreadID)
+* Updated: Detection of natStat moved to registering at Mediator service
+* Fixed: SecureChannelAuth in Mediator layer if message is transfered multipart
+* Added: Use of lock callback in crypt layer
+* Updated: MediatorDaemon protocol for shortmessages
+* Added: ERR_remove_thread_state to DynLib.Crypto
 
 
 ### v 0.9.5.2

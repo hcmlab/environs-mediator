@@ -106,8 +106,6 @@ namespace environs
             
 			virtual environs::PortalType_t  portalType ();
 #endif
-
-            
             ENVIRONS_LIB_API void AddObserver ( environs::PortalObserver OBJ_ptr observer );
             ENVIRONS_LIB_API void RemoveObserver ( environs::PortalObserver OBJ_ptr observer );
 
@@ -123,15 +121,15 @@ namespace environs
             
             ENVIRONS_LIB_API bool ReleaseRenderSurface ();
 
-            ENVIRONS_LIB_API PortalInfoBase OBJ_ptr GetIPortalInfo ( );
+            ENVIRONS_LIB_API PortalInfoBasePtr GetIPortalInfo ( );
             
-            static bool SetPortalInfo ( int hInst, PortalInfoBase OBJ_ptr infoBase );
+            static bool SetPortalInfo ( int hInst, PortalInfoBasePtr infoBase );
 
-			ENVIRONS_LIB_API bool SetIPortalInfo ( PortalInfoBase OBJ_ptr infoBase );
+			ENVIRONS_LIB_API bool SetIPortalInfo ( PortalInfoBasePtr infoBase );
 
-			static sp ( PortalInstance ) GetPortal ( int nativeID, int portalID );
+			static PortalInstanceSP GetPortal ( int nativeID, int portalID );
 
-			static sp ( PortalInfoBase ) GetPortalInfo ( int hInst, int portalID );
+			static PortalInfoBaseSP GetPortalInfo ( int hInst, int portalID );
 
 			bool ReleaseRenderCallback ();
 
@@ -155,13 +153,13 @@ namespace environs
             static bool				GlobalsInit ();
             static void				GlobalsDispose ();
 
-			static NLayerMapType ( int, EPSPACE PortalInstance )	portals	INIT_to_EXP_in_cli ( gcnew (NLayerMapTypeObj ( int, EPSPACE PortalInstance )) );
+			static NLayerMapType ( int, PortalInstanceEP )	portals	INIT_to_EXP_in_cli ( gcnew (NLayerMapTypeObj ( int, PortalInstanceEP )) );
 
 			static pthread_mutex_t	portalInstancelock;
 			static pthread_mutex_t	portalsLock;
 
 #ifdef CLI_CPP
-			virtual EPSPACE PortalInstance ^ GetPlatformObj () = 0;
+			virtual PortalInstanceEP ^ GetPlatformObj () = 0;
 #endif
 
             int                     hEnvirons_;
@@ -185,7 +183,7 @@ namespace environs
 			environs::PortalType_t  portalType_;
             
             /** A DeviceInstance object that this portal relates to. */
-			sp ( EPSPACE DeviceInstance )   device_;
+			DeviceInstanceESP    device_;
 
 			ENVOBSERVER ( lib::IIPortalObserver, environs::PortalObserver )	observers;
 
@@ -204,19 +202,22 @@ namespace environs
 
             static int			GetKey ( int nativeID, int portalID_ );
 
-			bool				CreateInstance ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
-			bool				Create ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, int destID );
-			bool				Create ( c_const sp ( EPSPACE DeviceInstance ) c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
+			bool				CreateInstance ( c_const DeviceInstanceESP c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
+			bool				Create ( c_const DeviceInstanceESP c_ref device, int destID );
+			bool				Create ( c_const DeviceInstanceESP c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
 
 			static void c_OBJ_ptr PortalPresenterThread ( pthread_param_t pack );
-			static void			PresentPortalToObservers ( c_const sp ( PortalInstance ) c_ref portal, int notification );
+			static void			PresentPortalToObservers ( c_const PortalInstanceSP c_ref portal, int notification );
 
-			static void			HandleSuccessfulPortal ( c_const sp ( PortalInstance ) c_ref portal, int notification );
+			static void			HandleSuccessfulPortal ( c_const PortalInstanceSP c_ref portal, int notification );
             
-			static bool			UpdateWidthHeight ( c_const sp ( PortalInstance ) c_ref portal, Addr_ptr context );
+			static bool			UpdateWidthHeight ( c_const PortalInstanceSP c_ref portal, Addr_ptr context );
             static void			UpdateOptions ( environs::ObserverNotifyContext OBJ_ptr ctx );
             
             void				Update ();
+			
+			virtual void		UpdateCallbacks ( int notification ) { };
+
 			static void			Update ( int hInst, environs::ObserverNotifyContext OBJ_ptr ctx );
             
             bool				CheckNetworkConnection ();

@@ -55,7 +55,7 @@
 /**
  * The text message.
  * */
-@property (readonly, nonatomic) NSString * text;
+@property (readonly, nonatomic, copy) NSString * text;
 
 /**
  * Determins the type of connection (channel type) used to exchange this message.
@@ -70,8 +70,8 @@
  * */
 @property (readonly, nonatomic) id device;
 
-@property (readonly, nonatomic) NSString * ToString;
-@property (readonly, nonatomic) NSString * ShortText;
+@property (readonly, nonatomic, copy) NSString * toString;
+@property (readonly, nonatomic, copy) NSString * shortText;
 
 @end
 

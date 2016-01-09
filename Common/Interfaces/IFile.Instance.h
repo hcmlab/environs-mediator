@@ -131,7 +131,7 @@ namespace environs
 		* */
 		virtual DeviceInstance * deviceRetained () = 0;
 
-		virtual const char * ToString () = 0;
+		virtual const char * toString () = 0;
 
 		virtual const char * GetPath () = 0;
 	};

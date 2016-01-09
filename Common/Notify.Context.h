@@ -21,9 +21,9 @@
 #ifndef INCLUDE_HCM_ENVIRONS_NOTIFY_CONTEXT_DECLARATIONS_H_
 #define INCLUDE_HCM_ENVIRONS_NOTIFY_CONTEXT_DECLARATIONS_H_
 
-#ifdef CLI_CPP
-
 #include "Interop.h"
+
+#ifdef CLI_CPP
 using namespace System;
 
 #endif
@@ -38,7 +38,7 @@ namespace environs
 		typedef struct ObserverNotifyContext
 		{
 			/** The native/device identifier that targets the device */
-			int             destID;
+			OBJIDType		destID;
 			/** Area name of the application environment */
 			const char *	areaName;
 			/** Area name of the application environment */
@@ -48,7 +48,9 @@ namespace environs
 			/** A value of the enumeration Types.EnvironsSource */
 			int				sourceIdent;
 			/** A value that provides additional context information (if available). */
-			void *			contextPtr;
+            void *			contextPtr;
+            /**  */
+            int				context;
 			/**  */
 			int				hEnvirons;
 		}
@@ -58,7 +60,7 @@ namespace environs
 		typedef struct ObserverMessageContext
 		{
 			/** The native/device identifier that targets the device */
-			int             destID;
+			OBJIDType		destID;
 			/** Area name of the application environment */
 			const char *    areaName;
 			/** Area name of the application environment */
@@ -77,7 +79,9 @@ namespace environs
 		typedef struct ObserverDataContext
 		{
 			/** The native device id of the sender device. */
-			int             nativeID;
+			OBJIDType		objID;
+			/** The native device id of the sender device. */
+			int				nativeID;
 			/** The type of this message. */
 			int             type;
 			/** A fileID that was attached to the buffer. */
@@ -99,7 +103,7 @@ namespace environs
 	{
 	public:
 		/** The native/device identifier that targets the device */
-		int             destID;
+		OBJIDType		destID;
 		/** Area name of the application environment */
 		CString_ptr		areaName;
 		/** Area name of the application environment */
@@ -109,7 +113,9 @@ namespace environs
 		/**  */
 		int				sourceIdent;
 		/**  */
-		Addr_ptr		contextPtr;
+        Addr_ptr		contextPtr;
+        /**  */
+        int				context;
 		/**  */
 		int				hEnvirons;
 	};
@@ -119,7 +125,7 @@ namespace environs
 	{
 	public:
 		/** The native/device identifier that targets the device */
-		int             destID;
+		OBJIDType		destID;
 		/** Area name of the application environment */
 		CString_ptr		areaName;
 		/** Area name of the application environment */
@@ -137,8 +143,11 @@ namespace environs
 	public ref class ObserverDataContext
 	{
 	public:
+		/** The object id of the sender device. */
+		OBJIDType		objID;
 		/** The native device id of the sender device. */
-		int             nativeID;
+		int				nativeID;
+
 		/** The type of this message. */
 		int             type;
 		/** A fileID that was attached to the buffer. */

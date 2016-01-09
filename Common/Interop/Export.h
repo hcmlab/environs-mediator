@@ -77,9 +77,11 @@ typedef HLIB ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::Inst
 /// _MSC_VER = 1800 v120 v120_xp	
 #		if (_MSC_VER <= 1600)
 #			define ENVIRONS_BUILD_CRT		100
+#			define NO_ATOMIC_CPP
 #		else
 #		if (_MSC_VER <= 1700)
 #			define ENVIRONS_BUILD_CRT		110
+#			define NO_ATOMIC_CPP
 #		else
 #			if (_MSC_VER <= 1800)
 #			define ENVIRONS_BUILD_CRT		120
@@ -94,6 +96,11 @@ typedef HLIB ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::Inst
 #		endif
 #	endif
 #endif
+
+#ifdef ANDROID
+#   define NO_ATOMIC_CPP
+#endif
+
 
 #define ENVIRONS_TSDIR                  "v" ENVIRONS_TOSTRING(ENVIRONS_BUILD_CRT)
 

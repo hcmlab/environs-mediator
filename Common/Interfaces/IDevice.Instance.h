@@ -158,7 +158,7 @@ namespace environs
 		*/
 		virtual void NotifyAppContextChanged ( int customFlags ) = 0;
 
-		virtual const char * ToString () = 0;
+		virtual const char * toString () = 0;
 
 		virtual const char * ips () = 0;
 		virtual const char * ipes () = 0;

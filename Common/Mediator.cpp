@@ -63,15 +63,23 @@ namespace environs
     int                 Mediator::localNetsSize = 0;
 	pthread_mutex_t     Mediator::localNetsLock;
 
-
-#ifdef USE_INTEGER_PROJECT_APP_MAPS
-	std::map<int, std::string>      projectIDToNames;
-	std::map<int, std::string>      appIDToNames;
-
-	std::map<std::string, int>      nameToProjectID;
-	std::map<std::string, int>      nameToAppID;
-#endif
-
+    CLIENTEXP ( OBJIDTypeV    deviceInstanceObjIDs = 1; )
+    
+    
+    DeviceInstanceNode::DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
+    {
+        Zero ( info );
+        
+        CLIENTEXP ( info.objID = __sync_add_and_fetch ( &deviceInstanceObjIDs, 1 ); )
+        
+        *userName = 0;
+        baseSP = 0;
+        
+        CLIENTEXP ( hEnvirons = 0; )
+        CLIENTEXP ( *key = 0; )
+        CLIENTEXP ( mapSP = 0; )
+    }
+    
 
 	ILock::ILock ()
 	{
@@ -115,9 +123,7 @@ namespace environs
                 int sock = client->spareSockets [i];
                 if ( sock != -1 )
                 {
-                    DisableLinger ( sock );
-                    shutdown ( sock, 2 );
-                    closesocket ( sock );
+                    DisableLingerAndClose ( sock );
                 }
             }
 
@@ -129,16 +135,48 @@ namespace environs
             client->spareSocketsCount = MAX_SPARE_SOCKETS_IN_QUEUE;
         }
     }
+    
+    
+    int GetSpareSocket ( ThreadInstance * inst )
+    {
+        if ( inst->spareSocket == -1 )
+            return -1;
+        
+        int sock = -1;
+        
+#ifndef MEDIATORDAEMON
+        if ( !MutexLockA ( inst->spareSocketLock, "GetSpareSocket" ) )
+            return -1;
+#endif
+        sock = (int) inst->spareSocket;
+        if ( sock != -1 )
+        {
+            inst->spareSocket = -1;
+            
+            inst->spareSockets [ inst->spareSocketsCount ] = sock; inst->spareSocketsCount++;
+            
+            LimitSpareSocketsCount ( inst );
+        }
+        
+#ifndef MEDIATORDAEMON
+        MutexUnlockA ( inst->spareSocketLock, "GetSpareSocket" );
+#endif
+        return sock;
+    }
+    
 
-	void DisableLinger ( int sock )
+	void DisableLingerAndClose ( int sock )
 	{
 		linger ling;
 		ling.l_onoff = 0;
 		ling.l_linger = 0;
 
 		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
-			CVerb ( "DisableLinger: Failed to set SO_LINGER on socket" ); LogSocketError ();
+			CVerb ( "DisableLingerAndClose: Failed to set SO_LINGER on socket" ); VerbLogSocketError ();
 		}
+        
+        shutdown ( sock, 2 );
+        closesocket ( sock );
 	}
 
 
@@ -157,11 +195,8 @@ namespace environs
 
 
 	ApplicationDevices::~ApplicationDevices ()
-	{
-		if ( devicesCache ) {
-			free ( devicesCache );
-			devicesCache = 0;
-		}
+    {
+        free_m ( devicesCache );
 	}
 
 
@@ -199,14 +234,6 @@ namespace environs
 
             MutexDisposeA ( devicesLock );
 
-#ifdef USE_INTEGER_PROJECT_APP_MAPS
-			MutexDisposeA ( idMapMutex );
-#endif
-			projectIDToNames.clear ();
-			appIDToNames.clear ();
-			nameToProjectID.clear ();
-			nameToAppID.clear ();
-
 			MutexUnlockVA ( mediatorLock, "Destructor" );
 
 			MutexDisposeA ( mediatorLock );
@@ -235,17 +262,6 @@ namespace environs
 			if ( !MutexInitA ( devicesLock ) )
                 return false;
 
-#ifdef USE_INTEGER_PROJECT_APP_MAPS
-			Zero ( idMapMutex );
-
-			projectIDToNames.clear ();
-			appIDToNames.clear ();
-			nameToProjectID.clear ();
-			nameToAppID.clear ();
-
-			if ( !MutexInitA ( idMapMutex ) )
-				return false;
-#endif
 			allocated = true;
 		}
 
@@ -308,11 +324,8 @@ namespace environs
 		ReleaseThreads ();
 
 		ReleaseMediators ();
-
-		if ( certificate ) {
-			free ( certificate );
-			certificate = 0;
-		}
+        
+        free_m ( certificate );
 	}
 
     
@@ -334,16 +347,12 @@ namespace environs
 			//LogSocketError ();
 #ifdef MEDIATORDAEMON
             try {
-                DisableLinger ( (int) sock );
-				shutdown ( (int) sock, 2 );
-				closesocket ( (int) sock );
+                DisableLingerAndClose ( (int) sock );
 			}
 			catch ( ... ) {
 			}
 #else
-            DisableLinger ( sock );
-			shutdown ( sock, 2 );
-			closesocket ( sock );
+            DisableLingerAndClose ( sock );
 #endif
 			sock = -1;
 			return false;
@@ -364,6 +373,7 @@ namespace environs
 				return;
 
 			// Wait for the listening thread to be terminated
+#ifdef MEDIATORDAEMON
 			pthread_t thrd = inst->threadID;
 
 			if ( pthread_valid ( thrd ) ) {
@@ -377,6 +387,7 @@ namespace environs
 				pthread_close ( thrd );
 				pthread_reset ( inst->threadID );
 			}
+#endif
 		}
 	}
 
@@ -397,9 +408,7 @@ namespace environs
 			CVerb ( "ReleaseThreads: Closing broadcast socket." );
 
             broadcastSocketID = -1;
-            DisableLinger ( value );
-			shutdown ( value, 2 );
-			closesocket ( value );
+            DisableLingerAndClose ( value );
 		}
 
 		// Waiting for broadcast thread
@@ -449,60 +458,67 @@ namespace environs
 	void Mediator::ReleaseMediator ( MediatorInstance * med )
 	{
 		if ( !med ) return;
-
-		ThreadInstance * inst = &med->connection.instance;
-
-		int s = (int) inst->socket;
-		if ( s != -1 ) {
-			inst->socket = -1;
-
-            CVerb ( "ReleaseMediator: closing cocket" );
-            DisableLinger ( s );
-			shutdown ( s, 2 );
-			closesocket ( s );
-		}
-
-		// Wait for the listening thread to be terminated
-		pthread_t thrd = inst->threadID;
-		if ( pthread_valid ( thrd ) ) {
-			pthread_reset ( inst->threadID );
-
-			CVerb ( "ReleaseMediator: waiting for mediator listener thread to be termianted." );
-
-			/// EXC_BAD_ACCESS
-			s = pthread_join ( thrd, NULL );
-			if ( pthread_wait_fail ( s ) ) {
-				CErrArg ( "ReleaseMediator: Error waiting for mediator listener thread (pthread_join:%i)", s );
-			}
-            
-			pthread_close ( thrd );
-		}
-                
-        for ( int i = 0; i < inst->spareSocketsCount; ++i )
+        
+        if ( med->port )
         {
-            int sock = inst->spareSockets [i];
-            if ( sock != -1 )
-            {
-                DisableLinger ( sock );
-                shutdown ( sock, 2 );
-                closesocket ( sock );
+            med->port = 0;
+            
+            ThreadInstance * inst = &med->connection.instance;
+            
+            int s = (int) inst->socket;
+            if ( s != -1 ) {
+                inst->socket = -1;
+                
+                CVerb ( "ReleaseMediator: Closing socket" );
+                DisableLingerAndClose ( s );
             }
+            
+            // Wait for the listening thread to be terminated
+#ifdef MEDIATORDAEMON
+            pthread_t thrd = inst->threadID;
+            if ( pthread_valid ( thrd ) ) {
+                pthread_reset ( inst->threadID );
+                
+                CVerb ( "ReleaseMediator: Waiting for mediator listener thread ..." );
+                
+                s = pthread_join ( thrd, NULL );
+                if ( pthread_wait_fail ( s ) ) {
+                    CErrArg ( "ReleaseMediator: Error waiting for mediator listener thread (pthread_join:%i)", s );
+                }
+                
+                pthread_close ( thrd );
+            }
+#else
+            inst->listener.Join ( "ReleaseMediator" );
+#endif
+            
+            for ( int i = 0; i < inst->spareSocketsCount; ++i )
+            {
+                int sock = inst->spareSockets [i];
+                if ( sock != -1 )
+                {
+                    DisableLingerAndClose ( sock );
+                }
+            }
+            inst->spareSocketsCount = 0;
+            
+            AESDisposeKeyContext ( &inst->aes );
+            
+            inst->encrypt = 0;
+            
+            MutexDisposeA ( med->connection.rec_mutex );
+            MutexDisposeA ( med->connection.send_mutex );
+            
+            CondDisposeA ( med->connection.rec_signal );
+            
+#ifndef MEDIATORDAEMON
+            MutexDisposeA ( inst->spareSocketLock );
+            
+            med->connection.instance.listener.DisposeInstance ();
+#endif
+            free_m ( med->connection.buffer );
         }
-		inst->spareSocketsCount = 0;
-		
-		AESDisposeKeyContext ( &med->connection.instance.aes );
-		med->connection.instance.encrypt = 0;
-
-		MutexDispose ( &med->connection.rec_mutex );
-		MutexDispose ( &med->connection.send_mutex );
-
-		CondDispose ( &med->connection.rec_signal );
-
-		if ( med->connection.buffer ) {
-			free ( med->connection.buffer );
-			med->connection.buffer = 0;
-		}
-
+        
 		if ( med != &mediator )
 			free ( med );
 	}
@@ -510,27 +526,187 @@ namespace environs
 
 	void Mediator::ReleaseMediators ()
 	{
-		CVerb ( "ReleaseMediators" );
+        CVerb ( "ReleaseMediators" );
+        
+        MediatorInstance * inst = &mediator;
+        
+        // Conduct a "Prerelease by closing all sockets before actually releasing them
+        
+        while ( inst )
+        {
+            int s = (int) inst->connection.instance.socket;
+            if ( s != -1 ) {
+                inst->connection.instance.socket = -1;
+                
+                CVerb ( "ReleaseMediators: closing socket" );
+                DisableLingerAndClose ( s );
+            }
+            inst = inst->next;
+        }
 
 		MutexLockV ( &mediatorLock, "ReleaseMediators" );
 
-		MediatorInstance * inst = mediator.next;
+		inst = &mediator;
 
 		while ( inst ) {
 			MediatorInstance * toDelete = inst;
 			inst = inst->next;
 
+            toDelete->next = 0;
 			ReleaseMediator ( toDelete );
-		}
-
-		if ( mediator.port ) {
-			ReleaseMediator ( &mediator );
-			Zero ( mediator );
 		}
 
 		MutexUnlockV ( &mediatorLock, "ReleaseMediators" );
 	}
 
+    
+#if defined(ANDROID)
+    unsigned int GetDefaultGateway ( char * gateway, size_t size )
+    {
+        FILE    *       fp;
+        char            buffer [ 1024 ];
+        
+        char command [] = "ip route show";
+        
+        fp = popen ( command, "r" );
+        if ( !fp ) {
+            CErrArg ( "GetDefaultGateway: Failed to open [%s]", command );
+            return 0;
+        }
+        
+        while ( !feof ( fp ) ) {
+            *buffer = 0;
+            if ( fgets ( buffer, sizeof(buffer), fp ) )
+            {
+                CVerbArg ( "GetDefaultGateway: [%s]", buffer );
+                
+                // 192.168.16.0/24 dev wlan0
+                // search for dev
+                char * search = strstr ( buffer, "dev" );
+                if ( !search )
+                    continue;
+                
+                search += 3;
+                
+                int max = sizeof(buffer) - (((int) (search - buffer)) + 1);
+                while ( max > 0 ) {
+                    if ( *search != 32 && *search != '\t' ) break;
+                    search++; max--;
+                }
+                
+                if ( max <= 0 )
+                    continue;
+                
+                char * end = search;
+                
+                max = sizeof(buffer) - (((int) (search - buffer)) + 1);
+                while ( max > 0 ) {
+                    if ( *end == 32 || *end == '\t' ) break;
+                    end++; max--;
+                }
+                
+                if ( max <= 0 )
+                    continue;
+                
+                *end = 0;
+                
+                strncpy ( gateway, search, size );
+                CVerbArg ( "GetDefaultGateway: gateway device [%s]", gateway );
+                break;
+            }
+        }
+        
+        pclose ( fp );
+        
+        return 0;
+    }
+    
+#elif defined(__APPLE__)
+    
+    unsigned int GetDefaultGateway ( char * gateway, size_t size )
+    {
+        FILE    *       fp;
+        char            buffer [ 1024 ];
+        char    *       search;
+        
+        char command [] = "route -n get default | grep interface";
+        
+        fp = popen ( command, "r" );
+        if ( !fp ) {
+            CErrArg ( "GetDefaultGateway: Failed to open [%s]", command );
+            return 0;
+        }
+        
+        while ( !feof ( fp ) ) {
+            *buffer = 0;
+            if ( fgets ( buffer, sizeof(buffer), fp ) )
+            {
+                CVerbArg ( "GetDefaultGateway: [%s]", buffer );
+                
+                search = strstr ( buffer, ": " );
+                if ( !search ) {
+                    CErr ( "GetDefaultGateway: Failed to find : " );
+                    return 0;
+                }
+                
+                search += 2;
+                size_t len = strlen ( search );
+                
+                if ( len > 0 ) {
+                    if ( search [ len - 1 ] == '\n' || search [ len - 1 ] == '\r' )
+                        search [ len - 1 ] = 0;
+                    
+                    strncpy ( gateway, search, size );
+                    CVerbArg ( "GetDefaultGateway: gateway device [%s]", gateway );
+                }
+                break;
+            }
+        }
+        
+        return 0;
+    }
+    
+#else
+    
+#   ifndef _WIN32
+    unsigned int GetDefaultGateway ( char * gateway, size_t size )
+    {
+        FILE    *       fp;
+        char            buffer [ 1024 ];
+        size_t          bytesRead;
+        char    *       search;
+        unsigned int    gw  = 0;
+        
+        fp = fopen ( "/proc/net/route", "r" );
+        if ( !fp ) {
+            CErr ( "GetDefaultGateway: Failed to open /proc/net/route" );
+            return 0;
+        }
+        
+        bytesRead = fread ( buffer, 1, sizeof (buffer), fp );
+        fclose ( fp );
+        
+        if ( bytesRead == 0 || bytesRead >= sizeof (buffer) ) {
+            CErrArg ( "GetDefaultGateway: Invalid bytes read [%u]", bytesRead );
+            return 0;
+        }
+        
+        buffer [ bytesRead ] = 0;
+        CLogArg ( "GetDefaultGateway: [%s]", buffer );
+        
+        search = strstr ( buffer, "dev" );
+        if ( !search ) {
+            CErr ( "GetDefaultGateway: Failed to find dev" );
+            return 0;
+        }
+        return gw;
+    }
+#   endif
+#endif
+    
+    
+ 
+    
 
 #define USE_WIN_GETADAPTERSINFO
 
@@ -691,7 +867,11 @@ namespace environs
 		struct ifreq ifreqs [ 20 ];
 		struct ifreq ifr_mask;
 		struct ifconf ifconf;
-		int  nifaces, i;
+        int  nifaces, i;
+        char   gw [ 1024 ];
+        *gw = 0;
+        
+        GetDefaultGateway ( gw, sizeof(gw) );
 
 		Zero ( ifconf );
 		ifconf.ifc_buf = ( char * ) ifreqs;
@@ -707,7 +887,7 @@ namespace environs
 		rval = ioctl ( sock, SIOCGIFCONF, ( char* ) &ifconf );
 		if ( rval < 0 ) {
             CErr ( "LoadNetworks: ioctl SIOCGIFCONF failed!" );
-            DisableLinger ( sock );
+            
 			shutdown ( sock, 2 );
 			closesocket ( sock );
 			goto EndOfMethod;
@@ -739,6 +919,13 @@ namespace environs
 				continue;
 			}
 
+            unsigned int isGW = 0;
+            
+            if ( *gw && !strncmp ( gw, ifreqs [ i ].ifr_name, sizeof(gw) ) ) {
+                CLogArg ( "LoadNetworks: Default interface found [%s]", gw );
+                isGW = 1;
+            }
+            
 			// Retrieve netmask	
 			ifr_mask.ifr_addr.sa_family = PF_INET;
 
@@ -760,17 +947,21 @@ namespace environs
 			CVerbArg ( "LoadNetworks: Netmask:   [ %s ]'", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 			CVerbArg ( "LoadNetworks: Broadcast: [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-			AddNetwork ( ip, bcast, mask, 0 );
+			AddNetwork ( ip, bcast, mask, isGW );
         }
-        DisableLinger ( sock );
+        
 		shutdown ( sock, 2 );
 		closesocket ( sock );
 
 #else // LINUX or MAC or IOS
 
-		struct ifaddrs  * ifList  = NULL;
-		struct ifaddrs  * ifa           = NULL;
-		void            * tmp    = NULL;
+		struct ifaddrs  * ifList  = 0;
+		struct ifaddrs  * ifa           = 0;
+        void            * tmp    = 0;
+        char   gw [ 1024 ];
+        *gw = 0;
+        
+        GetDefaultGateway ( gw, sizeof(gw) );
 
 		if ( getifaddrs ( &ifList ) != 0 ) {
 			CErr ( "LoadNetworks: getifaddrs failed!" );
@@ -803,6 +994,13 @@ namespace environs
 					continue;
 				}
 #endif
+                unsigned int isGW = 0;
+                
+                if ( *gw && !strncmp ( gw, ifa->ifa_name, sizeof(gw) ) ) {
+                    CLogArg ( "LoadNetworks: Default interface found [%s]", gw );
+                    isGW = 1;
+                }
+                
 				unsigned int mask = ( ( struct sockaddr_in * )ifa->ifa_netmask )->sin_addr.s_addr;
 
 				bcast = GetBroadcast ( ip, mask );
@@ -813,7 +1011,7 @@ namespace environs
 				CVerbArg ( "LoadNetworks: Netmask:   [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 				CVerbArg ( "LoadNetworks: Broadcast: [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
 
-				AddNetwork ( ip, bcast, mask, 0 );
+				AddNetwork ( ip, bcast, mask, isGW );
 			}
 			else if ( ifa->ifa_addr->sa_family == PF_INET6 ) {
 				// We do not support IPv6 yet
@@ -1536,7 +1734,10 @@ namespace environs
 		}
 
 #ifndef MEDIATORDAEMON
-		med->connection.env = env;
+        med->connection.env = env;
+        
+        if ( !med->connection.instance.listener.Init () )
+            goto Failed;
 #endif
 
 		if ( !MutexInit ( &med->connection.rec_mutex ) )
@@ -1549,15 +1750,20 @@ namespace environs
 			goto Failed;
 		}
 
-		if ( !MutexInit ( &med->connection.send_mutex ) )
-			goto Failed;
+		if ( !MutexInitA ( med->connection.send_mutex ) )
+            goto Failed;
+        
+#ifndef MEDIATORDAEMON
+        if ( !MutexInitA ( med->connection.instance.spareSocketLock ) )
+            goto Failed;
+#endif
 
-        med->available = false;
-        med->listening = false;
-		med->connection.instance.socket = -1;
-		med->connection.instance.spareSocket = -1;
-		med->ip = ip;
-		med->port = port;
+        med->enabled    = false;
+        med->listening  = false;
+        med->ip         = ip;
+        med->port       = port;
+		med->connection.instance.socket         = -1;
+		med->connection.instance.spareSocket    = -1;
 
 		med->connection.buffer = ( char * ) malloc ( MEDIATOR_BUFFER_SIZE_MAX );
 		if ( !med->connection.buffer ) {
@@ -1569,7 +1775,11 @@ namespace environs
 
 		return true;
 
-	Failed:
+    Failed:
+        
+#ifndef MEDIATORDAEMON
+        med->connection.instance.listener.DisposeInstance ();
+#endif
 		free ( med );
 		return false;
 	}
@@ -1611,6 +1821,11 @@ namespace environs
 			memcpy ( &mediator, med, sizeof ( MediatorInstance ) );
 
 			med->connection.buffer = 0;
+            
+#ifndef MEDIATORDAEMON
+			Zero ( mediator.connection.instance.listener );
+			mediator.connection.instance.listener.Init ();
+#endif
 
 			added = &mediator;
 		}
@@ -1621,7 +1836,11 @@ namespace environs
 	Failed:
 		if ( med ) {
 			if ( med->connection.buffer )
-				free ( med->connection.buffer );
+                free ( med->connection.buffer );
+            
+#ifndef MEDIATORDAEMON
+            med->connection.instance.listener.DisposeInstance ();
+#endif
 			free ( med );
 		}
 		return added;

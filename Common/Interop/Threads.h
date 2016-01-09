@@ -595,6 +595,7 @@ namespace environs
 		~ThreadSync ();
 
         bool Init ();
+        void DisposeInstance ();
         
         bool Lock ( CString_ptr func );
         bool LockCond ( CString_ptr func );
@@ -604,8 +605,9 @@ namespace environs
         
         bool ResetSync ( CString_ptr func, bool useLock C_Only ( = true ) );
 		void ResetState ( );
+		void Reset ();
         
-        bool WaitLocked ( CString_ptr func, int ms );
+        bool WaitLocked ( CString_ptr func, int ms C_Only ( = 0 ) );
         bool WaitOne ( CString_ptr func, int ms C_Only ( = 0 ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
         
         bool Notify ( CString_ptr func, bool useLock C_Only ( = true ) );

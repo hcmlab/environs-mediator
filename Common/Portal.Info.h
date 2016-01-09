@@ -65,8 +65,11 @@ namespace environs
 
 		CLIBSPACE PortalInstance OBJ_ptr portal;
 
+		ENVIRONS_LIB_API STRING_T toString ();
+
+#ifdef CLI_CPP
 		ENVIRONS_LIB_API CLI_VIRTUAL STRING_T ToString ( ) CLI_OVERRIDE;
-        
+#endif
         ENVIRONS_LIB_API void NotifyObservers ( int notification );
         
         ENVIRONS_LIB_API void SetSize ( int width, int height );

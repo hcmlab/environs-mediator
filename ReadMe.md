@@ -18,7 +18,7 @@ The Mediator service is designed as command line application and accepts keyboar
 ### OSX/Linux
 ```
 > cd Mediator
-> ./build.sh
+> make clean && make all
 ```
 
 The build script performs a make clean && make. The resulting binaries are then called [Mediator.OSX](Mediator/Mediator.OSX) / Mediator.Linux.

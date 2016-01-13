@@ -3,6 +3,17 @@
 ---------------------------
 
 
+
+### v 0.9.6.2
+
+---------------------------
+
+* Fixed: GetDeviceID from Mediator
+* Fixed: Bug in Mediator layer if multiple (virtual) network interfaces are available or multi-homed hosts
+* Updated: Log layer
+
+
+
 ### v 0.9.6 
 
 ---------------------------

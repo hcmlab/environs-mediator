@@ -58,12 +58,15 @@
 namespace environs
 {
 
-	bool                Mediator::allocatedClass = false;
-	NetPack             Mediator::localNets;
-    int                 Mediator::localNetsSize = 0;
-	pthread_mutex_t     Mediator::localNetsLock;
+	bool                    Mediator::allocatedClass = false;
+	NetPack                 Mediator::localNets;
+    int                     Mediator::localNetsSize = 0;
+	pthread_mutex_t         Mediator::localNetsLock;
 
-    CLIENTEXP ( OBJIDTypeV    deviceInstanceObjIDs = 1; )
+	unsigned int            primaryInterface		= 0;
+
+
+    CLIENTEXP ( OBJIDTypeV  deviceInstanceObjIDs    = 1; )
     
     
     DeviceInstanceNode::DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
@@ -123,7 +126,7 @@ namespace environs
                 int sock = client->spareSockets [i];
                 if ( sock != -1 )
                 {
-                    DisableLingerAndClose ( sock );
+                    LimitLingerAndClose ( sock );
                 }
             }
 
@@ -165,14 +168,23 @@ namespace environs
     }
     
 
-	void DisableLingerAndClose ( int sock )
+	void LimitLingerAndClose ( int sock )
 	{
-		linger ling;
-		ling.l_onoff = 0;
-		ling.l_linger = 0;
-
+		if ( sock < 0 )
+            return;
+        
+        linger ling;
+        
+#ifdef MEDIATORDAEMON
+        ling.l_onoff    = 1;
+        ling.l_linger   = 5;
+#else
+		ling.l_onoff    = 1;
+		ling.l_linger   = 0;
+#endif
 		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
-			CVerb ( "DisableLingerAndClose: Failed to set SO_LINGER on socket" ); VerbLogSocketError ();
+			CVerb ( "LimitLingerAndClose: Failed to set SO_LINGER on socket" );
+            VerbLogSocketError ();
 		}
         
         shutdown ( sock, 2 );
@@ -347,12 +359,12 @@ namespace environs
 			//LogSocketError ();
 #ifdef MEDIATORDAEMON
             try {
-                DisableLingerAndClose ( (int) sock );
+                LimitLingerAndClose ( (int) sock );
 			}
 			catch ( ... ) {
 			}
 #else
-            DisableLingerAndClose ( sock );
+            LimitLingerAndClose ( sock );
 #endif
 			sock = -1;
 			return false;
@@ -408,7 +420,7 @@ namespace environs
 			CVerb ( "ReleaseThreads: Closing broadcast socket." );
 
             broadcastSocketID = -1;
-            DisableLingerAndClose ( value );
+            LimitLingerAndClose ( value );
 		}
 
 		// Waiting for broadcast thread
@@ -470,7 +482,7 @@ namespace environs
                 inst->socket = -1;
                 
                 CVerb ( "ReleaseMediator: Closing socket" );
-                DisableLingerAndClose ( s );
+                LimitLingerAndClose ( s );
             }
             
             // Wait for the listening thread to be terminated
@@ -497,7 +509,7 @@ namespace environs
                 int sock = inst->spareSockets [i];
                 if ( sock != -1 )
                 {
-                    DisableLingerAndClose ( sock );
+                    LimitLingerAndClose ( sock );
                 }
             }
             inst->spareSocketsCount = 0;
@@ -539,7 +551,7 @@ namespace environs
                 inst->connection.instance.socket = -1;
                 
                 CVerb ( "ReleaseMediators: closing socket" );
-                DisableLingerAndClose ( s );
+                LimitLingerAndClose ( s );
             }
             inst = inst->next;
         }

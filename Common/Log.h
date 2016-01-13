@@ -23,6 +23,16 @@
 
 #include "Interop/Export.h"
 
+#ifndef ENVIRONS_NATIVE_MODULE
+#   define USE_ENVIRONS_LOG_POINTERS
+#endif
+
+#ifdef USE_STATIC_ENVIRONS_LOG
+#   ifdef USE_ENVIRONS_LOG_POINTERS
+#       undef USE_ENVIRONS_LOG_POINTERS
+#   endif
+#endif
+
 /** Place declarations to global namespace for plain C */
 #ifdef __cplusplus
 
@@ -48,24 +58,28 @@ namespace environs
 #if defined(ENVIRONS_CORE_LIB) 
 	//|| !defined(ENVIRONS_MODULE)
 
-#ifdef ANDROID
-    void COutLog ( int tag, const char * msg, int length, bool useLock );
-    void COutArgLog ( int tag, const char * format, ... );
-#elif CLI_CPP
-	void COutLog ( CString_ptr className, CString_ptr prefix, CString_ptr msg );
-	void COutLog ( CString_ptr msg );
-#else
-    void COutLog ( const char * msg, int length, bool useLock );
-    void COutArgLog ( const char * format, ... );
-#endif
+#   ifdef ANDROID
+        void COutLog ( int tag, const char * msg, int length, bool useLock );
+        void COutArgLog ( int tag, const char * format, ... );
+#   elif CLI_CPP
+        void COutLog ( CString_ptr className, CString_ptr prefix, CString_ptr msg );
+        void COutLog ( CString_ptr msg );
+#   else
+        void COutLog ( const char * msg, int length, bool useLock );
+        void COutArgLog ( const char * format, ... );
+#   endif
 
 #else
     
+#   ifdef USE_ENVIRONS_LOG_POINTERS
+        extern pCOutLog                 COutLog;
+        extern pCOutArgLog              COutArgLog;
     
-    extern pCOutLog            COutLog;
-    extern pCOutArgLog         COutArgLog;
-
-
+#       define INIT_ENVIRONS_LOG()		environs::Loader::GetLogMethods ( (void **)&COutLog, (void **)&COutArgLog )
+#   else
+        void COutLog ( const char * msg, int length, bool useLock );
+        void COutArgLog ( const char * format, ... );
+#   endif
 #endif
     
 #ifdef __cplusplus

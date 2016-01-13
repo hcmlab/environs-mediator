@@ -894,6 +894,7 @@ namespace environs
 			 * @return	success
 			 */
 			ENVIRONS_LIB_API bool RemoveObserverForSensorData ( environs::EnvironsSensorDataObserver * observer );
+                        
 #endif
 
 
@@ -933,9 +934,9 @@ namespace environs
 			* Connect to device with the given ID and a particular application environment.
 			*
 			* @param deviceID	Destination device ID
-			* @param areaName Project name of the application environment
+			* @param areaName	Project name of the application environment
 			* @param appName	Application name of the application environment
-			* @param async	    Perform asynchronous. Non-async means that this call blocks until the call finished.
+			* @param async		(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
 			* @return status	0: Connection can't be conducted (maybe environs is stopped or the device ID is invalid) &nbsp;
 			* 					1: A connection to the device already exists or a connection task is already in progress) &nbsp;
 			* 					2: A new connection has been triggered and is in progress
@@ -946,7 +947,7 @@ namespace environs
 			/**
 			* Set render callback.
 			*
-			* @param async			Perform asynchronous. Non-async means that this call blocks until the call finished.
+			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
 			* @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
 			* @param callback		The pointer to the callback.
 			* @param callbackType	A value of type RENDER_CALLBACK_TYPE_* that tells the portal receiver what we actually can render..
@@ -962,7 +963,7 @@ namespace environs
 			/**
 			* Release render callback delegate or pointer
 			*
-			* @param async			Perform asynchronous. Non-async means that this call blocks until the call finished.
+			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
 			* @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
 			* @param callback		A delegate that manages the callback.
 			* @return				true = success, false = failed.
@@ -972,7 +973,7 @@ namespace environs
 			/**
 			* Start streaming of portal to or from the portal identifier (received in notification).
 			*
-			* @param async      	Execute asynchronous. Non-async means that this call blocks until the command has finished.
+			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
 			* @param portalID		An application specific id (e.g. used for distinguishing front facing or back facing camera)
 			*
 			* @return success
@@ -983,7 +984,7 @@ namespace environs
 			/**
 			* Stop streaming of portal to or from the portal identifier (received in notification).
 			*
-			* @param 	async      	Execute asynchronous. Non-async means that this call blocks until the command has finished.
+			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
 			* @param 	nativeID    The native device id of the target device.
 			* @param 	portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
 			* 						It is provided within the notification listener as sourceIdent.&nbsp;
@@ -1058,6 +1059,10 @@ namespace environs
 			
 
             ENVIRONS_LIB_API int GetHandle () { return hEnvirons; };
+
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API void * LoadPicture ( const char * filePath );
+#endif
 
 			/**
 			 * Release ownership on this interface and mark it disposeable.

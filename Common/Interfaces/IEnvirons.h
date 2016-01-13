@@ -958,6 +958,7 @@ namespace environs
         virtual unsigned char * GetFile ( bool nativeIDOK, int nativeID, int deviceID, const char * areaName, const char * appName, int fileID, int & size ) = 0;
         
 
+		virtual void * LoadPicture ( const char * filePath ) { return 0; };
         
 	};
 }

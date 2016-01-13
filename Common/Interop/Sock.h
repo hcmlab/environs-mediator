@@ -76,7 +76,7 @@ namespace environs
 {
 #endif
 
-	extern void DisableLingerAndClose ( int sock );
+	extern void LimitLingerAndClose ( int sock );
 
 #ifdef __cplusplus
 }

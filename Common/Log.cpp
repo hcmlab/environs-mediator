@@ -19,7 +19,8 @@
 */
 #include "stdafx.h"
 
-#	include <stdio.h>
+#include <stdio.h>
+
 #ifndef CLI_CPP
 #	include <stdarg.h>
 #	include <stdlib.h>
@@ -30,11 +31,19 @@
 #	endif
 
 #	ifdef ANDROID
-#   include <android/log.h>
+#       include <android/log.h>
+#	endif
+
+#	ifdef __APPLE__
+//#       define USE_NSLOG
 #	endif
 
 #	include "Environs.Obj.h"
 #	include "Core/Callbacks.h"
+#endif
+
+#ifdef USE_NSLOG
+#   include "Environs.iosx.imp.h"
 #endif
 
 #ifndef NDEBUG
@@ -343,18 +352,20 @@ namespace environs
             }
         }
         
-#ifdef _WIN32
+#if defined ( _WIN32 )
+
         OutputDebugStringA ( timeString );
         OutputDebugStringA ( LOG_OUT_BUFFER_NAME );
-#endif // -> end-_WIN32
         
-        
-#ifdef ANDROID
+#elif defined ( ANDROID )
         __android_log_print ( tag,	ENVIRONS_LOG_TAG_ID, "%s", LOG_OUT_BUFFER_NAME );
-#endif  // -> end-_ANDROID
+
+#elif defined ( USE_NSLOG )
+
+        NSLog ( @"%s", LOG_OUT_BUFFER_NAME );
+#else
         
-        
-#if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
+//#if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
         
         printf ( "%s%s", timeString, LOG_OUT_BUFFER_NAME );
         

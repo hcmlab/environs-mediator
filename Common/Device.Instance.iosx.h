@@ -327,11 +327,12 @@
  * or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
  * a registered EnvironsObserver instance.
  *
+ * @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
  * @param message       A message to send.
  * @param length       Length of the message to send.
  * @return success
  */
-- (bool) SendMessage:(const char *)msg Size:(int)length;
+- (bool) SendMessage:(int) async  message:(const char *)message length:(int)length;
 
 /**
  * Send a string message to a device through one of the following ways.&nbsp;
@@ -350,6 +351,26 @@
  * @return success
  */
 - (bool) SendMessage:(NSString *)message;
+
+/**
+ * Send a string message to a device through one of the following ways.&nbsp;
+ * If a connection with the destination device has been established, then use that connection.
+ * If the destination device is not already connected, then distinguish the following cases:
+ * (1) If the destination is within the same network, then try establishing a direct connection.
+ * (2) If the destination is not in the same network, then try sending through the Mediator (if available).
+ * (3) If the destination is not in the same network and the Mediator is not available, then try establishing
+ * 		a STUNT connection with the latest connection details that are available.
+ *
+ * On successful transmission, Environs returns true if the devices already had an active connection,
+ * or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
+ * a registered EnvironsObserver instance.
+ *
+ * @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+ * @param message       A message to be send.
+ * @return success
+ */
+- (bool) SendMessage:(int) async message:(NSString *)message;
+
 
 /**
 * Query the absolute path for the local filesystem to the persistent storage for this DeviceInstance.

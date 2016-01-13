@@ -4103,7 +4103,7 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, const sp ( ThreadInstanc
 			appDevices = GetDeviceList ( req->areaName, req->appName, 0, 0, deviceList );
 			if ( appDevices ) 
 			{
-				if ( appDevices->devices && appDevices->Lock ( "HandleRegistration" ) )
+				if ( appDevices->Lock ( "HandleRegistration" ) )
 				{
 					/// Find the next free deviceID			
 					DeviceInstanceNode	* device = appDevices->devices;
@@ -4131,6 +4131,22 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, const sp ( ThreadInstanc
 				}
 
 				UnlockApplicationDevices ( appDevices.get () );
+			}
+
+			if ( !nextID ) {
+				srand ( ( unsigned ) GetEnvironsTickCount () );
+
+				int randID = 0;
+				while ( randID == 0 ) {
+					randID = rand () % 0xFFFFFF;
+				}
+
+				unsigned int ip = ( unsigned int ) client->addr.sin_addr.s_addr;
+
+				randID <<= 8;
+				randID |= ( ip & 0xFF );
+
+				nextID = randID;
 			}
 
 			if ( nextID && (nextID != mappedID) ) {

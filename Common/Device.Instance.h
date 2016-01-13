@@ -344,11 +344,12 @@ namespace environs
 			 * or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
 			 * a registered EnvironsObserver instance.
 			 *
-			 * @param message       A message to send.
-			 * @param length       Length of the message to send.
+			 * @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			 * @param message		A message to send.
+			 * @param length		Length of the message to send.
 			 * @return success
 			 */
-			ENVIRONS_LIB_API bool SendMessage ( CString_ptr msg, int length );
+			ENVIRONS_LIB_API bool SendMessage ( int async, CString_ptr msg, int length );
 
 			/**
 			 * Send a string message to a device through one of the following ways.&nbsp;
@@ -367,6 +368,25 @@ namespace environs
 			 * @return success
 			 */
 			ENVIRONS_LIB_API bool SendMessage ( CString_ptr msg );
+
+			/**
+			* Send a string message to a device through one of the following ways.&nbsp;
+			* If a connection with the destination device has been established, then use that connection.
+			* If the destination device is not already connected, then distinguish the following cases:
+			* (1) If the destination is within the same network, then try establishing a direct connection.
+			* (2) If the destination is not in the same network, then try sending through the Mediator (if available).
+			* (3) If the destination is not in the same network and the Mediator is not available, then try establishing
+			* 		a STUNT connection with the latest connection details that are available.
+			*
+			* On successful transmission, Environs returns true if the devices already had an active connection,
+			* or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
+			* a registered EnvironsObserver instance.
+			*
+			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			* @param message		A message to be send.
+			* @return success
+			*/
+			ENVIRONS_LIB_API bool SendMessage ( int async, CString_ptr msg );
 
 
 			/**
@@ -565,9 +585,7 @@ namespace environs
 			void			NotifyObservers ( int flags, bool enqueue );
 
 #ifdef CLI_CPP
-			void			NotifyObservers ( String ^ prop, int flags, bool enqueue );
-
-			virtual void	OnPropertyChanged ( String ^ prop ) = 0;
+			virtual void	OnPropertyChanged ( String ^ prop, bool ignoreDefaultSetting ) = 0;
 #endif
 			void			NotifyObserversForMessage ( c_const MessageInstanceESP c_ref message, int flags, bool enqueue );
 			void			NotifyObserversForData ( c_const FileInstanceESP c_ref fileInst, int flags, bool enqueue );

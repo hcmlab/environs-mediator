@@ -31,6 +31,9 @@
 #define	ENVIRONS_CreateInstanceObject	CreateInstanceObject
 #define	ENVIRONS_CreateInstanceObject1	CreateInstanceObject1
 
+#define	ENVIRONS_GetLogMethods          GetLogMethods
+#define	ENVIRONS_GetLogMethods1         GetLogMethods1
+
 #define ENVIRONS_PP(a)				pp##a
 
 namespace environs
@@ -65,21 +68,29 @@ namespace environs
 		* @return   An Environs object wrapped into a smart pointer.
 		*/
 		sp ( environs::Environs )	ENVIRONS_CreateInstance ( const char * appName, const char * areaName );
-
-
-		/**
-		* Create an Environs object.
-		*
-		* @param 	appName		The application name for the application environment.
-		* @param  	areaName	The area name for the application environment.
-		*
-		* @return   An Environs object interface.
-		*/
-		environs::Environs *        ENVIRONS_CreateInstanceObject ( const char * appName, const char * areaName );
+        
+        /**
+         * Create an Environs object.
+         *
+         * @param 	appName		The application name for the application environment.
+         * @param  	areaName	The area name for the application environment.
+         *
+         * @return   An Environs object interface.
+         */
+        ENVIRONSAPI ENVIRONS_LIB_API void * CallConv	ENVIRONS_CreateInstance1 ( int crt );
+        
+        
+        /**
+         * Get log methods from Environs object.
+         *
+         */
+        void                        ENVIRONS_GetLogMethods ( void ** outLog, void ** outLogArg );
 	}
 
 	typedef void *		( *ENVIRONS_PP ( ENVIRONS_CreateInstance1 ) )( int crt );
-
+    
+    
+    typedef void *		( *ENVIRONS_PP ( ENVIRONS_GetLogMethods1 ) )( void ** outLog, void ** outLogArg );
 
 	/**
 	* Create an Environs object.
@@ -107,6 +118,8 @@ namespace environs
 
 	/// C function exported by the library
 	ENVIRONSAPI ENVIRONS_LIB_API void * CallConv	ENVIRONS_CreateInstance1 ( int crt );
+    
+    
 }
 
 

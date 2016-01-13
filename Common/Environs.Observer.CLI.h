@@ -47,10 +47,10 @@ namespace environs
 	* DeviceObserver is called whenever the members of a DeviceInstance has changed.&nbsp;
 	* The DEVICE_INFO_ATTR_changed parameter provides a bit set which indicates the member that has changed.
 	*
-	* @param device                    The DeviceInstance object that sends this notification.
-	* @param DEVICE_INFO_ATTR_changed  The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
+	* @param device						The DeviceInstance object that sends this notification.
+	* @param Environs_DEVICE_INFO_		A flag field (Environs.DEVICE_INFO_*) that indicates the properties that have changed.
 	*/
-	public delegate void DeviceObserver ( DeviceInstance ^device, int Environs_NOTIFY_ );
+	public delegate void DeviceObserver ( DeviceInstance ^device, int Environs_DEVICE_INFO_ );
 
 
 	/**

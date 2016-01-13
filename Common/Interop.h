@@ -331,7 +331,7 @@
 #	define EnvironsAPI(i)					environs::Environs::instancesAPI [ i ]
 
 #   define MAKE_FRIEND_CLASS(c)
-#	define DeviceInstanceNotify(i,f)		NotifyObservers ( i, f, true )
+#	define DeviceInstancePropertyNotify(i,e)	OnPropertyChanged ( i, e )
 //#	define DeviceInstanceNotify(i,f)		
 
 #else
@@ -412,7 +412,7 @@
 #	define EnvironsAPI(i)					environs::lib::Environs::instancesAPI [ i ]
 
 #   define MAKE_FRIEND_CLASS(c)            friend class c
-#	define DeviceInstanceNotify(i,f)		
+#	define DeviceInstancePropertyNotify(i,e)		
 #	define BuildDeviceDisplayProps(i,f)		i
 #	define ParsePortalInfo(i)				i
 

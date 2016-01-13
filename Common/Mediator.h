@@ -131,6 +131,8 @@ const unsigned int		maxSpareSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
 
 namespace environs	/// Namespace: environs ->
 {
+	extern unsigned int		primaryInterface;
+
 	typedef struct NetPack
 	{
 		unsigned int		ip;
@@ -384,6 +386,8 @@ namespace environs	/// Namespace: environs ->
         
         static bool             IsAnonymousUser ( const char * user );
 
+		static int              localNetsSize;
+
 	protected:
         bool					allocated;
         static bool				allocatedClass;
@@ -397,7 +401,6 @@ namespace environs	/// Namespace: environs ->
 		char			*		certificate;
 
 		static NetPack          localNets;
-        static int              localNetsSize;
         static pthread_mutex_t  localNetsLock;
         
 		pthread_mutex_t			mediatorLock;

@@ -53,7 +53,11 @@ void ShowLibMissingDialog ( const char * libName );
 
 namespace environs
 {
-
+#ifdef USE_ENVIRONS_LOG_POINTERS
+    pCOutLog COutLog          = 0;
+    pCOutArgLog COutArgLog    = 0;
+#endif
+    
 	void EnvironsDisposer ( IEnvironsDispose * obj )
 	{
 		if ( obj ) ( ( IEnvironsDispose * ) obj )->Release ();
@@ -83,6 +87,10 @@ namespace environs
 	{
 		/// Forward declarations
 		environs::Environs * LocateLoadEnvirons ( COBSTR module, int crt );
+
+#ifdef USE_ENVIRONS_LOG_POINTERS
+        void LocateLoadLogMethods ( COBSTR module, int crt, void ** outLog, void ** outLogArg );
+#endif
 
 		HMODULE		g_EnvironsModuleHandle	= 0;
 
@@ -143,152 +151,209 @@ namespace environs
 			if ( env )
 				env->LoadSettings ( appName, areaName );
 			return env;
-		}
+        }
+        
+
+#ifdef USE_ENVIRONS_LOG_POINTERS
+        /**
+         * Get log methods from Environs object.
+         *
+         */
+        void ENVIRONS_GetLogMethods ( void ** outLog, void ** outLogArg )
+        {
+            LocateLoadLogMethods ( "Environs", ENVIRONS_BUILD_CRT, outLog, outLogArg );
+        }
+#endif
+        
+        bool LocateLoadLib ( COBSTR module, int crt )
+        {
+            CVerbN ( "LocateLoadLib" );
+            
+            char absPath [ 1024 ];
+            
+            HMODULE hModLib = g_EnvironsModuleHandle;
+            if ( !hModLib )
+            {
+                sprintf ( absPath, ENVLIBPREFIX "%s" LIBEXTENSION, module );
+                
+                hModLib = dlopen ( module, RTLD_LAZY );
+                if ( !hModLib )
+                {
+                    CVerbVerbN ( "LocateLoadLib: Not found in system search path." );
+                    
+                    do
+                    {
+                        sprintf ( absPath, "./" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+                        
+                        hModLib = dlopen ( absPath, RTLD_LAZY );
+                        if ( hModLib )
+                            break;
+                        CVerbVerbN ( "LocateLoadLib: Not found in system search path [./]." );
+                        
+                        sprintf ( absPath, "./" LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+                        
+                        hModLib = dlopen ( absPath, RTLD_LAZY );
+                        if ( hModLib )
+                            break;
+#ifdef __APPLE__
+                        Dl_info info;
+                        if ( dladdr ( &g_EnvironsModuleHandle, &info ) ) {
+                            if ( info.dli_fname )
+                            {
+                                int length =  ( int ) strlen ( info.dli_fname );
+                                length -= 2;
+                                
+                                while ( length > 0 ) {
+                                    if ( info.dli_fname [ length ] == '/' )
+                                        break;
+                                    length--;
+                                }
+                                
+                                if ( length > 0 ) {
+                                    sprintf ( absPath, "%s", info.dli_fname );
+                                    
+                                    sprintf ( absPath + length + 1, "../../../" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+                                    
+                                    CLogArgN ( "LocateLoadLib: [%s]", absPath );
+                                    
+                                    hModLib = dlopen ( absPath, RTLD_LAZY );
+                                    if ( hModLib )
+                                        break;
+                                }
+                            }
+                        }
+                        
+                        CVerbVerbN ( "LocateLoadLib: Not found in root folder of app [./../]" );
+                        
+                        sprintf ( absPath, "./../../../" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+                        
+                        hModLib = dlopen ( absPath, RTLD_LAZY );
+                        if ( hModLib )
+                            break;
+                        CVerbVerbN ( "LocateLoadLib: Not found in root folder of app [./../../../.]" );
+#endif
+                        
+#ifdef _WIN32
+                        
+#   ifdef TEST_DIFFERENT_CRT
+#   undef ENVIRONS_TSDIR
+#   define ENVIRONS_TSDIR TEST_DIFFERENT_CRT
+#   endif
+                        
+                        sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
+                        
+                        hModLib = dlopen ( absPath, RTLD_LAZY );
+                        if ( hModLib )
+                            break;
+                        CVerbVerbN ( "LocateLoadLib: Not found in toolset search path [" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
+                        
+                        if ( !_getcwd ( absPath, 1024 ) )
+                            break;
+                        
+                        int pos = ( int ) strlen ( absPath );
+                        if ( pos <= 0 )
+                            break;
+                        
+                        sprintf ( absPath + pos, "/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
+                        
+                        CVerbN ( "LocateLoadLib: Trying [/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
+                        
+                        hModLib = dlopen ( absPath, RTLD_LAZY );
+                        if ( hModLib )
+                            break;
+                        CVerbVerbN ( "LocateLoadLib: Not found in toolset working directory path." );
+#else
+                        sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
+                        
+                        hModLib = dlopen ( absPath, RTLD_LAZY );
+                        if ( hModLib )
+                            break;
+#endif
+                        if ( !hModLib ) {
+#ifdef _WIN32
+                            CLogN ( "LocateLoadLib: Not found." );
+#else
+                            CLogArgN ( "LocateLoadLib: [%s]", dlerror () );
+#endif
+                        }
+                    }
+                    while ( 0 );
+                }
+            }
+            
+            if ( !hModLib ) {
+                CErrN ( "LocateLoadLib: Cannot find Environs library." );
+                
+                ShowLibMissingDialog ( module );
+                return false;
+            }
+            
+            g_EnvironsModuleHandle = hModLib;
+            return true;
+        }
 
 
 		environs::Environs * LocateLoadEnvirons ( COBSTR module, int crt )
 		{
 			CVerbN ( "LocateLoadEnvirons" );
 
-			char absPath [ 1024 ];
-
-			HMODULE hModLib = g_EnvironsModuleHandle;
-			if ( !hModLib )
-			{
-				sprintf ( absPath, ENVLIBPREFIX "%s" LIBEXTENSION, module );
-
-				hModLib = dlopen ( module, RTLD_LAZY );
-				if ( !hModLib )
-				{
-					CVerbVerbN ( "LocateLoadEnvirons: Not found in system search path." );
-
-					do
-					{
-						sprintf ( absPath, "./" ENVLIBPREFIX "%s" LIBEXTENSION, module );
-
-						hModLib = dlopen ( absPath, RTLD_LAZY );
-						if ( hModLib )
-							break;
-						CVerbVerbN ( "LocateLoadEnvirons: Not found in system search path [./]." );
-
-						sprintf ( absPath, "./" LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
-
-						hModLib = dlopen ( absPath, RTLD_LAZY );
-						if ( hModLib )
-							break;
-#ifdef __APPLE__
-						Dl_info info;
-						if ( dladdr ( &g_EnvironsModuleHandle, &info ) ) {
-							if ( info.dli_fname )
-							{
-								int length =  ( int ) strlen ( info.dli_fname );
-								length -= 2;
-
-								while ( length > 0 ) {
-									if ( info.dli_fname [ length ] == '/' )
-										break;
-									length--;
-								}
-
-								if ( length > 0 ) {
-									sprintf ( absPath, "%s", info.dli_fname );
-
-									sprintf ( absPath + length + 1, "../../../" ENVLIBPREFIX "%s" LIBEXTENSION, module );
-
-									CLogArgN ( "LocateLoadEnvirons: [%s]", absPath );
-
-									hModLib = dlopen ( absPath, RTLD_LAZY );
-									if ( hModLib )
-										break;
-								}
-							}
-						}
-
-						CVerbVerbN ( "LocateLoadEnvirons: Not found in root folder of app [./../]" );
-
-						sprintf ( absPath, "./../../../" ENVLIBPREFIX "%s" LIBEXTENSION, module );
-
-						hModLib = dlopen ( absPath, RTLD_LAZY );
-						if ( hModLib )
-							break;
-						CVerbVerbN ( "LocateLoadEnvirons: Not found in root folder of app [./../../../.]" );
-#endif
-
-#ifdef _WIN32
-
-#   ifdef TEST_DIFFERENT_CRT
-#   undef ENVIRONS_TSDIR
-#   define ENVIRONS_TSDIR TEST_DIFFERENT_CRT
-#   endif
-                        
-						sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
-
-						hModLib = dlopen ( absPath, RTLD_LAZY );
-						if ( hModLib )
-							break;
-						CVerbVerbN ( "LocateLoadEnvirons: Not found in toolset search path [" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
-
-						if ( !_getcwd ( absPath, 1024 ) )
-							break;
-
-						int pos = ( int ) strlen ( absPath );
-						if ( pos <= 0 )
-							break;
-
-						sprintf ( absPath + pos, "/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/%s" LIBEXTENSION, module );
-
-						CVerbN ( "LocateLoadEnvirons: Trying [/" LIBNAME_EXT_DIR "/" ENVIRONS_TSDIR "/]" );
-
-						hModLib = dlopen ( absPath, RTLD_LAZY );
-						if ( hModLib )
-							break;
-						CVerbVerbN ( "LocateLoadEnvirons: Not found in toolset working directory path." );
-#else
-						sprintf ( absPath, LIBNAME_EXT_DIR "/" ENVLIBPREFIX "%s" LIBEXTENSION, module );
-
-						hModLib = dlopen ( absPath, RTLD_LAZY );
-						if ( hModLib )
-							break;
-#endif
-						if ( !hModLib ) {
-#ifdef _WIN32
-							CLogN ( "LocateLoadEnvirons: Not found." );
-#else
-							CLogArgN ( "LocateLoadEnvirons: [%s]", dlerror () );
-#endif
-						}
-					}
-					while ( 0 );
-				}
-			}
-
-			if ( !hModLib ) {
-				CErrN ( "LocateLoadEnvirons: Cannot find Environs library." );
-
-				ShowLibMissingDialog ( module );
-				return 0;
-			}
+            if ( !LocateLoadLib ( module , crt ) || !g_EnvironsModuleHandle )
+            {
+                return 0;
+            }
 
 			ENVIRONS_PP ( ENVIRONS_CreateInstance1 ) pCreate = 0;
 
 			pCreate = ( ENVIRONS_PP ( ENVIRONS_CreateInstance1 ) )
-				dlsym ( hModLib, ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) );
+				dlsym ( g_EnvironsModuleHandle, ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) );
 
 			if ( pCreate ) {
-				g_EnvironsModuleHandle = hModLib;
-
 				CVerbN ( "LocateLoadEnvirons: Creating Instance." );
 
 				return ( environs::Environs * ) pCreate ( ENVIRONS_BUILD_CRT );
 			}
 
 			CErrN ( "LocateLoadEnvirons: Cannot find " ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) " in Environs library." );
+            return 0;
+        }
+        
 
-			dlclose ( hModLib );
-
-			g_EnvironsModuleHandle = 0;
-			return 0;
-		}
+#ifdef USE_ENVIRONS_LOG_POINTERS
+        void LocateLoadLogMethods ( COBSTR module, int crt, void ** outLog, void ** outLogArg )
+        {
+            CVerbN ( "LocateLoadLogMethods" );
+            
+            if ( !LocateLoadLib ( module , crt ) || !g_EnvironsModuleHandle )
+            {
+                return;
+            }
+            
+            ENVIRONS_PP ( ENVIRONS_GetLogMethods1 ) pGet = 0;
+            
+            pGet = ( ENVIRONS_PP ( ENVIRONS_GetLogMethods1 ) )
+                dlsym ( g_EnvironsModuleHandle, ENVIRONS_TOSTRING ( ENVIRONS_GetLogMethods1 ) );
+            
+            if ( pGet ) {
+                CVerbN ( "LocateLoadLogMethods: Updating log methods." );
+                
+                pGet ( outLog, outLogArg );
+                return;
+            }
+            
+            CErrN ( "LocateLoadLogMethods: Cannot find " ENVIRONS_TOSTRING ( ENVIRONS_GetLogMethods1 ) " in Environs library." );
+        }
+#endif
+        
+        
+        void DisposeEnvironsLib ()
+        {
+            if ( !g_EnvironsModuleHandle )
+                return;
+            
+            dlclose ( g_EnvironsModuleHandle );
+            
+            g_EnvironsModuleHandle = 0;
+        }
 	}
 }
 

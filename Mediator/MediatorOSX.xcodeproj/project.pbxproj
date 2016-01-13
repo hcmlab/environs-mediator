@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		7E0028231B725AB900AB783F /* Dyn.Lib.Crypto.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E0028211B725AB900AB783F /* Dyn.Lib.Crypto.cpp */; };
 		7E0028261B725C5500AB783F /* Export.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E0028241B725C5500AB783F /* Export.cpp */; };
-		7E3A884618DDAAB60063BAED /* MediatorOSX.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7E3A884518DDAAB60063BAED /* MediatorOSX.1 */; };
 		7E3A885118DDAB2D0063BAED /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A884C18DDAB2D0063BAED /* main.cpp */; };
 		7E3A885318DDAB2D0063BAED /* stdafx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A884F18DDAB2D0063BAED /* stdafx.cpp */; };
 		7E3A885D18DDAB640063BAED /* Environs.Crypt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A885518DDAB640063BAED /* Environs.Crypt.cpp */; };
@@ -28,7 +27,6 @@
 			dstPath = /usr/share/man/man1/;
 			dstSubfolderSpec = 0;
 			files = (
-				7E3A884618DDAAB60063BAED /* MediatorOSX.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -41,7 +39,6 @@
 		7E0028251B725C5500AB783F /* Export.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Export.h; path = ../../Common/Interop/Export.h; sourceTree = "<group>"; };
 		7E2220BB1B517D66003E2D9C /* Log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Log.h; path = ../../Common/Log.h; sourceTree = "<group>"; };
 		7E3A884018DDAAB60063BAED /* MediatorOSX */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MediatorOSX; sourceTree = BUILT_PRODUCTS_DIR; };
-		7E3A884518DDAAB60063BAED /* MediatorOSX.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = MediatorOSX.1; sourceTree = "<group>"; };
 		7E3A884C18DDAB2D0063BAED /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = SOURCE_ROOT; };
 		7E3A884F18DDAB2D0063BAED /* stdafx.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = stdafx.cpp; sourceTree = SOURCE_ROOT; };
 		7E3A885018DDAB2D0063BAED /* stdafx.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stdafx.h; sourceTree = SOURCE_ROOT; };
@@ -120,7 +117,6 @@
 				7ED0D3781AFDAEAA00342B64 /* Mediator.Daemon.cpp */,
 				7ED0D3791AFDAEAA00342B64 /* Mediator.Daemon.h */,
 				7E3A885C18DDAB640063BAED /* Mediator.h */,
-				7E3A884518DDAAB60063BAED /* MediatorOSX.1 */,
 				7E3A884F18DDAB2D0063BAED /* stdafx.cpp */,
 				7E3A885018DDAB2D0063BAED /* stdafx.h */,
 				7E3A886018DDAEB50063BAED /* Threads.cpp */,
@@ -213,6 +209,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				DEAD_CODE_STRIPPING = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -262,6 +259,7 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -283,6 +281,7 @@
 				OTHER_CFLAGS = (
 					"-DMEDIATORDAEMON",
 					"-Wno-deprecated",
+					"-DNDEBUG",
 				);
 				SDKROOT = macosx;
 			};
@@ -291,6 +290,8 @@
 		7E3A884A18DDAAB60063BAED /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_USE_OPTIMIZATION_PROFILE = NO;
+				CODE_SIGN_IDENTITY = "";
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
@@ -304,6 +305,7 @@
 					"$(inherited)",
 					/opt/local/lib,
 				);
+				LLVM_LTO = YES;
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -312,6 +314,9 @@
 		7E3A884B18DDAAB60063BAED /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_USE_OPTIMIZATION_PROFILE = NO;
+				CODE_SIGN_IDENTITY = "";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
 					/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/include,
@@ -325,6 +330,7 @@
 					"$(inherited)",
 					/opt/local/lib,
 				);
+				LLVM_LTO = YES;
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

@@ -284,13 +284,29 @@ namespace environs {
 #	define ENVIRONS_LOG_RCMD(tag,expression)                MLog ( expression )
 #	define ENVIRONS_LOGARG_RCMD(tag,expression,...)         MLogArg ( expression, __VA_ARGS__ )
 #else
-#	ifdef ANDROID
-#		define ENVIRONS_LOG_RCMD(tag,expression)            ((environs::Instance *) pEnvirons)->cOutLog ( tag, expression, 0, true )
-#		define ENVIRONS_LOGARG_RCMD(tag,expression,...)     ((environs::Instance *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ )
-#	else
-#		define ENVIRONS_LOG_RCMD(tag,expression)            ((environs::Instance *) pEnvirons)->cOutLog ( expression, 0, true )
-#		define ENVIRONS_LOGARG_RCMD(tag,expression,...)     ((environs::Instance *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ )
-#	endif
+
+#   ifdef USE_ENVIRONS_LOG_POINTERS
+#       ifdef ANDROID
+#           define ENVIRONS_LOG_RCMD(tag,expression)            if (COutLog) COutLog ( expression, 0, true )
+#           define ENVIRONS_LOGARG_RCMD(tag,expression,...)     if (COutArgLog) COutArgLog ( expression, __VA_ARGS__ )
+#       else
+#           define ENVIRONS_LOG_RCMD(tag,expression)            if (COutLog) COutLog ( expression, 0, true )
+#           define ENVIRONS_LOGARG_RCMD(tag,expression,...)     if (COutArgLog) COutArgLog ( expression, __VA_ARGS__ )
+#       endif
+#   else
+#       ifdef USE_STATIC_ENVIRONS_LOG
+#           define ENVIRONS_LOG_RCMD(tag,expression)            environs::COutLog ( expression, 0, true )
+#           define ENVIRONS_LOGARG_RCMD(tag,expression,...)     environs::COutArgLog ( expression, __VA_ARGS__ )
+#       else
+#           ifdef ANDROID
+#               define ENVIRONS_LOG_RCMD(tag,expression)            ((environs::Instance *) pEnvirons)->cOutLog ( tag, expression, 0, true )
+#               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     ((environs::Instance *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ )
+#           else
+#               define ENVIRONS_LOG_RCMD(tag,expression)            ((environs::Instance *) pEnvirons)->cOutLog ( expression, 0, true )
+#               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     ((environs::Instance *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ )
+#           endif
+#       endif
+#   endif
 #endif
 
 #endif // <-- ENVIRONS_CORE_LIB
@@ -411,8 +427,8 @@ namespace environs {
 	->Append(msg)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ] ") \
 	->Append(name2)->Append(": [ ")->Append(arg2)->Append(" ]") ) )
 
-#	define CVerbsArg2(level,msg,...)                CVerbArg2(msg,__VA_ARGS__);
-#	define CVerbsArg1(level,msg,...)                CVerbArg1(msg,__VA_ARGS__);
+#	define CVerbsArg2(level,msg,name1,type1,arg1,name2,type2,arg2)	CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2);
+#	define CVerbsArg1(level,msg,name1,type1,arg1)					CVerbArg1(msg,name1,type1,arg1);
 #else
 #	define CVerbArg1(msg,name1,type1,arg1)			ENVIRONS_VERBRG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_VERB_PREFIX,	msg " " name1 ": [ %" type1 " ]" ), arg1 )
 
@@ -423,8 +439,8 @@ namespace environs {
 #		define CVerbsArg2(level,...)				DLEVEL ( level ) { CLogArg2(__VA_ARGS__); }
 #		define CVerbsArg1(level,...)				DLEVEL ( level ) { CLogArg1(__VA_ARGS__); }
 #	else
-#		define CVerbsArg2(level,...)				DLEVEL ( level ) { CVerbArg2(__VA_ARGS__); }
-#		define CVerbsArg1(level,...)				DLEVEL ( level ) { CVerbArg1(__VA_ARGS__); }
+#		define CVerbsArg2(level,msg,name1,type1,arg1,name2,type2,arg2)	DLEVEL ( level ) { CVerbArg2(msg,name1,type1,arg1,name2,type2,arg2); }
+#		define CVerbsArg1(level,msg,name1,type1,arg1)					DLEVEL ( level ) { CVerbArg1(msg,name1,type1,arg1); }
 #	endif
 #endif
 

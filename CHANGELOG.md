@@ -3,6 +3,14 @@
 ---------------------------
 
 
+### v 0.9.6.4
+
+---------------------------
+
+* Updated: socket calls in mediator daemon
+* Updated: Mediator service stun register request frequency
+* Updated: Log output
+
 
 ### v 0.9.6.2
 

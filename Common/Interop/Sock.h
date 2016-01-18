@@ -27,10 +27,19 @@
 //#include <ws2ipdef.h>
 #include <ws2tcpip.h>
 
-#define LogSocketErrorF(f)					CWarnArg("%s: SocketError [%d]",f, WSAGetLastError())
-#define LogSocketError()					CWarnArg("SocketError: [%d]",WSAGetLastError())
-#define VerbLogSocketError()				CVerbArg("SocketError: [%d]",WSAGetLastError())
+#define LogSocketErrorF(f)					CWarnArg    ( "[%s]: SocketError [ %d ]",f, WSAGetLastError())
+#define LogSocketErrorFID(f)				CWarnArgID  ( "[%s]: SocketError [ %d ]",f, WSAGetLastError())
+#define VerbLogSocketErrorF(f)				CVerbArg    ( "[%s]: SocketError [ %d ]",f, WSAGetLastError())
+#define LogSocketError1()					CWarnArg    ( "SocketError: [ %s ]",        strerror(errno))
+#define VerbLogSocketError1()				CVerbArg    ( "SocketError: [ %s ]",        strerror(errno))
+#define LogSocketError()					{ int err = WSAGetLastError(); CWarnArg    ( "SocketError: [ %d ]",        err); }
+#define LogSocketErrorID()					{ int err = WSAGetLastError(); CWarnArgID  ( "SocketError: [ %d ]",        err); }
+#define VerbLogSocketError()				{ int err = WSAGetLastError(); CVerbArg    ( "SocketError: [ %d ]",        err); }
+
 #define SOCK_IN_PROGRESS					(WSAGetLastError() == WSAEWOULDBLOCK)
+#define SOCKETRETRY()						{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) continue; }
+#define SOCKETRETRYGOTO(label)				{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) goto label; }
+
 #define DisableSIGPIPE(socki)				
 
 #else
@@ -58,12 +67,21 @@
 #define DisableSIGPIPE(socki)				signal(SIGPIPE, SIG_IGN);
 #endif
 
-#define LogSocketErrorF(f)					CWarnArg("%s: SocketError [%s]",f, strerror(errno))
-#define LogSocketError()					CWarnArg("SocketError: [%s]",strerror(errno))
-#define VerbLogSocketError()				CVerbArg("SocketError: [%s]",strerror(errno))
+#define LogSocketErrorF(f)					CWarnArg    ( "[%s]: SocketError [ %s ]",f, strerror(errno))
+#define LogSocketErrorFID(f)				CWarnArgID  ( "[%s]: SocketError [ %s ]",f, strerror(errno))
+#define VerbLogSocketErrorF(f)				CVerbArg    ( "[%s]: SocketError [ %s ]",f, strerror(errno))
+#define LogSocketError()					CWarnArg    ( "SocketError: [ %s ]",        strerror(errno))
+#define LogSocketError1()
+#define VerbLogSocketError1()
+#define LogSocketErrorID()					CWarnArgID  ( "SocketError: [ %s ]",        strerror(errno))
+#define VerbLogSocketError()				CVerbArg    ( "SocketError: [ %s ]",        strerror(errno))
+
 #define SOCK_IN_PROGRESS					(errno == EINPROGRESS || errno == EALREADY)
 #define SOCK_CONNECTED						(errno == EISCONN)
 #define SOCK_CON_REFUSED					(errno == ECONNREFUSED)
+
+#define SOCKETRETRY()						{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) continue; }
+#define SOCKETRETRYGOTO(label)				{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) goto label; }
 
 #define closesocket(s) 						close(s)
 #define WSACleanup()
@@ -71,14 +89,26 @@
 #define WSAStartup(a,b)						((*b = 0) == (WSAData)1)
 #endif
 
+
+#ifndef DEBUGVERB
+#undef VerbLogSocketErrorF
+#define VerbLogSocketErrorF(f)
+
+#undef VerbLogSocketError
+#define VerbLogSocketError()
+
+#undef VerbLogSocketError1
+#define VerbLogSocketError1()
+
+#endif
+
+
 #ifdef __cplusplus
 namespace environs
 {
-#endif
+    
+	extern void LimitLingerAndClose ( int &sock );
 
-	extern void LimitLingerAndClose ( int sock );
-
-#ifdef __cplusplus
 }
 #endif
 

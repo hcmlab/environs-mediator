@@ -59,19 +59,26 @@
 
 #define CLASS_NAME	"Environs.Crypt . . . . ."
 
+#ifdef _WIN32
+#   pragma warning( push )
+#   pragma warning( disable: 4996 )
+#   pragma warning( push )
+#   pragma warning( disable: 4995 )
+#endif
+
 
 namespace environs
 {
 	/// Some salt to the hash soup...
-	const char *            hashSalt        = "hcmEnvirons";
+	const char *            hashSalt                = "hcmEnvirons";
 
-#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+#ifdef ENABLE_CRYPT_PRIVKEY_LOCKED_ACCESS
 	/// A mutex to synchronize access to the private key
 	pthread_mutex_t         privKeyMutex;
 #endif
     
-    bool                    allocated           = false;
-    bool                    openssl_alg_added   = false;
+    bool                    allocated               = false;
+    bool                    openssl_alg_added       = false;
     
     pEncryptMessage         EncryptMessage  = 0;
     pDecryptMessage         DecryptMessage  = 0;
@@ -79,14 +86,15 @@ namespace environs
     pSHAHashCreate          SHAHashCreate   = 0;
     pAESEncrypt             AESEncrypt      = 0;
     pAESDecrypt             AESDecrypt      = 0;
-    pGenerateCertificate    GenerateCertificate = 0;
     
-    pAESDeriveKeyContext    AESDeriveKeyContext = 0;
-    pAESUpdateKeyContext    AESUpdateKeyContext = 0;
-    pAESDisposeKeyContext   AESDisposeKeyContext = 0;
-    pPreparePrivateKey      PreparePrivateKey = 0;
-    pDisposePublicKey       DisposePublicKey = 0;
-    pDisposePrivateKey      DisposePrivateKey = 0;
+    pGenerateCertificate    GenerateCertificate     = 0;
+    
+    pAESDeriveKeyContext    AESDeriveKeyContext     = 0;
+    pAESUpdateKeyContext    AESUpdateKeyContext     = 0;
+    pAESDisposeKeyContext   AESDisposeKeyContext    = 0;
+    pPreparePrivateKey      PreparePrivateKey       = 0;
+    pDisposePublicKey       DisposePublicKey        = 0;
+    pDisposePrivateKey      DisposePrivateKey       = 0;
 
 	
 	const char * ConvertToHexString ( const char * src, unsigned int length )
@@ -96,22 +104,12 @@ namespace environs
 
 		static char buffer [4096];
 
-#ifdef _WIN32
-#   pragma warning( push )
-#   pragma warning( disable: 4996 )
-#   pragma warning( push )
-#   pragma warning( disable: 4995 )
-#endif
 		for ( unsigned int i = 0; i < length; i++ )
 		{
 			sprintf ( buffer + (i * 2), "%02X", (unsigned char)src [i] );
 			//	CLogArg ( "%02x", (unsigned char)blob [i] );
 		}
 
-#ifdef _WIN32
-#   pragma warning( pop )
-#   pragma warning( pop )
-#endif
 		return buffer;
 	}
     
@@ -122,22 +120,12 @@ namespace environs
         
 		static char buffer [4096];
         
-#ifdef _WIN32
-#   pragma warning( push )
-#   pragma warning( disable: 4996 )
-#   pragma warning( push )
-#   pragma warning( disable: 4995 )
-#endif
 		for ( unsigned int i = 0; i < length; i++ )
 		{
 			sprintf ( buffer + (i * 3), "%02X ", (unsigned char)src [i] );
 			//	CLogArg ( "%02x", (unsigned char)blob [i] );
 		}
         
-#ifdef _WIN32
-#   pragma warning( pop )
-#   pragma warning( pop )
-#endif
 		return buffer;
     }
     
@@ -146,12 +134,6 @@ namespace environs
         if ( !src || !length )
             return 0;
         
-#ifdef _WIN32
-#   pragma warning( push )
-#   pragma warning( disable: 4996 )
-#   pragma warning( push )
-#   pragma warning( disable: 4995 )
-#endif
 		if ( limit && length > 300 )
 			length = 300;
         for ( unsigned int i = 0; i < length; i++ )
@@ -161,20 +143,13 @@ namespace environs
         }
         
         buffer [ length * 3 ] = 0;
-#ifdef _WIN32
-#   pragma warning( pop )
-#   pragma warning( pop )
-#endif
+        
         return buffer;
     }
 
 
 	char * ConvertToByteBuffer ( const char * src, unsigned int length, char * buffer )
 	{
-#ifdef _WIN32
-#   pragma warning( push )
-#   pragma warning( disable: 4996 )
-#endif
 		length >>= 1;
 		for ( unsigned int i = 0; i < length; i++ )
 		{
@@ -185,9 +160,6 @@ namespace environs
 
 		buffer [ length ] = 0;
 
-#ifdef _WIN32
-#   pragma warning( pop )
-#endif
 		return buffer;
 	}
 
@@ -1521,12 +1493,12 @@ namespace environs
             free ( ctx->decCtx );
 		}
 #else
-#ifdef USE_CACHED_HKEY
+#   ifdef USE_CACHED_HKEY
 		if ( ctx->encCtx ) CryptDestroyKey ( (HCRYPTKEY) ctx->encCtx );
 		if ( ctx->keyCtx ) CryptReleaseContext ( (HCRYPTPROV) ctx->keyCtx, 0 );
-#else
+#   else
 		if ( ctx->encCtx ) free ( ctx->encCtx );
-#endif
+#   endif
 #endif
 		memset ( ctx, 0, sizeof(AESContext) );
 	}
@@ -1881,17 +1853,17 @@ namespace environs
 		}
 		while ( 0 );
 
-#ifndef USE_CACHED_HKEY
+#   ifndef USE_CACHED_HKEY
 		if ( hKey )		CryptDestroyKey ( hKey );
 		if ( hCSP )		CryptReleaseContext ( hCSP, 0 );
-#endif
+#   endif
         
-#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+#   ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_unlock ( &ctx->decLock ) ) {
 			CErrID ( "AESEncrypt: Failed to release mutex." );
 			ret = false;
 		}
-#endif
+#   endif
 #endif
 		if ( ret ) {
 			cipherStart [ ciphersSize ] = 0;
@@ -2611,20 +2583,20 @@ namespace environs
 
             if ( !openssl_alg_added )
             {
-# ifdef OPENSSL_LOAD_CONF
+#   ifdef OPENSSL_LOAD_CONF
                 dOPENSSL_add_all_algorithms_conf();
-# else
+#   else
                 dOPENSSL_add_all_algorithms_noconf();
-# endif
+#   endif
                 dERR_load_crypto_strings ();
             
                 openssl_alg_added = true;
             }
         }
         else {
-#ifndef ANDROID
+#   ifndef ANDROID
             CErr ( "InitEnvironsCrypt: CRITICAL ERROR. Failed to load libcrypto! Encryption not available!" );
-#endif
+#   endif
             EncryptMessage = dEncryptMessage;
             DecryptMessage = dDecryptMessage;
             ReleaseCert = dReleaseCert;
@@ -2640,7 +2612,7 @@ namespace environs
             DisposePrivateKey = dDisposePrivateKey;
         }
 #else
-#ifdef _WIN32
+#   ifdef _WIN32
 		EncryptMessage = cryptEncryptMessage;
 		DecryptMessage = cryptDecryptMessage;
 		ReleaseCert = cryptReleaseCert;
@@ -2654,7 +2626,7 @@ namespace environs
 		PreparePrivateKey   = dPreparePrivateKey;
 		DisposePublicKey   = dDisposePublicKey;
 		DisposePrivateKey = dDisposePrivateKey;
-#else
+#   else
         EncryptMessage = dEncryptMessage;
         DecryptMessage = dDecryptMessage;
         ReleaseCert = dReleaseCert;
@@ -2668,14 +2640,16 @@ namespace environs
         PreparePrivateKey   = dPreparePrivateKey;
         DisposePublicKey   = dDisposePublicKey;
         DisposePrivateKey = dDisposePrivateKey;
-#endif
+#   endif
 #endif
         if ( !allocated )
         {
-#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+#ifdef ENABLE_CRYPT_PRIVKEY_LOCKED_ACCESS
             if ( !MutexInit ( &privKeyMutex ) )
                 return false;
+#endif
             
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
             if ( !CryptLocksCreate () )
                 return false;
 #endif
@@ -2685,3 +2659,10 @@ namespace environs
     }
     
 }
+
+
+#ifdef _WIN32
+#   pragma warning( pop )
+#   pragma warning( pop )
+#endif
+

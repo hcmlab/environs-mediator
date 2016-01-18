@@ -292,7 +292,11 @@ private:
 	bool									addToArea ( const char * project, const char * app, const char * key, const char * value );
 	bool									sendDatabase ( int sock, struct sockaddr * addr );
 	
+#ifdef USE_NONBLOCK_CLIENT_SOCKET
+    int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true, int retries = 0 );
+#else
 	int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true );
+#endif
 	bool									SendPushNotification ( map<string, ValuePack*> * values, int clientID, const char * value );
 	bool									HTTPPostRequest ( string domain, string path, string key, string jsonData );
 

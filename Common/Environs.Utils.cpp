@@ -320,7 +320,7 @@ namespace environs
 #endif
     
 #if !defined(_WIN32) && !defined(__APPLE__)
-    // return nanoseconds
+    // return milliseconds
     INTEROPTIMEVAL GetEnvironsTickCount ()
     {
         struct timespec	ts;
@@ -329,7 +329,10 @@ namespace environs
             CErrArg ( "GetEnvironsTickCount: Failed to fetch time [%s]", strerror ( errno ) );
             return 0;
         }
-        return ts.tv_nsec;
+        
+        if ( ts.tv_nsec > 0 )
+            return ts.tv_nsec / 1000;
+        return 0;
     }
 #endif
     

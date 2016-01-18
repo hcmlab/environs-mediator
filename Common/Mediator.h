@@ -38,6 +38,11 @@
 #   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     60
 #endif
 
+#define MEDIATOR_LIMIT_STUNT_REG_REQUESTS
+//#define MEDIATOR_USE_TCP_NODELAY
+//#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
+#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_CLIENT
+//#define USE_NONBLOCK_CLIENT_SOCKET
 
 #include "Interop/Threads.h"
 #include "Interop/Sock.h"
@@ -79,6 +84,7 @@
 #define	MEDIATOR_CMD_HEARTBEAT					'h'
 #define	MEDIATOR_CMD_GETALL						'a'
 #define	MEDIATOR_CMD_SET_FILTERMODE				'f'
+#define	MEDIATOR_CMD_SET_SOCKET_BUFFERS			'b'
 #define	MEDIATOR_CMD_QUIT						'q'
 #define	MEDIATOR_CMD_NATSTAT					'n'
 #define	MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE		'N'
@@ -120,6 +126,7 @@
 
 #define MEDIATOR_NAT_REQ_SIZE					12
 #define MEDIATOR_MSG_VERSION_SIZE				16
+#define MEDIATOR_MSG_SOCKET_BUFFERS_SIZE		16
 
 #define MEDIATOR_DEVICE_RELOAD					-1
 #define MEDIATOR_DEVICE_CHANGE_NEARBY			1
@@ -201,6 +208,12 @@ namespace environs	/// Namespace: environs ->
         
 #ifdef MEDIATORDAEMON
         volatile ThreadInstance  *	stuntTarget;
+        
+#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
+        INTEROPTIMEVAL              stuntLastSend;
+        
+        INTEROPTIMEVAL              stunLastSend;
+#endif
         
         pthread_mutex_t             spareSocketsLock;
         
@@ -367,19 +380,21 @@ namespace environs	/// Namespace: environs ->
 		Mediator ( );
 		virtual ~Mediator ( );
 
-		bool					Init ( );
-		bool					Start ( );
-		bool					IsStarted ( );
+		bool					Init ();
+		bool					Start ();
+		bool					IsStarted ();
 
-		virtual void			BuildBroadcastMessage ( ) = 0;
-		bool					SendBroadcast ( );
+		void					StopMediators ();
+
+		virtual void			BuildBroadcastMessage () = 0;
+		bool					SendBroadcast ();
 
 		bool					AddMediator ( unsigned int ip, unsigned short port );
         void					BroadcastByeBye ();
         
-        static bool				LoadNetworks ( );
-        static unsigned int		GetLocalIP ( );
-        static unsigned int		GetLocalSN ( );
+        static bool				LoadNetworks ();
+        static unsigned int		GetLocalIP ();
+        static unsigned int		GetLocalSN ();
 
         static bool				InitClass ();
         static void				DisposeClass ();

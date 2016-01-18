@@ -156,6 +156,8 @@ namespace environs
         {
             inst->spareSocket = -1;
             
+            CVerbArg ( "GetSpareSocket: Adding socket [ %i ] to old spareSockets", sock );
+            
             inst->spareSockets [ inst->spareSocketsCount ] = sock; inst->spareSocketsCount++;
             
             LimitSpareSocketsCount ( inst );
@@ -168,7 +170,7 @@ namespace environs
     }
     
 
-	void LimitLingerAndClose ( int sock )
+	void LimitLingerAndClose ( int &sock )
 	{
 		if ( sock < 0 )
             return;
@@ -187,8 +189,12 @@ namespace environs
             VerbLogSocketError ();
 		}
         
-        shutdown ( sock, 2 );
+        CVerbArg ( "LimitLingerAndClose: Closing [ %i ]", sock );
+        
+        shutdown ( sock, 2 ); // SHUT_RDWR
         closesocket ( sock );
+        
+        sock = -1;
 	}
 
 
@@ -322,6 +328,7 @@ namespace environs
 	void Mediator::BroadcastByeBye ()
 	{
 		strlcpy ( broadcastMessage + 4, MEDIATOR_BROADCAST_BYEBYE, sizeof ( MEDIATOR_BROADCAST_BYEBYE ) );
+
 		SendBroadcast ();
 	}
 
@@ -359,7 +366,11 @@ namespace environs
 			//LogSocketError ();
 #ifdef MEDIATORDAEMON
             try {
-                LimitLingerAndClose ( (int) sock );
+                int sockl = (int) sock;
+                
+                LimitLingerAndClose ( sockl );
+                
+                sock = sockl;
 			}
 			catch ( ... ) {
 			}
@@ -467,6 +478,26 @@ namespace environs
 	}
 
 
+	void Mediator::StopMediators ()
+	{
+		CVerb ( "StopMediators" );
+
+		MediatorInstance * inst = &mediator;
+
+		while ( inst )
+		{
+			int s = ( int ) inst->connection.instance.socket;
+			if ( s != -1 ) {
+				inst->connection.instance.socket = -1;
+
+				CVerb ( "StopMediators: closing socket" );
+				LimitLingerAndClose ( s );
+			}
+			inst = inst->next;
+		}
+	}
+
+
 	void Mediator::ReleaseMediator ( MediatorInstance * med )
 	{
 		if ( !med ) return;
@@ -539,22 +570,11 @@ namespace environs
 	void Mediator::ReleaseMediators ()
 	{
         CVerb ( "ReleaseMediators" );
-        
-        MediatorInstance * inst = &mediator;
-        
-        // Conduct a "Prerelease by closing all sockets before actually releasing them
-        
-        while ( inst )
-        {
-            int s = (int) inst->connection.instance.socket;
-            if ( s != -1 ) {
-                inst->connection.instance.socket = -1;
-                
-                CVerb ( "ReleaseMediators: closing socket" );
-                LimitLingerAndClose ( s );
-            }
-            inst = inst->next;
-        }
+
+		// Conduct a "Prerelease" by closing all sockets before actually releasing them
+		StopMediators ();
+
+		MediatorInstance * inst = &mediator;
 
 		MutexLockV ( &mediatorLock, "ReleaseMediators" );
 
@@ -1558,7 +1578,7 @@ namespace environs
 			device->info.updates = ( unsigned int ) lastGreetUpdate;
 
 #ifndef MEDIATORDAEMON
-			if ( !device->info.ipe || device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
+			if ( !device->info.ipe && device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
 #endif
 				if ( ip != device->info.ipe ) {
 					device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;

@@ -521,6 +521,14 @@ JNIEXPORT jint JNICALL Java_environs_Environs_StopN
 
 /*
  * Class:     environs_Environs
+ * Method:    StopNetLayerN
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_StopNetLayerN
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     environs_Environs
  * Method:    GetStatusN
  * Signature: (I)I
  */

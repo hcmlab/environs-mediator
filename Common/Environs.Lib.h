@@ -295,6 +295,8 @@ namespace environs
 				LIBEXPORT int CallConv			StartN ( int hInst );
 			CLI_INC
 				LIBEXPORT int CallConv			StopN ( int hInst );
+			CLI_INC
+				LIBEXPORT void CallConv			StopNetLayerN ( int hInst );
 
 			/**
 			* Dispose/Release a native Environs object with the given object handle.

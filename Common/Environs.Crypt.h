@@ -33,12 +33,13 @@
 
 #define ENVIRONS_CERT_SIGNED_FLAG       0x80000000
 
+#define ENABLE_CRYPT_PRIVKEY_LOCKED_ACCESS
+
 
 #if ( defined(ANDROID) || defined(LINUX) )
-#define USE_OPENSSL
-#define USE_OPENSSL_AES
+#   define USE_OPENSSL
+#   define USE_OPENSSL_AES
 #else
-
 //#if ( defined(MEDIATORDAEMON) )
     #if ( defined(MEDIATORDAEMON) || defined(ENVIRONS_OSX) )
 
@@ -55,6 +56,12 @@
 
 #ifndef OPENSSL1
 #   define ENABLE_CRYPT_AES_LOCKED_ACCESS
+#endif
+
+#ifdef ENVIRONS_IOS
+#   ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+#       undef ENABLE_CRYPT_AES_LOCKED_ACCESS
+#   endif
 #endif
 
 

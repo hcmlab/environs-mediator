@@ -179,10 +179,10 @@ namespace environs
         
 #ifdef MEDIATORDAEMON
         ling.l_onoff    = 1;
-        ling.l_linger   = 5;
+        ling.l_linger   = 10;
 #else
 		ling.l_onoff    = 1;
-		ling.l_linger   = 0;
+		ling.l_linger   = 10;
 #endif
 		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
 			CVerb ( "LimitLingerAndClose: Failed to set SO_LINGER on socket" );

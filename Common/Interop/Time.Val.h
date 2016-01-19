@@ -35,7 +35,7 @@
 #	define INTEROPTIMEMS(ms)           		(ms)
 #else
 #	if defined(ANDROID) || !defined(__APPLE__)
-#		define INTEROPTIMEMS(ms)           	(ms * 1000)
+#		define INTEROPTIMEMS(ms)           	(ms)
 #	else
 #		define INTEROPTIMEMS(ms)           	(ms)
 #	endif

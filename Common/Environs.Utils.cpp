@@ -330,9 +330,7 @@ namespace environs
             return 0;
         }
         
-        if ( ts.tv_nsec > 0 )
-            return ts.tv_nsec / 1000;
-        return 0;
+		return ( ( ts.tv_sec * 1000 ) + ( ts.tv_nsec  > 0 ? ( ts.tv_nsec / 1000 ) : 0 ) );
     }
 #endif
     

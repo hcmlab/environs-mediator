@@ -98,7 +98,7 @@ int _getch ( )
 #define CLASS_NAME		"Daemon"
 
 
-//#define USE_VERIFYSOCKETS
+#define USE_VERIFYSOCKETS
 
 // Forward declarations
 

@@ -344,7 +344,7 @@ namespace environs
 			now = GetEnvironsTickCount ();
 #endif
         if ( native.useLogFile ) {
-            if ( environsLogFileHandle || OpenLog () ) {
+            if ( environsLogFileHandle || (OpenLog () && environsLogFileHandle)) {
 #ifndef ANDROID
                 fwrite ( timeString, 1, timeLen, environsLogFileHandle );
 #endif

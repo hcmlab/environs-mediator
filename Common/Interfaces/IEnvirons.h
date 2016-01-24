@@ -26,12 +26,13 @@
 #include "Environs.Platforms.h"
 #include "Environs.Observer.h"
 #include "Device.Display.Decl.h"
+#include "Location.Decl.h"
 
 #include <string>
 
 
 namespace environs 
-{
+{    
 	CLASS DeviceList;
 
 	PUBLIC_CLASS Environs CLI_ABSTRACT : public lib::IEnvironsDispose
@@ -93,6 +94,38 @@ namespace environs
          * @return level      debug level 0 ... 16
          */
         virtual int GetDebug () = 0;
+
+		/**
+		* Set timeout for LAN/WiFi connects. Default ( 2 seconds ).
+		* Increasing this value may help to handle worse networks which suffer from large latencies.
+		*
+		* @param   timeout
+		*/
+        virtual void SetNetworkConnectTimeout ( int timeout ) = 0;
+                
+        
+        /**
+         * Get platform that the app is running on.
+         *
+         * @return 	enum of type Environs.Platforms
+         */
+        virtual int GetPlatform () = 0;
+        
+        /**
+         * Set the platform type that the local instance of Environs shall use for identification within the environment.&nbsp;
+         * Valid type are enumerated in Environs.Platforms.*
+         *
+         * @param	platform	Environs.Platforms.*
+         */
+        virtual void SetPlatform ( int platform ) = 0;
+        
+        /**
+         * Set/Remove the location-node flag to the platform type that the local instance of Environs shall use for identification within the environment.&nbsp;
+         * Flag: Environs.Platforms.LocationNode_Flag
+         *
+         * @param	isLocationNode	true or false
+         */
+        virtual void SetIsLocationNode ( bool isLocationNode ) = 0;
         
         
         /**
@@ -810,6 +843,10 @@ namespace environs
 		*/
 		virtual bool RemoveObserverForSensorData ( EnvironsSensorDataObserver * observer ) = 0;
 
+        
+        virtual Location GetLocation () = 0;
+        
+        
 		/**
 		* Create a new collection that holds all devices of given list type. This list ist updated dynamically by Environs.
 		* After client code is done with the list, the list->Release () method MUST be called by the client code,

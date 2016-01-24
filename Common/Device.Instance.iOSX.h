@@ -86,6 +86,8 @@
 @property (readonly, nonatomic) bool			isConnected;
 @property (readonly, nonatomic) char			internalUpdates;
 
+@property (readonly, nonatomic) bool			isLocationNode;
+
 /** Used internally by native layer. */
 @property (readonly, nonatomic) char            internalType;
 
@@ -411,6 +413,18 @@
  * @return Collection with objects of type MessageInstance
  */
 - (NSMutableArray *) GetAllMessages;
+
+
+/**
+ * Enable sending of sensor events to this DeviceInstance.
+ * Events are send if the device is connected and stopped if the device is disconnected.
+ *
+ * @param ENVIRONS_SENSOR_TYPE_ A value of type ENVIRONS_SENSOR_TYPE_*.
+ * @param enable true = enable, false = disable.
+ *
+ * @return success true = enabled, false = failed.
+ */
+- (bool) SetSensorEventSending :(int) ENVIRONS_SENSOR_TYPE_ enable:(bool) enable;
 
 @end
 

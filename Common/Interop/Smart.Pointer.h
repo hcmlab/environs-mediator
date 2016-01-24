@@ -121,7 +121,9 @@ using System::Collections::Generic::Queue;
 using System::Collections::ArrayList;
 using System::Collections::Generic::List;
 
-using System::Collections::ObjectModel::ObservableCollection;
+#ifndef CLI_NOUI
+	using System::Collections::ObjectModel::ObservableCollection;
+#endif
 
 
 #	define stdQueue(type)			System::Collections::Generic::Queue < type >

@@ -42,7 +42,7 @@ namespace environs
     
     void DisposeLog ();
     void CloseLog ();
-    
+	void CheckLog ();
     
 #ifdef ANDROID
     typedef void (CallConv * pCOutLog) ( int tag, const char * msg, int length, bool useLock );

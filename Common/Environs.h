@@ -25,6 +25,7 @@
 #include "Environs.Platforms.h"
 #include "Environs.Platform.Decls.h"
 #include "Environs.Build.Opts.h"
+#include "Location.Decl.h"
 
 /** Include iOSX declarations */
 
@@ -171,7 +172,40 @@ namespace environs
              * @return level      debug level 0 ... 16
              */
             ENVIRONS_LIB_API int GetDebug ();
+
+			/**
+			* Set timeout for LAN/WiFi connects. Default ( 2 seconds ).
+			* Increasing this value may help to handle worse networks which suffer from large latencies.
+			*
+			* @param   timeout
+			*/
+			ENVIRONS_LIB_API void SetNetworkConnectTimeout ( int timeout );
             
+            
+            /**
+             * Get platform that the app is running on.
+             *
+             * @return 	enum of type Environs.Platforms
+             */
+            ENVIRONS_LIB_API int GetPlatform ();
+            
+            /**
+             * Set the platform type that the local instance of Environs shall use for identification within the environment.&nbsp;
+             * Valid type are enumerated in Environs.Platforms.*
+             *
+             * @param	platform	Environs.Platforms.*
+             */
+            ENVIRONS_LIB_API void SetPlatform ( int platform );
+            
+            /**
+             * Set/Remove the location-node flag to the platform type that the local instance of Environs shall use for identification within the environment.&nbsp;
+             * Flag: Environs.Platforms.LocationNode_Flag
+             *
+             * @param	isLocationNode	true or false
+             */
+            ENVIRONS_LIB_API void SetIsLocationNode ( bool isLocationNode );
+            
+			ENVIRONS_LIB_API Location cli_OBJ_ptr GetLocation ();
             
             /**
              * Enable or disable device list update notifications from Mediator layer.
@@ -1307,6 +1341,21 @@ namespace environs
 			void UpdateData ( environs::ObserverDataContext OBJ_ptr ctx );
 
 			void UpdateSensorData ( OBJIDType objID, environs::SensorFrame OBJ_ptr pack );
+            
+            /**
+             * Enable sending of sensor events to this DeviceInstance.
+             * Events are send if the device is connected and stopped if the device is disconnected.
+             *
+             * @param nativeID 				Destination native device id
+             * @param objID 				Destination object device id
+             * @param ENVIRONS_SENSOR_TYPE_ A value of type ENVIRONS_SENSOR_TYPE_*.
+             * @param enable 				true = enable, false = disable.
+             *
+             * @return success true = enabled, false = failed.
+             */
+            bool SetSensorEventSender ( int nativeID, int objID, int ENVIRONS_SENSOR_TYPE_, bool enable );
+            
+            void SetSensorEventSenderFlags ( int nativeID, int objID, int flags, bool enable );
 		};
 	}
 }

@@ -181,7 +181,9 @@ namespace environs
 			ENVIRONS_LIB_API CString_ptr GetBroadcastString ( bool fullText );
 
 			ENVIRONS_LIB_API bool isConnected ();
-			ENVIRONS_LIB_API bool directStatus ();
+            ENVIRONS_LIB_API bool directStatus ();
+        
+            ENVIRONS_LIB_API bool isLocationNode ();
 
 #ifdef CLI_CPP
 			/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
@@ -447,7 +449,7 @@ namespace environs
 			ENVIRONS_LIB_API CString_ptr GetStoragePath ();
 
 			/**
-			 * Enable sending of magnetic field events to this DeviceInstance.
+			 * Enable sending of sensor events to this DeviceInstance.
 			 * Events are send if the device is connected and stopped if the device is disconnected.
 			 *
 			 * @param ENVIRONS_SENSOR_TYPE_ A value of type ENVIRONS_SENSOR_TYPE_*.
@@ -521,17 +523,8 @@ namespace environs
 
 			bool                    directStatus_;
 
-			/** Determines whether the device shall receive accelerometer events from us. */
-			bool                    enableAccelSender;
-
-			/** Determines whether the device shall receive magnetic field events from us. */
-			bool                    enableMagneticSender;
-
-			/** Determines whether the device shall receive gyroscope events from us. */
-			bool                    enableGyroscopeSender;
-
-			/** Determines whether the device shall receive orientation events from us. */
-			bool                    enableOrientationSender;
+			/** Determines whether the device shall receive sensor events from us. */
+			unsigned int            enableSensorSender;
 
 			STRING_T	            toString_;
 			STRING_T	            ips_;

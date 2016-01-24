@@ -77,13 +77,23 @@ namespace environs
 
 			CLI_INC LIBEXPORT int CallConv			GetPlatformN ();
 
-			CLI_INC LIBEXPORT void CallConv			SetPlatformN ( int platform );
+            CLI_INC LIBEXPORT void CallConv			SetPlatformN ( int platform );
+            
+            CLI_INC LIBEXPORT void CallConv			SetIsLocationNodeN ( bool isLocationNode );
 
 			CLI_INC LIBEXPORT EBOOL CallConv		GetDisposingN ( int hInst );
 
 			CLI_INC LIBEXPORT void CallConv			SetDisposingN ( int hInst, EBOOL enable );
 
 			CLI_INC LIBEXPORT const char * CallConv	ResolveNameN ( int notification );
+
+			/**
+			* Set timeout for LAN/WiFi connects. Default ( 2 seconds ).
+			* Increasing this value may help to handle worse networks which suffer from large latencies.
+			*
+			* @param   timeout
+			*/
+			CLI_INC LIBEXPORT void CallConv			SetNetworkConnectTimeoutN ( int value );
 
 			CLI_INC LIBEXPORT void CallConv			LogN ( CString_ptr msg, int length );
 
@@ -271,11 +281,36 @@ namespace environs
 			CLI_INC
 				LIBEXPORT int CallConv          GetPortalIDN ( int hInst, int nativeID, int portalType );
 
+			/**
+			* Connect to device with the given ID and a particular application environment. Return value is of type enum Types.DeviceStatus
+			*
+			* @param	deviceID	Destination device ID
+			* @param	areaName	Area name of the application environment
+			* @param	appName		Application name of the application environment
+			* @param 	async       Execute asynchronous. Non-async means that this call blocks until the command has finished.
+			* @return	0	Connection can't be established (maybe environs is stopped or the device ID is invalid)
+			* @return	1	A new connection has been triggered and is in progress
+			* @return	2	A connection to the device already exists or a connection task is already in progress)
+			*/
 			CLI_INC
 				LIBEXPORT int CallConv			DeviceConnectN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int async );
 			CLI_INC
 				LIBEXPORT EBOOL CallConv		DeviceDisconnectN ( int hInst, int nativeID, int async );
 
+			/**
+			* Connect to device with the given ID and a particular application environment. Return value is of type enum Types.DeviceStatus
+			*
+			* @param	deviceID	Destination device ID
+			* @param	areaName	Area name of the application environment
+			* @param	appName		Application name of the application environment
+			* @param 	async       Execute asynchronous. Non-async means that this call blocks until the command has finished.
+			* @param 	x
+			* @param 	y
+			* @param 	angle
+			* @return	0	Connection can't be established (maybe environs is stopped or the device ID is invalid)
+			* @return	1	A new connection has been triggered and is in progress
+			* @return	2	A connection to the device already exists or a connection task is already in progress)
+			*/
 			CLI_INC
 				LIBEXPORT int CallConv			DeviceDetectedN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int Environs_CALL_, int x, int y, float angle );
 			CLI_INC

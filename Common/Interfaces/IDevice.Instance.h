@@ -182,6 +182,8 @@ namespace environs
 		virtual bool isConnected () = 0;
 		virtual bool disposed () = 0;
 
+        virtual bool isLocationNode () = 0;
+        
 
 		/** An identifier that is unique for this object. */
 		virtual long objID () = 0;
@@ -428,7 +430,7 @@ namespace environs
 		virtual const char * GetStoragePath () = 0;
 
 		/**
-		* Enable sending of magnetic field events to this DeviceInstance.
+		* Enable sending of sensor events to this DeviceInstance.
 		* Events are send if the device is connected and stopped if the device is disconnected.
 		*
 		* @param ENVIRONS_SENSOR_TYPE_ A value of type ENVIRONS_SENSOR_TYPE_*.

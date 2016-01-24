@@ -32,6 +32,7 @@
 
 #if !defined(MEDIATORDAEMON)
 #   include "Environs.Obj.h"
+#   include "Environs.Lib.h"
 #else
 #   include <cstdio>
 #endif
@@ -231,10 +232,9 @@ namespace environs
 		isRunning 				= false;
 		broadcastSocketID 		= -1;
 
-		Zero ( broadcastThreadID );
-
 		broadcastMessageLen		= 0;
 		lastGreetUpdate			= 0;
+        broadcastReceives       = 0;
 
 		certificate				= 0;
 	}
@@ -280,6 +280,9 @@ namespace environs
 			if ( !MutexInitA ( devicesLock ) )
                 return false;
 
+            if ( !broadcastThread.Init () )
+                return false;
+            
 			allocated = true;
 		}
 
@@ -435,7 +438,8 @@ namespace environs
 		}
 
 		// Waiting for broadcast thread
-		pthread_t thrd = broadcastThreadID;
+        broadcastThread.Join ( "Mediator.ReleaseThreads" );
+		/*pthread_t thrd = broadcastThreadID;
 
 		if ( pthread_valid ( thrd ) ) {
 			pthread_reset ( broadcastThreadID );
@@ -450,6 +454,7 @@ namespace environs
 
 			pthread_close ( thrd );
 		}
+        */
 
 		return ret;
 	}
@@ -1163,13 +1168,16 @@ namespace environs
 			}
 #endif
 			/// Create broadcast thread
-			int s = pthread_create ( &broadcastThreadID, 0, BroadcastThreadStarter, ( void * )this );
+            if ( !broadcastThread.Run(pthread_make_routine(BroadcastThreadStarter), ( void * )this, "Mediator.Start", true ) )
+                return false;
+			/*int s = pthread_create ( &broadcastThreadID, 0, BroadcastThreadStarter, ( void * )this );
 			if ( s ) {
 				CErrArg ( "Start: Creating thread for broadcast failed. (pthread_create [%i])", s );
 				return false;
 			}
+            
 
-			Sleep ( 300 );
+			Sleep ( 300 );*/
 		}
 
 		OnStarted ();
@@ -1188,7 +1196,7 @@ namespace environs
 
 	bool Mediator::SendBroadcast ()
 	{
-		CVerb ( "SendBroadcast" );
+		CVerbVerb ( "SendBroadcast" );
 
 		if ( broadcastSocketID == -1 )
 			return false;
@@ -1363,7 +1371,7 @@ namespace environs
 
 		MutexUnlockV ( mutex, "VanishedDeviceWatcher" );
 	}
-
+    
 
 	sp ( DeviceInstanceNode ) Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
 	{
@@ -1427,17 +1435,38 @@ namespace environs
 		}*/
 
 #if !defined(MEDIATORDAEMON)
-		if ( value == env->deviceID && !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) )
-			&& !strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
-			return 0;
+		if ( value == env->deviceID )
+        {
+            if ( !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) && !strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
+            {
+                if ( broadcastFound && strncmp ( native.deviceName, deviceName, sizeof ( native.deviceName ) ) )
+                {
+                    // Another device has broadcasted with our identifiers.
+                    // If we have just started, then generate a random deviceID and start again. Otherwise, let's ignore this.
+                    CWarnArg ( "UpdateDevices: Another device with our identifiers found [ %i ].", broadcastReceives );
+                    
+                    if ( broadcastReceives < 100 ) {
+                        BroadcastByeBye ();
+                        env->deviceID = 0;
+                        
+                        environs::API::SetDeviceID ( env->hEnvirons, 0 );
+                        
+                        SendBroadcast ();
+                        
+                        StopMediators ();
+                    }
+                }
+                return 0;
+            }
+        }
 
-		if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
-			if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) )
-				return 0;
+        if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
+            if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) )
+                return 0;
 
-			if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
-				if ( strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
-					return 0;
+            if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
+                if ( strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
+                    return 0;
 			}
 		}
 #endif
@@ -1459,14 +1488,16 @@ namespace environs
 #ifndef MEDIATORDAEMON
 				&& !strncmp ( device->info.areaName, areaName, sizeof ( device->info.areaName ) ) && !strncmp ( device->info.appName, appName, sizeof ( device->info.appName ) )
 #endif
-				) {
+                )
+            {
+#ifndef MEDIATORDAEMON
 				if ( strncmp ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) ) )
 				{
 					// Another device with the same identifiers has already been registered. Let's ignore this.
 					MutexUnlockV ( mutex, "UpdateDevices" );
 					goto Finish;
 				}
-
+#endif
 				found = true; device->info.unavailable = true;
 				break;
 			}

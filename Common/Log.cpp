@@ -47,7 +47,7 @@
 #endif
 
 #ifndef NDEBUG
-//#define ENABLE_BUFFERING
+//#   define ENABLE_BUFFERING
 #endif
 
 #include "Environs.Utils.h"
@@ -59,6 +59,10 @@ using namespace environs;
 
 #define CLASS_NAME  "Log. . . . . . . . . . ."
 
+
+//#ifdef NDEBUG
+#   define LOG_TIMESTRING
+//#endif
 
 #define ENVIRONS_LOGFILE_TEMP_MAXSIZE               200000
 #define ENVIRONS_LOGBUFFER_MAXCHARS					ENVIRONS_LOGBUFFER_MAXSIZE - 2
@@ -192,6 +196,68 @@ namespace environs
 	}
 #endif
 
+	
+	void CheckLog ()
+	{
+		CVerbN ( "CheckLog" );
+
+		if ( !native.workDir || !*native.workDir )
+			return;
+
+		bool locked = false;
+
+		if ( log.alive ) {
+			if ( pthread_mutex_lock ( &environsLogMutex ) )
+				printf ( "CloseLog: ERROR ---> Failed to lock mutex." );
+			else
+				locked = true;
+		}
+			
+		FILE * fp = 0;
+		char fileName [ 1024 ];
+
+		sprintf ( fileName, "%s/environs.log", native.workDir );
+
+		size_t fileSize = GetSizeOfFile ( fileName );
+		
+		if ( fileSize > 500000000 ) {
+			if ( environsLogFileHandle ) {
+				fclose ( environsLogFileHandle );
+				environsLogFileHandle = 0;
+			}
+			if ( unlink ( fileName ) ) {
+				if ( environsLogFileErrCount < 10 ) {
+					printf ( "CheckLog: ERROR ---> Failed to remove logfile." );
+					environsLogFileErrCount++;
+				}
+			}
+		}
+
+		if ( !native.useLogFile || environsLogFileHandle )
+			goto Return;
+
+		fp = fopen ( fileName, "a" );
+		if ( !fp ) {
+			if ( environsLogFileErrCount < 10 ) {
+				printf ( "OpenLog: ERROR ---> Failed to open/create logfile." );
+				//CVerbArgN ( "OpenLog: Error %d", errno );
+				environsLogFileErrCount++;
+			}
+			else
+				native.useLogFile = false;
+
+			goto Return;
+		}
+
+		environsLogFileHandle = fp;
+
+	Return:
+		if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
+			printf ( "CheckLog: ERROR ---> Failed to unlock mutex." );
+		}
+		CVerbN ( "CheckLog done" );
+	}
+
         
     bool OpenLog ()
     {
@@ -236,7 +302,7 @@ namespace environs
         
         environsLogFileHandle = fp;
         
-        return true;
+        return (fp != 0);
     }
     
     
@@ -306,7 +372,7 @@ namespace environs
 
 		bool locked = false;
         
-#ifndef ANDROID
+#if ( !defined(ANDROID) && defined(LOG_TIMESTRING) )
         char timeString [ 256 ];
         size_t timeLen = GetTimeString ( timeString, sizeof(timeString) );
 #endif
@@ -344,8 +410,9 @@ namespace environs
 			now = GetEnvironsTickCount ();
 #endif
         if ( native.useLogFile ) {
-            if ( environsLogFileHandle || (OpenLog () && environsLogFileHandle)) {
-#ifndef ANDROID
+            if ( environsLogFileHandle || OpenLog ())
+            {
+#if ( !defined(ANDROID) && defined(LOG_TIMESTRING) )
                 fwrite ( timeString, 1, timeLen, environsLogFileHandle );
 #endif
                 fwrite ( LOG_OUT_BUFFER_NAME, 1, LOG_OUT_BUFFER_NAME_LENGTH, environsLogFileHandle );
@@ -353,8 +420,10 @@ namespace environs
         }
         
 #if defined ( _WIN32 )
-
+        
+#if ( defined(LOG_TIMESTRING) )
         OutputDebugStringA ( timeString );
+#endif
         OutputDebugStringA ( LOG_OUT_BUFFER_NAME );
         
 #elif defined ( ANDROID )
@@ -367,7 +436,11 @@ namespace environs
         
 //#if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
         
+#if ( defined(LOG_TIMESTRING) )
         printf ( "%s%s", timeString, LOG_OUT_BUFFER_NAME );
+#else
+        printf ( "%s", LOG_OUT_BUFFER_NAME );
+#endif
         
 #endif  // -> end-_ANDROID
         

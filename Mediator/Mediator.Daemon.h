@@ -321,7 +321,8 @@ private:
 	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
 	bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
 	bool									NotifySTUNTRegRequest ( ThreadInstance * client );
-
+    int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
+    
 	void									HandleCLSGenHelp ( ThreadInstance * client );
 	void									HandleCertSign ( ThreadInstance * client, char * msg );
 	

@@ -111,11 +111,29 @@ namespace environs
     
     size_t GetSizeOfFile ( const char * filePath )
 	{
+#ifdef _WIN32
+		HANDLE handle = CreateFileA ( filePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		if ( handle == INVALID_HANDLE_VALUE)
+			return 0;
+
+		size_t fileSize = 0;
+
+		LARGE_INTEGER size;
+
+		if ( GetFileSizeEx( handle, &size ) )
+		{
+			fileSize = size.QuadPart;
+		}
+
+		CloseHandle ( handle );
+		return fileSize;
+#else
 		STAT_STRUCT ( st );
 
         if ( stat ( filePath, &st ) != 0 )
             return 0;
         return (size_t) st.st_size;
+#endif
     }
     
     
@@ -330,7 +348,7 @@ namespace environs
             return 0;
         }
         
-		return ( ( ts.tv_sec * 1000 ) + ( ts.tv_nsec  > 0 ? ( ts.tv_nsec / 1000 ) : 0 ) );
+		return ( ( ts.tv_sec * 1000 ) + ( ts.tv_nsec  > 0 ? ( ts.tv_nsec / 1000000 ) : 0 ) );
     }
 #endif
     

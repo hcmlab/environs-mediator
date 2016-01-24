@@ -56,12 +56,14 @@ namespace environs
 			case ( 4 ):
 				return "STATUS_STOPPED";
 			case ( 5 ):
-				return "STATUS_STOPPING";
+				return "STATUS_STOP_IN_PROGRESS";
 			case ( 6 ):
-				return "STATUS_STARTING";
+				return "STATUS_STOPPING";
 			case ( 7 ):
-				return "STATUS_STARTED";
+				return "STATUS_STARTING";
 			case ( 8 ):
+				return "STATUS_STARTED";
+			case ( 9 ):
 				return "STATUS_CONNECTED";
 		} /// -> switch
 
@@ -652,8 +654,6 @@ namespace environs
 
 		if ( constToResolve == ( 8 ) )
 			return "MSG_TYPE_ENVIRONS";
-		if ( constToResolve == ( MSG_TYPE_ENVIRONS + 1 ) )
-			return "MSG_TYPE_MAX_COUNT";
 
 
 		switch ( constToResolve ) {
@@ -690,6 +690,8 @@ namespace environs
 			case ( NOTIFY_TYPE_ENVIRONS | 0x200 ):
 				return "NOTIFY_STOP";
 			case ( NOTIFY_STOP | 1 ):
+				return "NOTIFY_STOP_BEGIN";
+			case ( NOTIFY_STOP | 2 ):
 				return "NOTIFY_STOP_IN_PROGRESS";
 			case ( NOTIFY_STOP | 10 ):
 				return "NOTIFY_STOP_FAILED";
@@ -716,6 +718,11 @@ namespace environs
 			case ( NOTIFY_PAIRING | 2 ):
 				return "NOTIFY_DEVICE_NOT_ON_SURFACE";
 		} /// -> switch
+
+		if ( constToResolve == ( 9 ) )
+			return "MSG_TYPE_SENSOR";
+		if ( constToResolve == ( MSG_TYPE_SENSOR + 1 ) )
+			return "MSG_TYPE_MAX_COUNT";
 
 
 		switch ( constToResolve ) {
@@ -1120,6 +1127,40 @@ namespace environs
 				return "ENVIRONS_SENSOR_TYPE_GYROSCOPE";
 			case ( 3 ):
 				return "ENVIRONS_SENSOR_TYPE_ORIENTATION";
+			case ( 4 ):
+				return "ENVIRONS_SENSOR_TYPE_LIGHT";
+			case ( 5 ):
+				return "ENVIRONS_SENSOR_TYPE_LOCATION";
+			case ( 6 ):
+				return "ENVIRONS_SENSOR_TYPE_ALTIMETER";
+			case ( 7 ):
+				return "ENVIRONS_SENSOR_TYPE_HEARTRATE";
+			case ( 8 ):
+				return "ENVIRONS_SENSOR_TYPE_MAX";
+		} /// -> switch
+		if ( constToResolve == ( 0x100 ) )
+			return "MAX_ENVIRONS_SENSOR_TYPE_VALUE";
+
+
+		switch ( constToResolve ) {
+			case ( 0x10000 ):
+				return "ENVIRONS_SENSOR_PACK_TYPE_EXT";
+			case ( 0x1 ):
+				return "ENVIRONS_SENSOR_FLAG_ACCELEROMETER";
+			case ( 0x2 ):
+				return "ENVIRONS_SENSOR_FLAG_MAGNETICFIELD";
+			case ( 0x4 ):
+				return "ENVIRONS_SENSOR_FLAG_GYROSCOPE";
+			case ( 0x8 ):
+				return "ENVIRONS_SENSOR_FLAG_ORIENTATION";
+			case ( 0x10 ):
+				return "ENVIRONS_SENSOR_FLAG_LIGHT";
+			case ( 0x20 ):
+				return "ENVIRONS_SENSOR_FLAG_LOCATION";
+			case ( 0x40 ):
+				return "ENVIRONS_SENSOR_FLAG_ALTIMETER";
+			case ( 0x80 ):
+				return "ENVIRONS_SENSOR_FLAG_HEARTRATE";
 		} /// -> switch
 
 

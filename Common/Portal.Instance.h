@@ -153,7 +153,7 @@ namespace environs
             static bool				GlobalsInit ();
             static void				GlobalsDispose ();
 
-			static NLayerMapType ( int, PortalInstanceEP )	portals	INIT_to_EXP_in_cli ( gcnew (NLayerMapTypeObj ( int, PortalInstanceEP )) );
+			static NLayerMapTypeObj ( int, PortalInstanceEP ) OBJ_ptr	portals; //	INIT_to_EXP_in_cli ( gcnew ( NLayerMapTypeObj ( int, PortalInstanceEP ) ) );
 
 			static pthread_mutex_t	portalInstancelock;
 			static pthread_mutex_t	portalsLock;

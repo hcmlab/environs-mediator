@@ -30,7 +30,11 @@
 
 namespace environs
 {
+#ifndef CLI_NOUI
 	typedef System::Collections::Specialized::NotifyCollectionChangedEventHandler	ListObserver;
+#else
+	public delegate void ListObserver ( List < DeviceInstanceEP ^ > ^ vanished, List < DeviceInstanceEP ^ > ^ appeared );
+#endif
 
 
 	/**

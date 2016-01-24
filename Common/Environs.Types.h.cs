@@ -58,14 +58,16 @@ namespace environs
 		public const int STATUS_INITIALIZED                                =	(3);
 		/** Environs is stopped. Usually after a call to Environs.Stop() */
 		public const int STATUS_STOPPED                                    =	(4);
-		/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
-		public const int STATUS_STOPPING                                   =	(5);
+		/** Environs is currently stopping. Threads are being shut down and allocated resources are being released. */
+		public const int STATUS_STOP_IN_PROGRESS                           =	(5);
+		/** Environs is about to Stop. Threads are being shut down and allocated resources are being released. */
+		public const int STATUS_STOPPING                                   =	(6);
 		/** Environs is about to Start. Thread are being started and resources are being allocated. */
-		public const int STATUS_STARTING                                   =	(6);
+		public const int STATUS_STARTING                                   =	(7);
 		/** Environs is started. Usually after a call to Environs.Start() */
-		public const int STATUS_STARTED                                    =	(7);
+		public const int STATUS_STARTED                                    =	(8);
 		/** Environs is in connected state and connected to at least one device. */
-		public const int STATUS_CONNECTED                                  =	(8);
+		public const int STATUS_CONNECTED                                  =	(9);
 		
 		/** 
 		 * Environs Status enumeration. Represents the same values as for NATIVE_STATUS_* 
@@ -82,7 +84,9 @@ namespace environs
 			Initialized         	=	STATUS_INITIALIZED,
 			/** Environs is stopped. Usually after a call to Environs.Stop() */
 			Stopped             	=	STATUS_STOPPED,
-			/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
+			/** Environs is currently stopping. Threads are being shut down and allocated resources are being released. */
+			StopInProgress      	=	STATUS_STOP_IN_PROGRESS,
+			/** Environs is about to Stop. Threads are being shut down and allocated resources are being released. */
 			Stopping            	=	STATUS_STOPPING,
 			/** Environs is about to Start. Thread are being started and resources are being allocated. */
 			Starting            	=	STATUS_STARTING,
@@ -610,7 +614,6 @@ namespace environs
 		 */
 		/** Class: Environs type */
 		public const int MSG_TYPE_ENVIRONS                                 =	(8);
-		public const int MSG_TYPE_MAX_COUNT                                =	(MSG_TYPE_ENVIRONS + 1);
 		
 		public const int NOTIFY_TYPE_ENVIRONS                              =	((MSG_TYPE_ENVIRONS << 16));
 		public const int NOTIFY_START                                      =	(NOTIFY_TYPE_ENVIRONS | 0x100);
@@ -635,7 +638,8 @@ namespace environs
 		 * Environs Stop notifications
 		 */
 		public const int NOTIFY_STOP                                       =	(NOTIFY_TYPE_ENVIRONS | 0x200);
-		public const int NOTIFY_STOP_IN_PROGRESS                           =	(NOTIFY_STOP | 1);
+		public const int NOTIFY_STOP_BEGIN                                 =	(NOTIFY_STOP | 1);
+		public const int NOTIFY_STOP_IN_PROGRESS                           =	(NOTIFY_STOP | 2);
 		public const int NOTIFY_STOP_FAILED                                =	(NOTIFY_STOP | 10);
 		public const int NOTIFY_STOP_SUCCESS                               =	(NOTIFY_STOP | 11);
 		public const int NOTIFY_STOP_RELEASED                              =	(NOTIFY_STOP | 12);
@@ -663,6 +667,14 @@ namespace environs
 		public const int NOTIFY_PAIRING                                    =	(NOTIFY_TYPE_ENVIRONS | 0x800);
 		public const int NOTIFY_DEVICE_ON_SURFACE                          =	(NOTIFY_PAIRING | 1);
 		public const int NOTIFY_DEVICE_NOT_ON_SURFACE                      =	(NOTIFY_PAIRING | 2);
+		
+		/**
+		 * Environs Start notifications
+		 * Environs Start notifications
+		 */
+		/** Class: Environs type */
+		public const int MSG_TYPE_SENSOR                                   =	(9);
+		public const int MSG_TYPE_MAX_COUNT                                =	(MSG_TYPE_SENSOR + 1);
 		
 		/**
 		 * Environs mediator filter constants
@@ -1083,6 +1095,9 @@ namespace environs
 			Tabletop_Flag       	=	0x400000,
 			Display_Flag        	=	0x800000,
 		
+			LocationNode_Flag   	=	0x1000000,
+		
+		
 		
 		
 		
@@ -1180,6 +1195,30 @@ namespace environs
 		public const int ENVIRONS_SENSOR_TYPE_GYROSCOPE                    =	(2);
 		public const int ENVIRONS_SENSOR_TYPE_ORIENTATION                  =	(3);
 		
+		public const int ENVIRONS_SENSOR_TYPE_LIGHT                        =	(4);
+		public const int ENVIRONS_SENSOR_TYPE_LOCATION                     =	(5);
+		
+		public const int ENVIRONS_SENSOR_TYPE_ALTIMETER                    =	(6);
+		public const int ENVIRONS_SENSOR_TYPE_HEARTRATE                    =	(7);
+		public const int ENVIRONS_SENSOR_TYPE_MAX                          =	(8);
+		
+		public const int MAX_ENVIRONS_SENSOR_TYPE_VALUE                    =	(0x100);
+		public const int ENVIRONS_SENSOR_PACK_TYPE_EXT                     =	(0x10000);
+		
+		public const int ENVIRONS_SENSOR_FLAG_ACCELEROMETER                =	(0x1);
+		public const int ENVIRONS_SENSOR_FLAG_MAGNETICFIELD                =	(0x2);
+		public const int ENVIRONS_SENSOR_FLAG_GYROSCOPE                    =	(0x4);
+		public const int ENVIRONS_SENSOR_FLAG_ORIENTATION                  =	(0x8);
+		
+		public const int ENVIRONS_SENSOR_FLAG_LIGHT                        =	(0x10);
+		public const int ENVIRONS_SENSOR_FLAG_LOCATION                     =	(0x20);
+		
+		public const int ENVIRONS_SENSOR_FLAG_ALTIMETER                    =	(0x40);
+		public const int ENVIRONS_SENSOR_FLAG_HEARTRATE                    =	(0x80);
+		
+		
+		
+		/** Ignore: for CLI all the remaining content*/
 		
 		/**
 		 * Environs Option keys

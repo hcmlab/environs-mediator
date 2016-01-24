@@ -38,7 +38,10 @@
 #   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     60
 #endif
 
-//#define MEDIATOR_LIMIT_STUNT_REG_REQUESTS
+#define MEDIATOR_LIMIT_STUNT_REG_REQUESTS
+#define MEDIATOR_STUNT_REG_REQUEST_MIN_WAIT_MS  150
+#define MEDIATOR_STUN_REG_REQUEST_MIN_WAIT_MS   150
+
 //#define MEDIATOR_USE_TCP_NODELAY
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_CLIENT
@@ -422,14 +425,16 @@ namespace environs	/// Namespace: environs ->
 		MediatorInstance		mediator;
 
 		pthread_mutex_t			devicesLock;
-
+        
+        int                     broadcastReceives;
 		unsigned int			broadcastMessageLen;
 		char					broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
 
 		unsigned long long		lastGreetUpdate;
 
 		int						broadcastSocketID;
-		pthread_t				broadcastThreadID;
+        ThreadSync              broadcastThread;
+		//pthread_t				broadcastThreadID;
 
 		bool					IsLocalIP ( unsigned int ip );
         static void				VerifySockets ( ThreadInstance * inst, bool waitThread );

@@ -3983,6 +3983,66 @@ sp ( ThreadInstance ) MediatorDaemon::GetSessionClient ( long long sessionID )
 }
 
 
+int MediatorDaemon::GetNextDeviceID ( char * areaName, char * appName, unsigned int ip )
+{
+    CVerb ( "GetNextDeviceID" );
+    
+    sp ( ApplicationDevices ) appDevices;
+    int nextID = 0;
+    
+    DeviceInstanceNode	**	deviceList;
+    
+    appDevices = GetDeviceList ( areaName, appName, 0, 0, deviceList );
+    if ( appDevices )
+    {
+        if ( appDevices->Lock ( "GetNextDeviceID" ) )
+        {
+            /// Find the next free deviceID
+            DeviceInstanceNode	* device = appDevices->devices;
+            
+            if ( !nextID )
+                nextID = (int) __sync_add_and_fetch ( &appDevices->latestAssignedID, 1 );
+            
+            while ( device )
+            {
+                if ( device->info.deviceID > appDevices->latestAssignedID ) {
+                    ___sync_test_and_set ( &appDevices->latestAssignedID, device->info.deviceID );
+                }
+                
+                if ( device->info.deviceID == nextID )
+                    nextID = (int) __sync_add_and_fetch ( &appDevices->latestAssignedID, 1 );
+                else {
+                    if ( device->info.deviceID > nextID )
+                        break;
+                }
+                
+                device = device->next;
+            }
+            
+            appDevices->Unlock ( "GetNextDeviceID" );
+        }
+        
+        UnlockApplicationDevices ( appDevices.get () );
+    }
+    
+    if ( !nextID ) {
+        srand ( ( unsigned ) GetEnvironsTickCount () );
+        
+        int randID = 0;
+        while ( randID == 0 ) {
+            randID = rand () % 0xFFFFFF;
+        }
+        
+        randID <<= 8;
+        randID |= ( ip & 0xFF );
+        
+        nextID = randID;
+    }
+    
+    return nextID;
+}
+
+
 int MediatorDaemon::HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen )
 {
 	CVerbArg ( "HandleRegistration [ %s : %i ]", client->ips, client->socket );
@@ -4064,7 +4124,6 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, const sp ( ThreadInstanc
 		msg [ msgLen ] = 0;
 		MediatorReqMsg	* req = (MediatorReqMsg *) msg;
 		
-        sp ( ApplicationDevices ) appDevices;
 		int nextID = 0;
 		int mappedID = 0;
         
@@ -4096,57 +4155,8 @@ int MediatorDaemon::HandleRegistration ( int &deviceID, const sp ( ThreadInstanc
 				memset ( mapping.get (), 0, sizeof(DeviceMapping) );
 			}
 
-            DeviceInstanceNode	**	deviceList;
+            nextID = GetNextDeviceID ( req->areaName, req->appName, ( unsigned int ) client->addr.sin_addr.s_addr );
             
-			appDevices = GetDeviceList ( req->areaName, req->appName, 0, 0, deviceList );
-			if ( appDevices ) 
-			{
-				if ( appDevices->Lock ( "HandleRegistration" ) )
-				{
-					/// Find the next free deviceID			
-					DeviceInstanceNode	* device = appDevices->devices;
-
-					if ( !nextID )
-						nextID = (int) __sync_add_and_fetch ( &appDevices->latestAssignedID, 1 );
-				
-					while ( device ) 
-					{
-						if ( device->info.deviceID > appDevices->latestAssignedID ) {
-							___sync_test_and_set ( &appDevices->latestAssignedID, device->info.deviceID );
-						}
-
-						if ( device->info.deviceID == nextID )
-							nextID = (int) __sync_add_and_fetch ( &appDevices->latestAssignedID, 1 );
-						else {
-							if ( device->info.deviceID > nextID )
-								break;
-						}
-
-						device = device->next;
-					}
-
-					appDevices->Unlock ( "HandleRegistration" );
-				}
-
-				UnlockApplicationDevices ( appDevices.get () );
-			}
-
-			if ( !nextID ) {
-				srand ( ( unsigned ) GetEnvironsTickCount () );
-
-				int randID = 0;
-				while ( randID == 0 ) {
-					randID = rand () % 0xFFFFFF;
-				}
-
-				unsigned int ip = ( unsigned int ) client->addr.sin_addr.s_addr;
-
-				randID <<= 8;
-				randID |= ( ip & 0xFF );
-
-				nextID = randID;
-			}
-
 			if ( nextID && (nextID != mappedID) ) {
 				mapping->deviceID = nextID;
                 
@@ -4610,7 +4620,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			// COMMAND: // This is probably DEPRECATED
 			else if ( command == MEDIATOR_CMD_REQ_SPARE_ID ) 
 			{
-                spareClients.Lock  ( "HandleRegistration" );
+                spareClients.Lock  ( "Client: spare ID" );
                 
 				unsigned int sid = ++spareID;
 
@@ -4618,7 +4628,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 
 				spareClients.list [ (unsigned int) sid ] = clientSP;
                 
-                spareClients.Unlock  ( "HandleRegistration" );
+                spareClients.Unlock  ( "Client: spare ID" );
                 
 				*((unsigned int *) msgDec) = MEDIATOR_NAT_REQ_SIZE;
 				*((unsigned int *) (msgDec + 4)) = (unsigned int) sid;
@@ -5533,7 +5543,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, int source
     INTEROPTIMEVAL now = GetEnvironsTickCount();
     
     INTEROPTIMEVAL sendDiff = ( now - destClient->stunLastSend );
-    if ( sendDiff < 300 )
+    if ( sendDiff < MEDIATOR_STUNT_REG_REQUEST_MIN_WAIT_MS )
         return true;
     
     destClient->stunLastSend = now;
@@ -5581,7 +5591,7 @@ bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
     INTEROPTIMEVAL now = GetEnvironsTickCount();
     
     INTEROPTIMEVAL sendDiff = ( now - client->stuntLastSend );
-    if ( sendDiff < 200 )
+    if ( sendDiff < MEDIATOR_STUN_REG_REQUEST_MIN_WAIT_MS )
         return true;
     
     client->stuntLastSend = now;
@@ -5900,7 +5910,9 @@ void * MediatorDaemon::BroadcastThread ( )
     socklen_t addrLen;
 	char buffer [ BUFFERSIZE ];
 	
-	CVerb ( "BroadcastThread started." );
+    CVerb ( "BroadcastThread started." );
+    
+    broadcastThread.Notify ( "MediatorClient::BroadcastThread" );
 
 	if ( broadcastSocketID <= 0 ) {
 		CErr ( "BroadcastThread: Invalid broadcast socket!" );
@@ -6118,7 +6130,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( sp ( ThreadInstance ) clientSP, 
     int             sentBytes;
     
     if ( !clientSP ) {
-        CErr ( "HandleRegistration:\tInvalid client!." );
+        CErr ( "HandleDeviceRegistration:\tInvalid client!." );
 		return false;
     }
     
@@ -6126,7 +6138,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( sp ( ThreadInstance ) clientSP, 
 
 	int deviceID = client->deviceID;
     if ( !deviceID ) {
-        CErrArg ( "HandleRegistration [ %s ]:\tInvalid deviceID.", client->ips );
+        CErrArg ( "HandleDeviceRegistration [ %s ]:\tInvalid deviceID.", client->ips );
 		return false;
     }
 
@@ -6157,42 +6169,54 @@ bool MediatorDaemon::HandleDeviceRegistration ( sp ( ThreadInstance ) clientSP, 
 		sp ( ThreadInstance ) busySP = deviceSP->clientSP;
 		if ( busySP )
         {
-            // Check socket
-            if ( !IsSocketAlive ( busySP->socket ) ) {
-                VerifySockets ( busySP.get (), false );
-                
-                /// Return try again
-                resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_RETRY;
+            // Check whether deviceName is the same
+            char * deviceName = msg + MEDIATOR_BROADCAST_DESC_START;
+            
+            if ( strncmp ( deviceSP->info.deviceName, deviceName, sizeof ( deviceSP->info.deviceName ) ) )
+            {
+                // Another device with the same identifiers has already been registered.
+                /// Return slot busy
+                resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_LOCKED;
+                CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tDevice instance slot locked.", client->ips );
             }
             else {
-                if ( (checkLast - busySP->aliveLast) > 0 )
-                {
-                    /// Request alive response
-                    resp.cmd0 = MEDIATOR_SRV_CMD_ALIVE_REQUEST;
+                // Check socket
+                if ( !IsSocketAlive ( busySP->socket ) ) {
+                    VerifySockets ( busySP.get (), false );
                     
-                    busySP->aliveLast -= 2;
-                    SendBuffer ( busySP.get (), &resp, resp.size );
-                    
-                    Sleep ( 100 );
-                    
-                    /// Trigger Watchdog
-                    if ( MutexLockA ( thread_lock, "Watchdog" ) ) {
-                        
-                        if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
-                            CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tWatchdog signal failed.", client->ips );
-                        }
-                        
-                        MutexUnlockA ( thread_lock, "Watchdog" );
-                    }
                     /// Return try again
                     resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_RETRY;
                 }
                 else {
-                    /// Return slot busy
-                    resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_LOCKED;
-                    CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tDevice instance slot locked.", client->ips );
+                    if ( (checkLast - busySP->aliveLast) > 0 )
+                    {
+                        /// Request alive response
+                        resp.cmd0 = MEDIATOR_SRV_CMD_ALIVE_REQUEST;
+                        
+                        busySP->aliveLast -= 2;
+                        SendBuffer ( busySP.get (), &resp, resp.size );
+                        
+                        Sleep ( 100 );
+                        
+                        /// Trigger Watchdog
+                        if ( MutexLockA ( thread_lock, "Watchdog" ) ) {
+                            
+                            if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+                                CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tWatchdog signal failed.", client->ips );
+                            }
+                            
+                            MutexUnlockA ( thread_lock, "Watchdog" );
+                        }
+                        /// Return try again
+                        resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_RETRY;
+                    }
+                    else {
+                        /// Return slot busy
+                        resp.cmd0 = MEDIATOR_SRV_CMD_SESSION_LOCKED;
+                        CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tDevice instance slot locked.", client->ips );
+                    }
                 }
-            }            
+            }
 		}
 		else {
 			RemoveDevice ( deviceSP.get () );

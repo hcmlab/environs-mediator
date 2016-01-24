@@ -17,6 +17,14 @@ JNIEXPORT void JNICALL Java_environs_Environs_LogN
 
 /*
  * Class:     environs_Environs
+ * Method:    SetNetworkConnectTimeoutN
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_SetNetworkConnectTimeoutN
+  (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     environs_Environs
  * Method:    CreateEnvironsN
  * Signature: ()I
  */
@@ -369,11 +377,19 @@ JNIEXPORT void JNICALL Java_environs_Environs_PushSensorDataN
 
 /*
  * Class:     environs_Environs
+ * Method:    PushSensorDataExtN
+ * Signature: (IZIDDDFFF)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_PushSensorDataExtN
+  (JNIEnv *, jclass, jint, jboolean, jint, jdouble, jdouble, jdouble, jfloat, jfloat, jfloat);
+
+/*
+ * Class:     environs_Environs
  * Method:    SetSensorEventSenderN
- * Signature: (IIIZ)Z
+ * Signature: (IIIIZ)Z
  */
 JNIEXPORT jboolean JNICALL Java_environs_Environs_SetSensorEventSenderN
-  (JNIEnv *, jclass, jint, jint, jint, jboolean);
+  (JNIEnv *, jclass, jint, jint, jint, jint, jboolean);
 
 /*
  * Class:     environs_Environs
@@ -470,6 +486,14 @@ JNIEXPORT jint JNICALL Java_environs_Environs_GetPlatformN
  */
 JNIEXPORT void JNICALL Java_environs_Environs_SetPlatformN
   (JNIEnv *, jclass, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    SetIsLocationNodeN
+ * Signature: (Z)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_SetIsLocationNodeN
+  (JNIEnv *, jclass, jboolean);
 
 /*
  * Class:     environs_Environs

@@ -51,14 +51,16 @@ namespace environs {
 #define	STATUS_INITIALIZED                                		(3)
 /** Environs is stopped. Usually after a call to Environs.Stop() */
 #define	STATUS_STOPPED                                    		(4)
-/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
-#define	STATUS_STOPPING                                   		(5)
+/** Environs is currently stopping. Threads are being shut down and allocated resources are being released. */
+#define	STATUS_STOP_IN_PROGRESS                           		(5)
+/** Environs is about to Stop. Threads are being shut down and allocated resources are being released. */
+#define	STATUS_STOPPING                                   		(6)
 /** Environs is about to Start. Thread are being started and resources are being allocated. */
-#define	STATUS_STARTING                                   		(6)
+#define	STATUS_STARTING                                   		(7)
 /** Environs is started. Usually after a call to Environs.Start() */
-#define	STATUS_STARTED                                    		(7)
+#define	STATUS_STARTED                                    		(8)
 /** Environs is in connected state and connected to at least one device. */
-#define	STATUS_CONNECTED                                  		(8)
+#define	STATUS_CONNECTED                                  		(9)
 
 /** 
  * Environs Status enumeration. Represents the same values as for NATIVE_STATUS_* 
@@ -74,7 +76,9 @@ namespace environs {
 			Status_Initialized         	=	STATUS_INITIALIZED,
 			/** Environs is stopped. Usually after a call to Environs.Stop() */
 			Status_Stopped             	=	STATUS_STOPPED,
-			/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
+			/** Environs is currently stopping. Threads are being shut down and allocated resources are being released. */
+			Status_StopInProgress      	=	STATUS_STOP_IN_PROGRESS,
+			/** Environs is about to Stop. Threads are being shut down and allocated resources are being released. */
 			Status_Stopping            	=	STATUS_STOPPING,
 			/** Environs is about to Start. Thread are being started and resources are being allocated. */
 			Status_Starting            	=	STATUS_STARTING,
@@ -91,6 +95,7 @@ namespace environs {
 			const Status_t Initializing        	=	Status_Initializing        ;
 			const Status_t Initialized         	=	Status_Initialized         ;
 			const Status_t Stopped             	=	Status_Stopped             ;
+			const Status_t StopInProgress      	=	Status_StopInProgress      ;
 			const Status_t Stopping            	=	Status_Stopping            ;
 			const Status_t Starting            	=	Status_Starting            ;
 			const Status_t Started             	=	Status_Started             ;
@@ -631,7 +636,6 @@ namespace environs {
  */
 /** Class: Environs type */
 #define	MSG_TYPE_ENVIRONS                                 		(8)
-#define	MSG_TYPE_MAX_COUNT                                		(MSG_TYPE_ENVIRONS + 1)
 
 #define	NOTIFY_TYPE_ENVIRONS                              		((MSG_TYPE_ENVIRONS << 16))
 #define	NOTIFY_START                                      		(NOTIFY_TYPE_ENVIRONS | 0x100)
@@ -655,7 +659,8 @@ namespace environs {
  * Environs Stop notifications
  */
 #define	NOTIFY_STOP                                       		(NOTIFY_TYPE_ENVIRONS | 0x200)
-#define	NOTIFY_STOP_IN_PROGRESS                           		(NOTIFY_STOP | 1)
+#define	NOTIFY_STOP_BEGIN                                 		(NOTIFY_STOP | 1)
+#define	NOTIFY_STOP_IN_PROGRESS                           		(NOTIFY_STOP | 2)
 #define	NOTIFY_STOP_FAILED                                		(NOTIFY_STOP | 10)
 #define	NOTIFY_STOP_SUCCESS                               		(NOTIFY_STOP | 11)
 #define	NOTIFY_STOP_RELEASED                              		(NOTIFY_STOP | 12)
@@ -680,6 +685,13 @@ namespace environs {
 #define	NOTIFY_PAIRING                                    		(NOTIFY_TYPE_ENVIRONS | 0x800)
 #define	NOTIFY_DEVICE_ON_SURFACE                          		(NOTIFY_PAIRING | 1)
 #define	NOTIFY_DEVICE_NOT_ON_SURFACE                      		(NOTIFY_PAIRING | 2)
+
+/**
+ * Environs Start notifications
+ */
+/** Class: Environs type */
+#define	MSG_TYPE_SENSOR                                   		(9)
+#define	MSG_TYPE_MAX_COUNT                                		(MSG_TYPE_SENSOR + 1)
 
 /**
  * Environs mediator filter constants
@@ -1129,6 +1141,9 @@ namespace environs {
 			Platforms_Tabletop_Flag       	=	0x400000,
 			Platforms_Display_Flag        	=	0x800000,
 
+			Platforms_LocationNode_Flag   	=	0x1000000,
+
+
 
 
 
@@ -1172,6 +1187,7 @@ namespace environs {
 			const Platforms_t Smartphone_Flag     	=	Platforms_Smartphone_Flag     ;
 			const Platforms_t Tabletop_Flag       	=	Platforms_Tabletop_Flag       ;
 			const Platforms_t Display_Flag        	=	Platforms_Display_Flag        ;
+			const Platforms_t LocationNode_Flag   	=	Platforms_LocationNode_Flag   ;
 	};
 #endif
 
@@ -1252,6 +1268,30 @@ namespace environs {
 #define	ENVIRONS_SENSOR_TYPE_GYROSCOPE                    		(2)
 #define	ENVIRONS_SENSOR_TYPE_ORIENTATION                  		(3)
 
+#define	ENVIRONS_SENSOR_TYPE_LIGHT                        		(4)
+#define	ENVIRONS_SENSOR_TYPE_LOCATION                     		(5)
+
+#define	ENVIRONS_SENSOR_TYPE_ALTIMETER                    		(6)
+#define	ENVIRONS_SENSOR_TYPE_HEARTRATE                    		(7)
+#define	ENVIRONS_SENSOR_TYPE_MAX                          		(8)
+
+#define	MAX_ENVIRONS_SENSOR_TYPE_VALUE                    		(0x100)
+#define	ENVIRONS_SENSOR_PACK_TYPE_EXT                     		(0x10000)
+
+#define	ENVIRONS_SENSOR_FLAG_ACCELEROMETER                		(0x1)
+#define	ENVIRONS_SENSOR_FLAG_MAGNETICFIELD                		(0x2)
+#define	ENVIRONS_SENSOR_FLAG_GYROSCOPE                    		(0x4)
+#define	ENVIRONS_SENSOR_FLAG_ORIENTATION                  		(0x8)
+
+#define	ENVIRONS_SENSOR_FLAG_LIGHT                        		(0x10)
+#define	ENVIRONS_SENSOR_FLAG_LOCATION                     		(0x20)
+
+#define	ENVIRONS_SENSOR_FLAG_ALTIMETER                    		(0x40)
+#define	ENVIRONS_SENSOR_FLAG_HEARTRATE                    		(0x80)
+
+
+
+/** Ignore: for CLI all the remaining content*/
 
 /**
  * Environs Option keys

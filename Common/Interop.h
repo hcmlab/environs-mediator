@@ -246,6 +246,7 @@
 
 
 #if defined(CLI_CPP)
+	using namespace System;
 	using namespace System::Runtime::InteropServices;
 	using namespace System::Text;
 
@@ -257,6 +258,7 @@
 #	define CLASS							ref class
 #	define PUBLIC_CLASS						public ref class
 #	define PUBLIC_STRUCT					public value struct
+#	define STRUCT							value struct
 #	define CLI_ABSTRACT						abstract
 #	define c_const						
 #	define DERIVE_c_only(v)					
@@ -302,6 +304,7 @@
 #	define CString_length(l)				l->Length
 #	define CString_compare(l,r,s)			System::String::Compare ( l, r )
 #	define CString_copy(l,s,r)				l = r
+#	define CString_contains(s,c)			s->Contains ( c )
 #	define CString_get_cstr(s)				s
 
 #	define UCharArray_ptr					cli::array<unsigned char> ^
@@ -342,7 +345,8 @@
 #	define free_plt(m)                      free_m(m)
 #	define CLASS							class
 #	define PUBLIC_CLASS						class
-#	define PUBLIC_STRUCT					typedef struct
+#	define PUBLIC_STRUCT					struct
+#	define STRUCT							struct
 #	define CLI_ABSTRACT					
 #	define c_const                          const
 #	define DERIVE_c_only(v)					: public v
@@ -365,6 +369,7 @@
 #	define CString_length(l)				strlen ( l )
 #	define CString_compare(l,r,s)			strncmp ( l, r, s )	
 #	define CString_copy(l,s,r)				strlcpy ( l, r, s )	
+#	define CString_contains(s,c)			strstr ( s, c )
 #	define CString_get_cstr(s)				s.c_str ()
 
 #	define STRING_T							std::string

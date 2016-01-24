@@ -3,6 +3,16 @@
 ---------------------------
 
 
+### v 0.9.6.8
+
+---------------------------
+
+* Updated: Mediator daemon check for deviceName for busy slot detection
+* Updated: Mediator daemons client thread when a identity is already registered by someone
+* Updated: Thread disposal in Threads.cpp
+* Updated: Stun/Stunt min wait time between notifications
+
+
 ### v 0.9.6.5
 
 ---------------------------

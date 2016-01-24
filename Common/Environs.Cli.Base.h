@@ -52,13 +52,13 @@ namespace environs
 	{
 
 
-		public ref class EnvironsBase : public IDisposable
+		/*public ref class EnvironsBase : public IDisposable
 		{
 		internal:
 			EnvironsBase ();
 			~EnvironsBase ();
 
-		};
+		};*/
 
 	}
 }

@@ -54,7 +54,9 @@ namespace environs
 			Initialized         	=	STATUS_INITIALIZED,
 			/** Environs is stopped. Usually after a call to Environs.Stop() */
 			Stopped             	=	STATUS_STOPPED,
-			/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
+			/** Environs is currently stopping. Threads are being shut down and allocated resources are being released. */
+			StopInProgress      	=	STATUS_STOP_IN_PROGRESS,
+			/** Environs is about to Stop. Threads are being shut down and allocated resources are being released. */
 			Stopping            	=	STATUS_STOPPING,
 			/** Environs is about to Start. Thread are being started and resources are being allocated. */
 			Starting            	=	STATUS_STARTING,
@@ -263,6 +265,9 @@ namespace environs
 			Tabletop_Flag       	=	0x400000,
 			Display_Flag        	=	0x800000,
 		
+			LocationNode_Flag   	=	0x1000000,
+		
+		
 		
 		
 		
@@ -280,59 +285,85 @@ namespace environs
 		 * Environs native layer status
 		 */
 		/** Uninitialized. Usually after creation of an Environs object. */
+
 #		ifdef STATUS_UNINITIALIZED                              
-#		undef STATUS_UNINITIALIZED                              
+#			undef STATUS_UNINITIALIZED                              
 #		endif
+
 		literal int STATUS_UNINITIALIZED                              =	(0);
 #		define	STATUS_UNINITIALIZED                              		(0)
 		/** Environs is about to be disposed. */
+
 #		ifdef STATUS_DISPOSING                                  
-#		undef STATUS_DISPOSING                                  
+#			undef STATUS_DISPOSING                                  
 #		endif
+
 		literal int STATUS_DISPOSING                                  =	(1);
 #		define	STATUS_DISPOSING                                  		(1)
 		/** Environs is initializing. */
+
 #		ifdef STATUS_INITIALIZING                               
-#		undef STATUS_INITIALIZING                               
+#			undef STATUS_INITIALIZING                               
 #		endif
+
 		literal int STATUS_INITIALIZING                               =	(2);
 #		define	STATUS_INITIALIZING                               		(2)
 		/** Environs is initialized. Usually after a call to Environs.Init() */
+
 #		ifdef STATUS_INITIALIZED                                
-#		undef STATUS_INITIALIZED                                
+#			undef STATUS_INITIALIZED                                
 #		endif
+
 		literal int STATUS_INITIALIZED                                =	(3);
 #		define	STATUS_INITIALIZED                                		(3)
 		/** Environs is stopped. Usually after a call to Environs.Stop() */
+
 #		ifdef STATUS_STOPPED                                    
-#		undef STATUS_STOPPED                                    
+#			undef STATUS_STOPPED                                    
 #		endif
+
 		literal int STATUS_STOPPED                                    =	(4);
 #		define	STATUS_STOPPED                                    		(4)
-		/** Environs is about to Stop. Thread are being shut down and allocated resources are being released. */
+		/** Environs is currently stopping. Threads are being shut down and allocated resources are being released. */
+
+#		ifdef STATUS_STOP_IN_PROGRESS                           
+#			undef STATUS_STOP_IN_PROGRESS                           
+#		endif
+
+		literal int STATUS_STOP_IN_PROGRESS                           =	(5);
+#		define	STATUS_STOP_IN_PROGRESS                           		(5)
+		/** Environs is about to Stop. Threads are being shut down and allocated resources are being released. */
+
 #		ifdef STATUS_STOPPING                                   
-#		undef STATUS_STOPPING                                   
+#			undef STATUS_STOPPING                                   
 #		endif
-		literal int STATUS_STOPPING                                   =	(5);
-#		define	STATUS_STOPPING                                   		(5)
+
+		literal int STATUS_STOPPING                                   =	(6);
+#		define	STATUS_STOPPING                                   		(6)
 		/** Environs is about to Start. Thread are being started and resources are being allocated. */
+
 #		ifdef STATUS_STARTING                                   
-#		undef STATUS_STARTING                                   
+#			undef STATUS_STARTING                                   
 #		endif
-		literal int STATUS_STARTING                                   =	(6);
-#		define	STATUS_STARTING                                   		(6)
+
+		literal int STATUS_STARTING                                   =	(7);
+#		define	STATUS_STARTING                                   		(7)
 		/** Environs is started. Usually after a call to Environs.Start() */
+
 #		ifdef STATUS_STARTED                                    
-#		undef STATUS_STARTED                                    
+#			undef STATUS_STARTED                                    
 #		endif
-		literal int STATUS_STARTED                                    =	(7);
-#		define	STATUS_STARTED                                    		(7)
+
+		literal int STATUS_STARTED                                    =	(8);
+#		define	STATUS_STARTED                                    		(8)
 		/** Environs is in connected state and connected to at least one device. */
+
 #		ifdef STATUS_CONNECTED                                  
-#		undef STATUS_CONNECTED                                  
+#			undef STATUS_CONNECTED                                  
 #		endif
-		literal int STATUS_CONNECTED                                  =	(8);
-#		define	STATUS_CONNECTED                                  		(8)
+
+		literal int STATUS_CONNECTED                                  =	(9);
+#		define	STATUS_CONNECTED                                  		(9)
 		
 		/** 
 		 * Environs Status enumeration. Represents the same values as for NATIVE_STATUS_* 
@@ -343,9 +374,11 @@ namespace environs
 		 * Max supported instances of Environs objects that each application can run at the same time.
 		 * Max supported instances of Environs objects that each application can run at the same time.
 		 * */
+
 #		ifdef ENVIRONS_MAX_ENVIRONS_INSTANCES                   
-#		undef ENVIRONS_MAX_ENVIRONS_INSTANCES                   
+#			undef ENVIRONS_MAX_ENVIRONS_INSTANCES                   
 #		endif
+
 		literal int ENVIRONS_MAX_ENVIRONS_INSTANCES                   =	(10);
 #		define	ENVIRONS_MAX_ENVIRONS_INSTANCES                   		(10)
 		
@@ -353,9 +386,11 @@ namespace environs
 		 * A constant value that identifies an uninitialized display value.
 		 * A constant value that identifies an uninitialized display value.
 		 * */
+
 #		ifdef ENVIRONS_DISPLAY_UNINITIALIZED_VALUE              
-#		undef ENVIRONS_DISPLAY_UNINITIALIZED_VALUE              
+#			undef ENVIRONS_DISPLAY_UNINITIALIZED_VALUE              
 #		endif
+
 		literal int ENVIRONS_DISPLAY_UNINITIALIZED_VALUE              =	(-1);
 #		define	ENVIRONS_DISPLAY_UNINITIALIZED_VALUE              		(-1)
 		
@@ -364,21 +399,27 @@ namespace environs
 		 * Environs thread states
 		 */
 		/** Uninitialized. Usually after creation of an Environs object. */
+
 #		ifdef ENVIRONS_THREAD_NO_THREAD                         
-#		undef ENVIRONS_THREAD_NO_THREAD                         
+#			undef ENVIRONS_THREAD_NO_THREAD                         
 #		endif
+
 		literal int ENVIRONS_THREAD_NO_THREAD                         =	(0);
 #		define	ENVIRONS_THREAD_NO_THREAD                         		(0)
 		/** Thread is either created and not yet running or terminated. */
+
 #		ifdef ENVIRONS_THREAD_DETACHEABLE                       
-#		undef ENVIRONS_THREAD_DETACHEABLE                       
+#			undef ENVIRONS_THREAD_DETACHEABLE                       
 #		endif
+
 		literal int ENVIRONS_THREAD_DETACHEABLE                       =	(1);
 #		define	ENVIRONS_THREAD_DETACHEABLE                       		(1)
 		/** Thread is running. */
+
 #		ifdef ENVIRONS_THREAD_RUNNING                           
-#		undef ENVIRONS_THREAD_RUNNING                           
+#			undef ENVIRONS_THREAD_RUNNING                           
 #		endif
+
 		literal int ENVIRONS_THREAD_RUNNING                           =	(2);
 #		define	ENVIRONS_THREAD_RUNNING                           		(2)
 		
@@ -388,27 +429,35 @@ namespace environs
 		 * "Garbage Collection" should dispose and delete the object on the next occasion. 
 		 * "Garbage Collection" should dispose and delete the object on the next occasion. 
 		 * */
+
 #		ifdef DEVICE_STATUS_DELETEABLE                          
-#		undef DEVICE_STATUS_DELETEABLE                          
+#			undef DEVICE_STATUS_DELETEABLE                          
 #		endif
+
 		literal int DEVICE_STATUS_DELETEABLE                          =	(0);
 #		define	DEVICE_STATUS_DELETEABLE                          		(0)
 		/** Device object has just been created. */
+
 #		ifdef DEVICE_STATUS_CREATED                             
-#		undef DEVICE_STATUS_CREATED                             
+#			undef DEVICE_STATUS_CREATED                             
 #		endif
+
 		literal int DEVICE_STATUS_CREATED                             =	(2);
 #		define	DEVICE_STATUS_CREATED                             		(2)
 		/** Connect in progress. Device object has been created and the connecting task is in progress. */
+
 #		ifdef DEVICE_STATUS_CONNECT_IN_PROGRESS                 
-#		undef DEVICE_STATUS_CONNECT_IN_PROGRESS                 
+#			undef DEVICE_STATUS_CONNECT_IN_PROGRESS                 
 #		endif
+
 		literal int DEVICE_STATUS_CONNECT_IN_PROGRESS                 =	(3);
 #		define	DEVICE_STATUS_CONNECT_IN_PROGRESS                 		(3)
 		/** Connected. Device object is connected to the destination device and active. */
+
 #		ifdef DEVICE_STATUS_CONNECTED                           
-#		undef DEVICE_STATUS_CONNECTED                           
+#			undef DEVICE_STATUS_CONNECTED                           
 #		endif
+
 		literal int DEVICE_STATUS_CONNECTED                           =	(4);
 #		define	DEVICE_STATUS_CONNECTED                           		(4)
 		
@@ -422,27 +471,35 @@ namespace environs
 		 * Environs source values which determines the source of an event, data, or message.
 		 */
 		/** Sent by native layer. */
+
 #		ifdef SOURCE_NATIVE                                     
-#		undef SOURCE_NATIVE                                     
+#			undef SOURCE_NATIVE                                     
 #		endif
+
 		literal int SOURCE_NATIVE                                     =	(0);
 #		define	SOURCE_NATIVE                                     		(0)
 		/** Sent by platform specific layer. */
+
 #		ifdef SOURCE_PLATFORM                                   
-#		undef SOURCE_PLATFORM                                   
+#			undef SOURCE_PLATFORM                                   
 #		endif
+
 		literal int SOURCE_PLATFORM                                   =	(1);
 #		define	SOURCE_PLATFORM                                   		(1)
 		/** Sent by another device within the environment.  */
+
 #		ifdef SOURCE_DEVICE                                     
-#		undef SOURCE_DEVICE                                     
+#			undef SOURCE_DEVICE                                     
 #		endif
+
 		literal int SOURCE_DEVICE                                     =	(2);
 #		define	SOURCE_DEVICE                                     		(2)
 		/** Sent by the app layer. */
+
 #		ifdef SOURCE_APPLICATION                                
-#		undef SOURCE_APPLICATION                                
+#			undef SOURCE_APPLICATION                                
 #		endif
+
 		literal int SOURCE_APPLICATION                                =	(3);
 #		define	SOURCE_APPLICATION                                		(3)
 		
@@ -454,14 +511,18 @@ namespace environs
 		 * */
 		
 		
+
 #		ifdef ENVIRONS_OBJECT_DISPOSED                          
-#		undef ENVIRONS_OBJECT_DISPOSED                          
+#			undef ENVIRONS_OBJECT_DISPOSED                          
 #		endif
+
 		literal int ENVIRONS_OBJECT_DISPOSED                          =	(-1);
 #		define	ENVIRONS_OBJECT_DISPOSED                          		(-1)
+
 #		ifdef ENVIRONS_OBJECT_DISPOSED_PLATFORM                 
-#		undef ENVIRONS_OBJECT_DISPOSED_PLATFORM                 
+#			undef ENVIRONS_OBJECT_DISPOSED_PLATFORM                 
 #		endif
+
 		literal int ENVIRONS_OBJECT_DISPOSED_PLATFORM                 =	(-2);
 #		define	ENVIRONS_OBJECT_DISPOSED_PLATFORM                 		(-2)
 		
@@ -469,14 +530,18 @@ namespace environs
 		 * Native payload type class is determined by the upper byte of payload
 		 * Native payload type class is determined by the upper byte of payload
 		 */
+
 #		ifdef MSG_NOTIFY_ID                                     
-#		undef MSG_NOTIFY_ID                                     
+#			undef MSG_NOTIFY_ID                                     
 #		endif
+
 		literal int MSG_NOTIFY_ID                                     =	(0xFF00);
 #		define	MSG_NOTIFY_ID                                     		(0xFF00)
+
 #		ifdef MSG_NOTIFY_CLASS                                  
-#		undef MSG_NOTIFY_CLASS                                  
+#			undef MSG_NOTIFY_CLASS                                  
 #		endif
+
 		literal int MSG_NOTIFY_CLASS                                  =	(0xFF0000);
 #		define	MSG_NOTIFY_CLASS                                  		(0xFF0000)
 			
@@ -487,325 +552,441 @@ namespace environs
 		 * Type: unsigned short 0xFFFF
 		 */
 		/** Class: Helo type */
+
 #		ifdef MSG_TYPE_HELO                                     
-#		undef MSG_TYPE_HELO                                     
+#			undef MSG_TYPE_HELO                                     
 #		endif
+
 		literal int MSG_TYPE_HELO                                     =	(0);
 #		define	MSG_TYPE_HELO                                     		(0)
 		// Handshake states
+
 #		ifdef MSG_HANDSHAKE                                     
-#		undef MSG_HANDSHAKE                                     
+#			undef MSG_HANDSHAKE                                     
 #		endif
+
 		literal int MSG_HANDSHAKE                                     =	(0x100);
 #		define	MSG_HANDSHAKE                                     		(0x100)
 			
 		/** Main channel */
 		// Former 'D'
+
 #		ifdef MSG_HANDSHAKE_MAIN                                
-#		undef MSG_HANDSHAKE_MAIN                                
+#			undef MSG_HANDSHAKE_MAIN                                
 #		endif
+
 		literal int MSG_HANDSHAKE_MAIN                                =	(MSG_HANDSHAKE | 0x10);
 #		define	MSG_HANDSHAKE_MAIN                                		(MSG_HANDSHAKE | 0x10)
 		// Former 'D'
+
 #		ifdef MSG_HANDSHAKE_MAIN_REQ                            
-#		undef MSG_HANDSHAKE_MAIN_REQ                            
+#			undef MSG_HANDSHAKE_MAIN_REQ                            
 #		endif
+
 		literal int MSG_HANDSHAKE_MAIN_REQ                            =	(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 1);
 #		define	MSG_HANDSHAKE_MAIN_REQ                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 1)
 		// Former 'D'
+
 #		ifdef MSG_HANDSHAKE_MAIN_ACK                            
-#		undef MSG_HANDSHAKE_MAIN_ACK                            
+#			undef MSG_HANDSHAKE_MAIN_ACK                            
 #		endif
+
 		literal int MSG_HANDSHAKE_MAIN_ACK                            =	(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 2);
 #		define	MSG_HANDSHAKE_MAIN_ACK                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 2)
 		// Former 'D'
+
 #		ifdef MSG_HANDSHAKE_MAIN_FAIL                           
-#		undef MSG_HANDSHAKE_MAIN_FAIL                           
+#			undef MSG_HANDSHAKE_MAIN_FAIL                           
 #		endif
+
 		literal int MSG_HANDSHAKE_MAIN_FAIL                           =	(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 3);
 #		define	MSG_HANDSHAKE_MAIN_FAIL                           		(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 3)
 		// Former 'D'
+
 #		ifdef MSG_HANDSHAKE_MAIN_CLOSED                         
-#		undef MSG_HANDSHAKE_MAIN_CLOSED                         
+#			undef MSG_HANDSHAKE_MAIN_CLOSED                         
 #		endif
+
 		literal int MSG_HANDSHAKE_MAIN_CLOSED                         =	(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 4);
 #		define	MSG_HANDSHAKE_MAIN_CLOSED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 4)
 		
+
 #		ifdef MSG_HANDSHAKE_BULK                                
-#		undef MSG_HANDSHAKE_BULK                                
+#			undef MSG_HANDSHAKE_BULK                                
 #		endif
+
 		literal int MSG_HANDSHAKE_BULK                                =	(MSG_HANDSHAKE | 0x20);
 #		define	MSG_HANDSHAKE_BULK                                		(MSG_HANDSHAKE | 0x20)
+
 #		ifdef MSG_HANDSHAKE_BULK_REQ                            
-#		undef MSG_HANDSHAKE_BULK_REQ                            
+#			undef MSG_HANDSHAKE_BULK_REQ                            
 #		endif
+
 		literal int MSG_HANDSHAKE_BULK_REQ                            =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 1);
 #		define	MSG_HANDSHAKE_BULK_REQ                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 1)
+
 #		ifdef MSG_HANDSHAKE_BULK_ACK                            
-#		undef MSG_HANDSHAKE_BULK_ACK                            
+#			undef MSG_HANDSHAKE_BULK_ACK                            
 #		endif
+
 		literal int MSG_HANDSHAKE_BULK_ACK                            =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 2);
 #		define	MSG_HANDSHAKE_BULK_ACK                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 2)
+
 #		ifdef MSG_HANDSHAKE_BULK_FAILED                         
-#		undef MSG_HANDSHAKE_BULK_FAILED                         
+#			undef MSG_HANDSHAKE_BULK_FAILED                         
 #		endif
+
 		literal int MSG_HANDSHAKE_BULK_FAILED                         =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 3);
 #		define	MSG_HANDSHAKE_BULK_FAILED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 3)
+
 #		ifdef MSG_HANDSHAKE_BULK_CLOSED                         
-#		undef MSG_HANDSHAKE_BULK_CLOSED                         
+#			undef MSG_HANDSHAKE_BULK_CLOSED                         
 #		endif
+
 		literal int MSG_HANDSHAKE_BULK_CLOSED                         =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 4);
 #		define	MSG_HANDSHAKE_BULK_CLOSED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 4)
 		
+
 #		ifdef MSG_HANDSHAKE_PROC                                
-#		undef MSG_HANDSHAKE_PROC                                
+#			undef MSG_HANDSHAKE_PROC                                
 #		endif
+
 		literal int MSG_HANDSHAKE_PROC                                =	(MSG_HANDSHAKE | 0x40);
 #		define	MSG_HANDSHAKE_PROC                                		(MSG_HANDSHAKE | 0x40)
 		// Former 'P'
+
 #		ifdef MSG_HANDSHAKE_PORTS                               
-#		undef MSG_HANDSHAKE_PORTS                               
+#			undef MSG_HANDSHAKE_PORTS                               
 #		endif
+
 		literal int MSG_HANDSHAKE_PORTS                               =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 1);
 #		define	MSG_HANDSHAKE_PORTS                               		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 1)
+
 #		ifdef MSG_HANDSHAKE_PORTS_ACK                           
-#		undef MSG_HANDSHAKE_PORTS_ACK                           
+#			undef MSG_HANDSHAKE_PORTS_ACK                           
 #		endif
+
 		literal int MSG_HANDSHAKE_PORTS_ACK                           =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 2);
 #		define	MSG_HANDSHAKE_PORTS_ACK                           		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 2)
+
 #		ifdef MSG_HANDSHAKE_CONIG_REQ                           
-#		undef MSG_HANDSHAKE_CONIG_REQ                           
+#			undef MSG_HANDSHAKE_CONIG_REQ                           
 #		endif
+
 		literal int MSG_HANDSHAKE_CONIG_REQ                           =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 3);
 #		define	MSG_HANDSHAKE_CONIG_REQ                           		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 3)
+
 #		ifdef MSG_HANDSHAKE_CONIG_RESP                          
-#		undef MSG_HANDSHAKE_CONIG_RESP                          
+#			undef MSG_HANDSHAKE_CONIG_RESP                          
 #		endif
+
 		literal int MSG_HANDSHAKE_CONIG_RESP                          =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 4);
 #		define	MSG_HANDSHAKE_CONIG_RESP                          		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 4)
+
 #		ifdef MSG_HANDSHAKE_CONIG_RESP_ACK                      
-#		undef MSG_HANDSHAKE_CONIG_RESP_ACK                      
+#			undef MSG_HANDSHAKE_CONIG_RESP_ACK                      
 #		endif
+
 		literal int MSG_HANDSHAKE_CONIG_RESP_ACK                      =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 5);
 #		define	MSG_HANDSHAKE_CONIG_RESP_ACK                      		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 5)
+
 #		ifdef MSG_HANDSHAKE_CONNECTED                           
-#		undef MSG_HANDSHAKE_CONNECTED                           
+#			undef MSG_HANDSHAKE_CONNECTED                           
 #		endif
+
 		literal int MSG_HANDSHAKE_CONNECTED                           =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xA);
 #		define	MSG_HANDSHAKE_CONNECTED                           		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xA)
+
 #		ifdef MSG_HANDSHAKE_DISCONNECTED                        
-#		undef MSG_HANDSHAKE_DISCONNECTED                        
+#			undef MSG_HANDSHAKE_DISCONNECTED                        
 #		endif
+
 		literal int MSG_HANDSHAKE_DISCONNECTED                        =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xB);
 #		define	MSG_HANDSHAKE_DISCONNECTED                        		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xB)
 			
 		
+
 #		ifdef MSG_HANDSHAKE_UDP                                 
-#		undef MSG_HANDSHAKE_UDP                                 
+#			undef MSG_HANDSHAKE_UDP                                 
 #		endif
+
 		literal int MSG_HANDSHAKE_UDP                                 =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 6);
 #		define	MSG_HANDSHAKE_UDP                                 		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 6)
+
 #		ifdef MSG_HANDSHAKE_UDP_ACK                             
-#		undef MSG_HANDSHAKE_UDP_ACK                             
+#			undef MSG_HANDSHAKE_UDP_ACK                             
 #		endif
+
 		literal int MSG_HANDSHAKE_UDP_ACK                             =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 7);
 #		define	MSG_HANDSHAKE_UDP_ACK                             		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 7)
 			
+
 #		ifdef MSG_HANDSHAKE_SUCCESS                             
-#		undef MSG_HANDSHAKE_SUCCESS                             
+#			undef MSG_HANDSHAKE_SUCCESS                             
 #		endif
+
 		literal int MSG_HANDSHAKE_SUCCESS                             =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xE);
 #		define	MSG_HANDSHAKE_SUCCESS                             		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xE)
+
 #		ifdef MSG_HANDSHAKE_SUCCESS_ACK                         
-#		undef MSG_HANDSHAKE_SUCCESS_ACK                         
+#			undef MSG_HANDSHAKE_SUCCESS_ACK                         
 #		endif
+
 		literal int MSG_HANDSHAKE_SUCCESS_ACK                         =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xF);
 #		define	MSG_HANDSHAKE_SUCCESS_ACK                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xF)
 			
+
 #		ifdef MSG_HANDSHAKE_SHORT_MESSAGE                       
-#		undef MSG_HANDSHAKE_SHORT_MESSAGE                       
+#			undef MSG_HANDSHAKE_SHORT_MESSAGE                       
 #		endif
+
 		literal int MSG_HANDSHAKE_SHORT_MESSAGE                       =	(MSG_HANDSHAKE | 0x81);
 #		define	MSG_HANDSHAKE_SHORT_MESSAGE                       		(MSG_HANDSHAKE | 0x81)
+
 #		ifdef MSG_HANDSHAKE_SHORT_MESSAGE_ACK                   
-#		undef MSG_HANDSHAKE_SHORT_MESSAGE_ACK                   
+#			undef MSG_HANDSHAKE_SHORT_MESSAGE_ACK                   
 #		endif
+
 		literal int MSG_HANDSHAKE_SHORT_MESSAGE_ACK                   =	(MSG_HANDSHAKE | 0x82);
 #		define	MSG_HANDSHAKE_SHORT_MESSAGE_ACK                   		(MSG_HANDSHAKE | 0x82)
 		
+
 #		ifdef NOTIFY_TYPE_CONNECTION                            
-#		undef NOTIFY_TYPE_CONNECTION                            
+#			undef NOTIFY_TYPE_CONNECTION                            
 #		endif
+
 		literal int NOTIFY_TYPE_CONNECTION                            =	((MSG_TYPE_HELO << 16));
 #		define	NOTIFY_TYPE_CONNECTION                            		((MSG_TYPE_HELO << 16))
+
 #		ifdef NOTIFY_CONNECTION_MAIN_NEW                        
-#		undef NOTIFY_CONNECTION_MAIN_NEW                        
+#			undef NOTIFY_CONNECTION_MAIN_NEW                        
 #		endif
+
 		literal int NOTIFY_CONNECTION_MAIN_NEW                        =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_REQ);
 #		define	NOTIFY_CONNECTION_MAIN_NEW                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_REQ)
+
 #		ifdef NOTIFY_CONNECTION_MAIN_ACK                        
-#		undef NOTIFY_CONNECTION_MAIN_ACK                        
+#			undef NOTIFY_CONNECTION_MAIN_ACK                        
 #		endif
+
 		literal int NOTIFY_CONNECTION_MAIN_ACK                        =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_ACK);
 #		define	NOTIFY_CONNECTION_MAIN_ACK                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_ACK)
+
 #		ifdef NOTIFY_CONNECTION_MAIN_FAILED                     
-#		undef NOTIFY_CONNECTION_MAIN_FAILED                     
+#			undef NOTIFY_CONNECTION_MAIN_FAILED                     
 #		endif
+
 		literal int NOTIFY_CONNECTION_MAIN_FAILED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_FAIL);
 #		define	NOTIFY_CONNECTION_MAIN_FAILED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_FAIL)
+
 #		ifdef NOTIFY_CONNECTION_MAIN_CLOSED                     
-#		undef NOTIFY_CONNECTION_MAIN_CLOSED                     
+#			undef NOTIFY_CONNECTION_MAIN_CLOSED                     
 #		endif
+
 		literal int NOTIFY_CONNECTION_MAIN_CLOSED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_CLOSED);
 #		define	NOTIFY_CONNECTION_MAIN_CLOSED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_CLOSED)
+
 #		ifdef NOTIFY_CONNECTION_BULK_NEW                        
-#		undef NOTIFY_CONNECTION_BULK_NEW                        
+#			undef NOTIFY_CONNECTION_BULK_NEW                        
 #		endif
+
 		literal int NOTIFY_CONNECTION_BULK_NEW                        =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_REQ);
 #		define	NOTIFY_CONNECTION_BULK_NEW                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_REQ)
+
 #		ifdef NOTIFY_CONNECTION_BULK_ACK                        
-#		undef NOTIFY_CONNECTION_BULK_ACK                        
+#			undef NOTIFY_CONNECTION_BULK_ACK                        
 #		endif
+
 		literal int NOTIFY_CONNECTION_BULK_ACK                        =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_ACK);
 #		define	NOTIFY_CONNECTION_BULK_ACK                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_ACK)
+
 #		ifdef NOTIFY_CONNECTION_BULK_FAILED                     
-#		undef NOTIFY_CONNECTION_BULK_FAILED                     
+#			undef NOTIFY_CONNECTION_BULK_FAILED                     
 #		endif
+
 		literal int NOTIFY_CONNECTION_BULK_FAILED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_FAILED);
 #		define	NOTIFY_CONNECTION_BULK_FAILED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_FAILED)
+
 #		ifdef NOTIFY_CONNECTION_BULK_CLOSED                     
-#		undef NOTIFY_CONNECTION_BULK_CLOSED                     
+#			undef NOTIFY_CONNECTION_BULK_CLOSED                     
 #		endif
+
 		literal int NOTIFY_CONNECTION_BULK_CLOSED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_CLOSED);
 #		define	NOTIFY_CONNECTION_BULK_CLOSED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_CLOSED)
+
 #		ifdef NOTIFY_CONNECTION_DATA_ACK                        
-#		undef NOTIFY_CONNECTION_DATA_ACK                        
+#			undef NOTIFY_CONNECTION_DATA_ACK                        
 #		endif
+
 		literal int NOTIFY_CONNECTION_DATA_ACK                        =	(NOTIFY_TYPE_CONNECTION | 0xA);
 #		define	NOTIFY_CONNECTION_DATA_ACK                        		(NOTIFY_TYPE_CONNECTION | 0xA)
+
 #		ifdef NOTIFY_CONNECTION_DATA_CLOSED                     
-#		undef NOTIFY_CONNECTION_DATA_CLOSED                     
+#			undef NOTIFY_CONNECTION_DATA_CLOSED                     
 #		endif
+
 		literal int NOTIFY_CONNECTION_DATA_CLOSED                     =	(NOTIFY_TYPE_CONNECTION | 0xC);
 #		define	NOTIFY_CONNECTION_DATA_CLOSED                     		(NOTIFY_TYPE_CONNECTION | 0xC)
 		
+
 #		ifdef NOTIFY_CONNECTION_PROGRESS                        
-#		undef NOTIFY_CONNECTION_PROGRESS                        
+#			undef NOTIFY_CONNECTION_PROGRESS                        
 #		endif
+
 		literal int NOTIFY_CONNECTION_PROGRESS                        =	(NOTIFY_TYPE_CONNECTION | 0xD);
 #		define	NOTIFY_CONNECTION_PROGRESS                        		(NOTIFY_TYPE_CONNECTION | 0xD)
 			
+
 #		ifdef NOTIFY_CONNECTION_ESTABLISHED                     
-#		undef NOTIFY_CONNECTION_ESTABLISHED                     
+#			undef NOTIFY_CONNECTION_ESTABLISHED                     
 #		endif
+
 		literal int NOTIFY_CONNECTION_ESTABLISHED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS);
 #		define	NOTIFY_CONNECTION_ESTABLISHED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS)
+
 #		ifdef NOTIFY_CONNECTION_ESTABLISHED_ACK                 
-#		undef NOTIFY_CONNECTION_ESTABLISHED_ACK                 
+#			undef NOTIFY_CONNECTION_ESTABLISHED_ACK                 
 #		endif
+
 		literal int NOTIFY_CONNECTION_ESTABLISHED_ACK                 =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS_ACK);
 #		define	NOTIFY_CONNECTION_ESTABLISHED_ACK                 		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SUCCESS_ACK)
+
 #		ifdef NOTIFY_CONNECTION_CLOSED                          
-#		undef NOTIFY_CONNECTION_CLOSED                          
+#			undef NOTIFY_CONNECTION_CLOSED                          
 #		endif
+
 		literal int NOTIFY_CONNECTION_CLOSED                          =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_DISCONNECTED);
 #		define	NOTIFY_CONNECTION_CLOSED                          		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_DISCONNECTED)
 			
+
 #		ifdef NOTIFY_SHORT_MESSAGE                              
-#		undef NOTIFY_SHORT_MESSAGE                              
+#			undef NOTIFY_SHORT_MESSAGE                              
 #		endif
+
 		literal int NOTIFY_SHORT_MESSAGE                              =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SHORT_MESSAGE);
 #		define	NOTIFY_SHORT_MESSAGE                              		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SHORT_MESSAGE)
+
 #		ifdef NOTIFY_SHORT_MESSAGE_ACK                          
-#		undef NOTIFY_SHORT_MESSAGE_ACK                          
+#			undef NOTIFY_SHORT_MESSAGE_ACK                          
 #		endif
+
 		literal int NOTIFY_SHORT_MESSAGE_ACK                          =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SHORT_MESSAGE_ACK);
 #		define	NOTIFY_SHORT_MESSAGE_ACK                          		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_SHORT_MESSAGE_ACK)
 			
 			
 		// Stream types
+
 #		ifdef DATA_STREAM                                       
-#		undef DATA_STREAM                                       
+#			undef DATA_STREAM                                       
 #		endif
+
 		literal int DATA_STREAM                                       =	(0x200);
 #		define	DATA_STREAM                                       		(0x200)
+
 #		ifdef DATA_STREAM_INIT                                  
-#		undef DATA_STREAM_INIT                                  
+#			undef DATA_STREAM_INIT                                  
 #		endif
+
 		literal int DATA_STREAM_INIT                                  =	(1);
 #		define	DATA_STREAM_INIT                                  		(1)
 		
+
 #		ifdef DATA_STREAM_IFRAME                                
-#		undef DATA_STREAM_IFRAME                                
+#			undef DATA_STREAM_IFRAME                                
 #		endif
+
 		literal int DATA_STREAM_IFRAME                                =	(0x400);
 #		define	DATA_STREAM_IFRAME                                		(0x400)
 		
 		/** Class: Image type */
+
 #		ifdef MSG_TYPE_IMAGE                                    
-#		undef MSG_TYPE_IMAGE                                    
+#			undef MSG_TYPE_IMAGE                                    
 #		endif
+
 		literal int MSG_TYPE_IMAGE                                    =	(1);
 #		define	MSG_TYPE_IMAGE                                    		(1)
 		// 0x10
+
 #		ifdef DATA_STREAM_IMAGE                                 
-#		undef DATA_STREAM_IMAGE                                 
+#			undef DATA_STREAM_IMAGE                                 
 #		endif
+
 		literal int DATA_STREAM_IMAGE                                 =	(MSG_TYPE_IMAGE << 4);
 #		define	DATA_STREAM_IMAGE                                 		(MSG_TYPE_IMAGE << 4)
+
 #		ifdef DATA_STREAM_IMAGE_INIT                            
-#		undef DATA_STREAM_IMAGE_INIT                            
+#			undef DATA_STREAM_IMAGE_INIT                            
 #		endif
+
 		literal int DATA_STREAM_IMAGE_INIT                            =	(DATA_STREAM | DATA_STREAM_IMAGE | DATA_STREAM_INIT);
 #		define	DATA_STREAM_IMAGE_INIT                            		(DATA_STREAM | DATA_STREAM_IMAGE | DATA_STREAM_INIT)
+
 #		ifdef DATA_STREAM_IMAGE_DATA                            
-#		undef DATA_STREAM_IMAGE_DATA                            
+#			undef DATA_STREAM_IMAGE_DATA                            
 #		endif
+
 		literal int DATA_STREAM_IMAGE_DATA                            =	(DATA_STREAM | DATA_STREAM_IMAGE | 8);
 #		define	DATA_STREAM_IMAGE_DATA                            		(DATA_STREAM | DATA_STREAM_IMAGE | 8)
+
 #		ifdef DATA_STREAM_IMAGE_JPEG                            
-#		undef DATA_STREAM_IMAGE_JPEG                            
+#			undef DATA_STREAM_IMAGE_JPEG                            
 #		endif
+
 		literal int DATA_STREAM_IMAGE_JPEG                            =	(DATA_STREAM_IMAGE_DATA | 2);
 #		define	DATA_STREAM_IMAGE_JPEG                            		(DATA_STREAM_IMAGE_DATA | 2)
+
 #		ifdef DATA_STREAM_IMAGE_PNG                             
-#		undef DATA_STREAM_IMAGE_PNG                             
+#			undef DATA_STREAM_IMAGE_PNG                             
 #		endif
+
 		literal int DATA_STREAM_IMAGE_PNG                             =	(DATA_STREAM_IMAGE_DATA | 4);
 #		define	DATA_STREAM_IMAGE_PNG                             		(DATA_STREAM_IMAGE_DATA | 4)
 		
 		/** Class: Video type */
+
 #		ifdef MSG_TYPE_STREAM                                   
-#		undef MSG_TYPE_STREAM                                   
+#			undef MSG_TYPE_STREAM                                   
 #		endif
+
 		literal int MSG_TYPE_STREAM                                   =	(2);
 #		define	MSG_TYPE_STREAM                                   		(2)
 		// 0x20
+
 #		ifdef DATA_STREAM_H264                                  
-#		undef DATA_STREAM_H264                                  
+#			undef DATA_STREAM_H264                                  
 #		endif
+
 		literal int DATA_STREAM_H264                                  =	(MSG_TYPE_STREAM << 4);
 #		define	DATA_STREAM_H264                                  		(MSG_TYPE_STREAM << 4)
 		// Initialization protocol version 1 packet with width and height
+
 #		ifdef DATA_STREAM_H264_INIT                             
-#		undef DATA_STREAM_H264_INIT                             
+#			undef DATA_STREAM_H264_INIT                             
 #		endif
+
 		literal int DATA_STREAM_H264_INIT                             =	(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT);
 #		define	DATA_STREAM_H264_INIT                             		(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT)
 		// Header packets of h264
+
 #		ifdef DATA_STREAM_H264_HDR                              
-#		undef DATA_STREAM_H264_HDR                              
+#			undef DATA_STREAM_H264_HDR                              
 #		endif
+
 		literal int DATA_STREAM_H264_HDR                              =	(DATA_STREAM | DATA_STREAM_H264 | 2);
 #		define	DATA_STREAM_H264_HDR                              		(DATA_STREAM | DATA_STREAM_H264 | 2)
+
 #		ifdef DATA_STREAM_H264_NAL                              
-#		undef DATA_STREAM_H264_NAL                              
+#			undef DATA_STREAM_H264_NAL                              
 #		endif
+
 		literal int DATA_STREAM_H264_NAL                              =	(DATA_STREAM | DATA_STREAM_H264 | 4);
 #		define	DATA_STREAM_H264_NAL                              		(DATA_STREAM | DATA_STREAM_H264 | 4)
+
 #		ifdef DATA_STREAM_H264_NALUS                            
-#		undef DATA_STREAM_H264_NALUS                            
+#			undef DATA_STREAM_H264_NALUS                            
 #		endif
+
 		literal int DATA_STREAM_H264_NALUS                            =	(DATA_STREAM | DATA_STREAM_H264 | 8);
 #		define	DATA_STREAM_H264_NALUS                            		(DATA_STREAM | DATA_STREAM_H264 | 8)
 		
@@ -816,29 +997,39 @@ namespace environs
 		 * */
 		
 		/** Class: Portal constants */
+
 #		ifdef MAX_PORTAL_STREAMS_A_DEVICE                       
-#		undef MAX_PORTAL_STREAMS_A_DEVICE                       
+#			undef MAX_PORTAL_STREAMS_A_DEVICE                       
 #		endif
+
 		literal int MAX_PORTAL_STREAMS_A_DEVICE                       =	(6);
 #		define	MAX_PORTAL_STREAMS_A_DEVICE                       		(6)
+
 #		ifdef MAX_PORTAL_CONTEXT_WORKERS                        
-#		undef MAX_PORTAL_CONTEXT_WORKERS                        
+#			undef MAX_PORTAL_CONTEXT_WORKERS                        
 #		endif
+
 		literal int MAX_PORTAL_CONTEXT_WORKERS                        =	(2);
 #		define	MAX_PORTAL_CONTEXT_WORKERS                        		(2)
+
 #		ifdef MAX_PORTAL_OVERLAYS                               
-#		undef MAX_PORTAL_OVERLAYS                               
+#			undef MAX_PORTAL_OVERLAYS                               
 #		endif
+
 		literal int MAX_PORTAL_OVERLAYS                               =	(6);
 #		define	MAX_PORTAL_OVERLAYS                               		(6)
+
 #		ifdef MAX_PORTAL_GENERATOR_SLOTS                        
-#		undef MAX_PORTAL_GENERATOR_SLOTS                        
+#			undef MAX_PORTAL_GENERATOR_SLOTS                        
 #		endif
+
 		literal int MAX_PORTAL_GENERATOR_SLOTS                        =	(5);
 #		define	MAX_PORTAL_GENERATOR_SLOTS                        		(5)
+
 #		ifdef MAX_PORTAL_REQUEST_WAIT_TIME_MS                   
-#		undef MAX_PORTAL_REQUEST_WAIT_TIME_MS                   
+#			undef MAX_PORTAL_REQUEST_WAIT_TIME_MS                   
 #		endif
+
 		literal int MAX_PORTAL_REQUEST_WAIT_TIME_MS                   =	(30000);
 #		define	MAX_PORTAL_REQUEST_WAIT_TIME_MS                   		(30000)
 		
@@ -859,29 +1050,39 @@ namespace environs
 		 */
 		
 		/** Class: Portal type */
+
 #		ifdef PORTAL_TYPE_ANY                                   
-#		undef PORTAL_TYPE_ANY                                   
+#			undef PORTAL_TYPE_ANY                                   
 #		endif
+
 		literal int PORTAL_TYPE_ANY                                   =	(0);
 #		define	PORTAL_TYPE_ANY                                   		(0)
+
 #		ifdef PORTAL_TYPE_SCREEN                                
-#		undef PORTAL_TYPE_SCREEN                                
+#			undef PORTAL_TYPE_SCREEN                                
 #		endif
+
 		literal int PORTAL_TYPE_SCREEN                                =	(0x1000);
 #		define	PORTAL_TYPE_SCREEN                                		(0x1000)
+
 #		ifdef PORTAL_TYPE_BACK_CAM                              
-#		undef PORTAL_TYPE_BACK_CAM                              
+#			undef PORTAL_TYPE_BACK_CAM                              
 #		endif
+
 		literal int PORTAL_TYPE_BACK_CAM                              =	(0x2000);
 #		define	PORTAL_TYPE_BACK_CAM                              		(0x2000)
+
 #		ifdef PORTAL_TYPE_FRONT_CAM                             
-#		undef PORTAL_TYPE_FRONT_CAM                             
+#			undef PORTAL_TYPE_FRONT_CAM                             
 #		endif
+
 		literal int PORTAL_TYPE_FRONT_CAM                             =	(0x4000);
 #		define	PORTAL_TYPE_FRONT_CAM                             		(0x4000)
+
 #		ifdef PORTAL_TYPE_MASK                                  
-#		undef PORTAL_TYPE_MASK                                  
+#			undef PORTAL_TYPE_MASK                                  
 #		endif
+
 		literal int PORTAL_TYPE_MASK                                  =	(0xF000);
 #		define	PORTAL_TYPE_MASK                                  		(0xF000)
 			
@@ -891,67 +1092,91 @@ namespace environs
 		 * */
 		
 		/** Class: Portal status */
+
 #		ifdef PORTAL_STATUS_DISPOSED                            
-#		undef PORTAL_STATUS_DISPOSED                            
+#			undef PORTAL_STATUS_DISPOSED                            
 #		endif
+
 		literal int PORTAL_STATUS_DISPOSED                            =	(ENVIRONS_OBJECT_DISPOSED);
 #		define	PORTAL_STATUS_DISPOSED                            		(ENVIRONS_OBJECT_DISPOSED)
+
 #		ifdef PORTAL_STATUS_CREATED                             
-#		undef PORTAL_STATUS_CREATED                             
+#			undef PORTAL_STATUS_CREATED                             
 #		endif
+
 		literal int PORTAL_STATUS_CREATED                             =	(0);
 #		define	PORTAL_STATUS_CREATED                             		(0)
+
 #		ifdef PORTAL_STATUS_CREATED_FROM_REQUEST                
-#		undef PORTAL_STATUS_CREATED_FROM_REQUEST                
+#			undef PORTAL_STATUS_CREATED_FROM_REQUEST                
 #		endif
+
 		literal int PORTAL_STATUS_CREATED_FROM_REQUEST                =	(1);
 #		define	PORTAL_STATUS_CREATED_FROM_REQUEST                		(1)
+
 #		ifdef PORTAL_STATUS_CREATED_ASK_REQUEST                 
-#		undef PORTAL_STATUS_CREATED_ASK_REQUEST                 
+#			undef PORTAL_STATUS_CREATED_ASK_REQUEST                 
 #		endif
+
 		literal int PORTAL_STATUS_CREATED_ASK_REQUEST                 =	(2);
 #		define	PORTAL_STATUS_CREATED_ASK_REQUEST                 		(2)
+
 #		ifdef PORTAL_STATUS_ESTABLISHED                         
-#		undef PORTAL_STATUS_ESTABLISHED                         
+#			undef PORTAL_STATUS_ESTABLISHED                         
 #		endif
+
 		literal int PORTAL_STATUS_ESTABLISHED                         =	(4);
 #		define	PORTAL_STATUS_ESTABLISHED                         		(4)
+
 #		ifdef PORTAL_STATUS_STARTED                             
-#		undef PORTAL_STATUS_STARTED                             
+#			undef PORTAL_STATUS_STARTED                             
 #		endif
+
 		literal int PORTAL_STATUS_STARTED                             =	(6);
 #		define	PORTAL_STATUS_STARTED                             		(6)
 		
 		
 		/** Class: Portal stream type */
+
 #		ifdef STREAMTYPE_UNKNOWN                                
-#		undef STREAMTYPE_UNKNOWN                                
+#			undef STREAMTYPE_UNKNOWN                                
 #		endif
+
 		literal int STREAMTYPE_UNKNOWN                                =	(0);
 #		define	STREAMTYPE_UNKNOWN                                		(0)
+
 #		ifdef STREAMTYPE_IMAGES                                 
-#		undef STREAMTYPE_IMAGES                                 
+#			undef STREAMTYPE_IMAGES                                 
 #		endif
+
 		literal int STREAMTYPE_IMAGES                                 =	(0x10);
 #		define	STREAMTYPE_IMAGES                                 		(0x10)
+
 #		ifdef STREAMTYPE_IMAGES_JPEG                            
-#		undef STREAMTYPE_IMAGES_JPEG                            
+#			undef STREAMTYPE_IMAGES_JPEG                            
 #		endif
+
 		literal int STREAMTYPE_IMAGES_JPEG                            =	(STREAMTYPE_IMAGES | 0x1);
 #		define	STREAMTYPE_IMAGES_JPEG                            		(STREAMTYPE_IMAGES | 0x1)
+
 #		ifdef STREAMTYPE_IMAGES_PNG                             
-#		undef STREAMTYPE_IMAGES_PNG                             
+#			undef STREAMTYPE_IMAGES_PNG                             
 #		endif
+
 		literal int STREAMTYPE_IMAGES_PNG                             =	(STREAMTYPE_IMAGES | 0x2);
 #		define	STREAMTYPE_IMAGES_PNG                             		(STREAMTYPE_IMAGES | 0x2)
+
 #		ifdef STREAMTYPE_VIDEO                                  
-#		undef STREAMTYPE_VIDEO                                  
+#			undef STREAMTYPE_VIDEO                                  
 #		endif
+
 		literal int STREAMTYPE_VIDEO                                  =	(0x20);
 #		define	STREAMTYPE_VIDEO                                  		(0x20)
+
 #		ifdef STREAMTYPE_VIDEO_H264                             
-#		undef STREAMTYPE_VIDEO_H264                             
+#			undef STREAMTYPE_VIDEO_H264                             
 #		endif
+
 		literal int STREAMTYPE_VIDEO_H264                             =	(STREAMTYPE_VIDEO | 0x1);
 #		define	STREAMTYPE_VIDEO_H264                             		(STREAMTYPE_VIDEO | 0x1)
 			
@@ -961,335 +1186,461 @@ namespace environs
 		 * */
 		
 		/** Class: PortalInfo flag bits */
+
 #		ifdef PORTAL_INFO_FLAG_LOCATION                         
-#		undef PORTAL_INFO_FLAG_LOCATION                         
+#			undef PORTAL_INFO_FLAG_LOCATION                         
 #		endif
+
 		literal int PORTAL_INFO_FLAG_LOCATION                         =	(0x1);
 #		define	PORTAL_INFO_FLAG_LOCATION                         		(0x1)
+
 #		ifdef PORTAL_INFO_FLAG_ANGLE                            
-#		undef PORTAL_INFO_FLAG_ANGLE                            
+#			undef PORTAL_INFO_FLAG_ANGLE                            
 #		endif
+
 		literal int PORTAL_INFO_FLAG_ANGLE                            =	(0x2);
 #		define	PORTAL_INFO_FLAG_ANGLE                            		(0x2)
+
 #		ifdef PORTAL_INFO_FLAG_SIZE                             
-#		undef PORTAL_INFO_FLAG_SIZE                             
+#			undef PORTAL_INFO_FLAG_SIZE                             
 #		endif
+
 		literal int PORTAL_INFO_FLAG_SIZE                             =	(0x4);
 #		define	PORTAL_INFO_FLAG_SIZE                             		(0x4)
 		
 		
 		/** Class: Portal messages and notifications */
+
 #		ifdef MSG_TYPE_PORTAL                                   
-#		undef MSG_TYPE_PORTAL                                   
+#			undef MSG_TYPE_PORTAL                                   
 #		endif
+
 		literal int MSG_TYPE_PORTAL                                   =	(5);
 #		define	MSG_TYPE_PORTAL                                   		(5)
+
 #		ifdef MSG_PORTAL_ERROR                                  
-#		undef MSG_PORTAL_ERROR                                  
+#			undef MSG_PORTAL_ERROR                                  
 #		endif
+
 		literal int MSG_PORTAL_ERROR                                  =	(0x400);
 #		define	MSG_PORTAL_ERROR                                  		(0x400)
+
 #		ifdef PORTAL_DIR_INCOMING                               
-#		undef PORTAL_DIR_INCOMING                               
+#			undef PORTAL_DIR_INCOMING                               
 #		endif
+
 		literal int PORTAL_DIR_INCOMING                               =	(0x200);
 #		define	PORTAL_DIR_INCOMING                               		(0x200)
+
 #		ifdef PORTAL_DIR_OUTGOING                               
-#		undef PORTAL_DIR_OUTGOING                               
+#			undef PORTAL_DIR_OUTGOING                               
 #		endif
+
 		literal int PORTAL_DIR_OUTGOING                               =	(0x100);
 #		define	PORTAL_DIR_OUTGOING                               		(0x100)
+
 #		ifdef PORTAL_DIR_MASK                                   
-#		undef PORTAL_DIR_MASK                                   
+#			undef PORTAL_DIR_MASK                                   
 #		endif
+
 		literal int PORTAL_DIR_MASK                                   =	(0x300);
 #		define	PORTAL_DIR_MASK                                   		(0x300)
+
 #		ifdef NOTIFY_PORTAL                                     
-#		undef NOTIFY_PORTAL                                     
+#			undef NOTIFY_PORTAL                                     
 #		endif
+
 		literal int NOTIFY_PORTAL                                     =	(0x800);
 #		define	NOTIFY_PORTAL                                     		(0x800)
 		
 		
+
 #		ifdef NOTIFY_PORTAL_INSTANCE                            
-#		undef NOTIFY_PORTAL_INSTANCE                            
+#			undef NOTIFY_PORTAL_INSTANCE                            
 #		endif
+
 		literal int NOTIFY_PORTAL_INSTANCE                            =	(0x100800);
 #		define	NOTIFY_PORTAL_INSTANCE                            		(0x100800)
+
 #		ifdef PORTAL_INSTANCE_FLAG_SURFACE_CHANGED              
-#		undef PORTAL_INSTANCE_FLAG_SURFACE_CHANGED              
+#			undef PORTAL_INSTANCE_FLAG_SURFACE_CHANGED              
 #		endif
+
 		literal int PORTAL_INSTANCE_FLAG_SURFACE_CHANGED              =	(NOTIFY_PORTAL_INSTANCE | 0x1);
 #		define	PORTAL_INSTANCE_FLAG_SURFACE_CHANGED              		(NOTIFY_PORTAL_INSTANCE | 0x1)
 		
 	// Portal message subtypes
+
 #		ifdef MSG_PORTAL_REQUEST_ID                             
-#		undef MSG_PORTAL_REQUEST_ID                             
+#			undef MSG_PORTAL_REQUEST_ID                             
 #		endif
+
 		literal int MSG_PORTAL_REQUEST_ID                             =	(0);
 #		define	MSG_PORTAL_REQUEST_ID                             		(0)
+
 #		ifdef MSG_PORTAL_REQUEST                                
-#		undef MSG_PORTAL_REQUEST                                
+#			undef MSG_PORTAL_REQUEST                                
 #		endif
+
 		literal int MSG_PORTAL_REQUEST                                =	(NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID);
 #		define	MSG_PORTAL_REQUEST                                		(NOTIFY_PORTAL 	| MSG_PORTAL_REQUEST_ID)
+
 #		ifdef MSG_PORTAL_ASK_FOR_REQUEST_ID                     
-#		undef MSG_PORTAL_ASK_FOR_REQUEST_ID                     
+#			undef MSG_PORTAL_ASK_FOR_REQUEST_ID                     
 #		endif
+
 		literal int MSG_PORTAL_ASK_FOR_REQUEST_ID                     =	(1);
 #		define	MSG_PORTAL_ASK_FOR_REQUEST_ID                     		(1)
+
 #		ifdef MSG_PORTAL_ASK_FOR_REQUEST                        
-#		undef MSG_PORTAL_ASK_FOR_REQUEST                        
+#			undef MSG_PORTAL_ASK_FOR_REQUEST                        
 #		endif
+
 		literal int MSG_PORTAL_ASK_FOR_REQUEST                        =	(NOTIFY_PORTAL 	| MSG_PORTAL_ASK_FOR_REQUEST_ID);
 #		define	MSG_PORTAL_ASK_FOR_REQUEST                        		(NOTIFY_PORTAL 	| MSG_PORTAL_ASK_FOR_REQUEST_ID)
+
 #		ifdef MSG_PORTAL_PROVIDE_STREAM_ID                      
-#		undef MSG_PORTAL_PROVIDE_STREAM_ID                      
+#			undef MSG_PORTAL_PROVIDE_STREAM_ID                      
 #		endif
+
 		literal int MSG_PORTAL_PROVIDE_STREAM_ID                      =	(2);
 #		define	MSG_PORTAL_PROVIDE_STREAM_ID                      		(2)
+
 #		ifdef MSG_PORTAL_PROVIDE_STREAM                         
-#		undef MSG_PORTAL_PROVIDE_STREAM                         
+#			undef MSG_PORTAL_PROVIDE_STREAM                         
 #		endif
+
 		literal int MSG_PORTAL_PROVIDE_STREAM                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID);
 #		define	MSG_PORTAL_PROVIDE_STREAM                         		(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_STREAM_ID)
+
 #		ifdef MSG_PORTAL_PROVIDE_IMAGES_ID                      
-#		undef MSG_PORTAL_PROVIDE_IMAGES_ID                      
+#			undef MSG_PORTAL_PROVIDE_IMAGES_ID                      
 #		endif
+
 		literal int MSG_PORTAL_PROVIDE_IMAGES_ID                      =	(3);
 #		define	MSG_PORTAL_PROVIDE_IMAGES_ID                      		(3)
+
 #		ifdef MSG_PORTAL_PROVIDE_IMAGES                         
-#		undef MSG_PORTAL_PROVIDE_IMAGES                         
+#			undef MSG_PORTAL_PROVIDE_IMAGES                         
 #		endif
+
 		literal int MSG_PORTAL_PROVIDE_IMAGES                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID);
 #		define	MSG_PORTAL_PROVIDE_IMAGES                         		(NOTIFY_PORTAL 	| MSG_PORTAL_PROVIDE_IMAGES_ID)
+
 #		ifdef MSG_PORTAL_REQUEST_FAIL_ID                        
-#		undef MSG_PORTAL_REQUEST_FAIL_ID                        
+#			undef MSG_PORTAL_REQUEST_FAIL_ID                        
 #		endif
+
 		literal int MSG_PORTAL_REQUEST_FAIL_ID                        =	(4);
 #		define	MSG_PORTAL_REQUEST_FAIL_ID                        		(4)
+
 #		ifdef MSG_PORTAL_REQUEST_FAIL                           
-#		undef MSG_PORTAL_REQUEST_FAIL                           
+#			undef MSG_PORTAL_REQUEST_FAIL                           
 #		endif
+
 		literal int MSG_PORTAL_REQUEST_FAIL                           =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID);
 #		define	MSG_PORTAL_REQUEST_FAIL                           		(MSG_PORTAL_ERROR 	| MSG_PORTAL_REQUEST_FAIL_ID)
 			
+
 #		ifdef MSG_PORTAL_STOP_ID                                
-#		undef MSG_PORTAL_STOP_ID                                
+#			undef MSG_PORTAL_STOP_ID                                
 #		endif
+
 		literal int MSG_PORTAL_STOP_ID                                =	(5);
 #		define	MSG_PORTAL_STOP_ID                                		(5)
+
 #		ifdef MSG_PORTAL_STOP                                   
-#		undef MSG_PORTAL_STOP                                   
+#			undef MSG_PORTAL_STOP                                   
 #		endif
+
 		literal int MSG_PORTAL_STOP                                   =	(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID);
 #		define	MSG_PORTAL_STOP                                   		(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ID)
+
 #		ifdef MSG_PORTAL_STOP_ACK_ID                            
-#		undef MSG_PORTAL_STOP_ACK_ID                            
+#			undef MSG_PORTAL_STOP_ACK_ID                            
 #		endif
+
 		literal int MSG_PORTAL_STOP_ACK_ID                            =	(6);
 #		define	MSG_PORTAL_STOP_ACK_ID                            		(6)
+
 #		ifdef MSG_PORTAL_STOP_ACK                               
-#		undef MSG_PORTAL_STOP_ACK                               
+#			undef MSG_PORTAL_STOP_ACK                               
 #		endif
+
 		literal int MSG_PORTAL_STOP_ACK                               =	(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID);
 #		define	MSG_PORTAL_STOP_ACK                               		(NOTIFY_PORTAL 	| MSG_PORTAL_STOP_ACK_ID)
+
 #		ifdef MSG_PORTAL_STOP_FAIL_ID                           
-#		undef MSG_PORTAL_STOP_FAIL_ID                           
+#			undef MSG_PORTAL_STOP_FAIL_ID                           
 #		endif
+
 		literal int MSG_PORTAL_STOP_FAIL_ID                           =	(7);
 #		define	MSG_PORTAL_STOP_FAIL_ID                           		(7)
+
 #		ifdef MSG_PORTAL_STOP_FAIL                              
-#		undef MSG_PORTAL_STOP_FAIL                              
+#			undef MSG_PORTAL_STOP_FAIL                              
 #		endif
+
 		literal int MSG_PORTAL_STOP_FAIL                              =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID);
 #		define	MSG_PORTAL_STOP_FAIL                              		(MSG_PORTAL_ERROR 	| MSG_PORTAL_STOP_FAIL_ID)
+
 #		ifdef MSG_PORTAL_START_ID                               
-#		undef MSG_PORTAL_START_ID                               
+#			undef MSG_PORTAL_START_ID                               
 #		endif
+
 		literal int MSG_PORTAL_START_ID                               =	(8);
 #		define	MSG_PORTAL_START_ID                               		(8)
+
 #		ifdef MSG_PORTAL_START                                  
-#		undef MSG_PORTAL_START                                  
+#			undef MSG_PORTAL_START                                  
 #		endif
+
 		literal int MSG_PORTAL_START                                  =	(NOTIFY_PORTAL 	| MSG_PORTAL_START_ID);
 #		define	MSG_PORTAL_START                                  		(NOTIFY_PORTAL 	| MSG_PORTAL_START_ID)
+
 #		ifdef MSG_PORTAL_START_ACK_ID                           
-#		undef MSG_PORTAL_START_ACK_ID                           
+#			undef MSG_PORTAL_START_ACK_ID                           
 #		endif
+
 		literal int MSG_PORTAL_START_ACK_ID                           =	(9);
 #		define	MSG_PORTAL_START_ACK_ID                           		(9)
+
 #		ifdef MSG_PORTAL_START_ACK                              
-#		undef MSG_PORTAL_START_ACK                              
+#			undef MSG_PORTAL_START_ACK                              
 #		endif
+
 		literal int MSG_PORTAL_START_ACK                              =	(NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID);
 #		define	MSG_PORTAL_START_ACK                              		(NOTIFY_PORTAL 	| MSG_PORTAL_START_ACK_ID)
+
 #		ifdef MSG_PORTAL_START_FAIL_ID                          
-#		undef MSG_PORTAL_START_FAIL_ID                          
+#			undef MSG_PORTAL_START_FAIL_ID                          
 #		endif
+
 		literal int MSG_PORTAL_START_FAIL_ID                          =	(10);
 #		define	MSG_PORTAL_START_FAIL_ID                          		(10)
+
 #		ifdef MSG_PORTAL_START_FAIL                             
-#		undef MSG_PORTAL_START_FAIL                             
+#			undef MSG_PORTAL_START_FAIL                             
 #		endif
+
 		literal int MSG_PORTAL_START_FAIL                             =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID);
 #		define	MSG_PORTAL_START_FAIL                             		(MSG_PORTAL_ERROR 	| MSG_PORTAL_START_FAIL_ID)
+
 #		ifdef MSG_PORTAL_PAUSE_ID                               
-#		undef MSG_PORTAL_PAUSE_ID                               
+#			undef MSG_PORTAL_PAUSE_ID                               
 #		endif
+
 		literal int MSG_PORTAL_PAUSE_ID                               =	(11);
 #		define	MSG_PORTAL_PAUSE_ID                               		(11)
+
 #		ifdef MSG_PORTAL_PAUSE                                  
-#		undef MSG_PORTAL_PAUSE                                  
+#			undef MSG_PORTAL_PAUSE                                  
 #		endif
+
 		literal int MSG_PORTAL_PAUSE                                  =	(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID);
 #		define	MSG_PORTAL_PAUSE                                  		(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ID)
+
 #		ifdef MSG_PORTAL_PAUSE_ACK_ID                           
-#		undef MSG_PORTAL_PAUSE_ACK_ID                           
+#			undef MSG_PORTAL_PAUSE_ACK_ID                           
 #		endif
+
 		literal int MSG_PORTAL_PAUSE_ACK_ID                           =	(12);
 #		define	MSG_PORTAL_PAUSE_ACK_ID                           		(12)
+
 #		ifdef MSG_PORTAL_PAUSE_ACK                              
-#		undef MSG_PORTAL_PAUSE_ACK                              
+#			undef MSG_PORTAL_PAUSE_ACK                              
 #		endif
+
 		literal int MSG_PORTAL_PAUSE_ACK                              =	(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID);
 #		define	MSG_PORTAL_PAUSE_ACK                              		(NOTIFY_PORTAL 	| MSG_PORTAL_PAUSE_ACK_ID)
+
 #		ifdef MSG_PORTAL_PAUSE_FAIL_ID                          
-#		undef MSG_PORTAL_PAUSE_FAIL_ID                          
+#			undef MSG_PORTAL_PAUSE_FAIL_ID                          
 #		endif
+
 		literal int MSG_PORTAL_PAUSE_FAIL_ID                          =	(13);
 #		define	MSG_PORTAL_PAUSE_FAIL_ID                          		(13)
+
 #		ifdef MSG_PORTAL_PAUSE_FAIL                             
-#		undef MSG_PORTAL_PAUSE_FAIL                             
+#			undef MSG_PORTAL_PAUSE_FAIL                             
 #		endif
+
 		literal int MSG_PORTAL_PAUSE_FAIL                             =	(MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID);
 #		define	MSG_PORTAL_PAUSE_FAIL                             		(MSG_PORTAL_ERROR 	| MSG_PORTAL_PAUSE_FAIL_ID)
 		
 		
+
 #		ifdef MSG_PORTAL_BUFFER_FULL_ID                         
-#		undef MSG_PORTAL_BUFFER_FULL_ID                         
+#			undef MSG_PORTAL_BUFFER_FULL_ID                         
 #		endif
+
 		literal int MSG_PORTAL_BUFFER_FULL_ID                         =	(14);
 #		define	MSG_PORTAL_BUFFER_FULL_ID                         		(14)
+
 #		ifdef MSG_PORTAL_BUFFER_FULL                            
-#		undef MSG_PORTAL_BUFFER_FULL                            
+#			undef MSG_PORTAL_BUFFER_FULL                            
 #		endif
+
 		literal int MSG_PORTAL_BUFFER_FULL                            =	(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID);
 #		define	MSG_PORTAL_BUFFER_FULL                            		(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_FULL_ID)
+
 #		ifdef MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  
-#		undef MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  
+#			undef MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  
 #		endif
+
 		literal int MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  =	(15);
 #		define	MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID                  		(15)
+
 #		ifdef MSG_PORTAL_BUFFER_AVAIL_AGAIN                     
-#		undef MSG_PORTAL_BUFFER_AVAIL_AGAIN                     
+#			undef MSG_PORTAL_BUFFER_AVAIL_AGAIN                     
 #		endif
+
 		literal int MSG_PORTAL_BUFFER_AVAIL_AGAIN                     =	(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID);
 #		define	MSG_PORTAL_BUFFER_AVAIL_AGAIN                     		(NOTIFY_PORTAL 	| MSG_PORTAL_BUFFER_AVAIL_AGAIN_ID)
+
 #		ifdef MSG_PORTAL_IFRAME_REQUEST_ID                      
-#		undef MSG_PORTAL_IFRAME_REQUEST_ID                      
+#			undef MSG_PORTAL_IFRAME_REQUEST_ID                      
 #		endif
+
 		literal int MSG_PORTAL_IFRAME_REQUEST_ID                      =	(16);
 #		define	MSG_PORTAL_IFRAME_REQUEST_ID                      		(16)
+
 #		ifdef MSG_PORTAL_IFRAME_REQUEST                         
-#		undef MSG_PORTAL_IFRAME_REQUEST                         
+#			undef MSG_PORTAL_IFRAME_REQUEST                         
 #		endif
+
 		literal int MSG_PORTAL_IFRAME_REQUEST                         =	(NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID);
 #		define	MSG_PORTAL_IFRAME_REQUEST                         		(NOTIFY_PORTAL 	| MSG_PORTAL_IFRAME_REQUEST_ID)
 		
+
 #		ifdef MSG_PORTAL_MAX_COUNT                              
-#		undef MSG_PORTAL_MAX_COUNT                              
+#			undef MSG_PORTAL_MAX_COUNT                              
 #		endif
+
 		literal int MSG_PORTAL_MAX_COUNT                              =	(16 + 1);
 #		define	MSG_PORTAL_MAX_COUNT                              		(16 + 1)
 		
 		
+
 #		ifdef NOTIFY_TYPE_PORTAL                                
-#		undef NOTIFY_TYPE_PORTAL                                
+#			undef NOTIFY_TYPE_PORTAL                                
 #		endif
+
 		literal int NOTIFY_TYPE_PORTAL                                =	((MSG_TYPE_PORTAL << 16));
 #		define	NOTIFY_TYPE_PORTAL                                		((MSG_TYPE_PORTAL << 16))
+
 #		ifdef NOTIFY_PORTAL_ESTABLISHED                         
-#		undef NOTIFY_PORTAL_ESTABLISHED                         
+#			undef NOTIFY_PORTAL_ESTABLISHED                         
 #		endif
+
 		literal int NOTIFY_PORTAL_ESTABLISHED                         =	(0x80);
 #		define	NOTIFY_PORTAL_ESTABLISHED                         		(0x80)
+
 #		ifdef NOTIFY_PORTAL_ESTABLISHED_RESOLUTION              
-#		undef NOTIFY_PORTAL_ESTABLISHED_RESOLUTION              
+#			undef NOTIFY_PORTAL_ESTABLISHED_RESOLUTION              
 #		endif
+
 		literal int NOTIFY_PORTAL_ESTABLISHED_RESOLUTION              =	(NOTIFY_TYPE_PORTAL | 0x81);
 #		define	NOTIFY_PORTAL_ESTABLISHED_RESOLUTION              		(NOTIFY_TYPE_PORTAL | 0x81)
 		
+
 #		ifdef NOTIFY_PORTAL_REQUEST                             
-#		undef NOTIFY_PORTAL_REQUEST                             
+#			undef NOTIFY_PORTAL_REQUEST                             
 #		endif
+
 		literal int NOTIFY_PORTAL_REQUEST                             =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST);
 #		define	NOTIFY_PORTAL_REQUEST                             		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST)
+
 #		ifdef NOTIFY_PORTAL_ASK_REQUEST                         
-#		undef NOTIFY_PORTAL_ASK_REQUEST                         
+#			undef NOTIFY_PORTAL_ASK_REQUEST                         
 #		endif
+
 		literal int NOTIFY_PORTAL_ASK_REQUEST                         =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_ASK_FOR_REQUEST);
 #		define	NOTIFY_PORTAL_ASK_REQUEST                         		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_ASK_FOR_REQUEST)
+
 #		ifdef NOTIFY_PORTAL_STREAM_INCOMING                     
-#		undef NOTIFY_PORTAL_STREAM_INCOMING                     
+#			undef NOTIFY_PORTAL_STREAM_INCOMING                     
 #		endif
+
 		literal int NOTIFY_PORTAL_STREAM_INCOMING                     =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_INCOMING);
 #		define	NOTIFY_PORTAL_STREAM_INCOMING                     		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_INCOMING)
+
 #		ifdef NOTIFY_PORTAL_IMAGES_INCOMING                     
-#		undef NOTIFY_PORTAL_IMAGES_INCOMING                     
+#			undef NOTIFY_PORTAL_IMAGES_INCOMING                     
 #		endif
+
 		literal int NOTIFY_PORTAL_IMAGES_INCOMING                     =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_INCOMING);
 #		define	NOTIFY_PORTAL_IMAGES_INCOMING                     		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_INCOMING)
+
 #		ifdef NOTIFY_PORTAL_INCOMING_ESTABLISHED                
-#		undef NOTIFY_PORTAL_INCOMING_ESTABLISHED                
+#			undef NOTIFY_PORTAL_INCOMING_ESTABLISHED                
 #		endif
+
 		literal int NOTIFY_PORTAL_INCOMING_ESTABLISHED                =	(NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING | NOTIFY_PORTAL_ESTABLISHED);
 #		define	NOTIFY_PORTAL_INCOMING_ESTABLISHED                		(NOTIFY_PORTAL_STREAM_INCOMING | NOTIFY_PORTAL_IMAGES_INCOMING | NOTIFY_PORTAL_ESTABLISHED)
+
 #		ifdef NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  
-#		undef NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  
+#			undef NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  
 #		endif
+
 		literal int NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_OUTGOING);
 #		define	NOTIFY_PORTAL_PROVIDE_STREAM_ACK                  		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_STREAM | PORTAL_DIR_OUTGOING)
+
 #		ifdef NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  
-#		undef NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  
+#			undef NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  
 #		endif
+
 		literal int NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_OUTGOING);
 #		define	NOTIFY_PORTAL_PROVIDE_IMAGES_ACK                  		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PROVIDE_IMAGES | PORTAL_DIR_OUTGOING)
+
 #		ifdef NOTIFY_PORTAL_PROVIDER_READY                      
-#		undef NOTIFY_PORTAL_PROVIDER_READY                      
+#			undef NOTIFY_PORTAL_PROVIDER_READY                      
 #		endif
+
 		literal int NOTIFY_PORTAL_PROVIDER_READY                      =	(NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK | NOTIFY_PORTAL_ESTABLISHED);
 #		define	NOTIFY_PORTAL_PROVIDER_READY                      		(NOTIFY_PORTAL_PROVIDE_STREAM_ACK | NOTIFY_PORTAL_PROVIDE_IMAGES_ACK | NOTIFY_PORTAL_ESTABLISHED)
+
 #		ifdef NOTIFY_PORTAL_REQUEST_FAIL                        
-#		undef NOTIFY_PORTAL_REQUEST_FAIL                        
+#			undef NOTIFY_PORTAL_REQUEST_FAIL                        
 #		endif
+
 		literal int NOTIFY_PORTAL_REQUEST_FAIL                        =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_INCOMING);
 #		define	NOTIFY_PORTAL_REQUEST_FAIL                        		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_INCOMING)
+
 #		ifdef NOTIFY_PORTAL_PROVIDE_FAIL                        
-#		undef NOTIFY_PORTAL_PROVIDE_FAIL                        
+#			undef NOTIFY_PORTAL_PROVIDE_FAIL                        
 #		endif
+
 		literal int NOTIFY_PORTAL_PROVIDE_FAIL                        =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_OUTGOING);
 #		define	NOTIFY_PORTAL_PROVIDE_FAIL                        		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_REQUEST_FAIL | PORTAL_DIR_OUTGOING)
 			
+
 #		ifdef NOTIFY_PORTAL_STREAM_STARTED                      
-#		undef NOTIFY_PORTAL_STREAM_STARTED                      
+#			undef NOTIFY_PORTAL_STREAM_STARTED                      
 #		endif
+
 		literal int NOTIFY_PORTAL_STREAM_STARTED                      =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_START_ACK);
 #		define	NOTIFY_PORTAL_STREAM_STARTED                      		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_START_ACK)
+
 #		ifdef NOTIFY_PORTAL_STREAM_PAUSED                       
-#		undef NOTIFY_PORTAL_STREAM_PAUSED                       
+#			undef NOTIFY_PORTAL_STREAM_PAUSED                       
 #		endif
+
 		literal int NOTIFY_PORTAL_STREAM_PAUSED                       =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PAUSE_ACK);
 #		define	NOTIFY_PORTAL_STREAM_PAUSED                       		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_PAUSE_ACK)
+
 #		ifdef NOTIFY_PORTAL_STREAM_STOPPED                      
-#		undef NOTIFY_PORTAL_STREAM_STOPPED                      
+#			undef NOTIFY_PORTAL_STREAM_STOPPED                      
 #		endif
+
 		literal int NOTIFY_PORTAL_STREAM_STOPPED                      =	(NOTIFY_TYPE_PORTAL | MSG_PORTAL_STOP_ACK);
 #		define	NOTIFY_PORTAL_STREAM_STOPPED                      		(NOTIFY_TYPE_PORTAL | MSG_PORTAL_STOP_ACK)
 		
+
 #		ifdef NOTIFY_PORTAL_STREAM_RECEIVER_STARTED             
-#		undef NOTIFY_PORTAL_STREAM_RECEIVER_STARTED             
+#			undef NOTIFY_PORTAL_STREAM_RECEIVER_STARTED             
 #		endif
+
 		literal int NOTIFY_PORTAL_STREAM_RECEIVER_STARTED             =	(NOTIFY_PORTAL_REQUEST | PORTAL_DIR_INCOMING | 0xFF);
 #		define	NOTIFY_PORTAL_STREAM_RECEIVER_STARTED             		(NOTIFY_PORTAL_REQUEST | PORTAL_DIR_INCOMING | 0xFF)
 		
@@ -1299,141 +1650,193 @@ namespace environs
 		 * Environs options set/get messages
 		 */
 		/** Class: Options type */
+
 #		ifdef MSG_TYPE_OPTIONS                                  
-#		undef MSG_TYPE_OPTIONS                                  
+#			undef MSG_TYPE_OPTIONS                                  
 #		endif
+
 		literal int MSG_TYPE_OPTIONS                                  =	(6);
 #		define	MSG_TYPE_OPTIONS                                  		(6)
+
 #		ifdef MSG_TYPE_OPTIONS_RESPONSE                         
-#		undef MSG_TYPE_OPTIONS_RESPONSE                         
+#			undef MSG_TYPE_OPTIONS_RESPONSE                         
 #		endif
+
 		literal int MSG_TYPE_OPTIONS_RESPONSE                         =	(7);
 #		define	MSG_TYPE_OPTIONS_RESPONSE                         		(7)
+
 #		ifdef MSG_OPTION_TYPE                                   
-#		undef MSG_OPTION_TYPE                                   
+#			undef MSG_OPTION_TYPE                                   
 #		endif
+
 		literal int MSG_OPTION_TYPE                                   =	(0xF00);
 #		define	MSG_OPTION_TYPE                                   		(0xF00)
+
 #		ifdef MSG_OPTION_SET                                    
-#		undef MSG_OPTION_SET                                    
+#			undef MSG_OPTION_SET                                    
 #		endif
+
 		literal int MSG_OPTION_SET                                    =	(0x100);
 #		define	MSG_OPTION_SET                                    		(0x100)
+
 #		ifdef MSG_OPTION_GET                                    
-#		undef MSG_OPTION_GET                                    
+#			undef MSG_OPTION_GET                                    
 #		endif
+
 		literal int MSG_OPTION_GET                                    =	(0x200);
 #		define	MSG_OPTION_GET                                    		(0x200)
 		
 		// Transport options
+
 #		ifdef MSG_OPTION_TRANSPORT                              
-#		undef MSG_OPTION_TRANSPORT                              
+#			undef MSG_OPTION_TRANSPORT                              
 #		endif
+
 		literal int MSG_OPTION_TRANSPORT                              =	(0x10);
 #		define	MSG_OPTION_TRANSPORT                              		(0x10)
+
 #		ifdef MSG_OPT_TRANSP_TCP_PORTAL                         
-#		undef MSG_OPT_TRANSP_TCP_PORTAL                         
+#			undef MSG_OPT_TRANSP_TCP_PORTAL                         
 #		endif
+
 		literal int MSG_OPT_TRANSP_TCP_PORTAL                         =	(MSG_OPTION_TRANSPORT | 0x1);
 #		define	MSG_OPT_TRANSP_TCP_PORTAL                         		(MSG_OPTION_TRANSPORT | 0x1)
+
 #		ifdef MSG_OPT_TRANSP_TCP_PORTAL_SET                     
-#		undef MSG_OPT_TRANSP_TCP_PORTAL_SET                     
+#			undef MSG_OPT_TRANSP_TCP_PORTAL_SET                     
 #		endif
+
 		literal int MSG_OPT_TRANSP_TCP_PORTAL_SET                     =	(MSG_OPTION_SET | MSG_OPT_TRANSP_TCP_PORTAL);
 #		define	MSG_OPT_TRANSP_TCP_PORTAL_SET                     		(MSG_OPTION_SET | MSG_OPT_TRANSP_TCP_PORTAL)
+
 #		ifdef MSG_OPT_TRANSP_TCP_PORTAL_GET                     
-#		undef MSG_OPT_TRANSP_TCP_PORTAL_GET                     
+#			undef MSG_OPT_TRANSP_TCP_PORTAL_GET                     
 #		endif
+
 		literal int MSG_OPT_TRANSP_TCP_PORTAL_GET                     =	(MSG_OPTION_GET | MSG_OPT_TRANSP_TCP_PORTAL);
 #		define	MSG_OPT_TRANSP_TCP_PORTAL_GET                     		(MSG_OPTION_GET | MSG_OPT_TRANSP_TCP_PORTAL)
 		
 		// Portal options
+
 #		ifdef MSG_OPTION_PORTAL                                 
-#		undef MSG_OPTION_PORTAL                                 
+#			undef MSG_OPTION_PORTAL                                 
 #		endif
+
 		literal int MSG_OPTION_PORTAL                                 =	(0x20);
 #		define	MSG_OPTION_PORTAL                                 		(0x20)
+
 #		ifdef MSG_OPT_PORTAL_CENTER                             
-#		undef MSG_OPT_PORTAL_CENTER                             
+#			undef MSG_OPT_PORTAL_CENTER                             
 #		endif
+
 		literal int MSG_OPT_PORTAL_CENTER                             =	(MSG_OPTION_PORTAL | 0x1);
 #		define	MSG_OPT_PORTAL_CENTER                             		(MSG_OPTION_PORTAL | 0x1)
+
 #		ifdef MSG_OPT_PORTAL_CENTER_SET                         
-#		undef MSG_OPT_PORTAL_CENTER_SET                         
+#			undef MSG_OPT_PORTAL_CENTER_SET                         
 #		endif
+
 		literal int MSG_OPT_PORTAL_CENTER_SET                         =	(MSG_OPTION_SET | MSG_OPT_PORTAL_CENTER);
 #		define	MSG_OPT_PORTAL_CENTER_SET                         		(MSG_OPTION_SET | MSG_OPT_PORTAL_CENTER)
+
 #		ifdef MSG_OPT_PORTAL_CENTER_GET                         
-#		undef MSG_OPT_PORTAL_CENTER_GET                         
+#			undef MSG_OPT_PORTAL_CENTER_GET                         
 #		endif
+
 		literal int MSG_OPT_PORTAL_CENTER_GET                         =	(MSG_OPTION_GET | MSG_OPT_PORTAL_CENTER);
 #		define	MSG_OPT_PORTAL_CENTER_GET                         		(MSG_OPTION_GET | MSG_OPT_PORTAL_CENTER)
+
 #		ifdef MSG_OPT_PORTAL_WH                                 
-#		undef MSG_OPT_PORTAL_WH                                 
+#			undef MSG_OPT_PORTAL_WH                                 
 #		endif
+
 		literal int MSG_OPT_PORTAL_WH                                 =	(MSG_OPTION_PORTAL | 0x2);
 #		define	MSG_OPT_PORTAL_WH                                 		(MSG_OPTION_PORTAL | 0x2)
+
 #		ifdef MSG_OPT_PORTAL_WH_SET                             
-#		undef MSG_OPT_PORTAL_WH_SET                             
+#			undef MSG_OPT_PORTAL_WH_SET                             
 #		endif
+
 		literal int MSG_OPT_PORTAL_WH_SET                             =	(MSG_OPTION_SET | MSG_OPT_PORTAL_WH);
 #		define	MSG_OPT_PORTAL_WH_SET                             		(MSG_OPTION_SET | MSG_OPT_PORTAL_WH)
+
 #		ifdef MSG_OPT_PORTAL_INFO                               
-#		undef MSG_OPT_PORTAL_INFO                               
+#			undef MSG_OPT_PORTAL_INFO                               
 #		endif
+
 		literal int MSG_OPT_PORTAL_INFO                               =	(MSG_OPTION_PORTAL | 0x4);
 #		define	MSG_OPT_PORTAL_INFO                               		(MSG_OPTION_PORTAL | 0x4)
+
 #		ifdef MSG_OPT_PORTAL_INFO_SET                           
-#		undef MSG_OPT_PORTAL_INFO_SET                           
+#			undef MSG_OPT_PORTAL_INFO_SET                           
 #		endif
+
 		literal int MSG_OPT_PORTAL_INFO_SET                           =	(MSG_OPTION_SET | MSG_OPT_PORTAL_INFO);
 #		define	MSG_OPT_PORTAL_INFO_SET                           		(MSG_OPTION_SET | MSG_OPT_PORTAL_INFO)
+
 #		ifdef MSG_OPT_PORTAL_INFO_GET                           
-#		undef MSG_OPT_PORTAL_INFO_GET                           
+#			undef MSG_OPT_PORTAL_INFO_GET                           
 #		endif
+
 		literal int MSG_OPT_PORTAL_INFO_GET                           =	(MSG_OPTION_GET | MSG_OPT_PORTAL_INFO);
 #		define	MSG_OPT_PORTAL_INFO_GET                           		(MSG_OPTION_GET | MSG_OPT_PORTAL_INFO)
 		
 		// Physical contact options
+
 #		ifdef MSG_OPTION_CONTACT                                
-#		undef MSG_OPTION_CONTACT                                
+#			undef MSG_OPTION_CONTACT                                
 #		endif
+
 		literal int MSG_OPTION_CONTACT                                =	(0x40);
 #		define	MSG_OPTION_CONTACT                                		(0x40)
+
 #		ifdef MSG_OPT_CONTACT_DIRECT                            
-#		undef MSG_OPT_CONTACT_DIRECT                            
+#			undef MSG_OPT_CONTACT_DIRECT                            
 #		endif
+
 		literal int MSG_OPT_CONTACT_DIRECT                            =	(MSG_OPTION_CONTACT | 0x1);
 #		define	MSG_OPT_CONTACT_DIRECT                            		(MSG_OPTION_CONTACT | 0x1)
+
 #		ifdef MSG_OPT_CONTACT_DIRECT_SET                        
-#		undef MSG_OPT_CONTACT_DIRECT_SET                        
+#			undef MSG_OPT_CONTACT_DIRECT_SET                        
 #		endif
+
 		literal int MSG_OPT_CONTACT_DIRECT_SET                        =	(MSG_OPTION_SET | MSG_OPT_CONTACT_DIRECT);
 #		define	MSG_OPT_CONTACT_DIRECT_SET                        		(MSG_OPTION_SET | MSG_OPT_CONTACT_DIRECT)
+
 #		ifdef MSG_OPT_CONTACT_DIRECT_GET                        
-#		undef MSG_OPT_CONTACT_DIRECT_GET                        
+#			undef MSG_OPT_CONTACT_DIRECT_GET                        
 #		endif
+
 		literal int MSG_OPT_CONTACT_DIRECT_GET                        =	(MSG_OPTION_GET | MSG_OPT_CONTACT_DIRECT);
 #		define	MSG_OPT_CONTACT_DIRECT_GET                        		(MSG_OPTION_GET | MSG_OPT_CONTACT_DIRECT)
 			
+
 #		ifdef NOTIFY_TYPE_OPTIONS                               
-#		undef NOTIFY_TYPE_OPTIONS                               
+#			undef NOTIFY_TYPE_OPTIONS                               
 #		endif
+
 		literal int NOTIFY_TYPE_OPTIONS                               =	((MSG_TYPE_OPTIONS << 16));
 #		define	NOTIFY_TYPE_OPTIONS                               		((MSG_TYPE_OPTIONS << 16))
+
 #		ifdef NOTIFY_PORTAL_LOCATION_CHANGED                    
-#		undef NOTIFY_PORTAL_LOCATION_CHANGED                    
+#			undef NOTIFY_PORTAL_LOCATION_CHANGED                    
 #		endif
+
 		literal int NOTIFY_PORTAL_LOCATION_CHANGED                    =	(NOTIFY_TYPE_OPTIONS | MSG_OPT_PORTAL_CENTER_SET);
 #		define	NOTIFY_PORTAL_LOCATION_CHANGED                    		(NOTIFY_TYPE_OPTIONS | MSG_OPT_PORTAL_CENTER_SET)
+
 #		ifdef NOTIFY_PORTAL_SIZE_CHANGED                        
-#		undef NOTIFY_PORTAL_SIZE_CHANGED                        
+#			undef NOTIFY_PORTAL_SIZE_CHANGED                        
 #		endif
+
 		literal int NOTIFY_PORTAL_SIZE_CHANGED                        =	(NOTIFY_TYPE_OPTIONS | MSG_OPT_PORTAL_WH_SET);
 #		define	NOTIFY_PORTAL_SIZE_CHANGED                        		(NOTIFY_TYPE_OPTIONS | MSG_OPT_PORTAL_WH_SET)
+
 #		ifdef NOTIFY_CONTACT_DIRECT_CHANGED                     
-#		undef NOTIFY_CONTACT_DIRECT_CHANGED                     
+#			undef NOTIFY_CONTACT_DIRECT_CHANGED                     
 #		endif
+
 		literal int NOTIFY_CONTACT_DIRECT_CHANGED                     =	(NOTIFY_TYPE_OPTIONS | MSG_OPT_CONTACT_DIRECT_SET);
 #		define	NOTIFY_CONTACT_DIRECT_CHANGED                     		(NOTIFY_TYPE_OPTIONS | MSG_OPT_CONTACT_DIRECT_SET)
 		
@@ -1442,75 +1845,101 @@ namespace environs
 		 * Native file types to app
 		 * Native file types to app
 		 */
+
 #		ifdef MSG_TYPE_FILE                                     
-#		undef MSG_TYPE_FILE                                     
+#			undef MSG_TYPE_FILE                                     
 #		endif
+
 		literal int MSG_TYPE_FILE                                     =	(3);
 #		define	MSG_TYPE_FILE                                     		(3)
 		/** Class: File type */
 		// File types
+
 #		ifdef NATIVE_FILE_TYPE                                  
-#		undef NATIVE_FILE_TYPE                                  
+#			undef NATIVE_FILE_TYPE                                  
 #		endif
+
 		literal int NATIVE_FILE_TYPE                                  =	(0x400);
 #		define	NATIVE_FILE_TYPE                                  		(0x400)
+
 #		ifdef NATIVE_FILE_TYPE_APP_DEFINED                      
-#		undef NATIVE_FILE_TYPE_APP_DEFINED                      
+#			undef NATIVE_FILE_TYPE_APP_DEFINED                      
 #		endif
+
 		literal int NATIVE_FILE_TYPE_APP_DEFINED                      =	(NATIVE_FILE_TYPE);
 #		define	NATIVE_FILE_TYPE_APP_DEFINED                      		(NATIVE_FILE_TYPE)
+
 #		ifdef NATIVE_FILE_TYPE_EXT_DEFINED                      
-#		undef NATIVE_FILE_TYPE_EXT_DEFINED                      
+#			undef NATIVE_FILE_TYPE_EXT_DEFINED                      
 #		endif
+
 		literal int NATIVE_FILE_TYPE_EXT_DEFINED                      =	(NATIVE_FILE_TYPE | 1);
 #		define	NATIVE_FILE_TYPE_EXT_DEFINED                      		(NATIVE_FILE_TYPE | 1)
+
 #		ifdef NATIVE_FILE_TYPE_CHUNKED                          
-#		undef NATIVE_FILE_TYPE_CHUNKED                          
+#			undef NATIVE_FILE_TYPE_CHUNKED                          
 #		endif
+
 		literal int NATIVE_FILE_TYPE_CHUNKED                          =	(NATIVE_FILE_TYPE | 6);
 #		define	NATIVE_FILE_TYPE_CHUNKED                          		(NATIVE_FILE_TYPE | 6)
+
 #		ifdef NATIVE_FILE_TYPE_ACK                              
-#		undef NATIVE_FILE_TYPE_ACK                              
+#			undef NATIVE_FILE_TYPE_ACK                              
 #		endif
+
 		literal int NATIVE_FILE_TYPE_ACK                              =	(NATIVE_FILE_TYPE | 0xF);
 #		define	NATIVE_FILE_TYPE_ACK                              		(NATIVE_FILE_TYPE | 0xF)
 		
+
 #		ifdef MSG_TYPE_MESSAGE                                  
-#		undef MSG_TYPE_MESSAGE                                  
+#			undef MSG_TYPE_MESSAGE                                  
 #		endif
+
 		literal int MSG_TYPE_MESSAGE                                  =	(4);
 #		define	MSG_TYPE_MESSAGE                                  		(4)
+
 #		ifdef MESSAGE_FROM_APP                                  
-#		undef MESSAGE_FROM_APP                                  
+#			undef MESSAGE_FROM_APP                                  
 #		endif
+
 		literal int MESSAGE_FROM_APP                                  =	(0x800);
 #		define	MESSAGE_FROM_APP                                  		(0x800)
+
 #		ifdef MESSAGE_APP_STRING                                
-#		undef MESSAGE_APP_STRING                                
+#			undef MESSAGE_APP_STRING                                
 #		endif
+
 		literal int MESSAGE_APP_STRING                                =	(MESSAGE_FROM_APP | 1);
 #		define	MESSAGE_APP_STRING                                		(MESSAGE_FROM_APP | 1)
 		
 		
+
 #		ifdef NOTIFY_TYPE_FILE                                  
-#		undef NOTIFY_TYPE_FILE                                  
+#			undef NOTIFY_TYPE_FILE                                  
 #		endif
+
 		literal int NOTIFY_TYPE_FILE                                  =	((MSG_TYPE_FILE << 16));
 #		define	NOTIFY_TYPE_FILE                                  		((MSG_TYPE_FILE << 16))
+
 #		ifdef NOTIFY_TYPE_FILE_PROGRESS                         
-#		undef NOTIFY_TYPE_FILE_PROGRESS                         
+#			undef NOTIFY_TYPE_FILE_PROGRESS                         
 #		endif
+
 		literal int NOTIFY_TYPE_FILE_PROGRESS                         =	(NOTIFY_TYPE_FILE | 0x20);
 #		define	NOTIFY_TYPE_FILE_PROGRESS                         		(NOTIFY_TYPE_FILE | 0x20)
 		
+
 #		ifdef NOTIFY_FILE_SEND_PROGRESS                         
-#		undef NOTIFY_FILE_SEND_PROGRESS                         
+#			undef NOTIFY_FILE_SEND_PROGRESS                         
 #		endif
+
 		literal int NOTIFY_FILE_SEND_PROGRESS                         =	(NOTIFY_TYPE_FILE_PROGRESS | 1);
 #		define	NOTIFY_FILE_SEND_PROGRESS                         		(NOTIFY_TYPE_FILE_PROGRESS | 1)
+
 #		ifdef NOTIFY_FILE_RECEIVE_PROGRESS                      
-#		undef NOTIFY_FILE_RECEIVE_PROGRESS                      
+#			undef NOTIFY_FILE_RECEIVE_PROGRESS                      
 #		endif
+
 		literal int NOTIFY_FILE_RECEIVE_PROGRESS                      =	(NOTIFY_TYPE_FILE_PROGRESS | 2);
 #		define	NOTIFY_FILE_RECEIVE_PROGRESS                      		(NOTIFY_TYPE_FILE_PROGRESS | 2)
 		
@@ -1524,30 +1953,40 @@ namespace environs
 		 * Native callback for errors
 		 * Native callback for errors
 		 */
+
 #		ifdef NOTIFY_TOUCHSOURCE                                
-#		undef NOTIFY_TOUCHSOURCE                                
+#			undef NOTIFY_TOUCHSOURCE                                
 #		endif
+
 		literal int NOTIFY_TOUCHSOURCE                                =	(0x40);
 #		define	NOTIFY_TOUCHSOURCE                                		(0x40)
+
 #		ifdef NOTIFY_TOUCHSOURCE_STARTED                        
-#		undef NOTIFY_TOUCHSOURCE_STARTED                        
+#			undef NOTIFY_TOUCHSOURCE_STARTED                        
 #		endif
+
 		literal int NOTIFY_TOUCHSOURCE_STARTED                        =	(NOTIFY_TOUCHSOURCE | 2);
 #		define	NOTIFY_TOUCHSOURCE_STARTED                        		(NOTIFY_TOUCHSOURCE | 2)
+
 #		ifdef NOTIFY_TOUCHSOURCE_STOPPED                        
-#		undef NOTIFY_TOUCHSOURCE_STOPPED                        
+#			undef NOTIFY_TOUCHSOURCE_STOPPED                        
 #		endif
+
 		literal int NOTIFY_TOUCHSOURCE_STOPPED                        =	(NOTIFY_TOUCHSOURCE | 4);
 #		define	NOTIFY_TOUCHSOURCE_STOPPED                        		(NOTIFY_TOUCHSOURCE | 4)
 			
+
 #		ifdef NOTIFY_TOUCHSOURCE_NOTAVAIL                       
-#		undef NOTIFY_TOUCHSOURCE_NOTAVAIL                       
+#			undef NOTIFY_TOUCHSOURCE_NOTAVAIL                       
 #		endif
+
 		literal int NOTIFY_TOUCHSOURCE_NOTAVAIL                       =	(NOTIFY_TOUCHSOURCE | 8);
 #		define	NOTIFY_TOUCHSOURCE_NOTAVAIL                       		(NOTIFY_TOUCHSOURCE | 8)
+
 #		ifdef NOTIFY_TOUCHSOURCE_FAILED                         
-#		undef NOTIFY_TOUCHSOURCE_FAILED                         
+#			undef NOTIFY_TOUCHSOURCE_FAILED                         
 #		endif
+
 		literal int NOTIFY_TOUCHSOURCE_FAILED                         =	(NOTIFY_TOUCHSOURCE | 9);
 #		define	NOTIFY_TOUCHSOURCE_FAILED                         		(NOTIFY_TOUCHSOURCE | 9)
 		
@@ -1560,29 +1999,39 @@ namespace environs
 		 * Input types for human input
 		 * Input types for human input
 		 * */
+
 #		ifdef INPUT_TYPE_CURSOR                                 
-#		undef INPUT_TYPE_CURSOR                                 
+#			undef INPUT_TYPE_CURSOR                                 
 #		endif
+
 		literal int INPUT_TYPE_CURSOR                                 =	(0);
 #		define	INPUT_TYPE_CURSOR                                 		(0)
+
 #		ifdef INPUT_TYPE_FINGER                                 
-#		undef INPUT_TYPE_FINGER                                 
+#			undef INPUT_TYPE_FINGER                                 
 #		endif
+
 		literal int INPUT_TYPE_FINGER                                 =	(1);
 #		define	INPUT_TYPE_FINGER                                 		(1)
+
 #		ifdef INPUT_TYPE_PEN                                    
-#		undef INPUT_TYPE_PEN                                    
+#			undef INPUT_TYPE_PEN                                    
 #		endif
+
 		literal int INPUT_TYPE_PEN                                    =	(2);
 #		define	INPUT_TYPE_PEN                                    		(2)
+
 #		ifdef INPUT_TYPE_MARKER                                 
-#		undef INPUT_TYPE_MARKER                                 
+#			undef INPUT_TYPE_MARKER                                 
 #		endif
+
 		literal int INPUT_TYPE_MARKER                                 =	(4);
 #		define	INPUT_TYPE_MARKER                                 		(4)
+
 #		ifdef INPUT_TYPE_BLOB                                   
-#		undef INPUT_TYPE_BLOB                                   
+#			undef INPUT_TYPE_BLOB                                   
 #		endif
+
 		literal int INPUT_TYPE_BLOB                                   =	(8);
 #		define	INPUT_TYPE_BLOB                                   		(8)
 			
@@ -1590,19 +2039,25 @@ namespace environs
 		 * Native callback for errors
 		 * Native callback for errors
 		 */
+
 #		ifdef NATIVE_EVENT_ERROR_MISC                           
-#		undef NATIVE_EVENT_ERROR_MISC                           
+#			undef NATIVE_EVENT_ERROR_MISC                           
 #		endif
+
 		literal int NATIVE_EVENT_ERROR_MISC                           =	(0x80);
 #		define	NATIVE_EVENT_ERROR_MISC                           		(0x80)
+
 #		ifdef NATIVE_EVENT_DATA_CON_FAILED                      
-#		undef NATIVE_EVENT_DATA_CON_FAILED                      
+#			undef NATIVE_EVENT_DATA_CON_FAILED                      
 #		endif
+
 		literal int NATIVE_EVENT_DATA_CON_FAILED                      =	(NATIVE_EVENT_ERROR_MISC | 3);
 #		define	NATIVE_EVENT_DATA_CON_FAILED                      		(NATIVE_EVENT_ERROR_MISC | 3)
+
 #		ifdef NATIVE_EVENT_TOUCH_SOURCE_FAILED                  
-#		undef NATIVE_EVENT_TOUCH_SOURCE_FAILED                  
+#			undef NATIVE_EVENT_TOUCH_SOURCE_FAILED                  
 #		endif
+
 		literal int NATIVE_EVENT_TOUCH_SOURCE_FAILED                  =	(NATIVE_EVENT_ERROR_MISC | 4);
 #		define	NATIVE_EVENT_TOUCH_SOURCE_FAILED                  		(NATIVE_EVENT_ERROR_MISC | 4)
 		
@@ -1610,24 +2065,32 @@ namespace environs
 		 * Input states for a particular human input entity
 		 * Input states for a particular human input entity
 		 * */
+
 #		ifdef INPUT_STATE_ADD                                   
-#		undef INPUT_STATE_ADD                                   
+#			undef INPUT_STATE_ADD                                   
 #		endif
+
 		literal int INPUT_STATE_ADD                                   =	(1);
 #		define	INPUT_STATE_ADD                                   		(1)
+
 #		ifdef INPUT_STATE_CHANGE                                
-#		undef INPUT_STATE_CHANGE                                
+#			undef INPUT_STATE_CHANGE                                
 #		endif
+
 		literal int INPUT_STATE_CHANGE                                =	(2);
 #		define	INPUT_STATE_CHANGE                                		(2)
+
 #		ifdef INPUT_STATE_NOCHANGE                              
-#		undef INPUT_STATE_NOCHANGE                              
+#			undef INPUT_STATE_NOCHANGE                              
 #		endif
+
 		literal int INPUT_STATE_NOCHANGE                              =	(3);
 #		define	INPUT_STATE_NOCHANGE                              		(3)
+
 #		ifdef INPUT_STATE_DROP                                  
-#		undef INPUT_STATE_DROP                                  
+#			undef INPUT_STATE_DROP                                  
 #		endif
+
 		literal int INPUT_STATE_DROP                                  =	(4);
 #		define	INPUT_STATE_DROP                                  		(4)
 		
@@ -1635,39 +2098,53 @@ namespace environs
 		 * Input commands for a particular human input entity
 		 * Input commands for a particular human input entity
 		 * */
+
 #		ifdef INPUTSOURCE_COMMAND_INIT                          
-#		undef INPUTSOURCE_COMMAND_INIT                          
+#			undef INPUTSOURCE_COMMAND_INIT                          
 #		endif
+
 		literal int INPUTSOURCE_COMMAND_INIT                          =	(0);
 #		define	INPUTSOURCE_COMMAND_INIT                          		(0)
+
 #		ifdef INPUTSOURCE_COMMAND_ADD                           
-#		undef INPUTSOURCE_COMMAND_ADD                           
+#			undef INPUTSOURCE_COMMAND_ADD                           
 #		endif
+
 		literal int INPUTSOURCE_COMMAND_ADD                           =	(1);
 #		define	INPUTSOURCE_COMMAND_ADD                           		(1)
+
 #		ifdef INPUTSOURCE_COMMAND_CHANGE                        
-#		undef INPUTSOURCE_COMMAND_CHANGE                        
+#			undef INPUTSOURCE_COMMAND_CHANGE                        
 #		endif
+
 		literal int INPUTSOURCE_COMMAND_CHANGE                        =	(2);
 #		define	INPUTSOURCE_COMMAND_CHANGE                        		(2)
+
 #		ifdef INPUTSOURCE_COMMAND_DROP                          
-#		undef INPUTSOURCE_COMMAND_DROP                          
+#			undef INPUTSOURCE_COMMAND_DROP                          
 #		endif
+
 		literal int INPUTSOURCE_COMMAND_DROP                          =	(4);
 #		define	INPUTSOURCE_COMMAND_DROP                          		(4)
+
 #		ifdef INPUTSOURCE_COMMAND_CANCEL                        
-#		undef INPUTSOURCE_COMMAND_CANCEL                        
+#			undef INPUTSOURCE_COMMAND_CANCEL                        
 #		endif
+
 		literal int INPUTSOURCE_COMMAND_CANCEL                        =	(6);
 #		define	INPUTSOURCE_COMMAND_CANCEL                        		(6)
+
 #		ifdef INPUTSOURCE_COMMAND_FLUSH                         
-#		undef INPUTSOURCE_COMMAND_FLUSH                         
+#			undef INPUTSOURCE_COMMAND_FLUSH                         
 #		endif
+
 		literal int INPUTSOURCE_COMMAND_FLUSH                         =	(8);
 #		define	INPUTSOURCE_COMMAND_FLUSH                         		(8)
+
 #		ifdef INPUTSOURCE_COMMAND_FOLLOWUP                      
-#		undef INPUTSOURCE_COMMAND_FOLLOWUP                      
+#			undef INPUTSOURCE_COMMAND_FOLLOWUP                      
 #		endif
+
 		literal int INPUTSOURCE_COMMAND_FOLLOWUP                      =	(0x80);
 #		define	INPUTSOURCE_COMMAND_FOLLOWUP                      		(0x80)
 		
@@ -1676,92 +2153,119 @@ namespace environs
 		 * Environs Start notifications
 		 */
 		/** Class: Environs type */
+
 #		ifdef MSG_TYPE_ENVIRONS                                 
-#		undef MSG_TYPE_ENVIRONS                                 
+#			undef MSG_TYPE_ENVIRONS                                 
 #		endif
+
 		literal int MSG_TYPE_ENVIRONS                                 =	(8);
 #		define	MSG_TYPE_ENVIRONS                                 		(8)
-#		ifdef MSG_TYPE_MAX_COUNT                                
-#		undef MSG_TYPE_MAX_COUNT                                
-#		endif
-		literal int MSG_TYPE_MAX_COUNT                                =	(MSG_TYPE_ENVIRONS + 1);
-#		define	MSG_TYPE_MAX_COUNT                                		(MSG_TYPE_ENVIRONS + 1)
 		
+
 #		ifdef NOTIFY_TYPE_ENVIRONS                              
-#		undef NOTIFY_TYPE_ENVIRONS                              
+#			undef NOTIFY_TYPE_ENVIRONS                              
 #		endif
+
 		literal int NOTIFY_TYPE_ENVIRONS                              =	((MSG_TYPE_ENVIRONS << 16));
 #		define	NOTIFY_TYPE_ENVIRONS                              		((MSG_TYPE_ENVIRONS << 16))
+
 #		ifdef NOTIFY_START                                      
-#		undef NOTIFY_START                                      
+#			undef NOTIFY_START                                      
 #		endif
+
 		literal int NOTIFY_START                                      =	(NOTIFY_TYPE_ENVIRONS | 0x100);
 #		define	NOTIFY_START                                      		(NOTIFY_TYPE_ENVIRONS | 0x100)
+
 #		ifdef NOTIFY_START_IN_PROGRESS                          
-#		undef NOTIFY_START_IN_PROGRESS                          
+#			undef NOTIFY_START_IN_PROGRESS                          
 #		endif
+
 		literal int NOTIFY_START_IN_PROGRESS                          =	(NOTIFY_START | 1);
 #		define	NOTIFY_START_IN_PROGRESS                          		(NOTIFY_START | 1)
+
 #		ifdef NOTIFY_START_ENABLING_WIFI                        
-#		undef NOTIFY_START_ENABLING_WIFI                        
+#			undef NOTIFY_START_ENABLING_WIFI                        
 #		endif
+
 		literal int NOTIFY_START_ENABLING_WIFI                        =	(NOTIFY_START | 2);
 #		define	NOTIFY_START_ENABLING_WIFI                        		(NOTIFY_START | 2)
+
 #		ifdef NOTIFY_START_STREAM_DECODER                       
-#		undef NOTIFY_START_STREAM_DECODER                       
+#			undef NOTIFY_START_STREAM_DECODER                       
 #		endif
+
 		literal int NOTIFY_START_STREAM_DECODER                       =	(NOTIFY_START | 3);
 #		define	NOTIFY_START_STREAM_DECODER                       		(NOTIFY_START | 3)
+
 #		ifdef NOTIFY_START_INIT                                 
-#		undef NOTIFY_START_INIT                                 
+#			undef NOTIFY_START_INIT                                 
 #		endif
+
 		literal int NOTIFY_START_INIT                                 =	(NOTIFY_START | 4);
 #		define	NOTIFY_START_INIT                                 		(NOTIFY_START | 4)
 		
+
 #		ifdef NOTIFY_START_INIT_FAILED                          
-#		undef NOTIFY_START_INIT_FAILED                          
+#			undef NOTIFY_START_INIT_FAILED                          
 #		endif
+
 		literal int NOTIFY_START_INIT_FAILED                          =	(NOTIFY_START | 7);
 #		define	NOTIFY_START_INIT_FAILED                          		(NOTIFY_START | 7)
+
 #		ifdef NOTIFY_START_METHOD_FAILED                        
-#		undef NOTIFY_START_METHOD_FAILED                        
+#			undef NOTIFY_START_METHOD_FAILED                        
 #		endif
+
 		literal int NOTIFY_START_METHOD_FAILED                        =	(NOTIFY_START | 8);
 #		define	NOTIFY_START_METHOD_FAILED                        		(NOTIFY_START | 8)
+
 #		ifdef NOTIFY_START_DECODER_FAILED                       
-#		undef NOTIFY_START_DECODER_FAILED                       
+#			undef NOTIFY_START_DECODER_FAILED                       
 #		endif
+
 		literal int NOTIFY_START_DECODER_FAILED                       =	(NOTIFY_START | 9);
 #		define	NOTIFY_START_DECODER_FAILED                       		(NOTIFY_START | 9)
+
 #		ifdef NOTIFY_START_WIFI_FAILED                          
-#		undef NOTIFY_START_WIFI_FAILED                          
+#			undef NOTIFY_START_WIFI_FAILED                          
 #		endif
+
 		literal int NOTIFY_START_WIFI_FAILED                          =	(NOTIFY_START | 10);
 #		define	NOTIFY_START_WIFI_FAILED                          		(NOTIFY_START | 10)
+
 #		ifdef NOTIFY_START_FAILED                               
-#		undef NOTIFY_START_FAILED                               
+#			undef NOTIFY_START_FAILED                               
 #		endif
+
 		literal int NOTIFY_START_FAILED                               =	(NOTIFY_START | 11);
 #		define	NOTIFY_START_FAILED                               		(NOTIFY_START | 11)
 		
+
 #		ifdef NOTIFY_START_INIT_SUCCESS                         
-#		undef NOTIFY_START_INIT_SUCCESS                         
+#			undef NOTIFY_START_INIT_SUCCESS                         
 #		endif
+
 		literal int NOTIFY_START_INIT_SUCCESS                         =	(NOTIFY_START | 12);
 #		define	NOTIFY_START_INIT_SUCCESS                         		(NOTIFY_START | 12)
+
 #		ifdef NOTIFY_START_SUCCESS                              
-#		undef NOTIFY_START_SUCCESS                              
+#			undef NOTIFY_START_SUCCESS                              
 #		endif
+
 		literal int NOTIFY_START_SUCCESS                              =	(NOTIFY_START | 13);
 #		define	NOTIFY_START_SUCCESS                              		(NOTIFY_START | 13)
+
 #		ifdef NOTIFY_START_LISTEN_SUCCESS                       
-#		undef NOTIFY_START_LISTEN_SUCCESS                       
+#			undef NOTIFY_START_LISTEN_SUCCESS                       
 #		endif
+
 		literal int NOTIFY_START_LISTEN_SUCCESS                       =	(NOTIFY_START | 14);
 #		define	NOTIFY_START_LISTEN_SUCCESS                       		(NOTIFY_START | 14)
+
 #		ifdef NOTIFY_START_LISTENDA_SUCCESS                     
-#		undef NOTIFY_START_LISTENDA_SUCCESS                     
+#			undef NOTIFY_START_LISTENDA_SUCCESS                     
 #		endif
+
 		literal int NOTIFY_START_LISTENDA_SUCCESS                     =	(NOTIFY_START | 15);
 #		define	NOTIFY_START_LISTENDA_SUCCESS                     		(NOTIFY_START | 15)
 		
@@ -1769,29 +2273,46 @@ namespace environs
 		 * Environs Stop notifications
 		 * Environs Stop notifications
 		 */
+
 #		ifdef NOTIFY_STOP                                       
-#		undef NOTIFY_STOP                                       
+#			undef NOTIFY_STOP                                       
 #		endif
+
 		literal int NOTIFY_STOP                                       =	(NOTIFY_TYPE_ENVIRONS | 0x200);
 #		define	NOTIFY_STOP                                       		(NOTIFY_TYPE_ENVIRONS | 0x200)
+
+#		ifdef NOTIFY_STOP_BEGIN                                 
+#			undef NOTIFY_STOP_BEGIN                                 
+#		endif
+
+		literal int NOTIFY_STOP_BEGIN                                 =	(NOTIFY_STOP | 1);
+#		define	NOTIFY_STOP_BEGIN                                 		(NOTIFY_STOP | 1)
+
 #		ifdef NOTIFY_STOP_IN_PROGRESS                           
-#		undef NOTIFY_STOP_IN_PROGRESS                           
+#			undef NOTIFY_STOP_IN_PROGRESS                           
 #		endif
-		literal int NOTIFY_STOP_IN_PROGRESS                           =	(NOTIFY_STOP | 1);
-#		define	NOTIFY_STOP_IN_PROGRESS                           		(NOTIFY_STOP | 1)
+
+		literal int NOTIFY_STOP_IN_PROGRESS                           =	(NOTIFY_STOP | 2);
+#		define	NOTIFY_STOP_IN_PROGRESS                           		(NOTIFY_STOP | 2)
+
 #		ifdef NOTIFY_STOP_FAILED                                
-#		undef NOTIFY_STOP_FAILED                                
+#			undef NOTIFY_STOP_FAILED                                
 #		endif
+
 		literal int NOTIFY_STOP_FAILED                                =	(NOTIFY_STOP | 10);
 #		define	NOTIFY_STOP_FAILED                                		(NOTIFY_STOP | 10)
+
 #		ifdef NOTIFY_STOP_SUCCESS                               
-#		undef NOTIFY_STOP_SUCCESS                               
+#			undef NOTIFY_STOP_SUCCESS                               
 #		endif
+
 		literal int NOTIFY_STOP_SUCCESS                               =	(NOTIFY_STOP | 11);
 #		define	NOTIFY_STOP_SUCCESS                               		(NOTIFY_STOP | 11)
+
 #		ifdef NOTIFY_STOP_RELEASED                              
-#		undef NOTIFY_STOP_RELEASED                              
+#			undef NOTIFY_STOP_RELEASED                              
 #		endif
+
 		literal int NOTIFY_STOP_RELEASED                              =	(NOTIFY_STOP | 12);
 #		define	NOTIFY_STOP_RELEASED                              		(NOTIFY_STOP | 12)
 			
@@ -1799,24 +2320,32 @@ namespace environs
 		 * Environs socket notifications
 		 * Environs socket notifications
 		 */
+
 #		ifdef NOTIFY_SOCKET                                     
-#		undef NOTIFY_SOCKET                                     
+#			undef NOTIFY_SOCKET                                     
 #		endif
+
 		literal int NOTIFY_SOCKET                                     =	(NOTIFY_TYPE_ENVIRONS | 0x400);
 #		define	NOTIFY_SOCKET                                     		(NOTIFY_TYPE_ENVIRONS | 0x400)
+
 #		ifdef NOTIFY_SOCKET_BIND_FAILED                         
-#		undef NOTIFY_SOCKET_BIND_FAILED                         
+#			undef NOTIFY_SOCKET_BIND_FAILED                         
 #		endif
+
 		literal int NOTIFY_SOCKET_BIND_FAILED                         =	(NOTIFY_SOCKET | 7);
 #		define	NOTIFY_SOCKET_BIND_FAILED                         		(NOTIFY_SOCKET | 7)
+
 #		ifdef NOTIFY_SOCKET_LISTEN_FAILED                       
-#		undef NOTIFY_SOCKET_LISTEN_FAILED                       
+#			undef NOTIFY_SOCKET_LISTEN_FAILED                       
 #		endif
+
 		literal int NOTIFY_SOCKET_LISTEN_FAILED                       =	(NOTIFY_SOCKET | 8);
 #		define	NOTIFY_SOCKET_LISTEN_FAILED                       		(NOTIFY_SOCKET | 8)
+
 #		ifdef NOTIFY_SOCKET_FAILED                              
-#		undef NOTIFY_SOCKET_FAILED                              
+#			undef NOTIFY_SOCKET_FAILED                              
 #		endif
+
 		literal int NOTIFY_SOCKET_FAILED                              =	(NOTIFY_SOCKET | 9);
 #		define	NOTIFY_SOCKET_FAILED                              		(NOTIFY_SOCKET | 9)
 		
@@ -1824,14 +2353,18 @@ namespace environs
 		 * Environs socket notifications
 		 * Environs socket notifications
 		 */
+
 #		ifdef NOTIFY_SETTINGS                                   
-#		undef NOTIFY_SETTINGS                                   
+#			undef NOTIFY_SETTINGS                                   
 #		endif
+
 		literal int NOTIFY_SETTINGS                                   =	(NOTIFY_TYPE_ENVIRONS | 0x480);
 #		define	NOTIFY_SETTINGS                                   		(NOTIFY_TYPE_ENVIRONS | 0x480)
+
 #		ifdef NOTIFY_SETTINGS_CHANGED                           
-#		undef NOTIFY_SETTINGS_CHANGED                           
+#			undef NOTIFY_SETTINGS_CHANGED                           
 #		endif
+
 		literal int NOTIFY_SETTINGS_CHANGED                           =	(NOTIFY_SETTINGS | 0x1);
 #		define	NOTIFY_SETTINGS_CHANGED                           		(NOTIFY_SETTINGS | 0x1)
 			
@@ -1839,45 +2372,79 @@ namespace environs
 		 * Environs device paring notifications
 		 * Environs device paring notifications
 		 */
+
 #		ifdef NOTIFY_PAIRING                                    
-#		undef NOTIFY_PAIRING                                    
+#			undef NOTIFY_PAIRING                                    
 #		endif
+
 		literal int NOTIFY_PAIRING                                    =	(NOTIFY_TYPE_ENVIRONS | 0x800);
 #		define	NOTIFY_PAIRING                                    		(NOTIFY_TYPE_ENVIRONS | 0x800)
+
 #		ifdef NOTIFY_DEVICE_ON_SURFACE                          
-#		undef NOTIFY_DEVICE_ON_SURFACE                          
+#			undef NOTIFY_DEVICE_ON_SURFACE                          
 #		endif
+
 		literal int NOTIFY_DEVICE_ON_SURFACE                          =	(NOTIFY_PAIRING | 1);
 #		define	NOTIFY_DEVICE_ON_SURFACE                          		(NOTIFY_PAIRING | 1)
+
 #		ifdef NOTIFY_DEVICE_NOT_ON_SURFACE                      
-#		undef NOTIFY_DEVICE_NOT_ON_SURFACE                      
+#			undef NOTIFY_DEVICE_NOT_ON_SURFACE                      
 #		endif
+
 		literal int NOTIFY_DEVICE_NOT_ON_SURFACE                      =	(NOTIFY_PAIRING | 2);
 #		define	NOTIFY_DEVICE_NOT_ON_SURFACE                      		(NOTIFY_PAIRING | 2)
+		
+		/**
+		 * Environs Start notifications
+		 * Environs Start notifications
+		 */
+		/** Class: Environs type */
+
+#		ifdef MSG_TYPE_SENSOR                                   
+#			undef MSG_TYPE_SENSOR                                   
+#		endif
+
+		literal int MSG_TYPE_SENSOR                                   =	(9);
+#		define	MSG_TYPE_SENSOR                                   		(9)
+
+#		ifdef MSG_TYPE_MAX_COUNT                                
+#			undef MSG_TYPE_MAX_COUNT                                
+#		endif
+
+		literal int MSG_TYPE_MAX_COUNT                                =	(MSG_TYPE_SENSOR + 1);
+#		define	MSG_TYPE_MAX_COUNT                                		(MSG_TYPE_SENSOR + 1)
 		
 		/**
 		 * Environs mediator filter constants
 		 * Environs mediator filter constants
 		 */
+
 #		ifdef MEDIATOR_FILTER_NONE                              
-#		undef MEDIATOR_FILTER_NONE                              
+#			undef MEDIATOR_FILTER_NONE                              
 #		endif
+
 		literal int MEDIATOR_FILTER_NONE                              =	(0);
 #		define	MEDIATOR_FILTER_NONE                              		(0)
+
 #		ifdef MEDIATOR_FILTER_AREA                              
-#		undef MEDIATOR_FILTER_AREA                              
+#			undef MEDIATOR_FILTER_AREA                              
 #		endif
+
 		literal int MEDIATOR_FILTER_AREA                              =	(1);
 #		define	MEDIATOR_FILTER_AREA                              		(1)
+
 #		ifdef MEDIATOR_FILTER_AREA_AND_APP                      
-#		undef MEDIATOR_FILTER_AREA_AND_APP                      
+#			undef MEDIATOR_FILTER_AREA_AND_APP                      
 #		endif
+
 		literal int MEDIATOR_FILTER_AREA_AND_APP                      =	(2);
 #		define	MEDIATOR_FILTER_AREA_AND_APP                      		(2)
 		/// Disable all devicelist notifications
+
 #		ifdef MEDIATOR_FILTER_ALL                               
-#		undef MEDIATOR_FILTER_ALL                               
+#			undef MEDIATOR_FILTER_ALL                               
 #		endif
+
 		literal int MEDIATOR_FILTER_ALL                               =	(8);
 #		define	MEDIATOR_FILTER_ALL                               		(8)
 		
@@ -1886,19 +2453,25 @@ namespace environs
 		 * Environs mediator broadcast found values
 		 * Environs mediator broadcast found values
 		 */
+
 #		ifdef DEVICEINFO_DEVICE_MEDIATOR                        
-#		undef DEVICEINFO_DEVICE_MEDIATOR                        
+#			undef DEVICEINFO_DEVICE_MEDIATOR                        
 #		endif
+
 		literal int DEVICEINFO_DEVICE_MEDIATOR                        =	(0);
 #		define	DEVICEINFO_DEVICE_MEDIATOR                        		(0)
+
 #		ifdef DEVICEINFO_DEVICE_BROADCAST                       
-#		undef DEVICEINFO_DEVICE_BROADCAST                       
+#			undef DEVICEINFO_DEVICE_BROADCAST                       
 #		endif
+
 		literal int DEVICEINFO_DEVICE_BROADCAST                       =	(1);
 #		define	DEVICEINFO_DEVICE_BROADCAST                       		(1)
+
 #		ifdef DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          
-#		undef DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          
+#			undef DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          
 #		endif
+
 		literal int DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          =	(2);
 #		define	DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          		(2)
 		
@@ -1906,29 +2479,39 @@ namespace environs
 		 * Environs mediator broadcast message Start bytes
 		 * Environs mediator broadcast message Start bytes
 		 */
+
 #		ifdef MEDIATOR_BROADCAST_DEVICETYPE_START               
-#		undef MEDIATOR_BROADCAST_DEVICETYPE_START               
+#			undef MEDIATOR_BROADCAST_DEVICETYPE_START               
 #		endif
+
 		literal int MEDIATOR_BROADCAST_DEVICETYPE_START               =	(11);
 #		define	MEDIATOR_BROADCAST_DEVICETYPE_START               		(11)
+
 #		ifdef MEDIATOR_BROADCAST_DEVICEID_START                 
-#		undef MEDIATOR_BROADCAST_DEVICEID_START                 
+#			undef MEDIATOR_BROADCAST_DEVICEID_START                 
 #		endif
+
 		literal int MEDIATOR_BROADCAST_DEVICEID_START                 =	(12);
 #		define	MEDIATOR_BROADCAST_DEVICEID_START                 		(12)
+
 #		ifdef MEDIATOR_BROADCAST_PORTS_START                    
-#		undef MEDIATOR_BROADCAST_PORTS_START                    
+#			undef MEDIATOR_BROADCAST_PORTS_START                    
 #		endif
+
 		literal int MEDIATOR_BROADCAST_PORTS_START                    =	(20);
 #		define	MEDIATOR_BROADCAST_PORTS_START                    		(20)
+
 #		ifdef MEDIATOR_BROADCAST_PLATFORM_START                 
-#		undef MEDIATOR_BROADCAST_PLATFORM_START                 
+#			undef MEDIATOR_BROADCAST_PLATFORM_START                 
 #		endif
+
 		literal int MEDIATOR_BROADCAST_PLATFORM_START                 =	(24);
 #		define	MEDIATOR_BROADCAST_PLATFORM_START                 		(24)
+
 #		ifdef MEDIATOR_BROADCAST_DESC_START                     
-#		undef MEDIATOR_BROADCAST_DESC_START                     
+#			undef MEDIATOR_BROADCAST_DESC_START                     
 #		endif
+
 		literal int MEDIATOR_BROADCAST_DESC_START                     =	(28);
 #		define	MEDIATOR_BROADCAST_DESC_START                     		(28)
 		
@@ -1936,14 +2519,18 @@ namespace environs
 		 * Environs mediator broadcast message constants
 		 * Environs mediator broadcast message constants
 		 */
+
 #		ifdef TYPES_SEPERATOR_1_ENVIRONS                        
-#		undef TYPES_SEPERATOR_1_ENVIRONS                        
+#			undef TYPES_SEPERATOR_1_ENVIRONS                        
 #		endif
+
 		literal int TYPES_SEPERATOR_1_ENVIRONS                        =	(28);
 #		define	TYPES_SEPERATOR_1_ENVIRONS                        		(28)
+
 #		ifdef MEDIATOR_BROADCAST_SPARE_ID_LEN                   
-#		undef MEDIATOR_BROADCAST_SPARE_ID_LEN                   
+#			undef MEDIATOR_BROADCAST_SPARE_ID_LEN                   
 #		endif
+
 		literal int MEDIATOR_BROADCAST_SPARE_ID_LEN                   =	(28);
 #		define	MEDIATOR_BROADCAST_SPARE_ID_LEN                   		(28)
 		
@@ -1951,108 +2538,148 @@ namespace environs
 		 * Environs DeviceInstance struct Start bytes
 		 * Environs DeviceInstance struct Start bytes
 		 */
+
 #		ifdef MAX_NAMEPROPERTY                                  
-#		undef MAX_NAMEPROPERTY                                  
+#			undef MAX_NAMEPROPERTY                                  
 #		endif
+
 		literal int MAX_NAMEPROPERTY                                  =	(30);
 #		define	MAX_NAMEPROPERTY                                  		(30)
 		/** Ignore: for Resolver */
+
 #		ifdef MAX_LENGTH_AREA_NAME                              
-#		undef MAX_LENGTH_AREA_NAME                              
+#			undef MAX_LENGTH_AREA_NAME                              
 #		endif
+
 		literal int MAX_LENGTH_AREA_NAME                              =	(MAX_NAMEPROPERTY + 1);
 #		define	MAX_LENGTH_AREA_NAME                              		(MAX_NAMEPROPERTY + 1)
 		/** Ignore: for Resolver */
+
 #		ifdef MAX_LENGTH_APP_NAME                               
-#		undef MAX_LENGTH_APP_NAME                               
+#			undef MAX_LENGTH_APP_NAME                               
 #		endif
+
 		literal int MAX_LENGTH_APP_NAME                               =	(MAX_NAMEPROPERTY + 1);
 #		define	MAX_LENGTH_APP_NAME                               		(MAX_NAMEPROPERTY + 1)
 		/** Ignore: for Resolver */
+
 #		ifdef MAX_LENGTH_DEVICE_NAME                            
-#		undef MAX_LENGTH_DEVICE_NAME                            
+#			undef MAX_LENGTH_DEVICE_NAME                            
 #		endif
+
 		literal int MAX_LENGTH_DEVICE_NAME                            =	(MAX_NAMEPROPERTY + 1);
 #		define	MAX_LENGTH_DEVICE_NAME                            		(MAX_NAMEPROPERTY + 1)
 		
+
 #		ifdef DEVICEINFO_DEVICEID_START                         
-#		undef DEVICEINFO_DEVICEID_START                         
+#			undef DEVICEINFO_DEVICEID_START                         
 #		endif
+
 		literal int DEVICEINFO_DEVICEID_START                         =	(0);
 #		define	DEVICEINFO_DEVICEID_START                         		(0)
+
 #		ifdef DEVICEINFO_NATIVE_ID_START                        
-#		undef DEVICEINFO_NATIVE_ID_START                        
+#			undef DEVICEINFO_NATIVE_ID_START                        
 #		endif
+
 		literal int DEVICEINFO_NATIVE_ID_START                        =	(4);
 #		define	DEVICEINFO_NATIVE_ID_START                        		(4)
+
 #		ifdef DEVICEINFO_IP_START                               
-#		undef DEVICEINFO_IP_START                               
+#			undef DEVICEINFO_IP_START                               
 #		endif
+
 		literal int DEVICEINFO_IP_START                               =	(DEVICEINFO_NATIVE_ID_START + 4);
 #		define	DEVICEINFO_IP_START                               		(DEVICEINFO_NATIVE_ID_START + 4)
+
 #		ifdef DEVICEINFO_IPe_START                              
-#		undef DEVICEINFO_IPe_START                              
+#			undef DEVICEINFO_IPe_START                              
 #		endif
+
 		literal int DEVICEINFO_IPe_START                              =	(DEVICEINFO_IP_START + 4);
 #		define	DEVICEINFO_IPe_START                              		(DEVICEINFO_IP_START + 4)
+
 #		ifdef DEVICEINFO_TCP_PORT_START                         
-#		undef DEVICEINFO_TCP_PORT_START                         
+#			undef DEVICEINFO_TCP_PORT_START                         
 #		endif
+
 		literal int DEVICEINFO_TCP_PORT_START                         =	(DEVICEINFO_IPe_START + 4);
 #		define	DEVICEINFO_TCP_PORT_START                         		(DEVICEINFO_IPe_START + 4)
+
 #		ifdef DEVICEINFO_UDP_PORT_START                         
-#		undef DEVICEINFO_UDP_PORT_START                         
+#			undef DEVICEINFO_UDP_PORT_START                         
 #		endif
+
 		literal int DEVICEINFO_UDP_PORT_START                         =	(DEVICEINFO_TCP_PORT_START + 2);
 #		define	DEVICEINFO_UDP_PORT_START                         		(DEVICEINFO_TCP_PORT_START + 2)
+
 #		ifdef DEVICEINFO_UPDATES_START                          
-#		undef DEVICEINFO_UPDATES_START                          
+#			undef DEVICEINFO_UPDATES_START                          
 #		endif
+
 		literal int DEVICEINFO_UPDATES_START                          =	(DEVICEINFO_UDP_PORT_START + 2);
 #		define	DEVICEINFO_UPDATES_START                          		(DEVICEINFO_UDP_PORT_START + 2)
+
 #		ifdef DEVICEINFO_PLATFORM_START                         
-#		undef DEVICEINFO_PLATFORM_START                         
+#			undef DEVICEINFO_PLATFORM_START                         
 #		endif
+
 		literal int DEVICEINFO_PLATFORM_START                         =	(DEVICEINFO_UPDATES_START + 4);
 #		define	DEVICEINFO_PLATFORM_START                         		(DEVICEINFO_UPDATES_START + 4)
+
 #		ifdef DEVICEINFO_BROADCAST_START                        
-#		undef DEVICEINFO_BROADCAST_START                        
+#			undef DEVICEINFO_BROADCAST_START                        
 #		endif
+
 		literal int DEVICEINFO_BROADCAST_START                        =	(DEVICEINFO_PLATFORM_START + 4);
 #		define	DEVICEINFO_BROADCAST_START                        		(DEVICEINFO_PLATFORM_START + 4)
+
 #		ifdef DEVICEINFO_UNAVAILABLE_START                      
-#		undef DEVICEINFO_UNAVAILABLE_START                      
+#			undef DEVICEINFO_UNAVAILABLE_START                      
 #		endif
+
 		literal int DEVICEINFO_UNAVAILABLE_START                      =	(DEVICEINFO_BROADCAST_START + 1);
 #		define	DEVICEINFO_UNAVAILABLE_START                      		(DEVICEINFO_BROADCAST_START + 1)
+
 #		ifdef DEVICEINFO_ISCONNECTED_START                      
-#		undef DEVICEINFO_ISCONNECTED_START                      
+#			undef DEVICEINFO_ISCONNECTED_START                      
 #		endif
+
 		literal int DEVICEINFO_ISCONNECTED_START                      =	(DEVICEINFO_UNAVAILABLE_START + 1);
 #		define	DEVICEINFO_ISCONNECTED_START                      		(DEVICEINFO_UNAVAILABLE_START + 1)
+
 #		ifdef DEVICEINFO_DEVICETYPE_START                       
-#		undef DEVICEINFO_DEVICETYPE_START                       
+#			undef DEVICEINFO_DEVICETYPE_START                       
 #		endif
+
 		literal int DEVICEINFO_DEVICETYPE_START                       =	(DEVICEINFO_ISCONNECTED_START + 2);
 #		define	DEVICEINFO_DEVICETYPE_START                       		(DEVICEINFO_ISCONNECTED_START + 2)
+
 #		ifdef DEVICEINFO_DEVICENAME_START                       
-#		undef DEVICEINFO_DEVICENAME_START                       
+#			undef DEVICEINFO_DEVICENAME_START                       
 #		endif
+
 		literal int DEVICEINFO_DEVICENAME_START                       =	(DEVICEINFO_DEVICETYPE_START + 1);
 #		define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_DEVICETYPE_START + 1)
+
 #		ifdef DEVICEINFO_AREANAME_START                         
-#		undef DEVICEINFO_AREANAME_START                         
+#			undef DEVICEINFO_AREANAME_START                         
 #		endif
+
 		literal int DEVICEINFO_AREANAME_START                         =	(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1));
 #		define	DEVICEINFO_AREANAME_START                         		(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1))
+
 #		ifdef DEVICEINFO_APPNAME_START                          
-#		undef DEVICEINFO_APPNAME_START                          
+#			undef DEVICEINFO_APPNAME_START                          
 #		endif
+
 		literal int DEVICEINFO_APPNAME_START                          =	(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1));
 #		define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1))
+
 #		ifdef DEVICEINFO_OBJID_START                            
-#		undef DEVICEINFO_OBJID_START                            
+#			undef DEVICEINFO_OBJID_START                            
 #		endif
+
 		literal int DEVICEINFO_OBJID_START                            =	(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2);
 #		define	DEVICEINFO_OBJID_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2)
 		
@@ -2061,89 +2688,121 @@ namespace environs
 		 * Environs mediator notifications
 		 * Environs mediator notifications
 		 */
+
 #		ifdef NOTIFY_MEDIATOR                                   
-#		undef NOTIFY_MEDIATOR                                   
+#			undef NOTIFY_MEDIATOR                                   
 #		endif
+
 		literal int NOTIFY_MEDIATOR                                   =	(NOTIFY_TYPE_ENVIRONS | 0x1000);
 #		define	NOTIFY_MEDIATOR                                   		(NOTIFY_TYPE_ENVIRONS | 0x1000)
+
 #		ifdef NOTIFY_MEDIATOR_SERVER                            
-#		undef NOTIFY_MEDIATOR_SERVER                            
+#			undef NOTIFY_MEDIATOR_SERVER                            
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SERVER                            =	(NOTIFY_MEDIATOR | 0x100);
 #		define	NOTIFY_MEDIATOR_SERVER                            		(NOTIFY_MEDIATOR | 0x100)
 			
+
 #		ifdef NOTIFY_MEDIATOR_DEVICE_CHANGED                    
-#		undef NOTIFY_MEDIATOR_DEVICE_CHANGED                    
+#			undef NOTIFY_MEDIATOR_DEVICE_CHANGED                    
 #		endif
+
 		literal int NOTIFY_MEDIATOR_DEVICE_CHANGED                    =	(NOTIFY_MEDIATOR | 1);
 #		define	NOTIFY_MEDIATOR_DEVICE_CHANGED                    		(NOTIFY_MEDIATOR | 1)
+
 #		ifdef NOTIFY_MEDIATOR_DEVICE_ADDED                      
-#		undef NOTIFY_MEDIATOR_DEVICE_ADDED                      
+#			undef NOTIFY_MEDIATOR_DEVICE_ADDED                      
 #		endif
+
 		literal int NOTIFY_MEDIATOR_DEVICE_ADDED                      =	(NOTIFY_MEDIATOR | 2);
 #		define	NOTIFY_MEDIATOR_DEVICE_ADDED                      		(NOTIFY_MEDIATOR | 2)
+
 #		ifdef NOTIFY_MEDIATOR_DEVICE_REMOVED                    
-#		undef NOTIFY_MEDIATOR_DEVICE_REMOVED                    
+#			undef NOTIFY_MEDIATOR_DEVICE_REMOVED                    
 #		endif
+
 		literal int NOTIFY_MEDIATOR_DEVICE_REMOVED                    =	(NOTIFY_MEDIATOR | 4);
 #		define	NOTIFY_MEDIATOR_DEVICE_REMOVED                    		(NOTIFY_MEDIATOR | 4)
+
 #		ifdef NOTIFY_MEDIATOR_SERVER_CONNECTED                  
-#		undef NOTIFY_MEDIATOR_SERVER_CONNECTED                  
+#			undef NOTIFY_MEDIATOR_SERVER_CONNECTED                  
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SERVER_CONNECTED                  =	(NOTIFY_MEDIATOR | 20);
 #		define	NOTIFY_MEDIATOR_SERVER_CONNECTED                  		(NOTIFY_MEDIATOR | 20)
+
 #		ifdef NOTIFY_MEDIATOR_SERVER_DISCONNECTED               
-#		undef NOTIFY_MEDIATOR_SERVER_DISCONNECTED               
+#			undef NOTIFY_MEDIATOR_SERVER_DISCONNECTED               
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SERVER_DISCONNECTED               =	(NOTIFY_MEDIATOR | 21);
 #		define	NOTIFY_MEDIATOR_SERVER_DISCONNECTED               		(NOTIFY_MEDIATOR | 21)
 		
+
 #		ifdef NOTIFY_MEDIATOR_DEVICELISTS_UPDATE_AVAILABLE      
-#		undef NOTIFY_MEDIATOR_DEVICELISTS_UPDATE_AVAILABLE      
+#			undef NOTIFY_MEDIATOR_DEVICELISTS_UPDATE_AVAILABLE      
 #		endif
+
 		literal int NOTIFY_MEDIATOR_DEVICELISTS_UPDATE_AVAILABLE      =	(NOTIFY_MEDIATOR | 51);
 #		define	NOTIFY_MEDIATOR_DEVICELISTS_UPDATE_AVAILABLE      		(NOTIFY_MEDIATOR | 51)
+
 #		ifdef NOTIFY_MEDIATOR_DEVICELISTS_CHANGED               
-#		undef NOTIFY_MEDIATOR_DEVICELISTS_CHANGED               
+#			undef NOTIFY_MEDIATOR_DEVICELISTS_CHANGED               
 #		endif
+
 		literal int NOTIFY_MEDIATOR_DEVICELISTS_CHANGED               =	(NOTIFY_MEDIATOR | 52);
 #		define	NOTIFY_MEDIATOR_DEVICELISTS_CHANGED               		(NOTIFY_MEDIATOR | 52)
 		
+
 #		ifdef NOTIFY_MEDIATOR_MED_CHANGED                       
-#		undef NOTIFY_MEDIATOR_MED_CHANGED                       
+#			undef NOTIFY_MEDIATOR_MED_CHANGED                       
 #		endif
+
 		literal int NOTIFY_MEDIATOR_MED_CHANGED                       =	(NOTIFY_MEDIATOR | 11);
 #		define	NOTIFY_MEDIATOR_MED_CHANGED                       		(NOTIFY_MEDIATOR | 11)
 			
+
 #		ifdef NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED                
-#		undef NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED                
+#			undef NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED                
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED                =	(NOTIFY_MEDIATOR_DEVICE_CHANGED | NOTIFY_MEDIATOR_SERVER);
 #		define	NOTIFY_MEDIATOR_SRV_DEVICE_CHANGED                		(NOTIFY_MEDIATOR_DEVICE_CHANGED | NOTIFY_MEDIATOR_SERVER)
+
 #		ifdef NOTIFY_MEDIATOR_SRV_DEVICE_ADDED                  
-#		undef NOTIFY_MEDIATOR_SRV_DEVICE_ADDED                  
+#			undef NOTIFY_MEDIATOR_SRV_DEVICE_ADDED                  
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SRV_DEVICE_ADDED                  =	(NOTIFY_MEDIATOR_DEVICE_ADDED | NOTIFY_MEDIATOR_SERVER);
 #		define	NOTIFY_MEDIATOR_SRV_DEVICE_ADDED                  		(NOTIFY_MEDIATOR_DEVICE_ADDED | NOTIFY_MEDIATOR_SERVER)
+
 #		ifdef NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED                
-#		undef NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED                
+#			undef NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED                
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED                =	(NOTIFY_MEDIATOR_DEVICE_REMOVED | NOTIFY_MEDIATOR_SERVER);
 #		define	NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED                		(NOTIFY_MEDIATOR_DEVICE_REMOVED | NOTIFY_MEDIATOR_SERVER)
+
 #		ifdef NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ                 
-#		undef NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ                 
+#			undef NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ                 
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ                 =	(NOTIFY_MEDIATOR | 22 | NOTIFY_MEDIATOR_SERVER);
 #		define	NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ                 		(NOTIFY_MEDIATOR | 22 | NOTIFY_MEDIATOR_SERVER)
 			
+
 #		ifdef NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL              
-#		undef NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL              
+#			undef NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL              
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL              =	(NOTIFY_MEDIATOR | 41);
 #		define	NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL              		(NOTIFY_MEDIATOR | 41)
+
 #		ifdef NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING           
-#		undef NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING           
+#			undef NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING           
 #		endif
+
 		literal int NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING           =	(NOTIFY_MEDIATOR | 42);
 #		define	NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING           		(NOTIFY_MEDIATOR | 42)
 		
@@ -2152,58 +2811,76 @@ namespace environs
 		 * Environs network notifications
 		 * Environs network notifications
 		 */
+
 #		ifdef NOTIFY_NETWORK                                    
-#		undef NOTIFY_NETWORK                                    
+#			undef NOTIFY_NETWORK                                    
 #		endif
+
 		literal int NOTIFY_NETWORK                                    =	(NOTIFY_TYPE_ENVIRONS | 0x2000);
 #		define	NOTIFY_NETWORK                                    		(NOTIFY_TYPE_ENVIRONS | 0x2000)
+
 #		ifdef NOTIFY_NETWORK_CHANGED                            
-#		undef NOTIFY_NETWORK_CHANGED                            
+#			undef NOTIFY_NETWORK_CHANGED                            
 #		endif
+
 		literal int NOTIFY_NETWORK_CHANGED                            =	(NOTIFY_NETWORK | 0x1);
 #		define	NOTIFY_NETWORK_CHANGED                            		(NOTIFY_NETWORK | 0x1)
 		
 		
 		/** Ignore: for Resolver */
+
 #		ifdef META_MSG_IDENT                                    
-#		undef META_MSG_IDENT                                    
+#			undef META_MSG_IDENT                                    
 #		endif
+
 		literal String ^  META_MSG_IDENT                                    =	("~META~:");
 #		define	META_MSG_IDENT                                    		("~META~:")
 		/** Ignore: for Resolver */
+
 #		ifdef META_MSG_NAME_ID                                  
-#		undef META_MSG_NAME_ID                                  
+#			undef META_MSG_NAME_ID                                  
 #		endif
+
 		literal String ^  META_MSG_NAME_ID                                  =	(" NAME ");
 #		define	META_MSG_NAME_ID                                  		(" NAME ")
 		/** Ignore: for Resolver */
+
 #		ifdef ENVIRONS_DEFAULT_AREA_NAME                        
-#		undef ENVIRONS_DEFAULT_AREA_NAME                        
+#			undef ENVIRONS_DEFAULT_AREA_NAME                        
 #		endif
+
 		literal String ^  ENVIRONS_DEFAULT_AREA_NAME                        =	("Environs");
 #		define	ENVIRONS_DEFAULT_AREA_NAME                        		("Environs")
 		/** Ignore: for Resolver */
+
 #		ifdef ENVIRONS_DEFAULT_APP_NAME                         
-#		undef ENVIRONS_DEFAULT_APP_NAME                         
+#			undef ENVIRONS_DEFAULT_APP_NAME                         
 #		endif
+
 		literal String ^  ENVIRONS_DEFAULT_APP_NAME                         =	("HCMDefaultApp");
 #		define	ENVIRONS_DEFAULT_APP_NAME                         		("HCMDefaultApp")
 		/** Ignore: for Resolver */
+
 #		ifdef ENVIRONS_DEFAULT_DEVICE_NAME                      
-#		undef ENVIRONS_DEFAULT_DEVICE_NAME                      
+#			undef ENVIRONS_DEFAULT_DEVICE_NAME                      
 #		endif
+
 		literal String ^  ENVIRONS_DEFAULT_DEVICE_NAME                      =	("DefaultDevice");
 #		define	ENVIRONS_DEFAULT_DEVICE_NAME                      		("DefaultDevice")
 		/** Ignore: for Resolver */
+
 #		ifdef ENVIRONS_STUNT_MAX_TRY                            
-#		undef ENVIRONS_STUNT_MAX_TRY                            
+#			undef ENVIRONS_STUNT_MAX_TRY                            
 #		endif
+
 		literal int ENVIRONS_STUNT_MAX_TRY                            =	(15);
 #		define	ENVIRONS_STUNT_MAX_TRY                            		(15)
 		/** Ignore: for Resolver */
+
 #		ifdef ENVIRONS_STUN_MAX_TRY                             
-#		undef ENVIRONS_STUN_MAX_TRY                             
+#			undef ENVIRONS_STUN_MAX_TRY                             
 #		endif
+
 		literal int ENVIRONS_STUN_MAX_TRY                             =	(10);
 #		define	ENVIRONS_STUN_MAX_TRY                             		(10)
 		
@@ -2212,62 +2889,84 @@ namespace environs
 		 * Environs network notifications
 		 * Environs network notifications
 		 */
+
 #		ifdef NOTIFY_TRACKER                                    
-#		undef NOTIFY_TRACKER                                    
+#			undef NOTIFY_TRACKER                                    
 #		endif
+
 		literal int NOTIFY_TRACKER                                    =	(NOTIFY_TYPE_ENVIRONS | 0x4000);
 #		define	NOTIFY_TRACKER                                    		(NOTIFY_TYPE_ENVIRONS | 0x4000)
 		
+
 #		ifdef NOTIFY_TRACKER_FAILED_FLAG                        
-#		undef NOTIFY_TRACKER_FAILED_FLAG                        
+#			undef NOTIFY_TRACKER_FAILED_FLAG                        
 #		endif
+
 		literal int NOTIFY_TRACKER_FAILED_FLAG                        =	(0x8);
 #		define	NOTIFY_TRACKER_FAILED_FLAG                        		(0x8)
 		
+
 #		ifdef NOTIFY_TRACKER_ENABLED                            
-#		undef NOTIFY_TRACKER_ENABLED                            
+#			undef NOTIFY_TRACKER_ENABLED                            
 #		endif
+
 		literal int NOTIFY_TRACKER_ENABLED                            =	(NOTIFY_TRACKER | 0x1);
 #		define	NOTIFY_TRACKER_ENABLED                            		(NOTIFY_TRACKER | 0x1)
+
 #		ifdef NOTIFY_TRACKER_CHANGED                            
-#		undef NOTIFY_TRACKER_CHANGED                            
+#			undef NOTIFY_TRACKER_CHANGED                            
 #		endif
+
 		literal int NOTIFY_TRACKER_CHANGED                            =	(NOTIFY_TRACKER | 0x2);
 #		define	NOTIFY_TRACKER_CHANGED                            		(NOTIFY_TRACKER | 0x2)
+
 #		ifdef NOTIFY_TRACKER_DISABLED                           
-#		undef NOTIFY_TRACKER_DISABLED                           
+#			undef NOTIFY_TRACKER_DISABLED                           
 #		endif
+
 		literal int NOTIFY_TRACKER_DISABLED                           =	(NOTIFY_TRACKER | 0x4);
 #		define	NOTIFY_TRACKER_DISABLED                           		(NOTIFY_TRACKER | 0x4)
+
 #		ifdef NOTIFY_TRACKER_ENABLE_FAILED                      
-#		undef NOTIFY_TRACKER_ENABLE_FAILED                      
+#			undef NOTIFY_TRACKER_ENABLE_FAILED                      
 #		endif
+
 		literal int NOTIFY_TRACKER_ENABLE_FAILED                      =	(NOTIFY_TRACKER | NOTIFY_TRACKER_FAILED_FLAG);
 #		define	NOTIFY_TRACKER_ENABLE_FAILED                      		(NOTIFY_TRACKER | NOTIFY_TRACKER_FAILED_FLAG)
 		
+
 #		ifdef NOTIFY_TRACKER_STATE_INIT_SENSOR                  
-#		undef NOTIFY_TRACKER_STATE_INIT_SENSOR                  
+#			undef NOTIFY_TRACKER_STATE_INIT_SENSOR                  
 #		endif
+
 		literal int NOTIFY_TRACKER_STATE_INIT_SENSOR                  =	(NOTIFY_TRACKER | 0x10);
 #		define	NOTIFY_TRACKER_STATE_INIT_SENSOR                  		(NOTIFY_TRACKER | 0x10)
+
 #		ifdef NOTIFY_TRACKER_STATE_INIT_SENSOR_FAILED           
-#		undef NOTIFY_TRACKER_STATE_INIT_SENSOR_FAILED           
+#			undef NOTIFY_TRACKER_STATE_INIT_SENSOR_FAILED           
 #		endif
+
 		literal int NOTIFY_TRACKER_STATE_INIT_SENSOR_FAILED           =	(NOTIFY_TRACKER_STATE_INIT_SENSOR | NOTIFY_TRACKER_FAILED_FLAG);
 #		define	NOTIFY_TRACKER_STATE_INIT_SENSOR_FAILED           		(NOTIFY_TRACKER_STATE_INIT_SENSOR | NOTIFY_TRACKER_FAILED_FLAG)
+
 #		ifdef NOTIFY_TRACKER_STATE_START                        
-#		undef NOTIFY_TRACKER_STATE_START                        
+#			undef NOTIFY_TRACKER_STATE_START                        
 #		endif
+
 		literal int NOTIFY_TRACKER_STATE_START                        =	(NOTIFY_TRACKER | 0x20);
 #		define	NOTIFY_TRACKER_STATE_START                        		(NOTIFY_TRACKER | 0x20)
+
 #		ifdef NOTIFY_TRACKER_STATE_START_FAILED                 
-#		undef NOTIFY_TRACKER_STATE_START_FAILED                 
+#			undef NOTIFY_TRACKER_STATE_START_FAILED                 
 #		endif
+
 		literal int NOTIFY_TRACKER_STATE_START_FAILED                 =	(NOTIFY_TRACKER | NOTIFY_TRACKER_STATE_START | NOTIFY_TRACKER_FAILED_FLAG);
 #		define	NOTIFY_TRACKER_STATE_START_FAILED                 		(NOTIFY_TRACKER | NOTIFY_TRACKER_STATE_START | NOTIFY_TRACKER_FAILED_FLAG)
+
 #		ifdef NOTIFY_TRACKER_STATE_STOP                         
-#		undef NOTIFY_TRACKER_STATE_STOP                         
+#			undef NOTIFY_TRACKER_STATE_STOP                         
 #		endif
+
 		literal int NOTIFY_TRACKER_STATE_STOP                         =	(NOTIFY_TRACKER | 0x40);
 #		define	NOTIFY_TRACKER_STATE_STOP                         		(NOTIFY_TRACKER | 0x40)
 		
@@ -2277,39 +2976,53 @@ namespace environs
 		 * Type: char
 		 * Type: char
 		 */
+
 #		ifdef DEVICE_TYPE_DISPLAY                               
-#		undef DEVICE_TYPE_DISPLAY                               
+#			undef DEVICE_TYPE_DISPLAY                               
 #		endif
+
 		literal char DEVICE_TYPE_DISPLAY                               =	('D');
 #		define	DEVICE_TYPE_DISPLAY                               		('D')
+
 #		ifdef DEVICE_TYPE_MULTITACTION                          
-#		undef DEVICE_TYPE_MULTITACTION                          
+#			undef DEVICE_TYPE_MULTITACTION                          
 #		endif
+
 		literal char DEVICE_TYPE_MULTITACTION                          =	('M');
 #		define	DEVICE_TYPE_MULTITACTION                          		('M')
+
 #		ifdef DEVICE_TYPE_SURFACE1                              
-#		undef DEVICE_TYPE_SURFACE1                              
+#			undef DEVICE_TYPE_SURFACE1                              
 #		endif
+
 		literal char DEVICE_TYPE_SURFACE1                              =	('R');
 #		define	DEVICE_TYPE_SURFACE1                              		('R')
+
 #		ifdef DEVICE_TYPE_SURFACE2                              
-#		undef DEVICE_TYPE_SURFACE2                              
+#			undef DEVICE_TYPE_SURFACE2                              
 #		endif
+
 		literal char DEVICE_TYPE_SURFACE2                              =	('S');
 #		define	DEVICE_TYPE_SURFACE2                              		('S')
+
 #		ifdef DEVICE_TYPE_TABLET                                
-#		undef DEVICE_TYPE_TABLET                                
+#			undef DEVICE_TYPE_TABLET                                
 #		endif
+
 		literal char DEVICE_TYPE_TABLET                                =	('T');
 #		define	DEVICE_TYPE_TABLET                                		('T')
+
 #		ifdef DEVICE_TYPE_UNKNOWN                               
-#		undef DEVICE_TYPE_UNKNOWN                               
+#			undef DEVICE_TYPE_UNKNOWN                               
 #		endif
+
 		literal char DEVICE_TYPE_UNKNOWN                               =	('U');
 #		define	DEVICE_TYPE_UNKNOWN                               		('U')
+
 #		ifdef DEVICE_TYPE_SMARTPHONE                            
-#		undef DEVICE_TYPE_SMARTPHONE                            
+#			undef DEVICE_TYPE_SMARTPHONE                            
 #		endif
+
 		literal char DEVICE_TYPE_SMARTPHONE                            =	('P');
 #		define	DEVICE_TYPE_SMARTPHONE                            		('P')
 		
@@ -2320,49 +3033,67 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_RELOAD                   
-#		undef DEVICELIST_QUEUE_COMMAND_RELOAD                   
+#			undef DEVICELIST_QUEUE_COMMAND_RELOAD                   
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_RELOAD                   =	(0);
 #		define	DEVICELIST_QUEUE_COMMAND_RELOAD                   		(0)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_CLEAR                    
-#		undef DEVICELIST_QUEUE_COMMAND_CLEAR                    
+#			undef DEVICELIST_QUEUE_COMMAND_CLEAR                    
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_CLEAR                    =	(1);
 #		define	DEVICELIST_QUEUE_COMMAND_CLEAR                    		(1)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_APPEND                   
-#		undef DEVICELIST_QUEUE_COMMAND_APPEND                   
+#			undef DEVICELIST_QUEUE_COMMAND_APPEND                   
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_APPEND                   =	(2);
 #		define	DEVICELIST_QUEUE_COMMAND_APPEND                   		(2)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_UPDATE                   
-#		undef DEVICELIST_QUEUE_COMMAND_UPDATE                   
+#			undef DEVICELIST_QUEUE_COMMAND_UPDATE                   
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_UPDATE                   =	(3);
 #		define	DEVICELIST_QUEUE_COMMAND_UPDATE                   		(3)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_INSERT_AT                
-#		undef DEVICELIST_QUEUE_COMMAND_INSERT_AT                
+#			undef DEVICELIST_QUEUE_COMMAND_INSERT_AT                
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_INSERT_AT                =	(4);
 #		define	DEVICELIST_QUEUE_COMMAND_INSERT_AT                		(4)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_REMOVE_AT                
-#		undef DEVICELIST_QUEUE_COMMAND_REMOVE_AT                
+#			undef DEVICELIST_QUEUE_COMMAND_REMOVE_AT                
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_REMOVE_AT                =	(5);
 #		define	DEVICELIST_QUEUE_COMMAND_REMOVE_AT                		(5)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_INSERT_CALL              
-#		undef DEVICELIST_QUEUE_COMMAND_INSERT_CALL              
+#			undef DEVICELIST_QUEUE_COMMAND_INSERT_CALL              
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_INSERT_CALL              =	(6);
 #		define	DEVICELIST_QUEUE_COMMAND_INSERT_CALL              		(6)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             
-#		undef DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             
+#			undef DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             =	(7);
 #		define	DEVICELIST_QUEUE_COMMAND_DISPOSE_LIST             		(7)
+
 #		ifdef DEVICELIST_QUEUE_COMMAND_LOCK                     
-#		undef DEVICELIST_QUEUE_COMMAND_LOCK                     
+#			undef DEVICELIST_QUEUE_COMMAND_LOCK                     
 #		endif
+
 		literal int DEVICELIST_QUEUE_COMMAND_LOCK                     =	(8);
 #		define	DEVICELIST_QUEUE_COMMAND_LOCK                     		(8)
 		
@@ -2373,14 +3104,18 @@ namespace environs
 		 * Type: char
 		 * Type: char
 		 */
+
 #		ifdef DISPLAY_ORIENTATION_LANDSCAPE                     
-#		undef DISPLAY_ORIENTATION_LANDSCAPE                     
+#			undef DISPLAY_ORIENTATION_LANDSCAPE                     
 #		endif
+
 		literal int DISPLAY_ORIENTATION_LANDSCAPE                     =	(0);
 #		define	DISPLAY_ORIENTATION_LANDSCAPE                     		(0)
+
 #		ifdef DISPLAY_ORIENTATION_PORTRAIT                      
-#		undef DISPLAY_ORIENTATION_PORTRAIT                      
+#			undef DISPLAY_ORIENTATION_PORTRAIT                      
 #		endif
+
 		literal int DISPLAY_ORIENTATION_PORTRAIT                      =	(1);
 #		define	DISPLAY_ORIENTATION_PORTRAIT                      		(1)
 		
@@ -2391,44 +3126,60 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef DEVICE_ACTIVITY_MAIN_CONNECTED                    
-#		undef DEVICE_ACTIVITY_MAIN_CONNECTED                    
+#			undef DEVICE_ACTIVITY_MAIN_CONNECTED                    
 #		endif
+
 		literal int DEVICE_ACTIVITY_MAIN_CONNECTED                    =	(0x1);
 #		define	DEVICE_ACTIVITY_MAIN_CONNECTED                    		(0x1)
+
 #		ifdef DEVICE_ACTIVITY_BULK_CONNECTED                    
-#		undef DEVICE_ACTIVITY_BULK_CONNECTED                    
+#			undef DEVICE_ACTIVITY_BULK_CONNECTED                    
 #		endif
+
 		literal int DEVICE_ACTIVITY_BULK_CONNECTED                    =	(0x2);
 #		define	DEVICE_ACTIVITY_BULK_CONNECTED                    		(0x2)
+
 #		ifdef DEVICE_ACTIVITY_UDP_CONNECTED                     
-#		undef DEVICE_ACTIVITY_UDP_CONNECTED                     
+#			undef DEVICE_ACTIVITY_UDP_CONNECTED                     
 #		endif
+
 		literal int DEVICE_ACTIVITY_UDP_CONNECTED                     =	(0x4);
 #		define	DEVICE_ACTIVITY_UDP_CONNECTED                     		(0x4)
+
 #		ifdef DEVICE_ACTIVITY_CONNECTED                         
-#		undef DEVICE_ACTIVITY_CONNECTED                         
+#			undef DEVICE_ACTIVITY_CONNECTED                         
 #		endif
+
 		literal int DEVICE_ACTIVITY_CONNECTED                         =	(0x10);
 #		define	DEVICE_ACTIVITY_CONNECTED                         		(0x10)
+
 #		ifdef DEVICE_ACTIVITY_REQUESTOR                         
-#		undef DEVICE_ACTIVITY_REQUESTOR                         
+#			undef DEVICE_ACTIVITY_REQUESTOR                         
 #		endif
+
 		literal int DEVICE_ACTIVITY_REQUESTOR                         =	(0x100);
 #		define	DEVICE_ACTIVITY_REQUESTOR                         		(0x100)
+
 #		ifdef DEVICE_ACTIVITY_RESPONDER                         
-#		undef DEVICE_ACTIVITY_RESPONDER                         
+#			undef DEVICE_ACTIVITY_RESPONDER                         
 #		endif
+
 		literal int DEVICE_ACTIVITY_RESPONDER                         =	(0x200);
 #		define	DEVICE_ACTIVITY_RESPONDER                         		(0x200)
+
 #		ifdef DEVICE_ACTIVITY_LISTENER_CLOSED                   
-#		undef DEVICE_ACTIVITY_LISTENER_CLOSED                   
+#			undef DEVICE_ACTIVITY_LISTENER_CLOSED                   
 #		endif
+
 		literal int DEVICE_ACTIVITY_LISTENER_CLOSED                   =	(0x8000);
 #		define	DEVICE_ACTIVITY_LISTENER_CLOSED                   		(0x8000)
+
 #		ifdef DEVICE_ACTIVITY_PLATFORM_DISPOSED                 
-#		undef DEVICE_ACTIVITY_PLATFORM_DISPOSED                 
+#			undef DEVICE_ACTIVITY_PLATFORM_DISPOSED                 
 #		endif
+
 		literal int DEVICE_ACTIVITY_PLATFORM_DISPOSED                 =	(0x1000);
 #		define	DEVICE_ACTIVITY_PLATFORM_DISPOSED                 		(0x1000)
 			
@@ -2438,14 +3189,18 @@ namespace environs
 		 *  
 		 *  
 		 */
+
 #		ifdef MEDIATOR_BUFFER_SIZE_MAX                          
-#		undef MEDIATOR_BUFFER_SIZE_MAX                          
+#			undef MEDIATOR_BUFFER_SIZE_MAX                          
 #		endif
+
 		literal int MEDIATOR_BUFFER_SIZE_MAX                          =	(65535);
 #		define	MEDIATOR_BUFFER_SIZE_MAX                          		(65535)
+
 #		ifdef ENVIRONS_SEND_SIZE_MAX                            
-#		undef ENVIRONS_SEND_SIZE_MAX                            
+#			undef ENVIRONS_SEND_SIZE_MAX                            
 #		endif
+
 		literal int ENVIRONS_SEND_SIZE_MAX                            =	((40 * 1024 * 1024));
 #		define	ENVIRONS_SEND_SIZE_MAX                            		((40 * 1024 * 1024))
 		
@@ -2481,207 +3236,283 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef RECOGNIZER_GIVE_BACK_INPUTS                       
-#		undef RECOGNIZER_GIVE_BACK_INPUTS                       
+#			undef RECOGNIZER_GIVE_BACK_INPUTS                       
 #		endif
+
 		literal int RECOGNIZER_GIVE_BACK_INPUTS                       =	(-1);
 #		define	RECOGNIZER_GIVE_BACK_INPUTS                       		(-1)
+
 #		ifdef RECOGNIZER_REJECT                                 
-#		undef RECOGNIZER_REJECT                                 
+#			undef RECOGNIZER_REJECT                                 
 #		endif
+
 		literal int RECOGNIZER_REJECT                                 =	(0);
 #		define	RECOGNIZER_REJECT                                 		(0)
+
 #		ifdef RECOGNIZER_HANDLED                                
-#		undef RECOGNIZER_HANDLED                                
+#			undef RECOGNIZER_HANDLED                                
 #		endif
+
 		literal int RECOGNIZER_HANDLED                                =	(1);
 #		define	RECOGNIZER_HANDLED                                		(1)
+
 #		ifdef RECOGNIZER_TAKEN_OVER_INPUTS                      
-#		undef RECOGNIZER_TAKEN_OVER_INPUTS                      
+#			undef RECOGNIZER_TAKEN_OVER_INPUTS                      
 #		endif
+
 		literal int RECOGNIZER_TAKEN_OVER_INPUTS                      =	(2);
 #		define	RECOGNIZER_TAKEN_OVER_INPUTS                      		(2)
 		
 		
+
 #		ifdef NETWORK_CONNECTION_NO_NETWORK                     
-#		undef NETWORK_CONNECTION_NO_NETWORK                     
+#			undef NETWORK_CONNECTION_NO_NETWORK                     
 #		endif
+
 		literal int NETWORK_CONNECTION_NO_NETWORK                     =	(-1);
 #		define	NETWORK_CONNECTION_NO_NETWORK                     		(-1)
+
 #		ifdef NETWORK_CONNECTION_NO_INTERNET                    
-#		undef NETWORK_CONNECTION_NO_INTERNET                    
+#			undef NETWORK_CONNECTION_NO_INTERNET                    
 #		endif
+
 		literal int NETWORK_CONNECTION_NO_INTERNET                    =	(0);
 #		define	NETWORK_CONNECTION_NO_INTERNET                    		(0)
+
 #		ifdef NETWORK_CONNECTION_MOBILE_DATA                    
-#		undef NETWORK_CONNECTION_MOBILE_DATA                    
+#			undef NETWORK_CONNECTION_MOBILE_DATA                    
 #		endif
+
 		literal int NETWORK_CONNECTION_MOBILE_DATA                    =	(1);
 #		define	NETWORK_CONNECTION_MOBILE_DATA                    		(1)
+
 #		ifdef NETWORK_CONNECTION_WIFI                           
-#		undef NETWORK_CONNECTION_WIFI                           
+#			undef NETWORK_CONNECTION_WIFI                           
 #		endif
+
 		literal int NETWORK_CONNECTION_WIFI                           =	(2);
 #		define	NETWORK_CONNECTION_WIFI                           		(2)
+
 #		ifdef NETWORK_CONNECTION_LAN                            
-#		undef NETWORK_CONNECTION_LAN                            
+#			undef NETWORK_CONNECTION_LAN                            
 #		endif
+
 		literal int NETWORK_CONNECTION_LAN                            =	(3);
 #		define	NETWORK_CONNECTION_LAN                            		(3)
 			
+
 #		ifdef ERR_LEVEL                                         
-#		undef ERR_LEVEL                                         
+#			undef ERR_LEVEL                                         
 #		endif
+
 		literal int ERR_LEVEL                                         =	(-1);
 #		define	ERR_LEVEL                                         		(-1)
+
 #		ifdef WARN_LEVEL                                        
-#		undef WARN_LEVEL                                        
+#			undef WARN_LEVEL                                        
 #		endif
+
 		literal int WARN_LEVEL                                        =	(-2);
 #		define	WARN_LEVEL                                        		(-2)
 		
 		
+
 #		ifdef DEVICE_INFO_ATTR_DISPOSED                         
-#		undef DEVICE_INFO_ATTR_DISPOSED                         
+#			undef DEVICE_INFO_ATTR_DISPOSED                         
 #		endif
+
 		literal int DEVICE_INFO_ATTR_DISPOSED                         =	(0x1);
 #		define	DEVICE_INFO_ATTR_DISPOSED                         		(0x1)
+
 #		ifdef DEVICE_INFO_ATTR_ISCONNECTED                      
-#		undef DEVICE_INFO_ATTR_ISCONNECTED                      
+#			undef DEVICE_INFO_ATTR_ISCONNECTED                      
 #		endif
+
 		literal int DEVICE_INFO_ATTR_ISCONNECTED                      =	(0x2);
 #		define	DEVICE_INFO_ATTR_ISCONNECTED                      		(0x2)
+
 #		ifdef DEVICE_INFO_ATTR_CONNECT_PROGRESS                 
-#		undef DEVICE_INFO_ATTR_CONNECT_PROGRESS                 
+#			undef DEVICE_INFO_ATTR_CONNECT_PROGRESS                 
 #		endif
+
 		literal int DEVICE_INFO_ATTR_CONNECT_PROGRESS                 =	(0x4);
 #		define	DEVICE_INFO_ATTR_CONNECT_PROGRESS                 		(0x4)
+
 #		ifdef DEVICE_INFO_ATTR_USER_NAME                        
-#		undef DEVICE_INFO_ATTR_USER_NAME                        
+#			undef DEVICE_INFO_ATTR_USER_NAME                        
 #		endif
+
 		literal int DEVICE_INFO_ATTR_USER_NAME                        =	(0x10);
 #		define	DEVICE_INFO_ATTR_USER_NAME                        		(0x10)
 		
+
 #		ifdef DEVICE_INFO_ATTR_IDENTITY                         
-#		undef DEVICE_INFO_ATTR_IDENTITY                         
+#			undef DEVICE_INFO_ATTR_IDENTITY                         
 #		endif
+
 		literal int DEVICE_INFO_ATTR_IDENTITY                         =	(0x20);
 #		define	DEVICE_INFO_ATTR_IDENTITY                         		(0x20)
 		
+
 #		ifdef DEVICE_INFO_ATTR_DEVICE_PLATFORM                  
-#		undef DEVICE_INFO_ATTR_DEVICE_PLATFORM                  
+#			undef DEVICE_INFO_ATTR_DEVICE_PLATFORM                  
 #		endif
+
 		literal int DEVICE_INFO_ATTR_DEVICE_PLATFORM                  =	(0x40);
 #		define	DEVICE_INFO_ATTR_DEVICE_PLATFORM                  		(0x40)
+
 #		ifdef DEVICE_INFO_ATTR_DEVICE_TYPE                      
-#		undef DEVICE_INFO_ATTR_DEVICE_TYPE                      
+#			undef DEVICE_INFO_ATTR_DEVICE_TYPE                      
 #		endif
+
 		literal int DEVICE_INFO_ATTR_DEVICE_TYPE                      =	(0x41);
 #		define	DEVICE_INFO_ATTR_DEVICE_TYPE                      		(0x41)
+
 #		ifdef DEVICE_INFO_ATTR_NATIVEID                         
-#		undef DEVICE_INFO_ATTR_NATIVEID                         
+#			undef DEVICE_INFO_ATTR_NATIVEID                         
 #		endif
+
 		literal int DEVICE_INFO_ATTR_NATIVEID                         =	(0x80);
 #		define	DEVICE_INFO_ATTR_NATIVEID                         		(0x80)
+
 #		ifdef DEVICE_INFO_ATTR_IP                               
-#		undef DEVICE_INFO_ATTR_IP                               
+#			undef DEVICE_INFO_ATTR_IP                               
 #		endif
+
 		literal int DEVICE_INFO_ATTR_IP                               =	(0x100);
 #		define	DEVICE_INFO_ATTR_IP                               		(0x100)
+
 #		ifdef DEVICE_INFO_ATTR_IPE                              
-#		undef DEVICE_INFO_ATTR_IPE                              
+#			undef DEVICE_INFO_ATTR_IPE                              
 #		endif
+
 		literal int DEVICE_INFO_ATTR_IPE                              =	(0x200);
 #		define	DEVICE_INFO_ATTR_IPE                              		(0x200)
+
 #		ifdef DEVICE_INFO_ATTR_TCP_PORT                         
-#		undef DEVICE_INFO_ATTR_TCP_PORT                         
+#			undef DEVICE_INFO_ATTR_TCP_PORT                         
 #		endif
+
 		literal int DEVICE_INFO_ATTR_TCP_PORT                         =	(0x400);
 #		define	DEVICE_INFO_ATTR_TCP_PORT                         		(0x400)
+
 #		ifdef DEVICE_INFO_ATTR_UDP_PORT                         
-#		undef DEVICE_INFO_ATTR_UDP_PORT                         
+#			undef DEVICE_INFO_ATTR_UDP_PORT                         
 #		endif
+
 		literal int DEVICE_INFO_ATTR_UDP_PORT                         =	(0x800);
 #		define	DEVICE_INFO_ATTR_UDP_PORT                         		(0x800)
+
 #		ifdef DEVICE_INFO_ATTR_UNAVAILABLE                      
-#		undef DEVICE_INFO_ATTR_UNAVAILABLE                      
+#			undef DEVICE_INFO_ATTR_UNAVAILABLE                      
 #		endif
+
 		literal int DEVICE_INFO_ATTR_UNAVAILABLE                      =	(0x1000);
 #		define	DEVICE_INFO_ATTR_UNAVAILABLE                      		(0x1000)
+
 #		ifdef DEVICE_INFO_ATTR_BROADCAST_FOUND                  
-#		undef DEVICE_INFO_ATTR_BROADCAST_FOUND                  
+#			undef DEVICE_INFO_ATTR_BROADCAST_FOUND                  
 #		endif
+
 		literal int DEVICE_INFO_ATTR_BROADCAST_FOUND                  =	(0x2000);
 #		define	DEVICE_INFO_ATTR_BROADCAST_FOUND                  		(0x2000)
+
 #		ifdef DEVICE_INFO_ATTR_DIRECT_CONTACT                   
-#		undef DEVICE_INFO_ATTR_DIRECT_CONTACT                   
+#			undef DEVICE_INFO_ATTR_DIRECT_CONTACT                   
 #		endif
+
 		literal int DEVICE_INFO_ATTR_DIRECT_CONTACT                   =	(0x4000);
 #		define	DEVICE_INFO_ATTR_DIRECT_CONTACT                   		(0x4000)
+
 #		ifdef DEVICE_INFO_ATTR_APP_CONTEXT                      
-#		undef DEVICE_INFO_ATTR_APP_CONTEXT                      
+#			undef DEVICE_INFO_ATTR_APP_CONTEXT                      
 #		endif
+
 		literal int DEVICE_INFO_ATTR_APP_CONTEXT                      =	(0x8000);
 #		define	DEVICE_INFO_ATTR_APP_CONTEXT                      		(0x8000)
+
 #		ifdef DEVICE_INFO_ATTR_PORTAL_CREATED                   
-#		undef DEVICE_INFO_ATTR_PORTAL_CREATED                   
+#			undef DEVICE_INFO_ATTR_PORTAL_CREATED                   
 #		endif
+
 		literal int DEVICE_INFO_ATTR_PORTAL_CREATED                   =	(0x10000);
 #		define	DEVICE_INFO_ATTR_PORTAL_CREATED                   		(0x10000)
+
 #		ifdef DEVICE_INFO_ATTR_OBJID                            
-#		undef DEVICE_INFO_ATTR_OBJID                            
+#			undef DEVICE_INFO_ATTR_OBJID                            
 #		endif
+
 		literal int DEVICE_INFO_ATTR_OBJID                            =	(0x20000);
 #		define	DEVICE_INFO_ATTR_OBJID                            		(0x20000)
 		
 		
+
 #		ifdef FILE_INFO_ATTR_CREATED                            
-#		undef FILE_INFO_ATTR_CREATED                            
+#			undef FILE_INFO_ATTR_CREATED                            
 #		endif
+
 		literal int FILE_INFO_ATTR_CREATED                            =	(0x10000);
 #		define	FILE_INFO_ATTR_CREATED                            		(0x10000)
+
 #		ifdef FILE_INFO_ATTR_AVAILABLE                          
-#		undef FILE_INFO_ATTR_AVAILABLE                          
+#			undef FILE_INFO_ATTR_AVAILABLE                          
 #		endif
+
 		literal int FILE_INFO_ATTR_AVAILABLE                          =	(0x20000);
 #		define	FILE_INFO_ATTR_AVAILABLE                          		(0x20000)
+
 #		ifdef FILE_INFO_ATTR_SEND_PROGRESS                      
-#		undef FILE_INFO_ATTR_SEND_PROGRESS                      
+#			undef FILE_INFO_ATTR_SEND_PROGRESS                      
 #		endif
+
 		literal int FILE_INFO_ATTR_SEND_PROGRESS                      =	(0x40000);
 #		define	FILE_INFO_ATTR_SEND_PROGRESS                      		(0x40000)
+
 #		ifdef FILE_INFO_ATTR_RECEIVE_PROGRESS                   
-#		undef FILE_INFO_ATTR_RECEIVE_PROGRESS                   
+#			undef FILE_INFO_ATTR_RECEIVE_PROGRESS                   
 #		endif
+
 		literal int FILE_INFO_ATTR_RECEIVE_PROGRESS                   =	(0x80000);
 #		define	FILE_INFO_ATTR_RECEIVE_PROGRESS                   		(0x80000)
 		
+
 #		ifdef MESSAGE_INFO_ATTR_CREATED                         
-#		undef MESSAGE_INFO_ATTR_CREATED                         
+#			undef MESSAGE_INFO_ATTR_CREATED                         
 #		endif
+
 		literal int MESSAGE_INFO_ATTR_CREATED                         =	(0x200000);
 #		define	MESSAGE_INFO_ATTR_CREATED                         		(0x200000)
 		
+
 #		ifdef APP_STATUS_ACTIVE                                 
-#		undef APP_STATUS_ACTIVE                                 
+#			undef APP_STATUS_ACTIVE                                 
 #		endif
+
 		literal int APP_STATUS_ACTIVE                                 =	(0);
 #		define	APP_STATUS_ACTIVE                                 		(0)
+
 #		ifdef APP_STATUS_SLEEPING                               
-#		undef APP_STATUS_SLEEPING                               
+#			undef APP_STATUS_SLEEPING                               
 #		endif
+
 		literal int APP_STATUS_SLEEPING                               =	(1);
 #		define	APP_STATUS_SLEEPING                               		(1)
 		
+
 #		ifdef ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               
-#		undef ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               
+#			undef ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               
 #		endif
+
 		literal int ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               =	(60);
 #		define	ENVIRONS_DIALOG_NO_ACTIVITY_TIMEOUT               		(60)
 		
+
 #		ifdef MAX_TCP_SEND_PACKET_SIZE                          
-#		undef MAX_TCP_SEND_PACKET_SIZE                          
+#			undef MAX_TCP_SEND_PACKET_SIZE                          
 #		endif
+
 		literal int MAX_TCP_SEND_PACKET_SIZE                          =	(1200000);
 #		define	MAX_TCP_SEND_PACKET_SIZE                          		(1200000)
 		
@@ -2695,59 +3526,79 @@ namespace environs
 		 * Crypt declarations
 		 * Crypt declarations
 		 */
+
 #		ifdef ENVIRONS_DEVICES_KEYSIZE                          
-#		undef ENVIRONS_DEVICES_KEYSIZE                          
+#			undef ENVIRONS_DEVICES_KEYSIZE                          
 #		endif
+
 		literal int ENVIRONS_DEVICES_KEYSIZE                          =	(2048);
 #		define	ENVIRONS_DEVICES_KEYSIZE                          		(2048)
+
 #		ifdef ENVIRONS_CRYPT_PAD_OAEP                           
-#		undef ENVIRONS_CRYPT_PAD_OAEP                           
+#			undef ENVIRONS_CRYPT_PAD_OAEP                           
 #		endif
+
 		literal int ENVIRONS_CRYPT_PAD_OAEP                           =	((1 << 24));
 #		define	ENVIRONS_CRYPT_PAD_OAEP                           		((1 << 24))
+
 #		ifdef ENVIRONS_CRYPT_PAD_PKCS1                          
-#		undef ENVIRONS_CRYPT_PAD_PKCS1                          
+#			undef ENVIRONS_CRYPT_PAD_PKCS1                          
 #		endif
+
 		literal int ENVIRONS_CRYPT_PAD_PKCS1                          =	((2 << 24));
 #		define	ENVIRONS_CRYPT_PAD_PKCS1                          		((2 << 24))
+
 #		ifdef ENVIRONS_CRYPT_PAD_PKCS1SHA1                      
-#		undef ENVIRONS_CRYPT_PAD_PKCS1SHA1                      
+#			undef ENVIRONS_CRYPT_PAD_PKCS1SHA1                      
 #		endif
+
 		literal int ENVIRONS_CRYPT_PAD_PKCS1SHA1                      =	((4 << 24));
 #		define	ENVIRONS_CRYPT_PAD_PKCS1SHA1                      		((4 << 24))
+
 #		ifdef ENVIRONS_CRYPT_PAD_PKCS1SHA256                    
-#		undef ENVIRONS_CRYPT_PAD_PKCS1SHA256                    
+#			undef ENVIRONS_CRYPT_PAD_PKCS1SHA256                    
 #		endif
+
 		literal int ENVIRONS_CRYPT_PAD_PKCS1SHA256                    =	((8 << 24));
 #		define	ENVIRONS_CRYPT_PAD_PKCS1SHA256                    		((8 << 24))
 		
+
 #		ifdef MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   
-#		undef MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   
+#			undef MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   
 #		endif
+
 		literal int MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   =	(0xFFFF);
 #		define	MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   		(0xFFFF)
+
 #		ifdef DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  
-#		undef DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  
+#			undef DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  
 #		endif
+
 		literal int DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  =	(MEDIATOR_CLIENT_MAX_BUFFER_SIZE);
 #		define	DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  		(MEDIATOR_CLIENT_MAX_BUFFER_SIZE)
 		/*
 		 * Mediator device class types used for GetDevicesFrom ( type )
 		 * Mediator device class types used for GetDevicesFrom ( type )
 		 */
+
 #		ifdef MEDIATOR_DEVICE_CLASS_ALL                         
-#		undef MEDIATOR_DEVICE_CLASS_ALL                         
+#			undef MEDIATOR_DEVICE_CLASS_ALL                         
 #		endif
+
 		literal int MEDIATOR_DEVICE_CLASS_ALL                         =	(0);
 #		define	MEDIATOR_DEVICE_CLASS_ALL                         		(0)
+
 #		ifdef MEDIATOR_DEVICE_CLASS_NEARBY                      
-#		undef MEDIATOR_DEVICE_CLASS_NEARBY                      
+#			undef MEDIATOR_DEVICE_CLASS_NEARBY                      
 #		endif
+
 		literal int MEDIATOR_DEVICE_CLASS_NEARBY                      =	(1);
 #		define	MEDIATOR_DEVICE_CLASS_NEARBY                      		(1)
+
 #		ifdef MEDIATOR_DEVICE_CLASS_MEDIATOR                    
-#		undef MEDIATOR_DEVICE_CLASS_MEDIATOR                    
+#			undef MEDIATOR_DEVICE_CLASS_MEDIATOR                    
 #		endif
+
 		literal int MEDIATOR_DEVICE_CLASS_MEDIATOR                    =	(2);
 #		define	MEDIATOR_DEVICE_CLASS_MEDIATOR                    		(2)
 		
@@ -2758,14 +3609,18 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef CALL_WAIT                                         
-#		undef CALL_WAIT                                         
+#			undef CALL_WAIT                                         
 #		endif
+
 		literal int CALL_WAIT                                         =	(0);
 #		define	CALL_WAIT                                         		(0)
+
 #		ifdef CALL_NOWAIT                                       
-#		undef CALL_NOWAIT                                       
+#			undef CALL_NOWAIT                                       
 #		endif
+
 		literal int CALL_NOWAIT                                       =	(1);
 #		define	CALL_NOWAIT                                       		(1)
 		
@@ -2776,33 +3631,43 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef RENDER_CALLBACK_TYPE_ALL                          
-#		undef RENDER_CALLBACK_TYPE_ALL                          
+#			undef RENDER_CALLBACK_TYPE_ALL                          
 #		endif
+
 		literal int RENDER_CALLBACK_TYPE_ALL                          =	(0);
 #		define	RENDER_CALLBACK_TYPE_ALL                          		(0)
 		/** Call back with received ByteBuffer */
+
 #		ifdef RENDER_CALLBACK_TYPE_INIT                         
-#		undef RENDER_CALLBACK_TYPE_INIT                         
+#			undef RENDER_CALLBACK_TYPE_INIT                         
 #		endif
+
 		literal int RENDER_CALLBACK_TYPE_INIT                         =	(0x10);
 #		define	RENDER_CALLBACK_TYPE_INIT                         		(0x10)
 		/** Call back with EnvironsAVContext */
+
 #		ifdef RENDER_CALLBACK_TYPE_AVCONTEXT                    
-#		undef RENDER_CALLBACK_TYPE_AVCONTEXT                    
+#			undef RENDER_CALLBACK_TYPE_AVCONTEXT                    
 #		endif
+
 		literal int RENDER_CALLBACK_TYPE_AVCONTEXT                    =	(0x20);
 #		define	RENDER_CALLBACK_TYPE_AVCONTEXT                    		(0x20)
 		/** Call back with IPortalDecoder */
+
 #		ifdef RENDER_CALLBACK_TYPE_DECODER                      
-#		undef RENDER_CALLBACK_TYPE_DECODER                      
+#			undef RENDER_CALLBACK_TYPE_DECODER                      
 #		endif
+
 		literal int RENDER_CALLBACK_TYPE_DECODER                      =	(0x40);
 #		define	RENDER_CALLBACK_TYPE_DECODER                      		(0x40)
 		/** Call back with received ByteBuffer */
+
 #		ifdef RENDER_CALLBACK_TYPE_IMAGE                        
-#		undef RENDER_CALLBACK_TYPE_IMAGE                        
+#			undef RENDER_CALLBACK_TYPE_IMAGE                        
 #		endif
+
 		literal int RENDER_CALLBACK_TYPE_IMAGE                        =	(0x80);
 #		define	RENDER_CALLBACK_TYPE_IMAGE                        		(0x80)
 		
@@ -2813,24 +3678,32 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef DECODER_AVCONTEXT_TYPE_PIXELS                     
-#		undef DECODER_AVCONTEXT_TYPE_PIXELS                     
+#			undef DECODER_AVCONTEXT_TYPE_PIXELS                     
 #		endif
+
 		literal int DECODER_AVCONTEXT_TYPE_PIXELS                     =	(0);
 #		define	DECODER_AVCONTEXT_TYPE_PIXELS                     		(0)
+
 #		ifdef DECODER_AVCONTEXT_TYPE_AVCONTEXT                  
-#		undef DECODER_AVCONTEXT_TYPE_AVCONTEXT                  
+#			undef DECODER_AVCONTEXT_TYPE_AVCONTEXT                  
 #		endif
+
 		literal int DECODER_AVCONTEXT_TYPE_AVCONTEXT                  =	(RENDER_CALLBACK_TYPE_AVCONTEXT);
 #		define	DECODER_AVCONTEXT_TYPE_AVCONTEXT                  		(RENDER_CALLBACK_TYPE_AVCONTEXT)
+
 #		ifdef DECODER_AVCONTEXT_TYPE_JPG                        
-#		undef DECODER_AVCONTEXT_TYPE_JPG                        
+#			undef DECODER_AVCONTEXT_TYPE_JPG                        
 #		endif
+
 		literal int DECODER_AVCONTEXT_TYPE_JPG                        =	(2);
 #		define	DECODER_AVCONTEXT_TYPE_JPG                        		(2)
+
 #		ifdef DECODER_AVCONTEXT_TYPE_PNG                        
-#		undef DECODER_AVCONTEXT_TYPE_PNG                        
+#			undef DECODER_AVCONTEXT_TYPE_PNG                        
 #		endif
+
 		literal int DECODER_AVCONTEXT_TYPE_PNG                        =	(3);
 #		define	DECODER_AVCONTEXT_TYPE_PNG                        		(3)
 		
@@ -2841,41 +3714,55 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef ENVIRONS_AVCONTEXT_SUBTYPE_RGB                    
-#		undef ENVIRONS_AVCONTEXT_SUBTYPE_RGB                    
+#			undef ENVIRONS_AVCONTEXT_SUBTYPE_RGB                    
 #		endif
+
 		literal int ENVIRONS_AVCONTEXT_SUBTYPE_RGB                    =	(0);
 #		define	ENVIRONS_AVCONTEXT_SUBTYPE_RGB                    		(0)
+
 #		ifdef ENVIRONS_AVCONTEXT_SUBTYPE_RGBA                   
-#		undef ENVIRONS_AVCONTEXT_SUBTYPE_RGBA                   
+#			undef ENVIRONS_AVCONTEXT_SUBTYPE_RGBA                   
 #		endif
+
 		literal int ENVIRONS_AVCONTEXT_SUBTYPE_RGBA                   =	(1);
 #		define	ENVIRONS_AVCONTEXT_SUBTYPE_RGBA                   		(1)
+
 #		ifdef ENVIRONS_AVCONTEXT_SUBTYPE_ARGB                   
-#		undef ENVIRONS_AVCONTEXT_SUBTYPE_ARGB                   
+#			undef ENVIRONS_AVCONTEXT_SUBTYPE_ARGB                   
 #		endif
+
 		literal int ENVIRONS_AVCONTEXT_SUBTYPE_ARGB                   =	(2);
 #		define	ENVIRONS_AVCONTEXT_SUBTYPE_ARGB                   		(2)
 		
+
 #		ifdef ENVIRONS_AVCONTEXT_SUBTYPE_BGR                    
-#		undef ENVIRONS_AVCONTEXT_SUBTYPE_BGR                    
+#			undef ENVIRONS_AVCONTEXT_SUBTYPE_BGR                    
 #		endif
+
 		literal int ENVIRONS_AVCONTEXT_SUBTYPE_BGR                    =	(6);
 #		define	ENVIRONS_AVCONTEXT_SUBTYPE_BGR                    		(6)
+
 #		ifdef ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   
-#		undef ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   
+#			undef ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   
 #		endif
+
 		literal int ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   =	(7);
 #		define	ENVIRONS_AVCONTEXT_SUBTYPE_BGRA                   		(7)
+
 #		ifdef ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   
-#		undef ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   
+#			undef ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   
 #		endif
+
 		literal int ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   =	(8);
 #		define	ENVIRONS_AVCONTEXT_SUBTYPE_ABGR                   		(8)
 		
+
 #		ifdef TYPES_SEPERATOR_2_ENVIRONS                        
-#		undef TYPES_SEPERATOR_2_ENVIRONS                        
+#			undef TYPES_SEPERATOR_2_ENVIRONS                        
 #		endif
+
 		literal int TYPES_SEPERATOR_2_ENVIRONS                        =	(0);
 #		define	TYPES_SEPERATOR_2_ENVIRONS                        		(0)
 		
@@ -2885,230 +3772,149 @@ namespace environs
 		 * Type: int
 		 * Type: int
 		 */
+
 #		ifdef ENVIRONS_SENSOR_TYPE_ACCELEROMETER                
-#		undef ENVIRONS_SENSOR_TYPE_ACCELEROMETER                
+#			undef ENVIRONS_SENSOR_TYPE_ACCELEROMETER                
 #		endif
+
 		literal int ENVIRONS_SENSOR_TYPE_ACCELEROMETER                =	(0);
 #		define	ENVIRONS_SENSOR_TYPE_ACCELEROMETER                		(0)
+
 #		ifdef ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                
-#		undef ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                
+#			undef ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                
 #		endif
+
 		literal int ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                =	(1);
 #		define	ENVIRONS_SENSOR_TYPE_MAGNETICFIELD                		(1)
+
 #		ifdef ENVIRONS_SENSOR_TYPE_GYROSCOPE                    
-#		undef ENVIRONS_SENSOR_TYPE_GYROSCOPE                    
+#			undef ENVIRONS_SENSOR_TYPE_GYROSCOPE                    
 #		endif
+
 		literal int ENVIRONS_SENSOR_TYPE_GYROSCOPE                    =	(2);
 #		define	ENVIRONS_SENSOR_TYPE_GYROSCOPE                    		(2)
+
 #		ifdef ENVIRONS_SENSOR_TYPE_ORIENTATION                  
-#		undef ENVIRONS_SENSOR_TYPE_ORIENTATION                  
+#			undef ENVIRONS_SENSOR_TYPE_ORIENTATION                  
 #		endif
+
 		literal int ENVIRONS_SENSOR_TYPE_ORIENTATION                  =	(3);
 #		define	ENVIRONS_SENSOR_TYPE_ORIENTATION                  		(3)
 		
+
+#		ifdef ENVIRONS_SENSOR_TYPE_LIGHT                        
+#			undef ENVIRONS_SENSOR_TYPE_LIGHT                        
+#		endif
+
+		literal int ENVIRONS_SENSOR_TYPE_LIGHT                        =	(4);
+#		define	ENVIRONS_SENSOR_TYPE_LIGHT                        		(4)
+
+#		ifdef ENVIRONS_SENSOR_TYPE_LOCATION                     
+#			undef ENVIRONS_SENSOR_TYPE_LOCATION                     
+#		endif
+
+		literal int ENVIRONS_SENSOR_TYPE_LOCATION                     =	(5);
+#		define	ENVIRONS_SENSOR_TYPE_LOCATION                     		(5)
 		
-		/**
-		 * Environs Option keys
-		 * Environs Option keys
-		 * Type: String
-		 * Type: String
-		 */
-		/** Ignore: for Resolver */
-#		ifdef APPENV_MAPPINGS                                   
-#		undef APPENV_MAPPINGS                                   
+
+#		ifdef ENVIRONS_SENSOR_TYPE_ALTIMETER                    
+#			undef ENVIRONS_SENSOR_TYPE_ALTIMETER                    
 #		endif
-		literal String ^  APPENV_MAPPINGS                                   =	("mappings");
-#		define	APPENV_MAPPINGS                                   		("mappings")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT             
-#		undef APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT             
+
+		literal int ENVIRONS_SENSOR_TYPE_ALTIMETER                    =	(6);
+#		define	ENVIRONS_SENSOR_TYPE_ALTIMETER                    		(6)
+
+#		ifdef ENVIRONS_SENSOR_TYPE_HEARTRATE                    
+#			undef ENVIRONS_SENSOR_TYPE_HEARTRATE                    
 #		endif
-		literal String ^  APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT             =	("optDefaultMedToken");
-#		define	APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT             		("optDefaultMedToken")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM              
-#		undef APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM              
+
+		literal int ENVIRONS_SENSOR_TYPE_HEARTRATE                    =	(7);
+#		define	ENVIRONS_SENSOR_TYPE_HEARTRATE                    		(7)
+
+#		ifdef ENVIRONS_SENSOR_TYPE_MAX                          
+#			undef ENVIRONS_SENSOR_TYPE_MAX                          
 #		endif
-		literal String ^  APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM              =	("optCustomMedToken");
-#		define	APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM              		("optCustomMedToken")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT_N           
-#		undef APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT_N           
-#		endif
-		literal String ^  APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT_N           =	("optDNefaultMedToken");
-#		define	APPENV_SETTING_TOKEN_MEDIATOR_DEFAULT_N           		("optDNefaultMedToken")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM_N            
-#		undef APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM_N            
-#		endif
-		literal String ^  APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM_N            =	("optCNustomMedToken");
-#		define	APPENV_SETTING_TOKEN_MEDIATOR_CUSTOM_N            		("optCNustomMedToken")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_TOKEN_MEDIATOR_USERNAME            
-#		undef APPENV_SETTING_TOKEN_MEDIATOR_USERNAME            
-#		endif
-		literal String ^  APPENV_SETTING_TOKEN_MEDIATOR_USERNAME            =	("optMediatorUsername");
-#		define	APPENV_SETTING_TOKEN_MEDIATOR_USERNAME            		("optMediatorUsername")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_INITIALS                           
-#		undef APPENV_SETTING_INITIALS                           
-#		endif
-		literal String ^  APPENV_SETTING_INITIALS                           =	("optInitialSettings");
-#		define	APPENV_SETTING_INITIALS                           		("optInitialSettings")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_GL_USE_NATIVE_DECODER              
-#		undef APPENV_SETTING_GL_USE_NATIVE_DECODER              
-#		endif
-		literal String ^  APPENV_SETTING_GL_USE_NATIVE_DECODER              =	("optUseNativeDecoder");
-#		define	APPENV_SETTING_GL_USE_NATIVE_DECODER              		("optUseNativeDecoder")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_GL_USE_HARDWARE_DECODER            
-#		undef APPENV_SETTING_GL_USE_HARDWARE_DECODER            
-#		endif
-		literal String ^  APPENV_SETTING_GL_USE_HARDWARE_DECODER            =	("optUseHardwareEncoder");
-#		define	APPENV_SETTING_GL_USE_HARDWARE_DECODER            		("optUseHardwareEncoder")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_GL_USE_SHOW_DEBUG_LOGS             
-#		undef APPENV_SETTING_GL_USE_SHOW_DEBUG_LOGS             
-#		endif
-		literal String ^  APPENV_SETTING_GL_USE_SHOW_DEBUG_LOGS             =	("useShowDebugStatus");
-#		define	APPENV_SETTING_GL_USE_SHOW_DEBUG_LOGS             		("useShowDebugStatus")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_GL_USE_LOG_FILE                    
-#		undef APPENV_SETTING_GL_USE_LOG_FILE                    
-#		endif
-		literal String ^  APPENV_SETTING_GL_USE_LOG_FILE                    =	("useLogFile");
-#		define	APPENV_SETTING_GL_USE_LOG_FILE                    		("useLogFile")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_GL_USE_PUSH_NOTIFS                 
-#		undef APPENV_SETTING_GL_USE_PUSH_NOTIFS                 
-#		endif
-		literal String ^  APPENV_SETTING_GL_USE_PUSH_NOTIFS                 =	("optUsePushNotifications");
-#		define	APPENV_SETTING_GL_USE_PUSH_NOTIFS                 		("optUsePushNotifications")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_GL_USE_SENSORS                     
-#		undef APPENV_SETTING_GL_USE_SENSORS                     
-#		endif
-		literal String ^  APPENV_SETTING_GL_USE_SENSORS                     =	("optUseSensors");
-#		define	APPENV_SETTING_GL_USE_SENSORS                     		("optUseSensors")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_PORTAL_AUTOSTART               
-#		undef APPENV_SETTING_USE_PORTAL_AUTOSTART               
-#		endif
-		literal String ^  APPENV_SETTING_USE_PORTAL_AUTOSTART               =	("optPortalAutoStart");
-#		define	APPENV_SETTING_USE_PORTAL_AUTOSTART               		("optPortalAutoStart")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_DEFAULT_MEDIATOR               
-#		undef APPENV_SETTING_USE_DEFAULT_MEDIATOR               
-#		endif
-		literal String ^  APPENV_SETTING_USE_DEFAULT_MEDIATOR               =	("optUseDefaultMediator");
-#		define	APPENV_SETTING_USE_DEFAULT_MEDIATOR               		("optUseDefaultMediator")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_CUSTOM_MEDIATOR                
-#		undef APPENV_SETTING_USE_CUSTOM_MEDIATOR                
-#		endif
-		literal String ^  APPENV_SETTING_USE_CUSTOM_MEDIATOR                =	("optUseCustomMediator");
-#		define	APPENV_SETTING_USE_CUSTOM_MEDIATOR                		("optUseCustomMediator")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_PORTAL_TCP                     
-#		undef APPENV_SETTING_USE_PORTAL_TCP                     
-#		endif
-		literal String ^  APPENV_SETTING_USE_PORTAL_TCP                     =	("optPortalTCP");
-#		define	APPENV_SETTING_USE_PORTAL_TCP                     		("optPortalTCP")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_NATIVE_RESOLUTION              
-#		undef APPENV_SETTING_USE_NATIVE_RESOLUTION              
-#		endif
-		literal String ^  APPENV_SETTING_USE_NATIVE_RESOLUTION              =	("optNativeResolution");
-#		define	APPENV_SETTING_USE_NATIVE_RESOLUTION              		("optNativeResolution")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_STREAM                         
-#		undef APPENV_SETTING_USE_STREAM                         
-#		endif
-		literal String ^  APPENV_SETTING_USE_STREAM                         =	("optUseStream");
-#		define	APPENV_SETTING_USE_STREAM                         		("optUseStream")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_CLS_MEDIATOR                   
-#		undef APPENV_SETTING_USE_CLS_MEDIATOR                   
-#		endif
-		literal String ^  APPENV_SETTING_USE_CLS_MEDIATOR                   =	("useCLSMediator");
-#		define	APPENV_SETTING_USE_CLS_MEDIATOR                   		("useCLSMediator")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_CLS_DEVICE                     
-#		undef APPENV_SETTING_USE_CLS_DEVICE                     
-#		endif
-		literal String ^  APPENV_SETTING_USE_CLS_DEVICE                     =	("useCLSDevice");
-#		define	APPENV_SETTING_USE_CLS_DEVICE                     		("useCLSDevice")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_CLS_DEV_ENFORCE                
-#		undef APPENV_SETTING_USE_CLS_DEV_ENFORCE                
-#		endif
-		literal String ^  APPENV_SETTING_USE_CLS_DEV_ENFORCE                =	("useCLSDevEnforce");
-#		define	APPENV_SETTING_USE_CLS_DEV_ENFORCE                		("useCLSDevEnforce")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_AUTH                           
-#		undef APPENV_SETTING_USE_AUTH                           
-#		endif
-		literal String ^  APPENV_SETTING_USE_AUTH                           =	("useAuth");
-#		define	APPENV_SETTING_USE_AUTH                           		("useAuth")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_ANONYMOUS                      
-#		undef APPENV_SETTING_USE_ANONYMOUS                      
-#		endif
-		literal String ^  APPENV_SETTING_USE_ANONYMOUS                      =	("useAnonymous");
-#		define	APPENV_SETTING_USE_ANONYMOUS                      		("useAnonymous")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_PORTAL_AUTOACCEPT              
-#		undef APPENV_SETTING_USE_PORTAL_AUTOACCEPT              
-#		endif
-		literal String ^  APPENV_SETTING_USE_PORTAL_AUTOACCEPT              =	("portalAutoAccept");
-#		define	APPENV_SETTING_USE_PORTAL_AUTOACCEPT              		("portalAutoAccept")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_DEVICE_ID                          
-#		undef APPENV_SETTING_DEVICE_ID                          
-#		endif
-		literal String ^  APPENV_SETTING_DEVICE_ID                          =	("optDeviceID");
-#		define	APPENV_SETTING_DEVICE_ID                          		("optDeviceID")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_DEVICE_UID                         
-#		undef APPENV_SETTING_DEVICE_UID                         
-#		endif
-		literal String ^  APPENV_SETTING_DEVICE_UID                         =	("uid");
-#		define	APPENV_SETTING_DEVICE_UID                         		("uid")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_DEVICE_NAME                        
-#		undef APPENV_SETTING_DEVICE_NAME                        
-#		endif
-		literal String ^  APPENV_SETTING_DEVICE_NAME                        =	("optDeviceName");
-#		define	APPENV_SETTING_DEVICE_NAME                        		("optDeviceName")
+
+		literal int ENVIRONS_SENSOR_TYPE_MAX                          =	(8);
+#		define	ENVIRONS_SENSOR_TYPE_MAX                          		(8)
 		
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_MEDIATOR_LOGIN_DLG             
-#		undef APPENV_SETTING_USE_MEDIATOR_LOGIN_DLG             
+
+#		ifdef MAX_ENVIRONS_SENSOR_TYPE_VALUE                    
+#			undef MAX_ENVIRONS_SENSOR_TYPE_VALUE                    
 #		endif
-		literal String ^  APPENV_SETTING_USE_MEDIATOR_LOGIN_DLG             =	("useMediatorLoginDialog");
-#		define	APPENV_SETTING_USE_MEDIATOR_LOGIN_DLG             		("useMediatorLoginDialog")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_CUSTOMMEDIATOR_PORT            
-#		undef APPENV_SETTING_USE_CUSTOMMEDIATOR_PORT            
+
+		literal int MAX_ENVIRONS_SENSOR_TYPE_VALUE                    =	(0x100);
+#		define	MAX_ENVIRONS_SENSOR_TYPE_VALUE                    		(0x100)
+
+#		ifdef ENVIRONS_SENSOR_PACK_TYPE_EXT                     
+#			undef ENVIRONS_SENSOR_PACK_TYPE_EXT                     
 #		endif
-		literal String ^  APPENV_SETTING_USE_CUSTOMMEDIATOR_PORT            =	("optMediatorPort");
-#		define	APPENV_SETTING_USE_CUSTOMMEDIATOR_PORT            		("optMediatorPort")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_CUSTOMMEDIATOR_IP              
-#		undef APPENV_SETTING_USE_CUSTOMMEDIATOR_IP              
+
+		literal int ENVIRONS_SENSOR_PACK_TYPE_EXT                     =	(0x10000);
+#		define	ENVIRONS_SENSOR_PACK_TYPE_EXT                     		(0x10000)
+		
+
+#		ifdef ENVIRONS_SENSOR_FLAG_ACCELEROMETER                
+#			undef ENVIRONS_SENSOR_FLAG_ACCELEROMETER                
 #		endif
-		literal String ^  APPENV_SETTING_USE_CUSTOMMEDIATOR_IP              =	("optMediatorIP");
-#		define	APPENV_SETTING_USE_CUSTOMMEDIATOR_IP              		("optMediatorIP")
-		/** Ignore: for Resolver */
-#		ifdef APPENV_SETTING_USE_PORTALVIEW_DIMS_AUTO           
-#		undef APPENV_SETTING_USE_PORTALVIEW_DIMS_AUTO           
+
+		literal int ENVIRONS_SENSOR_FLAG_ACCELEROMETER                =	(0x1);
+#		define	ENVIRONS_SENSOR_FLAG_ACCELEROMETER                		(0x1)
+
+#		ifdef ENVIRONS_SENSOR_FLAG_MAGNETICFIELD                
+#			undef ENVIRONS_SENSOR_FLAG_MAGNETICFIELD                
 #		endif
-		literal String ^  APPENV_SETTING_USE_PORTALVIEW_DIMS_AUTO           =	("optUsePortalViewDimsAuto");
-#		define	APPENV_SETTING_USE_PORTALVIEW_DIMS_AUTO           		("optUsePortalViewDimsAuto")
+
+		literal int ENVIRONS_SENSOR_FLAG_MAGNETICFIELD                =	(0x2);
+#		define	ENVIRONS_SENSOR_FLAG_MAGNETICFIELD                		(0x2)
+
+#		ifdef ENVIRONS_SENSOR_FLAG_GYROSCOPE                    
+#			undef ENVIRONS_SENSOR_FLAG_GYROSCOPE                    
+#		endif
+
+		literal int ENVIRONS_SENSOR_FLAG_GYROSCOPE                    =	(0x4);
+#		define	ENVIRONS_SENSOR_FLAG_GYROSCOPE                    		(0x4)
+
+#		ifdef ENVIRONS_SENSOR_FLAG_ORIENTATION                  
+#			undef ENVIRONS_SENSOR_FLAG_ORIENTATION                  
+#		endif
+
+		literal int ENVIRONS_SENSOR_FLAG_ORIENTATION                  =	(0x8);
+#		define	ENVIRONS_SENSOR_FLAG_ORIENTATION                  		(0x8)
+		
+
+#		ifdef ENVIRONS_SENSOR_FLAG_LIGHT                        
+#			undef ENVIRONS_SENSOR_FLAG_LIGHT                        
+#		endif
+
+		literal int ENVIRONS_SENSOR_FLAG_LIGHT                        =	(0x10);
+#		define	ENVIRONS_SENSOR_FLAG_LIGHT                        		(0x10)
+
+#		ifdef ENVIRONS_SENSOR_FLAG_LOCATION                     
+#			undef ENVIRONS_SENSOR_FLAG_LOCATION                     
+#		endif
+
+		literal int ENVIRONS_SENSOR_FLAG_LOCATION                     =	(0x20);
+#		define	ENVIRONS_SENSOR_FLAG_LOCATION                     		(0x20)
+		
+
+#		ifdef ENVIRONS_SENSOR_FLAG_ALTIMETER                    
+#			undef ENVIRONS_SENSOR_FLAG_ALTIMETER                    
+#		endif
+
+		literal int ENVIRONS_SENSOR_FLAG_ALTIMETER                    =	(0x40);
+#		define	ENVIRONS_SENSOR_FLAG_ALTIMETER                    		(0x40)
+
+#		ifdef ENVIRONS_SENSOR_FLAG_HEARTRATE                    
+#			undef ENVIRONS_SENSOR_FLAG_HEARTRATE                    
+#		endif
+
+		literal int ENVIRONS_SENSOR_FLAG_HEARTRATE                    =	(0x80);
+#		define	ENVIRONS_SENSOR_FLAG_HEARTRATE                    		(0x80)
 		
 		
 		
+		/** Ignore: for CLI all the remaining content*/
 
 
 	}; /// -> class Types

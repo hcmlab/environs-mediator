@@ -25,18 +25,30 @@
 #ifndef INCLUDE_HCM_ENVIRONS_DIRENT_WRAPPER_H
 #define INCLUDE_HCM_ENVIRONS_DIRENT_WRAPPER_H
 
-// Declare minimalistic dirent for windows platforms.
-typedef struct DIR DIR;
+#include "Interop.h"
 
-struct dirent
+// Declare minimalistic dirent for windows platforms.
+#ifdef CLI_CPP
+#	define _DIRENT_HAVE_D_NAMLEN
+
+	STRUCT DIR;
+#else
+	typedef struct DIR DIR;
+#endif
+
+PUBLIC_STRUCT dirent
 {
 	unsigned char	d_type;
-	char		*	d_name;
+	String_ptr		d_name;
+
+#ifdef CLI_CPP
+	int				d_namlen;
+#endif
 };
 
-extern DIR           *opendir ( const char * );
-extern int           closedir ( DIR * );
-extern struct dirent *readdir ( DIR * );
+extern DIR           OBJ_ptr	opendir		( CString_ptr );
+extern int						closedir	( DIR OBJ_ptr );
+extern STRUCT dirent OBJ_ptr	readdir		( DIR OBJ_ptr );
 
 #define DT_UNKNOWN	0	// unknown
 #define DT_DIR		4	// directory

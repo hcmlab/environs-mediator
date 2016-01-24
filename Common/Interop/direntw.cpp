@@ -1,6 +1,6 @@
 /**
 * Dirent wrapper that includes either dirent.h (POSIX)
-* or provides wrapping around win32
+* or provides wrapping around win32 / cpp/cli
 * --------------------------------------------------------------------
 * Copyright (c) Chi-Tai Dang
 *
@@ -25,44 +25,71 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef CLI_CPP
+using namespace System::IO;
+#endif
 
-struct DIR
+
+PUBLIC_STRUCT DIR
 {
-	char                *	pattern;
+	String_ptr			pattern;
 
-	intptr_t				hFind;
-	struct _finddata_t		dFind;
+#ifdef CLI_CPP
+	array<String^> ^	files;
+	int					hFind;
+#else
+	intptr_t			hFind;
+	struct _finddata_t	dFind;
+#endif
 
-	struct dirent			item;
+	STRUCT dirent		item;
 };
 
 
-DIR * opendir ( const char * name )
+DIR OBJ_ptr opendir ( CString_ptr name )
 {
-	if ( !name || !*name )
-		return 0;
+	if ( name == nill || CString_ptr_empty ( name ) )
+		return nill;
 
 	bool success = false;
-	DIR * dir = 0;
+	DIR OBJ_ptr dir = nill;
 
-	size_t length = strlen ( name );
+	size_t length = CString_length ( name );
 
+#ifdef CLI_CPP
+	dir = gcnew ( DIR );
+#else
 	dir = (DIR *) calloc ( 1, sizeof ( DIR ) );
-	if ( dir ) 
+#endif
+
+	if ( dir != nill ) 
 	{
+		// Build search pattern
+#ifdef CLI_CPP
+		dir->hFind = -1;
+		dir->pattern = name;
+
+		dir->files = Directory::GetFiles ( name );
+
+		if ( dir->files != nill && dir->files->Length > 0 )
+		{
+			dir->item.d_type = DT_REG;
+			success = true;
+		}
+#else
 		dir->pattern = (char *) malloc ( length + 4 );
 		if ( dir->pattern )
 		{
 			memcpy ( dir->pattern, name, length );
 
-			char last = dir->pattern [length - 1];
+			char last = dir->pattern [ length - 1 ];
 
 			if ( last != '/' && last != '\\' )
 			{
-				dir->pattern [length] = '/'; length++;
+				dir->pattern [ length ] = '/'; length++;
 			}
-			dir->pattern [length] = '*';
-			dir->pattern [length + 1] = 0;
+			dir->pattern [ length ] = '*';
+			dir->pattern [ length + 1 ] = 0;
 
 			dir->hFind = _findfirst ( dir->pattern, &dir->dFind );
 			if ( dir->hFind != -1 )
@@ -71,42 +98,68 @@ DIR * opendir ( const char * name )
 				success = true;
 			}
 		}
+#endif
 	}
 
-	if ( !success && dir ) {
+	if ( !success && dir != nill ) 
+	{
+#ifdef CLI_CPP
+#else
 		if ( dir->pattern )
 			free ( dir->pattern );
 		free ( dir );
-		dir = 0;
+#endif
+		dir = nill;
 	}
 	return dir;
 }
 
 
-int closedir ( DIR * dir )
+int closedir ( DIR OBJ_ptr dir )
 {
 	int success = -1;
 
-	if ( dir )
+	if ( dir != nill )
 	{
+#ifdef CLI_CPP
+		dir->pattern = nill;
+		dir->files = nill;
+#else
 		if ( dir->hFind != -1 )
 			success = _findclose ( dir->hFind );
 
 		if ( dir->pattern )
 			free ( dir->pattern );
 		free ( dir );
+#endif
 	}
 
 	return success;
 }
 
 
-struct dirent * readdir ( DIR * dir )
+STRUCT dirent OBJ_ptr readdir ( DIR OBJ_ptr dir )
 {
-	if ( !dir || dir->hFind == -1 )
-		return 0;
+	if ( dir == nill C_Only ( || dir->hFind == -1 ) )
+		return nill;
 
-	struct dirent * nextDir = 0;
+	STRUCT dirent OBJ_ptr nextDir = nill;
+
+#ifdef CLI_CPP
+	int next = dir->hFind + 1;
+
+	if ( next < dir->files->Length )
+	{
+		dir->item.d_name = dir->files [ next ];
+		dir->item.d_namlen = dir->item.d_name->Length;
+		dir->hFind = next;
+
+		nextDir = dir->item;
+	}
+	else {
+		dir->hFind = -1;
+	}
+#else
 
 	if ( !dir->item.d_name || _findnext ( dir->hFind, &dir->dFind ) != -1 )
 	{
@@ -118,6 +171,7 @@ struct dirent * readdir ( DIR * dir )
 		else
 			nextDir->d_type = DT_REG;
 	}
+#endif
 
 	return nextDir;
 }

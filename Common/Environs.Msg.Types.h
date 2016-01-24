@@ -26,8 +26,11 @@ namespace environs
 {
 
 	namespace lib
-	{
-		typedef struct _SensorFrame
+    {
+#ifdef _WIN32
+#	pragma pack(push, 1)
+#endif
+		typedef struct SensorFrame
 		{
 			// Static data initialized at construction time
 			char 		preamble [ 3 ];
@@ -43,9 +46,13 @@ namespace environs
 			union
 			{
 				struct
-				{
-					float		f1;
-					float		f2;
+                {
+                    // Location: f1 = accuracy (latitude/longitude)
+                    // Light: f1 = light in Lux
+                    float		f1;
+                    // Location: f2 = accuracy (longitude)
+                    float		f2;
+                    // Location: f3 = speed
 					float		f3;
 				}
 				floats;
@@ -67,9 +74,78 @@ namespace environs
 				accel;
 			}
 			data;
-		}
+        }
+#ifndef _WIN32
+        __attribute__ ((packed))
+#endif
 		SensorFrame;
-
+        
+        
+        typedef struct SensorFrameExt
+        {
+            // Static data initialized at construction time
+            char 		preamble [ 3 ];
+            char		version;
+            
+            // Static data initialized at construction time
+            int			type;
+            
+            // Increase with each frame
+            int         seqNumber;
+            
+            // Dynamic data
+            union
+            {
+                struct
+                {
+                    // Location: f1 = accuracy (latitude/longitude)
+                    // Light: f1 = light in Lux
+                    float		f1;
+                    // Location: f2 = accuracy (longitude)
+                    float		f2;
+                    // Location: f3 = speed
+                    float		f3;
+                }
+                floats;
+                
+                struct
+                {
+                    float		azimut;
+                    float		pitch;
+                    float		roll;
+                }
+                gravity;
+                
+                struct
+                {
+                    float		x;
+                    float		y;
+                    float		z;
+                }
+                accel;
+            }
+            data;
+            
+            // Dynamic data
+            struct
+            {
+                // Location: d1 = latitude
+                double		d1;
+                // Location: d2 = longitude
+                double		d2;
+                // Location: d3 = altitude
+                double		d3;
+            }
+            doubles;
+        }
+#ifndef _WIN32
+        __attribute__ ((packed))
+#endif
+        SensorFrameExt;
+        
+#ifdef _WIN32
+#	pragma	pack(pop)
+#endif
 
 		/*
 		* Format: HEADER (12) DATA (Length)
@@ -178,10 +254,21 @@ namespace environs
 		// Increase with each frame
 		int         seqNumber;
 
-		// Dynamic data
-		float		x;
-		float		y;
-		float		z;
+		// Location: x = latitude
+		double		x;
+		// Location: y = longitude
+		double		y;
+		// Location: z = altitude
+		double		z;
+
+
+		// Location: f1 = accuracy (latitude/longitude)
+		// Light: f1 = light in Lux
+		float		f1;
+		// Location: f2 = accuracy (longitude)
+		float		f2;
+		// Location: f3 = speed
+		float		f3;
 	};
 
 #else
@@ -189,7 +276,7 @@ namespace environs
 
 	typedef struct SensorFrame
 	{
-		lib::SensorFrame	frame;
+		lib::SensorFrameExt	frame;
 
 		DeviceInstance *	device;
 	}

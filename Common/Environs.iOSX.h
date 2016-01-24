@@ -199,6 +199,38 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 
 /**
+* Set timeout for LAN/WiFi connects. Default ( 2 seconds ).
+* Increasing this value may help to handle worse networks which suffer from large latencies.
+*
+* @param   timeout
+*/
+- (void) SetNetworkConnectTimeout:(int)timeout;
+
+
+/**
+ * Get platform that the app is running on.
+ *
+ * @return 	enum of type Environs.Platforms
+ */
+- (int) GetPlatform;
+
+/**
+ * Set the platform type that the local instance of Environs shall use for identification within the environment.&nbsp;
+ * Valid type are enumerated in Environs.Platforms.*
+ *
+ * @param	platform	Environs.Platforms.*
+ */
+- (void) SetPlatform: (int) platform;
+
+/**
+ * Set/Remove the location-node flag to the platform type that the local instance of Environs shall use for identification within the environment.&nbsp;
+ * Flag: Environs.Platforms.LocationNode_Flag
+ *
+ * @param	isLocationNode	true or false
+ */
+- (void) SetIsLocationNode: (bool) isLocationNode;
+
+/**
  * Set the user name for authentication with a Mediator service.&nbsp;Usually the user's email address is used as the user name.
  *
  * @param 	username

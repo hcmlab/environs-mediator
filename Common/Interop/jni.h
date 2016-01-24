@@ -47,6 +47,7 @@
 #   define juintp          unsigned int *
 #   define jlong           long
 #   define jfloat          float
+#   define jdouble         double
 #   define jshort          unsigned short
 #   define jbyte           unsigned char
 #   define jsstring        char *

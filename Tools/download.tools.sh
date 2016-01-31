@@ -73,8 +73,8 @@ function prepareDir
 		return 0
 	fi
 	if [[ ! -d "$1" ]]; then
-		echo -e
-		echo "Preparing directory [$1]"
+		[[ -z "${CI}" ]] && echo -e		
+		[[ -z "${CI}" ]] && echo "Preparing directory [$1]"
 		mkdir -p $1 && [[ $? != 0 ]] && echo "Error: Creating directory $1" && exit 1
 	fi
 	return 0

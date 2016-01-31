@@ -30,7 +30,11 @@ cd "${toolsDir}"
 curl -L0k -o "EnvBuildTools.tar.gz" "${toolsUrl}"
 [[ $? != 0 ]] && echo "Error tools download" && exit 1
     
-tar -xzvf EnvBuildTools.tar.gz
+if [[ -z "${CI}" ]]; then
+	tar -xzvf EnvBuildTools.tar.gz
+else
+	tar -xzf EnvBuildTools.tar.gz
+fi
 [[ $? != 0 ]] && echo "Error tools decompress" && exit 1
 
 rm Tools/download.tools.upd.sh

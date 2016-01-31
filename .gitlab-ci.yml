@@ -9,6 +9,7 @@ LinuxMediatorRelease:
     - "./3rd/download.sh"
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "./Tools/build.mediator.linux.sh"
+    - "rm -rf ./Tools"
 
 LinuxMediatorDebug:
   tags:
@@ -21,6 +22,7 @@ LinuxMediatorDebug:
     - "./3rd/download.sh"
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "export DEBUG=1 && ./Tools/build.mediator.linux.sh"
+    - "rm -rf ./Tools"
 
 
 OSXMakeMediatorRelease:
@@ -34,6 +36,7 @@ OSXMakeMediatorRelease:
     - "3rd/download.sh"    
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "./Tools/build.mediator.linux.sh"
+    - "rm -rf ./Tools"
 
 OSXMakeMediatorDebug:
   tags:
@@ -46,6 +49,7 @@ OSXMakeMediatorDebug:
     - "3rd/download.sh" 
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "export DEBUG=1 && ./Tools/build.mediator.linux.sh"
+    - "rm -rf ./Tools"
 
 
 WindowsMediatorDebug:
@@ -56,6 +60,7 @@ WindowsMediatorDebug:
     - "bash ./3rd/download.sh"
     - "bash ./Tools/download.tools.upd.sh"
     - "bash ./Tools/build.mediator.win32.sh d p"
+    - "rm -rf ./Tools"
     
 WindowsMediatorRelease:
   tags:
@@ -65,6 +70,7 @@ WindowsMediatorRelease:
     - "bash ./3rd/download.sh"
     - "bash ./Tools/download.tools.upd.sh"
     - "bash ./Tools/build.mediator.win32.sh r p"
+    - "rm -rf ./Tools"
 
 OSXMediatorRelease:
   tags:
@@ -77,6 +83,7 @@ OSXMediatorRelease:
     - "./Tools/download.tools.upd.sh"
     - "chmod ogu+x Tools/build.mediator.osx.sh"
     - "./Tools/build.mediator.osx.sh unattended"
+    - "rm -rf ./Tools"
 
 OSXMediatorDebug:
   tags:
@@ -89,5 +96,6 @@ OSXMediatorDebug:
     - "./Tools/download.tools.upd.sh"
     - "chmod ogu+x Tools/build.mediator.osx.sh"
     - "./Tools/build.mediator.osx.sh unattended d"
+    - "rm -rf ./Tools"
     
             

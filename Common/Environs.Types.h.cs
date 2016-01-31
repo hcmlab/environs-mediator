@@ -43,11 +43,12 @@ namespace environs
 	public partial class Environs 
 	{
 
-			
 		/**
 		 * Environs native layer status
 		 * Environs native layer status
 		 */
+		/** Disposed. */
+		public const int STATUS_DISPOSED                                   =	(-1);
 		/** Uninitialized. Usually after creation of an Environs object. */
 		public const int STATUS_UNINITIALIZED                              =	(0);
 		/** Environs is about to be disposed. */
@@ -74,6 +75,8 @@ namespace environs
 		 * Environs Status enumeration. Represents the same values as for NATIVE_STATUS_* 
 		 * */
 		public enum Status {
+			/** Disposed. */
+			Disposed            	=	STATUS_DISPOSED,
 			/** Uninitialized. Usually after creation of an Environs object. */
 			Uninitialized       	=	STATUS_UNINITIALIZED,
 			/** Environs is about to be disposed. */
@@ -236,6 +239,7 @@ namespace environs
 		public const int MSG_HANDSHAKE_CONIG_RESP_ACK                      =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 5);
 		public const int MSG_HANDSHAKE_CONNECTED                           =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xA);
 		public const int MSG_HANDSHAKE_DISCONNECTED                        =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xB);
+		public const int MSG_HANDSHAKE_PING                                =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xC);
 			
 		
 		public const int MSG_HANDSHAKE_UDP                                 =	(MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 6);
@@ -688,6 +692,21 @@ namespace environs
 		
 		
 		/**
+		 * Environs mediator filter enumeration.
+		 * Environs mediator filter enumeration.
+		 * */
+		public enum MediatorFilter {
+			None                	=	MEDIATOR_FILTER_NONE,
+			Area                	=	MEDIATOR_FILTER_AREA,
+			AreaAndApp          	=	MEDIATOR_FILTER_AREA_AND_APP,
+			All                 	=	MEDIATOR_FILTER_ALL,
+		
+		}
+
+
+		
+		
+		/**
 		 * Environs mediator broadcast found values
 		 * Environs mediator broadcast found values
 		 */
@@ -878,107 +897,211 @@ namespace environs
 		public const int MEDIATOR_BUFFER_SIZE_MAX                          =	(65535);
 		public const int ENVIRONS_SEND_SIZE_MAX                            =	((40 * 1024 * 1024));
 		
+		
+		
+		/**
+		 * Extension plugin interface type
+		 * Extension plugin interface type
+		 * Type: int
+		 * Type: int
+		 */
+		public const int INTERFACE_TYPE_UNKNOWN                            =	(0);
+		/** A Capture plugin grabs images from a capture source and provides the image buffer to the pipeline. */
+		public const int INTERFACE_TYPE_CAPTURE                            =	(1);
+		/** A Render plugin renders a capture image (compare, rotate, scale, etc.). */
+		public const int INTERFACE_TYPE_RENDER                             =	(2);
+		/** An Encoder encodes the rendered image to a target format / stream. */
+		public const int INTERFACE_TYPE_ENCODER                            =	(3);
+		/** A Decoder decodes stream packets to images */
+		public const int INTERFACE_TYPE_DECODER                            =	(4);
+		/** A Tracker that analyzes raw images for objects, touches, etc. */
+		public const int INTERFACE_TYPE_TRACKER                            =	(5);
+		/** A InputRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
+		public const int INTERFACE_TYPE_INPUT_RECOGNIZER                   =	(10);
+		/** A TouchRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
+		public const int INTERFACE_TYPE_ORIENTATION_RECOGNIZER             =	(11);
+		
+		
 		/** 
 		 * Extension plugin interface type enumeration.
 		 * Extension plugin interface type enumeration.
 		 * */
 		public enum InterfaceType {
-			Unknown             	=	0,
+			Unknown             	=	INTERFACE_TYPE_UNKNOWN,
 			/** A Capture plugin grabs images from a capture source and provides the image buffer to the pipeline. */
-			Capture             	=	1,
+			Capture             	=	INTERFACE_TYPE_CAPTURE,
 			/** A Render plugin renders a capture image (compare, rotate, scale, etc.). */
-			Render              	=	2,
+			Render              	=	INTERFACE_TYPE_RENDER,
 			/** An Encoder encodes the rendered image to a target format / stream. */
-			Encoder             	=	3,
+			Encoder             	=	INTERFACE_TYPE_ENCODER,
 			/** A Decoder decodes stream packets to images */
-			Decoder             	=	4,
+			Decoder             	=	INTERFACE_TYPE_DECODER,
 			/** A Tracker that analyzes raw images for objects, touches, etc. */
-			Tracker             	=	5,
+			Tracker             	=	INTERFACE_TYPE_TRACKER,
 			/** A InputRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
-			InputRecognizer     	=	10,
+			InputRecognizer     	=	INTERFACE_TYPE_INPUT_RECOGNIZER,
 			/** A TouchRecognizer is called back and provided a list of the current TouchDispatch state in order to perform gesture recognition. */
-			OrientationRecognizer          	=	11,
+			OrientationRecognizer          	=	INTERFACE_TYPE_ORIENTATION_RECOGNIZER,
+		
 		}
 
 
+		
+		
+		/**
+		 * Capture subtype
+		 * Capture subtype
+		 * Type: int
+		 * Type: int
+		 */
+		public const int CAPTURE_TYPE_UNKNOWN                              =	(0);
+		/** A screen such as the dekstop window,
+		 *  where the device may cover only part of the display.
+		 *  where the device may cover only part of the display.
+		 *  The screen size must not be changed as long as the grabber class is used by at least one instance. */
+		public const int CAPTURE_TYPE_SCREEN                               =	(1);
+		/** An application window, where each device may have a different app window and may cover only part of the window. */
+		public const int CAPTURE_TYPE_APP_WINDOW                           =	(2);
+		/** Camera */
+		public const int CAPTURE_TYPE_CAMERA                               =	(6);
 		
 		/** 
 		 * Capture subtype enumeration.
 		 * Capture subtype enumeration.
 		 * */
 		public enum CaptureType {
-			Unknown             	=	0,
+			Unknown             	=	CAPTURE_TYPE_UNKNOWN,
 			/** A screen such as the dekstop window, 
 			 *  where the device may cover only part of the display.
 			 *  where the device may cover only part of the display.
 			 *  The screen size must not be changed as long as the grabber class is used by at least one instance. */
-			Screen              	=	1,
+			Screen              	=	CAPTURE_TYPE_SCREEN,
 			/** An application window, where each device may have a different app window and may cover only part of the window. */
-			AppWindow           	=	2,
+			AppWindow           	=	CAPTURE_TYPE_APP_WINDOW,
 			/** Camera */
-			Camera              	=	6,
+			Camera              	=	CAPTURE_TYPE_CAMERA,
 		}
 
 
 		
-		/** 
-		 * Capture plugin data buffer type enumeration.
-		 * Capture plugin data buffer type enumeration.
-		 * */
-		public enum CaptureBufferType {
-			Unknown             	=	0,
-			/** The data is stored as pixel data usually in rgba order. */
-			PixelBuffer         	=	1,
-			/** The data follows either D3D or OpenGL texture format. */
-			Texture3D           	=	10,
-			/** The data follows either D3D or OpenGL buffer format. */
-			PixelBuffer3D       	=	11,
-		}
-
-
+		
+		/**
+		 * Portal stage buffer data type
+		 * Portal stage buffer data type
+		 * Type: int
+		 * Type: int
+		 */
+		public const int PORTAL_BUFFERTYPE_UNKNOWN                         =	(0);
+		/** Windows ARGB. */
+		public const int PORTAL_BUFFERTYPE_ARGB                            =	(0x1);
+		/** Windows ARGB and the associated HBITMAP handle. */
+		public const int PORTAL_BUFFERTYPE_ARGB_HANDLE                     =	(0x2);
+		/** iOS ARGB. */
+		public const int PORTAL_BUFFERTYPE_BGRA                            =	(0x3);
+		/** RGB 24bit. */
+		public const int PORTAL_BUFFERTYPE_RGB                             =	(0x4);
+		/** I420. */
+		public const int PORTAL_BUFFERTYPE_YUV420                          =	(0x10);
+		/** YV12. */
+		public const int PORTAL_BUFFERTYPE_YV12                            =	(0x12);
+		/** YUY2. */
+		public const int PORTAL_BUFFERTYPE_YUV2                            =	(0x14);
+		/** GDIBitmap. */
+		public const int PORTAL_BUFFERTYPE_GDI_BITMAP                      =	(0x100);
+		/** The data follows either D3D or OpenGL texture format. */
+		public const int PORTAL_BUFFERTYPE_TEXTURE_3D                      =	(0x1000);
+		/** The data follows either D3D or OpenGL buffer format. */
+		public const int PORTAL_BUFFERTYPE_PIXELBUFFER_3D                  =	(0x2000);
+		/** CVPixelBufferRef of apple platforms. */
+		public const int PORTAL_BUFFERTYPE_CVPIXELBUFFER_IOSX              =	(0x3000);
 		
 		/** 
 		 * Portal stage buffer data type enumeration.
 		 * Portal stage buffer data type enumeration.
 		 * */
 		public enum PortalBufferType {
-			Unknown             	=	0,
+			Unknown             	=	PORTAL_BUFFERTYPE_UNKNOWN,
 			/** Windows ARGB. */
-			ARGB                	=	0x1,
+			ARGB                	=	PORTAL_BUFFERTYPE_ARGB,
 			/** Windows ARGB and the associated HBITMAP handle. */
-			ARGBHandle          	=	0x2,
+			ARGBHandle          	=	PORTAL_BUFFERTYPE_ARGB_HANDLE,
 			/** iOS ARGB. */
-			BGRA                	=	0x3,
+			BGRA                	=	PORTAL_BUFFERTYPE_BGRA,
 			/** RGB 24bit. */
-			RGB                 	=	0x4,
+			RGB                 	=	PORTAL_BUFFERTYPE_RGB,
 			/** I420. */
-			YUV420              	=	0x10,
+			YUV420              	=	PORTAL_BUFFERTYPE_YUV420,
 			/** YV12. */
-			YV12                	=	0x12,
+			YV12                	=	PORTAL_BUFFERTYPE_YV12,
 			/** YUY2. */
-			YUY2                	=	0x14,
+			YUY2                	=	PORTAL_BUFFERTYPE_YUV2,
 			/** GDIBitmap. */
-			GDIBitmap           	=	0x100,
+			GDIBitmap           	=	PORTAL_BUFFERTYPE_GDI_BITMAP,
 			/** The data follows either D3D or OpenGL texture format. */
-			Texture3D           	=	0x1000,
+			Texture3D           	=	PORTAL_BUFFERTYPE_TEXTURE_3D,
 			/** The data follows either D3D or OpenGL buffer format. */
-			PixelBuffer3D       	=	0x2000,
+			PixelBuffer3D       	=	PORTAL_BUFFERTYPE_PIXELBUFFER_3D,
 			/** CVPixelBufferRef of apple platforms. */
-			CVPixelBufferIOSX   	=	0x3000,
+			CVPixelBufferIOSX   	=	PORTAL_BUFFERTYPE_CVPIXELBUFFER_IOSX,
 		}
 
 
+		
+		
+		/**
+		 * Capture plugin data buffer type
+		 * Capture plugin data buffer type
+		 * Type: int
+		 * Type: int
+		 */
+		public const int CAPTURE_BUFFERTYPE_UNKNOWN                        =	(0);
+		/** The data is stored as pixel data usually in rgba order. */
+		public const int CAPTURE_BUFFERTYPE_PIXELBUFFER                    =	(1);
+		/** The data follows either D3D or OpenGL texture format. */
+		public const int CAPTURE_BUFFERTYPE_TEXTURE_3D                     =	(10);
+		/** The data follows either D3D or OpenGL buffer format. */
+		public const int CAPTURE_BUFFERTYPE_PIXELBUFFER_3D                 =	(11);
+		
+		/**
+		 * Capture plugin data buffer type enumeration.
+		 * Capture plugin data buffer type enumeration.
+		 * */
+		public enum CaptureBufferType {
+			Unknown             	=	CAPTURE_BUFFERTYPE_UNKNOWN,
+			/** The data is stored as pixel data usually in rgba order. */
+			PixelBuffer         	=	CAPTURE_BUFFERTYPE_PIXELBUFFER,
+			/** The data follows either D3D or OpenGL texture format. */
+			Texture3D           	=	CAPTURE_BUFFERTYPE_TEXTURE_3D,
+			/** The data follows either D3D or OpenGL buffer format. */
+			PixelBuffer3D       	=	CAPTURE_BUFFERTYPE_PIXELBUFFER_3D,
+		
+		}
+
+
+		
+		
+		/**
+		 * Encoder buffer data type
+		 * Encoder buffer data type
+		 * Type: int
+		 * Type: int
+		 */
+		public const int ENCODER_BUFFERTYPE_UNKNOWN                        =	(0);
+		/** Windows ARGB. */
+		public const int ENCODER_BUFFERTYPE_ARGB                           =	(1);
+		/** I420. */
+		public const int ENCODER_BUFFERTYPE_YUV420                         =	(10);
 		
 		/** 
 		 * Encoder buffer data type enumeration.
 		 * Encoder buffer data type enumeration.
 		 * */
 		public enum EncoderBufferType {
-			Unknown             	=	0,
+			Unknown             	=	ENCODER_BUFFERTYPE_UNKNOWN,
 			/** Windows ARGB. */
-			ARGB                	=	1,
+			ARGB                	=	ENCODER_BUFFERTYPE_ARGB,
 			/** I420. */
-			YUV420              	=	10,
+			YUV420              	=	ENCODER_BUFFERTYPE_YUV420,
 		}
 
 
@@ -996,6 +1119,8 @@ namespace environs
 		public const int RECOGNIZER_TAKEN_OVER_INPUTS                      =	(2);
 		
 		
+		public const int NETWORK_CONNECTION_TRIGGER_UPDATE                 =	(-3);
+		public const int NETWORK_CONNECTION_UNKNOWN                        =	(-2);
 		public const int NETWORK_CONNECTION_NO_NETWORK                     =	(-1);
 		public const int NETWORK_CONNECTION_NO_INTERNET                    =	(0);
 		public const int NETWORK_CONNECTION_MOBILE_DATA                    =	(1);
@@ -1028,12 +1153,67 @@ namespace environs
 		public const int DEVICE_INFO_ATTR_OBJID                            =	(0x20000);
 		
 		
+		/**
+		 * DeviceInfoAttr attribute enumeration.
+		 * DeviceInfoAttr attribute enumeration.
+		 * */
+		public enum DeviceInfoFlag {
+			Disposed            	=	DEVICE_INFO_ATTR_DISPOSED,
+			IsConnected         	=	DEVICE_INFO_ATTR_ISCONNECTED,
+			ConnectProgress     	=	DEVICE_INFO_ATTR_CONNECT_PROGRESS,
+			UserName            	=	DEVICE_INFO_ATTR_USER_NAME,
+			Identity            	=	DEVICE_INFO_ATTR_IDENTITY,
+			Platform            	=	DEVICE_INFO_ATTR_DEVICE_PLATFORM,
+			DeviceType          	=	DEVICE_INFO_ATTR_DEVICE_TYPE,
+			NativeID            	=	DEVICE_INFO_ATTR_NATIVEID,
+			IP                  	=	DEVICE_INFO_ATTR_IP,
+			IPe                 	=	DEVICE_INFO_ATTR_IPE,
+			TcpPort             	=	DEVICE_INFO_ATTR_TCP_PORT,
+			UdpPort             	=	DEVICE_INFO_ATTR_UDP_PORT,
+			Unavailable         	=	DEVICE_INFO_ATTR_UNAVAILABLE,
+			BroadcastFound      	=	DEVICE_INFO_ATTR_BROADCAST_FOUND,
+			DirectContact       	=	DEVICE_INFO_ATTR_DIRECT_CONTACT,
+			AppContext          	=	DEVICE_INFO_ATTR_APP_CONTEXT,
+			PortalCreated       	=	DEVICE_INFO_ATTR_PORTAL_CREATED,
+		
+		}
+
+
+		
+		
 		public const int FILE_INFO_ATTR_CREATED                            =	(0x10000);
 		public const int FILE_INFO_ATTR_AVAILABLE                          =	(0x20000);
 		public const int FILE_INFO_ATTR_SEND_PROGRESS                      =	(0x40000);
 		public const int FILE_INFO_ATTR_RECEIVE_PROGRESS                   =	(0x80000);
 		
+		
+		/**
+		 * FileInfo attribute enumeration.
+		 * FileInfo attribute enumeration.
+		 * */
+		public enum FileInfoFlag {
+			Created             	=	FILE_INFO_ATTR_CREATED,
+			Available           	=	FILE_INFO_ATTR_AVAILABLE,
+			SendProgress        	=	FILE_INFO_ATTR_SEND_PROGRESS,
+			ReceiveProgress     	=	FILE_INFO_ATTR_RECEIVE_PROGRESS,
+		
+		}
+
+
+		
 		public const int MESSAGE_INFO_ATTR_CREATED                         =	(0x200000);
+		
+		/**
+		 * MessageInfo attribute enumeration.
+		 * MessageInfo attribute enumeration.
+		 * */
+		public enum MessageInfoFlag {
+			Created             	=	MESSAGE_INFO_ATTR_CREATED,
+		
+		}
+
+
+		
 		
 		public const int APP_STATUS_ACTIVE                                 =	(0);
 		public const int APP_STATUS_SLEEPING                               =	(1);
@@ -1044,58 +1224,112 @@ namespace environs
 		
 		
 		/**
+		 * Environs detectable platform constants
+		 * Environs detectable platform constants
+		 * Type: int
+		 * Type: int
+		 */
+		public const int ENVIRONS_PLATFORMS_UNKNOWN                        =	(0);
+		/** MS Surface Tabletops */
+		public const int ENVIRONS_PLATFORMS_MSSURFACE_FLAG                 =	(0x1000);
+		/** Surface 1 tabletop */
+		public const int ENVIRONS_PLATFORMS_MSSUR01                        =	(0x1001);
+		/** Samsung SUR40 PixelSense */
+		public const int ENVIRONS_PLATFORMS_SAMSUR40                       =	(0x1002);
+		/** iPad */
+		public const int ENVIRONS_PLATFORMS_IPAD_FLAG                      =	(0x2000);
+		public const int ENVIRONS_PLATFORMS_IPAD1                          =	(0x2011);
+		public const int ENVIRONS_PLATFORMS_IPAD2                          =	(0x2021);
+		public const int ENVIRONS_PLATFORMS_IPAD2MINI                      =	(0x2022);
+		public const int ENVIRONS_PLATFORMS_IPAD3                          =	(0x2031);
+		public const int ENVIRONS_PLATFORMS_IPAD4                          =	(0x2041);
+		public const int ENVIRONS_PLATFORMS_IPAD4AIR                       =	(0x2042);
+		public const int ENVIRONS_PLATFORMS_IPAD4MINI                      =	(0x2043);
+		public const int ENVIRONS_PLATFORMS_IPAD4MINI3                     =	(0x2044);
+		public const int ENVIRONS_PLATFORMS_IPAD5AIR2                      =	(0x2051);
+		/** iPhones */
+		public const int ENVIRONS_PLATFORMS_IPHONE_FLAG                    =	(0x4000);
+		public const int ENVIRONS_PLATFORMS_IPHONE4                        =	(0x4041);
+		public const int ENVIRONS_PLATFORMS_IPHONE5                        =	(0x4051);
+		public const int ENVIRONS_PLATFORMS_IPHONE6                        =	(0x4061);
+		public const int ENVIRONS_PLATFORMS_IPHONE6P                       =	(0x4062);
+		/** MultiTaction Cells */
+		public const int ENVIRONS_PLATFORMS_MULTITACTION_FLAG              =	(0x8000);
+		/** MultiTaction Cell 55. */
+		public const int ENVIRONS_PLATFORMS_MULTITACTION55                 =	(0x8055);
+		
+		public const int ENVIRONS_PLATFORMS_OSX_FLAG                       =	(0x10000);
+		public const int ENVIRONS_PLATFORMS_MACBOOK_FLAG                   =	(0x10010);
+		public const int ENVIRONS_PLATFORMS_MACMINI_FLAG                   =	(0x10020);
+		
+		public const int ENVIRONS_PLATFORMS_WINDOWS_FLAG                   =	(0x20000);
+		public const int ENVIRONS_PLATFORMS_WINDOWSVISTA                   =	(0x20050);
+		public const int ENVIRONS_PLATFORMS_WINDOWSXP                      =	(0x20060);
+		public const int ENVIRONS_PLATFORMS_WINDOWS7                       =	(0x20070);
+		public const int ENVIRONS_PLATFORMS_WINDOWS8                       =	(0x20080);
+		public const int ENVIRONS_PLATFORMS_WINDOWS10                      =	(0x20100);
+		
+		public const int ENVIRONS_PLATFORMS_TABLET_FLAG                    =	(0x100000);
+		public const int ENVIRONS_PLATFORMS_SMARTPHONE_FLAG                =	(0x200000);
+		public const int ENVIRONS_PLATFORMS_TABLETOP_FLAG                  =	(0x400000);
+		public const int ENVIRONS_PLATFORMS_DISPLAY_FLAG                   =	(0x800000);
+		
+		public const int ENVIRONS_PLATFORMS_LOCATIONNODE_FLAG              =	(0x1000000);
+		
+		/**
 		 * Environs detectable platforms.
 		 * Environs detectable platforms.
 		 * */
 		public enum Platforms {
-			Unknown             	=	0,
+			Unknown             	=	ENVIRONS_PLATFORMS_UNKNOWN,
 			/** MS Surface Tabletops */
-			MSSurface_Flag      	=	0x1000,
-			/** Samsung SUR40 */
-			MSSUR01             	=	0x1001,
-			/** Samsung SUR40 */
-			SAMSUR40            	=	0x1002,
+			MSSurface_Flag      	=	ENVIRONS_PLATFORMS_MSSURFACE_FLAG,
+			/** Surface 1 tabletop */
+			MSSUR01             	=	ENVIRONS_PLATFORMS_MSSUR01,
+			/** Samsung SUR40 PixelSense */
+			SAMSUR40            	=	ENVIRONS_PLATFORMS_SAMSUR40,
 		
 			/** iPad */
-			iPad_Flag           	=	0x2000,
-			iPad1               	=	0x2011,
-			iPad2               	=	0x2021,
-			iPad2Mini           	=	0x2022,
-			iPad3               	=	0x2031,
-			iPad4               	=	0x2041,
-			iPad4Air            	=	0x2042,
-			iPad4Mini           	=	0x2043,
-			iPad4Mini3          	=	0x2044,
-			iPad5Air2           	=	0x2051,
+			iPad_Flag           	=	ENVIRONS_PLATFORMS_IPAD_FLAG,
+			iPad1               	=	ENVIRONS_PLATFORMS_IPAD1,
+			iPad2               	=	ENVIRONS_PLATFORMS_IPAD2,
+			iPad2Mini           	=	ENVIRONS_PLATFORMS_IPAD2MINI,
+			iPad3               	=	ENVIRONS_PLATFORMS_IPAD3,
+			iPad4               	=	ENVIRONS_PLATFORMS_IPAD4,
+			iPad4Air            	=	ENVIRONS_PLATFORMS_IPAD4AIR,
+			iPad4Mini           	=	ENVIRONS_PLATFORMS_IPAD4MINI,
+			iPad4Mini3          	=	ENVIRONS_PLATFORMS_IPAD4MINI3,
+			iPad5Air2           	=	ENVIRONS_PLATFORMS_IPAD5AIR2,
 		
 			/** iPhones */
-			iPhone_Flag         	=	0x4000,
-			iPhone4             	=	0x4041,
-			iPhone5             	=	0x4051,
-			iPhone6             	=	0x4061,
-			iPhone6p            	=	0x4062,
+			iPhone_Flag         	=	ENVIRONS_PLATFORMS_IPHONE_FLAG,
+			iPhone4             	=	ENVIRONS_PLATFORMS_IPHONE4,
+			iPhone5             	=	ENVIRONS_PLATFORMS_IPHONE5,
+			iPhone6             	=	ENVIRONS_PLATFORMS_IPHONE6,
+			iPhone6p            	=	ENVIRONS_PLATFORMS_IPHONE6P,
 		
 			/** MultiTaction Cells */
-			MultiTaction_Flag   	=	0x8000,
+			MultiTaction_Flag   	=	ENVIRONS_PLATFORMS_MULTITACTION_FLAG,
 			/** MultiTaction Cell 55. */
-			MultiTaction55      	=	0x8055,
+			MultiTaction55      	=	ENVIRONS_PLATFORMS_MULTITACTION55,
 		
-			OSX_Flag            	=	0x10000,
-			MacBook_Flag        	=	0x10010,
-			MacMini_Flag        	=	0x10020,
+			OSX_Flag            	=	ENVIRONS_PLATFORMS_OSX_FLAG,
+			MacBook_Flag        	=	ENVIRONS_PLATFORMS_MACBOOK_FLAG,
+			MacMini_Flag        	=	ENVIRONS_PLATFORMS_MACMINI_FLAG,
 		
-			Windows_Flag        	=	0x20000,
-			WindowsVista        	=	0x20050,
-			WindowsXP           	=	0x20060,
-			Windows7            	=	0x20070,
-			Windows8            	=	0x20080,
+			Windows_Flag        	=	ENVIRONS_PLATFORMS_WINDOWS_FLAG,
+			WindowsVista        	=	ENVIRONS_PLATFORMS_WINDOWSVISTA,
+			WindowsXP           	=	ENVIRONS_PLATFORMS_WINDOWSXP,
+			Windows7            	=	ENVIRONS_PLATFORMS_WINDOWS7,
+			Windows8            	=	ENVIRONS_PLATFORMS_WINDOWS8,
+			Windows10           	=	ENVIRONS_PLATFORMS_WINDOWS10,
 		
-			Tablet_Flag         	=	0x100000,
-			Smartphone_Flag     	=	0x200000,
-			Tabletop_Flag       	=	0x400000,
-			Display_Flag        	=	0x800000,
+			Tablet_Flag         	=	ENVIRONS_PLATFORMS_TABLET_FLAG,
+			Smartphone_Flag     	=	ENVIRONS_PLATFORMS_SMARTPHONE_FLAG,
+			Tabletop_Flag       	=	ENVIRONS_PLATFORMS_TABLETOP_FLAG,
+			Display_Flag        	=	ENVIRONS_PLATFORMS_DISPLAY_FLAG,
 		
-			LocationNode_Flag   	=	0x1000000,
+			LocationNode_Flag   	=	ENVIRONS_PLATFORMS_LOCATIONNODE_FLAG,
 		
 		
 		
@@ -1109,6 +1343,14 @@ namespace environs
 
 		
 		/*
+		 * Mediator device class types used for GetDevicesFrom ( type )
+		 * Mediator device class types used for GetDevicesFrom ( type )
+		 */
+		public const int MEDIATOR_DEVICE_CLASS_ALL                         =	(0);
+		public const int MEDIATOR_DEVICE_CLASS_NEARBY                      =	(1);
+		public const int MEDIATOR_DEVICE_CLASS_MEDIATOR                    =	(2);
+		
+		/*
 		 * Crypt declarations
 		 * Crypt declarations
 		 */
@@ -1120,14 +1362,20 @@ namespace environs
 		
 		public const int MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   =	(0xFFFF);
 		public const int DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  =	(MEDIATOR_CLIENT_MAX_BUFFER_SIZE);
-		/*
-		 * Mediator device class types used for GetDevicesFrom ( type )
-		 * Mediator device class types used for GetDevicesFrom ( type )
-		 */
-		public const int MEDIATOR_DEVICE_CLASS_ALL                         =	(0);
-		public const int MEDIATOR_DEVICE_CLASS_NEARBY                      =	(1);
-		public const int MEDIATOR_DEVICE_CLASS_MEDIATOR                    =	(2);
 		
+		
+		/**
+		 * Mediator device class types enumeration.
+		 * Mediator device class types enumeration.
+		 * */
+		public enum DeviceClass {
+			All                 	=	MEDIATOR_DEVICE_CLASS_ALL,
+			Nearby              	=	MEDIATOR_DEVICE_CLASS_NEARBY,
+			Mediator            	=	MEDIATOR_DEVICE_CLASS_MEDIATOR,
+		
+		}
+
+
 		
 		/**
 		 * Environs call flags
@@ -1137,6 +1385,19 @@ namespace environs
 		 */
 		public const int CALL_WAIT                                         =	(0);
 		public const int CALL_NOWAIT                                       =	(1);
+		
+		
+		/**
+		 * Environs call enumeration.
+		 * Environs call enumeration.
+		 * */
+		public enum Call {
+			Wait                	=	CALL_WAIT,
+			NoWait              	=	CALL_NOWAIT,
+		
+		}
+
+
 		
 		
 		/**
@@ -1155,6 +1416,20 @@ namespace environs
 		/** Call back with received ByteBuffer */
 		public const int RENDER_CALLBACK_TYPE_IMAGE                        =	(0x80);
 		
+		/**
+		 * Environs RENDER_CALLBACK_TYPES enumeration.
+		 * Environs RENDER_CALLBACK_TYPES enumeration.
+		 * */
+		public enum RenderCallbackType {
+			All                 	=	RENDER_CALLBACK_TYPE_ALL,
+			Init                	=	RENDER_CALLBACK_TYPE_INIT,
+			AvContext           	=	RENDER_CALLBACK_TYPE_AVCONTEXT,
+			Decoder             	=	RENDER_CALLBACK_TYPE_DECODER,
+			Image               	=	RENDER_CALLBACK_TYPE_IMAGE,
+		
+		}
+
+
 		
 		/**
 		 * Environs AVCONTEXT_TYPES
@@ -1167,6 +1442,18 @@ namespace environs
 		public const int DECODER_AVCONTEXT_TYPE_JPG                        =	(2);
 		public const int DECODER_AVCONTEXT_TYPE_PNG                        =	(3);
 		
+		/**
+		 * Environs AVCONTEXT_TYPES enumeration.
+		 * Environs AVCONTEXT_TYPES enumeration.
+		 * */
+		public enum DecoderContextType {
+			AvContext           	=	DECODER_AVCONTEXT_TYPE_AVCONTEXT,
+			Jpg                 	=	DECODER_AVCONTEXT_TYPE_JPG,
+			Png                 	=	DECODER_AVCONTEXT_TYPE_PNG,
+		
+		}
+
+
 		
 		/**
 		 * Environs AVCONTEXT_SUBTYPES
@@ -1203,6 +1490,28 @@ namespace environs
 		public const int ENVIRONS_SENSOR_TYPE_MAX                          =	(8);
 		
 		public const int MAX_ENVIRONS_SENSOR_TYPE_VALUE                    =	(0x100);
+		
+		/**
+		 * Sensor type enumeration.
+		 * Sensor type enumeration.
+		 * */
+		public enum SensorType {
+			All                 	=	-1,
+			Accelerometer       	=	ENVIRONS_SENSOR_TYPE_ACCELEROMETER,
+			MagneticField       	=	ENVIRONS_SENSOR_TYPE_MAGNETICFIELD,
+			Gyroscope           	=	ENVIRONS_SENSOR_TYPE_GYROSCOPE,
+			Orientation         	=	ENVIRONS_SENSOR_TYPE_ORIENTATION,
+			Light               	=	ENVIRONS_SENSOR_TYPE_LIGHT,
+			Location            	=	ENVIRONS_SENSOR_TYPE_LOCATION,
+			Altimeter           	=	ENVIRONS_SENSOR_TYPE_ALTIMETER,
+			Heartrate           	=	ENVIRONS_SENSOR_TYPE_HEARTRATE,
+			Max                 	=	ENVIRONS_SENSOR_TYPE_MAX,
+			Unknown             	=	MAX_ENVIRONS_SENSOR_TYPE_VALUE,
+		
+		}
+
+
+		
 		public const int ENVIRONS_SENSOR_PACK_TYPE_EXT                     =	(0x10000);
 		
 		public const int ENVIRONS_SENSOR_FLAG_ACCELEROMETER                =	(0x1);
@@ -1215,6 +1524,7 @@ namespace environs
 		
 		public const int ENVIRONS_SENSOR_FLAG_ALTIMETER                    =	(0x40);
 		public const int ENVIRONS_SENSOR_FLAG_HEARTRATE                    =	(0x80);
+		
 		
 		
 		

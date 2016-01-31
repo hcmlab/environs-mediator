@@ -35,6 +35,7 @@ namespace environs
 {
     typedef void (CallConv * pOPENSSL_add_all_algorithms_noconf)(void);
     typedef void (CallConv * pOPENSSL_add_all_algorithms_conf)(void);
+    typedef void (CallConv * pOpenSSL_add_all_algorithms)(void);
     
     typedef void (CallConv * pERR_load_ERR_strings)(void);
     typedef void (CallConv * pERR_load_crypto_strings)(void);
@@ -173,10 +174,11 @@ namespace environs
 	extern bool InitLibOpenSSL ( Instance * env );
 #endif
     
-	extern bool								openssl_LibInitialized;
+	extern bool									openssl_LibInitialized;
 
     extern pOPENSSL_add_all_algorithms_noconf   dOPENSSL_add_all_algorithms_noconf;
     extern pOPENSSL_add_all_algorithms_conf     dOPENSSL_add_all_algorithms_conf;
+    extern pOpenSSL_add_all_algorithms			dOpenSSL_add_all_algorithms;
     
     extern pERR_load_ERR_strings                dERR_load_ERR_strings;
     extern pERR_load_crypto_strings             dERR_load_crypto_strings;

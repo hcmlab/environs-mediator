@@ -102,10 +102,12 @@ int _getch ( )
 
 // Forward declarations
 
-bool				stdlog = true;
+bool				stdlog          = true;
 bool				logging;
 ofstream			logfile;
 pthread_mutex_t     logMutex;
+
+bool                printStdOut     = true;
 
 static queue<NotifyQueueContext *> notifyQueue;
 
@@ -213,6 +215,24 @@ bool CloseThreadSocket ( SOCKETSYNC * psock )
 }
 
 #endif
+
+unsigned int GetBitMask ( unsigned int network )
+{
+	unsigned int test = network;
+	unsigned int mask = 0;
+
+	for ( int i = 0; i < sizeof ( unsigned int ) * 8; i++ ) {
+		if ( 0x80000000 & test ) {
+			break;
+		}
+		test <<= 1;
+
+		mask >>= 1;
+		mask |= 0x80000000;
+	}
+
+	return ~mask;
+}
 
 
 bool ThreadInstance::Init ()
@@ -423,6 +443,7 @@ MediatorDaemon::MediatorDaemon ()
     notifyTargets       .clear ();
 
 	networkOK			= 0xFFFFFFFF;
+	networkMask			= 0xFFFFFFFF;
 	checkLast			= 0;
 
 	usersDBDirty		= false;
@@ -649,6 +670,8 @@ bool MediatorDaemon::LoadConfig ()
 				struct sockaddr_in addr;
 				inet_pton ( AF_INET, svalue.c_str (), &( addr.sin_addr ) );
 				networkOK = ( unsigned int ) addr.sin_addr.s_addr;
+
+				networkMask = GetBitMask ( networkOK );
 			}
 		}
 		else if ( str [ 0 ] == 'B' && str [ 1 ] == ':' ) {
@@ -1493,7 +1516,10 @@ bool MediatorDaemon::IsIpBanned ( unsigned int ip )
 
 	bool banned = false;
 
-	if ( (ip & 0x00FFFFFF) == networkOK ) {
+	if ( networkOK == 0xFFFFFFFF )
+		return false;
+
+	if ( (ip & networkMask ) == networkOK ) {
 		CVerb ( "IsIpBanned: IP is OK!" );
 		return false;
 	}
@@ -1535,7 +1561,10 @@ void MediatorDaemon::BannIP ( unsigned int ip )
 {
 	CVerbArg ( "BannIP: [%s]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 
-	if ( (ip & 0x00FFFFFF) == networkOK ) {
+	if ( networkOK == 0xFFFFFFFF )
+		return;
+
+	if ( (ip & networkMask ) == networkOK ) {
 		CVerb ( "IsIpBanned: IP is OK!" );
 		return;
     }
@@ -1552,6 +1581,10 @@ void MediatorDaemon::BannIP ( unsigned int ip )
         std::time_t t = std::time(0);
         
         bannedIPs [ ip ] = t;
+        
+        if ( printStdOut ) {
+            printf ( "Banned ip : [ %s ]\n", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+        }
     }
     
     MutexUnlockVA ( bannedIPsLock, "IsIpBanned" );
@@ -1580,6 +1613,10 @@ void MediatorDaemon::BannIPRemove ( unsigned int ip )
         const std::map<unsigned int, unsigned int>::iterator itert = bannedIPConnects.find ( ip );
         if ( itert != bannedIPConnects.end () )
             bannedIPConnects.erase ( itert );
+        
+        if ( printStdOut ) {
+            printf ( "Removed from banned list ip : [ %s ]\n", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+        }
     }
     
     MutexUnlockVA ( bannedIPsLock, "IsIpBanned" );
@@ -2675,8 +2712,6 @@ Finish:
 
 	return appDevices;
 }
-
-bool printStdOut    = true;
 
 
 void printDevice ( DeviceInstanceNode * device )

@@ -66,7 +66,7 @@ namespace environs
 
 		virtual bool					disposed () = 0;
 
-        virtual void					SetListType ( int MEDIATOR_DEVICE_CLASS_ ) = 0;
+        virtual void					SetListType ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ ) = 0;
         
         virtual void					SetIsUIAdapter ( bool enable ) = 0;
 
@@ -74,7 +74,7 @@ namespace environs
 		virtual void					RemoveObserver ( ListObserver * observer ) = 0;
 
 
-		sp ( DeviceInstance )  GetItem ( int pos )
+		sp ( DeviceInstance )			GetItem ( int pos )
 		{
 			ENVIRONS_IR_SP1_RETURN ( DeviceInstance, GetItemRetained ( pos ) );
 		}

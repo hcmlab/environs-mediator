@@ -122,7 +122,7 @@ namespace environs
 
 		if ( GetFileSizeEx( handle, &size ) )
 		{
-			fileSize = size.QuadPart;
+			fileSize = (size_t) size.QuadPart;
 		}
 
 		CloseHandle ( handle );

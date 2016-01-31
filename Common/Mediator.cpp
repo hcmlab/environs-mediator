@@ -230,6 +230,7 @@ namespace environs
 		allocated               = false;
 
 		isRunning 				= false;
+		aliveRunning			= false;
 		broadcastSocketID 		= -1;
 
 		broadcastMessageLen		= 0;
@@ -340,7 +341,8 @@ namespace environs
 	{
 		CVerb ( "Dispose" );
 
-		isRunning = false;
+		isRunning		= false;
+		aliveRunning	= false;
 
 		// Wait for each thread to terminate
 		ReleaseThreads ();
@@ -423,10 +425,11 @@ namespace environs
 		CVerb ( "ReleaseThreads" );
 
 		int value;
-		bool ret = true;
+		bool ret		= true;
 
 		// Signal stop status to threads
-		isRunning = false;
+		isRunning		= false;
+		aliveRunning	= false;
 
 		// Close broadcast listener socket
 		value = broadcastSocketID;
@@ -439,22 +442,6 @@ namespace environs
 
 		// Waiting for broadcast thread
         broadcastThread.Join ( "Mediator.ReleaseThreads" );
-		/*pthread_t thrd = broadcastThreadID;
-
-		if ( pthread_valid ( thrd ) ) {
-			pthread_reset ( broadcastThreadID );
-
-			CVerb ( "ReleaseThreads: Waiting for broadcast thread to be termianted." );
-
-			value = pthread_join ( thrd, NULL );
-			if ( pthread_wait_fail ( value ) ) {
-				CErrArg ( "ReleaseThreads: Error waiting for broadcast thread (pthread_join:%i)\n", value );
-				ret = false;
-			}
-
-			pthread_close ( thrd );
-		}
-        */
 
 		return ret;
 	}
@@ -958,9 +945,16 @@ namespace environs
 
             unsigned int isGW = 0;
             
-            if ( *gw && !strncmp ( gw, ifreqs [ i ].ifr_name, sizeof(gw) ) ) {
-                CLogArg ( "LoadNetworks: Default interface found [%s]", gw );
-                isGW = 1;
+            
+            if ( *gw ) {
+                if ( !strncmp ( gw, ifreqs [ i ].ifr_name, sizeof(gw) ) ) {
+                    CLogArg ( "LoadNetworks: Default interface found [%s]", gw );
+                    isGW = 1;
+                }
+            }
+            else {
+                if ( strstr ( ifreqs [ i ].ifr_name, "wlan" ) )
+                    isGW = 1;
             }
             
 			// Retrieve netmask	
@@ -1024,9 +1018,9 @@ namespace environs
 					continue;
 				}
 
-#ifdef XCODE
+#if ( defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX) )
 				// Skip any connection but ethernet en...
-				if ( !strstr ( ifa->ifa_name, "en" ) ) {
+				if ( !strstr ( ifa->ifa_name, "en") ) {
 					CVerbArg ( "LoadNetworks: Not an ethernet interface. Ommiting [%s]", ifa->ifa_name ? ifa->ifa_name : "---" );
 					continue;
 				}
@@ -1068,6 +1062,7 @@ namespace environs
 	EndOfMethod:
 		MutexUnlockVA ( localNetsLock, "LoadNetworks" );
 
+		CVerbVerb ( "LoadNetworks: Done." );
 		return true;
 	}
 
@@ -1170,14 +1165,6 @@ namespace environs
 			/// Create broadcast thread
             if ( !broadcastThread.Run(pthread_make_routine(BroadcastThreadStarter), ( void * )this, "Mediator.Start", true ) )
                 return false;
-			/*int s = pthread_create ( &broadcastThreadID, 0, BroadcastThreadStarter, ( void * )this );
-			if ( s ) {
-				CErrArg ( "Start: Creating thread for broadcast failed. (pthread_create [%i])", s );
-				return false;
-			}
-            
-
-			Sleep ( 300 );*/
 		}
 
 		OnStarted ();
@@ -1200,6 +1187,11 @@ namespace environs
 
 		if ( broadcastSocketID == -1 )
 			return false;
+
+#ifndef MEDIATORDAEMON
+		if ( native.networkStatus < NETWORK_CONNECTION_NO_INTERNET )
+			return false;
+#endif
 
 		bool ret = true;
 		size_t sentBytes = 0;
@@ -1365,7 +1357,7 @@ namespace environs
 				device = *listRoot;
 				continue;
 			}
-
+            
 			device = device->next;
 		}
 

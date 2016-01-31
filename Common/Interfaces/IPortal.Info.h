@@ -63,7 +63,7 @@ namespace environs
 #endif
         virtual std::string toString ( ) = 0;
         
-        virtual void NotifyObservers ( int notification ) = 0;
+        virtual void NotifyObservers ( environs::Notify::Portale_t notification ) = 0;
         
         virtual void SetSize ( int width, int height ) = 0;
         
@@ -75,7 +75,7 @@ namespace environs
         virtual void Set ( int centerX, int centerY, float angle, int width, int height ) = 0;
         
         
-        virtual bool Update ( int notification, PortalInfoBase * info ) = 0;
+        virtual bool Update ( environs::Notify::Portale_t notification, PortalInfoBase * info ) = 0;
 	};
 
 } /* namepace Environs */

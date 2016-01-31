@@ -1,6 +1,9 @@
-### v 0.9.7 unreleased
+### v 0.9.7.0
 
 ---------------------------
+
+* Disabled: Threadname assignment
+* Fixed: Bug in MediatorDaemon and ip bann
 
 
 ### v 0.9.6.8

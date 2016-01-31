@@ -45,6 +45,8 @@ namespace environs
 
 	public static String resolveName ( int constToResolve ) {
 		switch ( constToResolve ) {
+			case ( -1 ):
+				return "STATUS_DISPOSED";
 			case ( 0 ):
 				return "STATUS_UNINITIALIZED";
 			case ( 1 ):
@@ -171,6 +173,8 @@ namespace environs
 				return "MSG_HANDSHAKE_CONNECTED";
 			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xB ):
 				return "MSG_HANDSHAKE_DISCONNECTED";
+			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 0xC ):
+				return "MSG_HANDSHAKE_PING";
 			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 6 ):
 				return "MSG_HANDSHAKE_UDP";
 			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_PROC | 7 ):
@@ -943,6 +947,88 @@ namespace environs
 
 
 		switch ( constToResolve ) {
+			case ( 0 ):
+				return "INTERFACE_TYPE_UNKNOWN";
+			case ( 1 ):
+				return "INTERFACE_TYPE_CAPTURE";
+			case ( 2 ):
+				return "INTERFACE_TYPE_RENDER";
+			case ( 3 ):
+				return "INTERFACE_TYPE_ENCODER";
+			case ( 4 ):
+				return "INTERFACE_TYPE_DECODER";
+			case ( 5 ):
+				return "INTERFACE_TYPE_TRACKER";
+			case ( 10 ):
+				return "INTERFACE_TYPE_INPUT_RECOGNIZER";
+			case ( 11 ):
+				return "INTERFACE_TYPE_ORIENTATION_RECOGNIZER";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0 ):
+				return "CAPTURE_TYPE_UNKNOWN";
+			case ( 1 ):
+				return "CAPTURE_TYPE_SCREEN";
+			case ( 2 ):
+				return "CAPTURE_TYPE_APP_WINDOW";
+			case ( 6 ):
+				return "CAPTURE_TYPE_CAMERA";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0 ):
+				return "PORTAL_BUFFERTYPE_UNKNOWN";
+			case ( 0x1 ):
+				return "PORTAL_BUFFERTYPE_ARGB";
+			case ( 0x2 ):
+				return "PORTAL_BUFFERTYPE_ARGB_HANDLE";
+			case ( 0x3 ):
+				return "PORTAL_BUFFERTYPE_BGRA";
+			case ( 0x4 ):
+				return "PORTAL_BUFFERTYPE_RGB";
+			case ( 0x10 ):
+				return "PORTAL_BUFFERTYPE_YUV420";
+			case ( 0x12 ):
+				return "PORTAL_BUFFERTYPE_YV12";
+			case ( 0x14 ):
+				return "PORTAL_BUFFERTYPE_YUV2";
+			case ( 0x100 ):
+				return "PORTAL_BUFFERTYPE_GDI_BITMAP";
+			case ( 0x1000 ):
+				return "PORTAL_BUFFERTYPE_TEXTURE_3D";
+			case ( 0x2000 ):
+				return "PORTAL_BUFFERTYPE_PIXELBUFFER_3D";
+			case ( 0x3000 ):
+				return "PORTAL_BUFFERTYPE_CVPIXELBUFFER_IOSX";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0 ):
+				return "CAPTURE_BUFFERTYPE_UNKNOWN";
+			case ( 1 ):
+				return "CAPTURE_BUFFERTYPE_PIXELBUFFER";
+			case ( 10 ):
+				return "CAPTURE_BUFFERTYPE_TEXTURE_3D";
+			case ( 11 ):
+				return "CAPTURE_BUFFERTYPE_PIXELBUFFER_3D";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0 ):
+				return "ENCODER_BUFFERTYPE_UNKNOWN";
+			case ( 1 ):
+				return "ENCODER_BUFFERTYPE_ARGB";
+			case ( 10 ):
+				return "ENCODER_BUFFERTYPE_YUV420";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
 			case ( -1 ):
 				return "RECOGNIZER_GIVE_BACK_INPUTS";
 			case ( 0 ):
@@ -955,6 +1041,10 @@ namespace environs
 
 
 		switch ( constToResolve ) {
+			case ( -3 ):
+				return "NETWORK_CONNECTION_TRIGGER_UPDATE";
+			case ( -2 ):
+				return "NETWORK_CONNECTION_UNKNOWN";
 			case ( -1 ):
 				return "NETWORK_CONNECTION_NO_NETWORK";
 			case ( 0 ):
@@ -1039,6 +1129,90 @@ namespace environs
 
 
 		switch ( constToResolve ) {
+			case ( 0 ):
+				return "ENVIRONS_PLATFORMS_UNKNOWN";
+			case ( 0x1000 ):
+				return "ENVIRONS_PLATFORMS_MSSURFACE_FLAG";
+			case ( 0x1001 ):
+				return "ENVIRONS_PLATFORMS_MSSUR01";
+			case ( 0x1002 ):
+				return "ENVIRONS_PLATFORMS_SAMSUR40";
+			case ( 0x2000 ):
+				return "ENVIRONS_PLATFORMS_IPAD_FLAG";
+			case ( 0x2011 ):
+				return "ENVIRONS_PLATFORMS_IPAD1";
+			case ( 0x2021 ):
+				return "ENVIRONS_PLATFORMS_IPAD2";
+			case ( 0x2022 ):
+				return "ENVIRONS_PLATFORMS_IPAD2MINI";
+			case ( 0x2031 ):
+				return "ENVIRONS_PLATFORMS_IPAD3";
+			case ( 0x2041 ):
+				return "ENVIRONS_PLATFORMS_IPAD4";
+			case ( 0x2042 ):
+				return "ENVIRONS_PLATFORMS_IPAD4AIR";
+			case ( 0x2043 ):
+				return "ENVIRONS_PLATFORMS_IPAD4MINI";
+			case ( 0x2044 ):
+				return "ENVIRONS_PLATFORMS_IPAD4MINI3";
+			case ( 0x2051 ):
+				return "ENVIRONS_PLATFORMS_IPAD5AIR2";
+			case ( 0x4000 ):
+				return "ENVIRONS_PLATFORMS_IPHONE_FLAG";
+			case ( 0x4041 ):
+				return "ENVIRONS_PLATFORMS_IPHONE4";
+			case ( 0x4051 ):
+				return "ENVIRONS_PLATFORMS_IPHONE5";
+			case ( 0x4061 ):
+				return "ENVIRONS_PLATFORMS_IPHONE6";
+			case ( 0x4062 ):
+				return "ENVIRONS_PLATFORMS_IPHONE6P";
+			case ( 0x8000 ):
+				return "ENVIRONS_PLATFORMS_MULTITACTION_FLAG";
+			case ( 0x8055 ):
+				return "ENVIRONS_PLATFORMS_MULTITACTION55";
+			case ( 0x10000 ):
+				return "ENVIRONS_PLATFORMS_OSX_FLAG";
+			case ( 0x10010 ):
+				return "ENVIRONS_PLATFORMS_MACBOOK_FLAG";
+			case ( 0x10020 ):
+				return "ENVIRONS_PLATFORMS_MACMINI_FLAG";
+			case ( 0x20000 ):
+				return "ENVIRONS_PLATFORMS_WINDOWS_FLAG";
+			case ( 0x20050 ):
+				return "ENVIRONS_PLATFORMS_WINDOWSVISTA";
+			case ( 0x20060 ):
+				return "ENVIRONS_PLATFORMS_WINDOWSXP";
+			case ( 0x20070 ):
+				return "ENVIRONS_PLATFORMS_WINDOWS7";
+			case ( 0x20080 ):
+				return "ENVIRONS_PLATFORMS_WINDOWS8";
+			case ( 0x20100 ):
+				return "ENVIRONS_PLATFORMS_WINDOWS10";
+			case ( 0x100000 ):
+				return "ENVIRONS_PLATFORMS_TABLET_FLAG";
+			case ( 0x200000 ):
+				return "ENVIRONS_PLATFORMS_SMARTPHONE_FLAG";
+			case ( 0x400000 ):
+				return "ENVIRONS_PLATFORMS_TABLETOP_FLAG";
+			case ( 0x800000 ):
+				return "ENVIRONS_PLATFORMS_DISPLAY_FLAG";
+			case ( 0x1000000 ):
+				return "ENVIRONS_PLATFORMS_LOCATIONNODE_FLAG";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0 ):
+				return "MEDIATOR_DEVICE_CLASS_ALL";
+			case ( 1 ):
+				return "MEDIATOR_DEVICE_CLASS_NEARBY";
+			case ( 2 ):
+				return "MEDIATOR_DEVICE_CLASS_MEDIATOR";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
 			case ( 2048 ):
 				return "ENVIRONS_DEVICES_KEYSIZE";
 			case ( (1 << 24) ):
@@ -1054,16 +1228,6 @@ namespace environs
 			return "MEDIATOR_CLIENT_MAX_BUFFER_SIZE";
 		if ( constToResolve == ( MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) )
 			return "DEVICE_HANDSHAKE_BUFFER_MAX_SIZE";
-
-
-		switch ( constToResolve ) {
-			case ( 0 ):
-				return "MEDIATOR_DEVICE_CLASS_ALL";
-			case ( 1 ):
-				return "MEDIATOR_DEVICE_CLASS_NEARBY";
-			case ( 2 ):
-				return "MEDIATOR_DEVICE_CLASS_MEDIATOR";
-		} /// -> switch
 
 
 		switch ( constToResolve ) {

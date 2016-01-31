@@ -64,7 +64,7 @@ namespace environs
 	class DeviceInstance : public lib::IEnvironsDispose
 	{
 	public:
-		DeviceInstance () : appContext0 ( 0 ), appContext1 ( 0 ), appContext2 ( 0 ), appContext3 ( 0 ) { };
+		DeviceInstance () : appContext0 ( 0 ), appContext1 ( 0 ), appContext2 ( 0 ), appContext3 ( 0 ), async ( environs::Call::Wait ) { };
 		virtual ~DeviceInstance () { };
 
 		/** The device properties structure into a DeviceInfo object. */
@@ -77,8 +77,8 @@ namespace environs
 		void *                  appContext2;
 		void *                  appContext3;
 
-		/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-		bool					async;
+		/** Perform the tasks asynchronously. If set to Environs.Call.Wait, the commands will block (if possible) until the task finishes. */
+		environs::Call_t		async;
 
 		/**
 		* Release ownership on this interface and mark it disposeable.
@@ -191,8 +191,6 @@ namespace environs
 		/**
 		* Connect to this device asynchronously.
 		*
-		* @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
-		*
 		* @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
 		* 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
 		* 					true: A new connection has been triggered and is in progress
@@ -202,11 +200,13 @@ namespace environs
 		/**
 		* Connect to this device using the given mode.
 		*
+		* @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
+		*
 		* @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
 		* 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
 		* 					true: A new connection has been triggered and is in progress
 		*/
-		virtual bool Connect ( int Environs_CALL_ ) = 0;
+		virtual bool Connect ( environs::Call_t Environs_CALL_ ) = 0;
 
 		/**
 		* Disconnect the device with the given id and a particular application environment.
@@ -222,7 +222,7 @@ namespace environs
 		*
 		* @return	success		true: Connection has been shut down; false: Device with deviceID is not connected.
 		*/
-		virtual bool Disconnect ( int Environs_CALL_ ) = 0;
+		virtual bool Disconnect ( environs::Call_t Environs_CALL_ ) = 0;
 
 		/**
 		* Retrieve display properties and dimensions of this device. The device must be connected before this object is available.
@@ -342,7 +342,7 @@ namespace environs
 		* @param length			Length of the message to send.
 		* @return success
 		*/
-		virtual bool SendMessage ( int async, const char * msg, int length ) = 0;
+		virtual bool SendMessage ( environs::Call_t async, const char * msg, int length ) = 0;
 
 		/**
 		* Send a string message to a device through one of the following ways.&nbsp;
@@ -375,11 +375,11 @@ namespace environs
 		* or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
 		* a registered EnvironsObserver instance.
 		*
-		* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+		* @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 		* @param message		A message to be send.
 		* @return success
 		*/
-		virtual bool SendMessage ( int async, const char * message ) = 0;
+		virtual bool SendMessage ( environs::Call_t async, const char * message ) = 0;
 
 		/**
 		* Clear (Delete permanently) all messages for this DeviceInstance in the persistent storage.
@@ -433,13 +433,21 @@ namespace environs
 		* Enable sending of sensor events to this DeviceInstance.
 		* Events are send if the device is connected and stopped if the device is disconnected.
 		*
-		* @param ENVIRONS_SENSOR_TYPE_ A value of type ENVIRONS_SENSOR_TYPE_*.
+		* @param type	A value of type environs::SensorType_t.
 		* @param enable true = enable, false = disable.
 		*
 		* @return success true = enabled, false = failed.
 		*/
-		virtual bool SetSensorEventSending ( int ENVIRONS_SENSOR_TYPE_, bool enable ) = 0;
+		virtual bool SetSensorEventSending ( environs::SensorType_t type, bool enable ) = 0;
 
+		/**
+		* Query whether sending of the given sensor events to this DeviceInstance is enabled or not.
+		*
+		* @param type	A value of type environs::SensorType_t.
+		*
+		* @return success true = enabled, false = disabled.
+		*/
+		virtual bool IsSetSensorEventSending ( environs::SensorType_t type ) = 0;
 
 	private:
 		/**

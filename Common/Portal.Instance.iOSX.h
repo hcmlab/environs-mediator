@@ -50,8 +50,13 @@
 {
 }
 
+#ifdef __cplusplus
 /** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-@property (nonatomic) int								async;
+@property (nonatomic) environs::Call_t					async;
+
+@property (readonly, nonatomic) environs::PortalStatus_t  status;
+
+#endif
 
 /** An ID that identifies this portal across all available portals. */
 @property (readonly, nonatomic) int                     portalID;
@@ -62,7 +67,6 @@
 /** A DeviceInstance object that this portal relates to. */
 @property (readonly, nonatomic) id                      device;
 
-@property (readonly, nonatomic) int                     status;
 @property (readonly, nonatomic) bool                    disposeOngoing;
 
 @property (nonatomic) bool								startIfPossible;
@@ -85,22 +89,23 @@
 @property (readonly, nonatomic) environs::PortalInfo *  info;
 @property (nonatomic) environs::PortalType_t  portalType;
 
-- (environs::PortalInfoBase *) GetPortalInfo:(int)portalID;
-- (bool) SetPortalInfo:(environs::PortalInfoBase *)infoBase;
+- (environs::PortalInfoBase *) GetPortalInfo : (int)portalID;
+
+- (bool) SetPortalInfo : (environs::PortalInfoBase *)infoBase;
 
 #endif
 
 
-- (void) AddObserver:(id<PortalObserver>) observer;
-- (void) RemoveObserver:(id<PortalObserver>) observer;
+- (void) AddObserver : (id<PortalObserver>) observer;
+- (void) RemoveObserver : (id<PortalObserver>) observer;
 
-- (bool) Establish:(bool) askForType;
+- (bool) Establish : (bool) askForType;
 
 - (bool) Start;
 - (bool) Stop;
 
-- (bool) SetRenderSurface:(id)surface;
-- (bool) SetRenderSurface:(id)surface Width:(int)width Height:(int)height;
+- (bool) SetRenderSurface : (id)surface;
+- (bool) SetRenderSurface : (id)surface Width:(int)width Height:(int)height;
 - (bool) ReleaseRenderSurface;
 
 - (PortalInstance *) GetPortal:(int)nativeID  PortalID:(int)portalID;

@@ -120,6 +120,20 @@
 #   endif
 #endif
 
+#ifdef MEDIATORDAEMON
+#	ifndef DEBUGVERB
+#		ifdef CVerb
+#			undef CVerb
+#		endif
+#		define CVerb(msg)
+
+#		ifdef CVerbArg
+#			undef CVerbArg
+#		endif
+#		define CVerbArg(msg,...)
+#	endif
+#endif
+
 #ifdef USE_PTHREADS_FOR_WINDOWS
 #   pragma comment ( lib, "pthreadVC2.lib" )
 #endif

@@ -41,7 +41,7 @@ namespace environs
         
         /** Perform calls to the Environs object asynchronously. If set to Environs.CALL_WAIT, then all commands will block until the call finishes.
          * If set to Environs.CALL_NOWAIT, then certain calls (which may take longer) will be performed asynchronously. */
-        bool					async;
+        Call_t					async;
         
 		/**
 		* Construction of Environs objects have to be done using Environs.CreateInstance() or Environs.New()
@@ -531,17 +531,17 @@ namespace environs
 		/**
 		* Query the filter level for device management within Environs.
 		*
-		* return   level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
+		* return   level	can be one of the values of environs::MediatorFilter
 		*/
-		virtual int GetMediatorFilterLevel () = 0;
+		virtual environs::MediatorFilter_t GetMediatorFilterLevel () = 0;
 
 
 		/**
 		* Set the filter level for device management within Environs.
 		*
-		* @param   level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
+		* @param   level	can be one of the values of environs::MediatorFilter
 		*/
-		virtual void SetMediatorFilterLevel ( int level ) = 0;
+		virtual void SetMediatorFilterLevel ( MediatorFilter_t level ) = 0;
 
 
 		/**
@@ -613,9 +613,9 @@ namespace environs
 		/**
 		* Query the status of Environs.&nsbp;Valid values are Types.NATIVE_STATUS_*
 		*
-		* @return  Environs.NATIVE_STATUS_*
+		* @return  Environs.Status
 		*/
-		virtual int GetStatus () = 0;
+		virtual environs::Status_t GetStatus () = 0;
 
 
 		/**
@@ -758,13 +758,13 @@ namespace environs
 		virtual bool SetUseTouchRecognizer ( const char * name, bool enable ) = 0;
 
 
-		virtual int SetUseTracker ( int async, const char * name ) = 0;
+		virtual int SetUseTracker ( Call_t async, const char * name ) = 0;
 
 		virtual int GetUseTracker ( const char * name ) = 0;
 
-		virtual bool DisposeTracker ( int async, const char * name ) = 0;
+		virtual bool DisposeTracker ( Call_t async, const char * name ) = 0;
 
-		virtual bool PushTrackerCommand ( int async, int moduleIndex, int command ) = 0;
+		virtual bool PushTrackerCommand ( Call_t async, int moduleIndex, int command ) = 0;
 
 
 		/**
@@ -854,12 +854,12 @@ namespace environs
 		*
 		* @return Collection of IDeviceInstance objects
 		*/
-        sp ( DeviceList ) CreateDeviceList ( int MEDIATOR_DEVICE_CLASS_ )
+        sp ( DeviceList ) CreateDeviceList ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ )
 		{
 			ENVIRONS_IR_SP1_RETURN ( DeviceList, CreateDeviceListRetained ( MEDIATOR_DEVICE_CLASS_ ) );
 		}
 
-		virtual DeviceList OBJ_ptr CreateDeviceListRetained ( int MEDIATOR_DEVICE_CLASS_ ) = 0;
+        virtual DeviceList OBJ_ptr CreateDeviceListRetained ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ ) = 0;
 
 
 		virtual bool GetPortalNativeResolution () = 0;
@@ -883,7 +883,7 @@ namespace environs
          * 					1: A connection to the device already exists or a connection task is already in progress) &nbsp;
          * 					2: A new connection has been triggered and is in progress
          */
-        virtual int DeviceConnect ( int deviceID, const char * areaName, const char * appName, int async ) = 0;
+        virtual int DeviceConnect ( int deviceID, const char * areaName, const char * appName, Call_t async ) = 0;
         
         
         /**
@@ -895,7 +895,7 @@ namespace environs
          * @param callbackType	A value of type RENDER_CALLBACK_TYPE_* that tells the portal receiver what we actually can render..
          * @return				true = success, false = failed.
          */
-        virtual bool SetRenderCallback ( int async, int portalID, void * callback, int callbackType ) = 0;
+        virtual bool SetRenderCallback ( Call_t async, int portalID, void * callback, RenderCallbackType_t callbackType ) = 0;
         
         
         /**
@@ -906,7 +906,7 @@ namespace environs
          * @param callback		A delegate that manages the callback.
          * @return				true = success, false = failed.
          */
-        virtual bool ReleaseRenderCallback ( int async, int portalID ) = 0;
+        virtual bool ReleaseRenderCallback ( Call_t async, int portalID ) = 0;
         
         /**
          * Start streaming of portal to or from the portal identifier (received in notification).
@@ -916,7 +916,7 @@ namespace environs
          *
          * @return success
          */
-        virtual bool StartPortalStream ( int async, int portalID ) = 0;
+        virtual bool StartPortalStream ( Call_t async, int portalID ) = 0;
         
         
         /**
@@ -929,7 +929,7 @@ namespace environs
          * 					    Applications should store them in order to address the correct portal within Environs.
          * @return success
          */
-        virtual bool StopPortalStream ( int async, int nativeID, int portalID ) = 0;
+        virtual bool StopPortalStream ( Call_t async, int nativeID, int portalID ) = 0;
         
         
         /**

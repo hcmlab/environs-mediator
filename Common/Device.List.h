@@ -97,7 +97,7 @@ namespace environs
             
 			pthread_mutex_t_ptr											lock;
             
-			devList ( DeviceInstanceEP )							deviceList;
+			devList ( DeviceInstanceEP )								deviceList;
 			NLayerVecTypeObj ( DeviceListQueueItem )                    items;
 
 			NLayerListTypeObj ( DeviceInstanceUpdateContext ) OBJ_ptr 	updates;
@@ -121,9 +121,6 @@ namespace environs
         public:
 			ENVIRONS_LIB_API DeviceList ();
 			ENVIRONS_LIB_API ~DeviceList ();
-
-			static bool				GlobalsInit ();
-			static void				GlobalsDispose ();
         
             /**
              * Dispose device list.
@@ -133,11 +130,11 @@ namespace environs
         
 			ENVIRONS_LIB_API bool	disposed ();
 
-            ENVIRONS_LIB_API void	SetListType ( int MEDIATOR_DEVICE_CLASS_ );
+            ENVIRONS_LIB_API void	SetListType ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ );
         
             ENVIRONS_LIB_API void	SetIsUIAdapter ( bool enable );
 
-			DeviceInstanceESP	GetItem ( int position );
+			DeviceInstanceESP		GetItem ( int position );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstance * GetItemRetained ( int position );
@@ -148,7 +145,7 @@ namespace environs
 			ENVIRONS_LIB_API void	AddObserver ( environs::ListObserverPtr observer );
 			ENVIRONS_LIB_API void	RemoveObserver ( environs::ListObserverPtr observer );
 
-			DeviceInstanceESP   RefreshItem ( DeviceInstanceEPtr source, DeviceObserverPtr observer );
+			DeviceInstanceESP		RefreshItem ( DeviceInstanceEPtr source, DeviceObserverPtr observer );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstancePtr RefreshItemRetained ( environs::DeviceInstancePtr source, environs::DeviceObserverPtr observer );
@@ -350,23 +347,22 @@ namespace environs
 #endif
 			environs::lib::EnvironsPtr		envObj;
 
-			static bool                     globalsInit INIT_to_false_in_cli;
 			bool                            disposed_;
-			int                             listType;
+			environs::DeviceClass_t         listType;
 
-			pthread_mutex_t_ptr					listDevicesLock;
+			pthread_mutex_t_ptr				listDevicesLock;
 
-			devList ( DeviceInstanceEP )  listDevices;
+			devList ( DeviceInstanceEP )	listDevices;
 
 #ifdef CLI_CPP
-			spv ( lib::ListObserverPtr )		listDevicesObservers;
+			spv ( lib::ListObserverPtr )	listDevicesObservers;
 #else
-			spv ( lib::IIListObserver * )		listDevicesObservers;
+			spv ( lib::IIListObserver * )	listDevicesObservers;
 #endif            
 
 			void                            PlatformDispose ();
 
-			c_const devList ( DeviceInstanceEP ) c_ref GetDevices ( int type );
+			c_const devList ( DeviceInstanceEP ) c_ref GetDevices ( environs::DeviceClass_t type );
 
 			static DeviceInstanceESP GetDevice ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr lock, int deviceID, CString_ptr areaName, CString_ptr appName, int * pos );
 

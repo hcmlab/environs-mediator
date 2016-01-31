@@ -48,8 +48,12 @@
  * */
 @property (readonly, nonatomic) bool			disposed;
 
-/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-@property (nonatomic) int						async;
+#ifdef __cplusplus
+
+/** Perform the tasks asynchronously. If set to Environs::Call, the commands will block (if possible) until the task finishes. */
+@property (nonatomic) environs::Call_t			async;
+
+#endif
 
 /** The device ID within the environment */
 @property (readonly, nonatomic) int				deviceID;
@@ -204,22 +208,24 @@
 /**
  * Connect to this device asynchronously.
  *
- * @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
- *
  * @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
  * 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
  * 					true: A new connection has been triggered and is in progress
  */
 - (bool) Connect;
 
+#ifdef __cplusplus
+
 /**
  * Connect to this device using the given mode.
+ *
+ * @param Environs_CALL_   A value of environs::Call that determines whether (only this call) is performed synchronous or asynchronous.
  *
  * @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
  * 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
  * 					true: A new connection has been triggered and is in progress
  */
-- (bool) Connect:(int) Environs_CALL_;
+- (bool) Connect:(environs::Call_t) Environs_CALL_;
 
 /**
  * Disconnect the device with the given id and a particular application environment.
@@ -231,11 +237,13 @@
 /**
  * Disconnect the device using the given mode with the given id and a particular application environment.
  *
- * @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
+ * @param Environs_CALL_   A value of environs::Call that determines whether (only this call) is performed synchronous or asynchronous.
  *
  * @return	success		true: Connection has been shut down; false: Device with deviceID is not connected.
  */
-- (bool) Disconnect:(int) Environs_CALL_;
+- (bool) Disconnect:(environs::Call_t) Environs_CALL_;
+
+#endif
 
 /**
  * Retrieve display properties and dimensions of this device. The device must be connected before this object is available.
@@ -316,6 +324,8 @@
  */
 - (bool) SendBuffer:(int)fileID Desc:(const char *)fileDescriptor Data:(unsigned char *)buffer Size:(int)bytesToSend;
 
+#ifdef __cplusplus
+
 /**
  * Send a string message to a device through one of the following ways.&nbsp;
  * If a connection with the destination device has been established, then use that connection.
@@ -334,7 +344,10 @@
  * @param length       Length of the message to send.
  * @return success
  */
-- (bool) SendMessage:(int) async  message:(const char *)message length:(int)length;
+- (bool) SendMessage:(environs::Call_t) async  message:(const char *)message length:(int)length;
+
+#endif
+
 
 /**
  * Send a string message to a device through one of the following ways.&nbsp;
@@ -354,6 +367,8 @@
  */
 - (bool) SendMessage:(NSString *)message;
 
+#ifdef __cplusplus
+
 /**
  * Send a string message to a device through one of the following ways.&nbsp;
  * If a connection with the destination device has been established, then use that connection.
@@ -367,11 +382,13 @@
  * or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
  * a registered EnvironsObserver instance.
  *
- * @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+ * @param async			(environs::Call::NoWait) Perform asynchronous. (environs::Call::Wait) Non-async means that this call blocks until the call finished.
  * @param message       A message to be send.
  * @return success
  */
-- (bool) SendMessage:(int) async message:(NSString *)message;
+- (bool) SendMessage:(environs::Call_t) async message:(NSString *)message;
+
+#endif
 
 
 /**
@@ -415,16 +432,18 @@
 - (NSMutableArray *) GetAllMessages;
 
 
+#ifdef __cplusplus
 /**
  * Enable sending of sensor events to this DeviceInstance.
  * Events are send if the device is connected and stopped if the device is disconnected.
  *
- * @param ENVIRONS_SENSOR_TYPE_ A value of type ENVIRONS_SENSOR_TYPE_*.
+ * @param type A value of type environs::SensorType_t.
  * @param enable true = enable, false = disable.
  *
  * @return success true = enabled, false = failed.
  */
-- (bool) SetSensorEventSending :(int) ENVIRONS_SENSOR_TYPE_ enable:(bool) enable;
+- (bool) SetSensorEventSending :(environs::SensorType_t) type enable:(bool) enable;
+#endif
 
 @end
 

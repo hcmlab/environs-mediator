@@ -54,8 +54,8 @@ void ShowLibMissingDialog ( const char * libName );
 namespace environs
 {
 #ifdef USE_ENVIRONS_LOG_POINTERS
-    pCOutLog COutLog          = 0;
-    pCOutArgLog COutArgLog    = 0;
+    pCOutLog    COutLog     = 0;
+    pCOutArgLog COutArgLog  = 0;
 #endif
     
 	void EnvironsDisposer ( IEnvironsDispose * obj )

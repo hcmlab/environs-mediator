@@ -101,6 +101,12 @@ typedef HLIB ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::Inst
 #   define NO_ATOMIC_CPP
 #endif
 
+#ifndef NO_ATOMIC_CPP
+#   ifdef LINUX
+#       define NO_ATOMIC_CPP
+#   endif
+#endif
+
 
 #define ENVIRONS_TSDIR                  "v" ENVIRONS_TOSTRING(ENVIRONS_BUILD_CRT)
 

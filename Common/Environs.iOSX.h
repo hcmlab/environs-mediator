@@ -49,7 +49,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 @interface Environs :
 #ifdef ENVIRONS_IOS
-    NSObject<CLLocationManagerDelegate, UIAlertViewDelegate>
+    NSObject<UIAlertViewDelegate>
 #else
     NSObject
 #endif
@@ -68,10 +68,13 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 #endif
 
 
+#ifdef __cplusplus
+
 /** Perform calls to the Environs object asynchronously. If set to Environs.CALL_WAIT, then all commands will block until the call finishes.
  * If set to Environs.CALL_NOWAIT, then certain calls (which may take longer) will be performed asynchronously. */
-@property (nonatomic) int   async;
+@property (nonatomic) environs::Call_t   async;
 
+#endif
 
 /**
  * Create an Environs object.
@@ -144,6 +147,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  @returns success
  */
 - (bool) Init;
+
 - (void) ResetIdentKeys;
 
 /**
@@ -188,7 +192,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param level      debug level 0 ... 16
  */
-- (void) SetDebug:(int)value;
+- (void) SetDebug : (int) value;
 
 /**
  * Get output debug level.
@@ -204,7 +208,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 *
 * @param   timeout
 */
-- (void) SetNetworkConnectTimeout:(int)timeout;
+- (void) SetNetworkConnectTimeout : (int) timeout;
 
 
 /**
@@ -276,19 +280,24 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  */
 - (void) SetUseAuthentication: (bool) enable;
 
+
+#ifdef __cplusplus
+
 /**
  * Query the filter level for device management within Environs.
  *
  * return level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
  */
-- (int) GetMediatorFilterLevel;
+- (environs::MediatorFilter_t) GetMediatorFilterLevel;
 
 /**
  * Set the filter level for device management within Environs.
  *
  * @param level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
  */
-- (void) SetMediatorFilterLevel:(int)level;
+- (void) SetMediatorFilterLevel : (environs::MediatorFilter_t) level;
+
+#endif
 
 
 /**
@@ -375,12 +384,18 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  */
 - (void) Start;
 
+
+#ifdef __cplusplus
+
 /**
- * Query the status of Environs.&nsbp;Valid values are Types.NATIVE_STATUS_*
+ * Query the status of Environs.&nsbp;Valid values are environs::Status
  *
- * @return Environs.NATIVE_STATUS_*
+ * @return environs::Status
  */
-- (int)  GetStatus;
+- (environs::Status_t)  GetStatus;
+
+#endif
+
 
 /**
  * Stop Environs and dispose all acquired resources.
@@ -507,6 +522,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 - (unsigned int) GetIPAddress;
 - (unsigned int) GetSubnetMask;
+
 - (NSString *) GetSSID;
 - (NSString *) GetSSIDDesc;
 
@@ -516,7 +532,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param		deviceID
  */
-- (void) SetDeviceID:(int)deviceID;
+- (void) SetDeviceID : (int) deviceID;
 
 /**
  * Get the device id that the application has assigned to the instance of Environs.
@@ -548,7 +564,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param 	uid
  * @return	success
  */
-- (bool) SetDeviceUID:(const char *)name;
+- (bool) SetDeviceUID : (const char *) name;
 
 
 /**
@@ -556,7 +572,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param enable 	true = use the default Mediator
  */
-- (void) SetUseDefaultMediator:(bool)usage;
+- (void) SetUseDefaultMediator : (bool) usage;
 
 /**
  * Query whether to use given Mediator by setMediator()
@@ -570,7 +586,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param enable 	true = enable, false = disable
  */
-- (void) SetUseCustomMediator:(bool)usage;
+- (void) SetUseCustomMediator : (bool) usage;
 
 /**
  * Query whether to use given Mediator by setMediator()
@@ -607,7 +623,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param	enable
  */
-- (void) SetUseCLSForMediator:(bool)usage;
+- (void) SetUseCLSForMediator : (bool) usage;
 
 /**
  * Query whether to use Crypto Layer Security for Mediator connections.
@@ -621,7 +637,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param	enable
  */
-- (void) SetUseCLSForDevices:(bool)usage;
+- (void) SetUseCLSForDevices : (bool) usage;
 
 /**
  * Query whether to use Crypto Layer Security for device-to-device connections.
@@ -635,7 +651,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param	enable
  */
-- (void) SetUseCLSForDevicesEnforce:(bool)usage;
+- (void) SetUseCLSForDevicesEnforce : (bool) usage;
 
 /**
  * Query whether to enforce Crypto Layer Security for device-to-device connections.
@@ -649,7 +665,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param	enable
  */
-- (void) SetUseCLSForAllTraffic:(bool)usage;
+- (void) SetUseCLSForAllTraffic : (bool) usage;
 
 /**
  * Query whether all traffic (incl. those of interactive type) in device-to-device connections is encrypted.
@@ -658,7 +674,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  */
 - (bool) GetUseCLSForAllTraffic;
 
-- (void) SetUseH264:(bool)usage;
+- (void) SetUseH264 : (bool) usage;
 - (bool) GetUseH264;
 
 /**
@@ -666,7 +682,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param enable      true = enable, false = disable
  */
-- (void) SetUseNotifyDebugMessage:(bool)usage;
+- (void) SetUseNotifyDebugMessage : (bool) usage;
 
 /**
  * Query Environs settings that show log messages in the status log.
@@ -680,7 +696,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @param enable      true = enable, false = disable
  */
-- (void) SetUseLogFile:(bool)usage;
+- (void) SetUseLogFile : (bool) usage;
 
 /**
  * Query Environs settings that create and write a log file in the working directory.
@@ -697,7 +713,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param	enable      Enable or disable
  * @return  success
  */
-- (bool) SetUseTouchRecognizer: (const char *) moduleName Status:(bool)enable;
+- (bool) SetUseTouchRecognizer : (const char *) moduleName Status:(bool)enable;
 
 
 /**
@@ -821,18 +837,20 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 #else
 
 
-- (int) SetUseTracker:(int) async module:(const char *) moduleName;
+- (int) SetUseTracker:(environs::Call_t) async module:(const char *) moduleName;
 
 - (int) GetUseTracker:(const char *) moduleName;
 
-- (EBOOL) DisposeTracker:(int) async module:(const char *) moduleName;
+- (EBOOL) DisposeTracker:(environs::Call_t) async module:(const char *) moduleName;
 
-- (EBOOL) PushTrackerCommand:(int) async module: (int) index cmd:(int) command;
+- (EBOOL) PushTrackerCommand:(environs::Call_t) async module: (int) index cmd:(int) command;
 
 #endif
 
 
 -(ENVIRONS_NAMES DeviceDisplay *) GetDeviceDisplayProps:(int) nativeID;
+
+#ifdef __cplusplus
 
 /**
  * Connect to device with the given ID and a particular application environment.
@@ -845,7 +863,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * 					1: A connection to the device already exists or a connection task is already in progress) &nbsp;
  * 					2: A new connection has been triggered and is in progress
  */
--(int) DeviceConnect:(int) deviceID areaName:(const char *) areaName appName:(const char *) appName async:(int) async;
+-(int) DeviceConnect:(int) deviceID areaName:(const char *) areaName appName:(const char *) appName async:(environs::Call_t) async;
 
 
 /**
@@ -857,7 +875,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param callbackType	A value of type RENDER_CALLBACK_TYPE_* that tells the portal receiver what we actually can render..
  * @return				true = success, false = failed.
  */
--(bool) SetRenderCallback:(int) async portalID:(int) portalID callback:(void *)callback callbackType:(int) callbackType;
+-(bool) SetRenderCallback:(environs::Call_t) async portalID:(int) portalID callback:(void *)callback callbackType:(environs::RenderCallbackType_t) callbackType;
 
 
 /**
@@ -868,7 +886,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @param callback		A delegate that manages the callback.
  * @return				true = success, false = failed.
  */
--(bool) ReleaseRenderCallback:(int) async portalID:(int) portalID;
+-(bool) ReleaseRenderCallback:(environs::Call_t) async portalID:(int) portalID;
 
 /**
  * Start streaming of portal to or from the portal identifier (received in notification).
@@ -878,7 +896,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @return success
  */
--(bool) StartPortalStream:(int) async portalID:(int) portalID;
+-(bool) StartPortalStream:(environs::Call_t) async portalID:(int) portalID;
 
 
 /**
@@ -891,7 +909,9 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * 					    Applications should store them in order to address the correct portal within Environs.
  * @return success
  */
--(bool) StopPortalStream:(int) async nativeID:(int) nativeID portalID:(int) portalID;
+-(bool) StopPortalStream:(environs::Call_t) async nativeID:(int) nativeID portalID:(int) portalID;
+
+#endif
 
 
 /**
@@ -961,6 +981,8 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 -(NSData *) GetFile: (bool) nativeIDOK nativeID:(int)nativeID deviceID:(int)deviceID areaName:(const char *)areaName appName:(const char *)appName fileID:(int)fileID size:(int *)size;
 
 
+#ifdef __cplusplus
+
 /**
  * Create a new collection that holds all devices of given list type. This list ist updated dynamically by Environs.
  * After client code is done with the list, the list->Release () method MUST be called by the client code,
@@ -968,7 +990,10 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  *
  * @return Collection of IDeviceInstance objects
  */
-- (DeviceList *) CreateDeviceList : (int) MEDIATOR_DEVICE_CLASS_;
+- (DeviceList *) CreateDeviceList : (environs::DeviceClass_t) MEDIATOR_DEVICE_CLASS_;
+
+#endif
+
 
 @end
 

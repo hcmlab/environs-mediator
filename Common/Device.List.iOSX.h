@@ -43,7 +43,11 @@
 /** An array with the devices in the list. */
 @property (readonly, nonatomic) NSArray *   devices;
 
-- (void) SetListType : (int) MEDIATOR_DEVICE_CLASS_;
+#ifdef __cplusplus
+
+- (void) SetListType : (environs::DeviceClass_t) MEDIATOR_DEVICE_CLASS_;
+
+#endif
 
 - (void) SetIsUIAdapter : (bool) enable;
 

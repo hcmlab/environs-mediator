@@ -239,39 +239,7 @@ namespace environs
 #define PKT_HEADER_SIZE	(sizeof(environs::lib::UdpMessageHeader) - sizeof(unsigned int))
 	}
 
-#ifdef CLI_CPP
-	public ref class SensorFrame
-	{
-	public:
-		DeviceInstancePtr device;
-
-        // An id that identifies this input entity for its whole lifecycle
-        int			id;
-
-		// A type according to Environs.ENVIRONS_SENSOR_TYPE_*
-		int			type;
-
-		// Increase with each frame
-		int         seqNumber;
-
-		// Location: x = latitude
-		double		x;
-		// Location: y = longitude
-		double		y;
-		// Location: z = altitude
-		double		z;
-
-
-		// Location: f1 = accuracy (latitude/longitude)
-		// Light: f1 = light in Lux
-		float		f1;
-		// Location: f2 = accuracy (longitude)
-		float		f2;
-		// Location: f3 = speed
-		float		f3;
-	};
-
-#else
+#ifndef CLI_CPP
 	class DeviceInstance;
 
 	typedef struct SensorFrame

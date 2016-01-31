@@ -41,6 +41,7 @@
 #if ( defined(__cplusplus) && !defined(DISABLE_ENVIRONS_CPP_API))
 
 #	include "Notify.Context.h"
+#	include "Notify.Context.Cli.h"
 #	include "Environs.Observer.CLI.h"
 #	include "Environs.Msg.Types.h"
 #	include "Environs.Cli.Base.h"
@@ -119,22 +120,21 @@ namespace environs
 			MAKE_FRIEND_CLASS ( DeviceInstance );
             MAKE_FRIEND_CLASS ( EnvironsProxy );
             MAKE_FRIEND_CLASS ( FactoryProxy );
+            MAKE_FRIEND_CLASS ( EnvironsNative );
 
         public:
             
 #ifdef CLI_CPP
             /** Perform calls to the Environs object asynchronously. If set to Environs.CALL_WAIT, then all commands will block until the call finishes.
              * If set to Environs.CALL_NOWAIT, then certain calls (which may take longer) will be performed asynchronously. */
-            int					async;
+            Environs::Call					async;
 #endif
 			/**
 			 * Construction of Environs objects have to be done using Environs.CreateInstance() or Environs.New()
 			 */
 			ENVIRONS_LIB_API Environs ();
 
-		public:
 			ENVIRONS_LIB_API ~Environs ();
-			
 
 			/**
 			* Load settings for the given application environment from settings storage,
@@ -249,7 +249,7 @@ namespace environs
 			*
 			* @param		platform of type Environs.platform
 			*/
-			ENVIRONS_LIB_API void SetPlatform ( CPP_CLI ( Platforms_t, Environs::Platforms ) platform );
+			ENVIRONS_LIB_API void SetPlatform ( environs::Platforms_t platform );
 
 
 			/**
@@ -618,17 +618,17 @@ namespace environs
 			/**
 			 * Query the filter level for device management within Environs.
 			 *
-			 * return   level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
+			 * return   level	can be one of the values of MediatorFilter
 			 */
-			ENVIRONS_LIB_API int GetMediatorFilterLevel ();
+			ENVIRONS_LIB_API environs::MediatorFilter_t GetMediatorFilterLevel ();
 
 
 			/**
 			 * Set the filter level for device management within Environs.
 			 *
-			 * @param   level	can be one of the values Environs.MEDIATOR_FILTER_NONE, Environs.MEDIATOR_FILTER_AREA, Environs.MEDIATOR_FILTER_AREA_AND_APP
+			 * @param   level	can be one of the values of MediatorFilter
 			 */
-			ENVIRONS_LIB_API void SetMediatorFilterLevel ( int level );
+			ENVIRONS_LIB_API void SetMediatorFilterLevel ( environs::MediatorFilter_t level );
 
 
 			/**
@@ -699,9 +699,9 @@ namespace environs
 			/**
 			 * Query the status of Environs.&nsbp;Valid values are Types.NATIVE_STATUS_*
 			 *
-			 * @return  Environs.NATIVE_STATUS_*
+			 * @return  Environs.Status
 			 */
-			ENVIRONS_LIB_API int GetStatus ();
+			ENVIRONS_LIB_API environs::Status_t GetStatus ();
 
 
 			/**
@@ -844,13 +844,13 @@ namespace environs
 			ENVIRONS_LIB_API bool SetUseTouchRecognizer ( CString_ptr name, bool enable );
 
 
-			ENVIRONS_LIB_API int SetUseTracker ( int async, CString_ptr name );
+			ENVIRONS_LIB_API int SetUseTracker ( Call_t async, CString_ptr name );
 
 			ENVIRONS_LIB_API int GetUseTracker ( CString_ptr name );
 
-			ENVIRONS_LIB_API bool DisposeTracker ( int async, CString_ptr name );
+			ENVIRONS_LIB_API bool DisposeTracker ( Call_t async, CString_ptr name );
 
-			ENVIRONS_LIB_API bool PushTrackerCommand ( int async, int moduleIndex, int command );
+			ENVIRONS_LIB_API bool PushTrackerCommand ( Call_t async, int moduleIndex, int command );
 
 #ifndef CLI_CPP
 			/**
@@ -937,11 +937,11 @@ namespace environs
 			 * After client code is done with the list, the list->Release () method MUST be called by the client code,
 			 * in order to release the resource (give ownership) back to Environs.
 			 *
-			 * @param MEDIATOR_DEVICE_CLASS_	A value of type MEDIATOR_DEVICE_CLASS_* that determines the list type
+			 * @param MEDIATOR_DEVICE_CLASS_	A value of type environs::DeviceClass that determines the list type
 
 			 * @return A DeviceList object
 			 */
-			ENVIRONS_LIB_API EPSPACE DeviceList OBJ_ptr CreateDeviceList ( int MEDIATOR_DEVICE_CLASS_ );
+			ENVIRONS_LIB_API EPSPACE DeviceList OBJ_ptr CreateDeviceList ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ );
 
 #ifndef CLI_CPP
 			/**
@@ -949,11 +949,11 @@ namespace environs
 			 * After client code is done with the list, the list->Release () method MUST be called by the client code,
 			 * in order to release the resource (give ownership) back to Environs.
 			 *
-			 * @param MEDIATOR_DEVICE_CLASS_	A value of type MEDIATOR_DEVICE_CLASS_* that determines the list type
+			 * @param MEDIATOR_DEVICE_CLASS_	A value of type environs::DeviceClass that determines the list type
 
 			 * @return An interface of type IDeviceList
 			 */
-			ENVIRONS_LIB_API DeviceList OBJ_ptr CreateDeviceListRetained ( int MEDIATOR_DEVICE_CLASS_ );
+			ENVIRONS_LIB_API DeviceList OBJ_ptr CreateDeviceListRetained ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ );
 #endif
 
 			ENVIRONS_LIB_API bool GetPortalNativeResolution ();
@@ -970,62 +970,62 @@ namespace environs
 			* @param deviceID	Destination device ID
 			* @param areaName	Project name of the application environment
 			* @param appName	Application name of the application environment
-			* @param async		(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			* @param async		(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			* @return status	0: Connection can't be conducted (maybe environs is stopped or the device ID is invalid) &nbsp;
 			* 					1: A connection to the device already exists or a connection task is already in progress) &nbsp;
 			* 					2: A new connection has been triggered and is in progress
 			*/
-			ENVIRONS_LIB_API int DeviceConnect ( int deviceID, CString_ptr areaName, CString_ptr appName, int async );
+			ENVIRONS_LIB_API int DeviceConnect ( int deviceID, CString_ptr areaName, CString_ptr appName, Call_t async );
 
 
 			/**
 			* Set render callback.
 			*
-			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			* @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			* @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
 			* @param callback		The pointer to the callback.
-			* @param callbackType	A value of type RENDER_CALLBACK_TYPE_* that tells the portal receiver what we actually can render..
+			* @param callbackType	A value of type Environs.RenderCallbackType that tells the portal receiver what we actually can render..
 			* @return				true = success, false = failed.
 			*/
 #ifdef CLI_CPP
-			bool SetRenderCallback ( int async, int portalID, PortalSinkSource ^ callback, int callbackType );
+			bool SetRenderCallback ( Call_t async, int portalID, PortalSinkSource ^ callback, RenderCallbackType_t callbackType );
 #else
-			ENVIRONS_LIB_API bool SetRenderCallback ( int async, int portalID, void * callback, int callbackType );
+			ENVIRONS_LIB_API bool SetRenderCallback ( Call_t async, int portalID, void * callback, RenderCallbackType_t callbackType );
 #endif
 
 
 			/**
 			* Release render callback delegate or pointer
 			*
-			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			* @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			* @param portalID		This is an ID that Environs use to manage multiple portals from the same source device. It is provided within the notification listener as sourceIdent. Applications should store them in order to address the correct portal within Environs.
 			* @param callback		A delegate that manages the callback.
 			* @return				true = success, false = failed.
 			*/
-			ENVIRONS_LIB_API bool ReleaseRenderCallback ( int async, int portalID );
+			ENVIRONS_LIB_API bool ReleaseRenderCallback ( Call_t async, int portalID );
 
 			/**
 			* Start streaming of portal to or from the portal identifier (received in notification).
 			*
-			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			* @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			* @param portalID		An application specific id (e.g. used for distinguishing front facing or back facing camera)
 			*
 			* @return success
 			*/
-			ENVIRONS_LIB_API bool StartPortalStream ( int async, int portalID );
+			ENVIRONS_LIB_API bool StartPortalStream ( Call_t async, int portalID );
 
 
 			/**
 			* Stop streaming of portal to or from the portal identifier (received in notification).
 			*
-			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			* @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			* @param 	nativeID    The native device id of the target device.
 			* @param 	portalID	This is an id that Environs use to manage multiple portals from the same source device.&nbsp;
 			* 						It is provided within the notification listener as sourceIdent.&nbsp;
 			* 					    Applications should store them in order to address the correct portal within Environs.
 			* @return success
 			*/
-			ENVIRONS_LIB_API bool StopPortalStream ( int async, int nativeID, int portalID );
+			ENVIRONS_LIB_API bool StopPortalStream ( Call_t async, int nativeID, int portalID );
 
 
 			/**
@@ -1118,7 +1118,6 @@ namespace environs
             static Environs                             *   instancesAPI [ ENVIRONS_MAX_ENVIRONS_INSTANCES ];
 #endif
 			int                                             hEnvirons;
-			static int										DebugLevel;
 
 			void			SetInstance ( int hInst );
 
@@ -1228,17 +1227,17 @@ namespace environs
 			long                        listNearbyUpdate;
 			long                        listMediatorUpdate;
 
-            bool                                isUIAdapter;
-			pthread_mutex_t                     listAllLock;
-			devList ( DeviceInstanceEP )	listAll;
+            bool                        isUIAdapter;
+			pthread_mutex_t             listAllLock;
+			devList ( DeviceInstanceEP )listAll;
 
-			pthread_mutex_t                     listNearbyLock;
-			devList ( DeviceInstanceEP )  listNearby;
+			pthread_mutex_t             listNearbyLock;
+			devList ( DeviceInstanceEP )listNearby;
 
-			pthread_mutex_t                     listMediatorLock;
-			devList ( DeviceInstanceEP )  listMediator;
+			pthread_mutex_t             listMediatorLock;
+			devList ( DeviceInstanceEP )listMediator;
 
-			spv ( lib::IIListObserver * )       listAllObservers;
+			spv ( lib::IIListObserver * )		listAllObservers;
 			spv ( lib::IIListObserver * )       listNearbyObservers;
 			spv ( lib::IIListObserver * )       listMediatorObservers;
 
@@ -1252,15 +1251,20 @@ namespace environs
             pthread_mutex_t						deviceNotifierLock;
             bool                                deviceNotifierThreadRun;
             ThreadSync                          deviceNotifierThread;
-            
+
+			static bool             objetAPIInit INIT_to_false_in_cli;
+
+			static bool				ObjectAPIInit ();
+			static void				ObjectAPIDispose ();
+
             void                    DoStop ();
             static void c_OBJ_ptr   EnvironsStop ( pthread_param_t arg );
             
-            void DisposeLists ( bool releaseList );
+            void					DisposeLists ( bool releaseList );
             
-            void DisposeList ( int listType );
+            void					DisposeList ( int listType );
 
-			void ReloadLists ();
+			void					ReloadLists ();
 
 			devList ( DeviceInstanceEP ) c_ref GetDevices ( int type );
 
@@ -1348,12 +1352,12 @@ namespace environs
              *
              * @param nativeID 				Destination native device id
              * @param objID 				Destination object device id
-             * @param ENVIRONS_SENSOR_TYPE_ A value of type ENVIRONS_SENSOR_TYPE_*.
+             * @param sensorType            A value of type environs.SensorType.
              * @param enable 				true = enable, false = disable.
              *
              * @return success true = enabled, false = failed.
              */
-            bool SetSensorEventSender ( int nativeID, int objID, int ENVIRONS_SENSOR_TYPE_, bool enable );
+            bool SetSensorEventSender ( int nativeID, int objID, environs::SensorType_t sensorType, bool enable );
             
             void SetSensorEventSenderFlags ( int nativeID, int objID, int flags, bool enable );
 		};

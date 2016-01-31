@@ -70,7 +70,7 @@ namespace environs
 #ifdef CLI_CPP
 		ENVIRONS_LIB_API CLI_VIRTUAL STRING_T ToString ( ) CLI_OVERRIDE;
 #endif
-        ENVIRONS_LIB_API void NotifyObservers ( int notification );
+        ENVIRONS_LIB_API void NotifyObservers ( environs::Notify::Portale_t notification );
         
         ENVIRONS_LIB_API void SetSize ( int width, int height );
         
@@ -82,7 +82,7 @@ namespace environs
         ENVIRONS_LIB_API void Set ( int centerX, int centerY, float angle, int width, int height );
         
         
-        ENVIRONS_LIB_API bool Update ( int notification, PortalInfoBase OBJ_ptr info ) ;
+        ENVIRONS_LIB_API bool Update ( environs::Notify::Portale_t notification, PortalInfoBase OBJ_ptr info ) ;
 	};
 
 } /* namepace Environs */

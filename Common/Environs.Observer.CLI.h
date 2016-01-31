@@ -51,10 +51,10 @@ namespace environs
 	* DeviceObserver is called whenever the members of a DeviceInstance has changed.&nbsp;
 	* The DEVICE_INFO_ATTR_changed parameter provides a bit set which indicates the member that has changed.
 	*
-	* @param device						The DeviceInstance object that sends this notification.
-	* @param Environs_DEVICE_INFO_		A flag field (Environs.DEVICE_INFO_*) that indicates the properties that have changed.
+	* @param device				The DeviceInstance object that sends this notification.
+	* @param changedFlags		A flag field (DeviceInfoFlag) that indicates the properties that have changed.
 	*/
-	public delegate void DeviceObserver ( DeviceInstance ^device, int Environs_DEVICE_INFO_ );
+	public delegate void DeviceObserver ( DeviceInstance ^device, environs::DeviceInfoFlag changedFlags );
 
 
 	/**
@@ -63,10 +63,10 @@ namespace environs
 	/**
 	* OnMessage is called whenever a text message has been received from a device.
 	*
-	* @param msg                           The corresponding message object of type MessageInstance
-	* @param MESSAGE_INFO_ATTR_changed     Flags that indicate the object change.
+	* @param msg			The corresponding message object of type MessageInstance
+	* @param changedFlags	Flags that indicate the object change.
 	*/
-	public delegate void MessageObserver ( MessageInstance ^messageInst, int MESSAGE_INFO_ATTR_changed );
+	public delegate void MessageObserver ( MessageInstance ^messageInst, environs::MessageInfoFlag changedFlags );
 
 
 	/**
@@ -76,10 +76,10 @@ namespace environs
 	* OnData is called whenever new binary data (files, buffers) has been received.
 	* Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
 	*
-	* @param fileData                  The corresponding file object of type FileInstance
-	* @param FILE_INFO_ATTR_changed    Flags that indicate the object change.
+	* @param fileData		The corresponding file object of type FileInstance
+	* @param changedFlags	Flags that indicate the object change.
 	*/
-	public delegate void DataObserver ( FileInstance ^fileData, int FILE_INFO_ATTR_changed );
+	public delegate void DataObserver ( FileInstance ^fileData, environs::FileInfoFlag changedFlags );
 
 
 	/**
@@ -96,9 +96,9 @@ namespace environs
 	/**
 	* OnStatus is called whenever the framework status changes.&nbsp;
 	*
-	* @param status      A status constant of type STATUS_*
+	* @param status      A status constant of type environs::Status
 	*/
-	public delegate void StatusObserver ( int Environs_STATUS_ );
+	public delegate void StatusObserver ( environs::Status status );
 
 
 	/**
@@ -107,10 +107,10 @@ namespace environs
 	/**
 	* OnPortalChanged is called when the portal status has changed, e.g. stream has started, stopped, disposed, etc..
 	*
-	* @param portal                    The PortalInstance object.
-	* @param Environs_NOTIFY_PORTAL_	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
+	* @param portal		The PortalInstance object.
+	* @param notify		The notification (environs::Notify::Portale) that indicates the change.
 	*/
-	public delegate void PortalObserver ( PortalInstance ^portal, int Environs_NOTIFY_ );
+	public delegate void PortalObserver ( PortalInstance ^portal, environs::Notify::Portale_t notify );
 
 
 

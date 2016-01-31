@@ -44,6 +44,7 @@
 namespace environs
 {
     class Instance;
+	
 
 	namespace lib
 	{
@@ -187,7 +188,7 @@ namespace environs
 
 #ifdef CLI_CPP
 			/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-			int					async;
+			environs::Call		async;
 
 			static bool			notifyPropertyChangedDefault;
 #endif
@@ -203,8 +204,6 @@ namespace environs
 			/**
 			* Connect to this device asynchronously.
 			*
-			* @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
-			*
 			* @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
 			* 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
 			* 					true: A new connection has been triggered and is in progress
@@ -214,11 +213,13 @@ namespace environs
 			/**
 			* Connect to this device using the given mode.
 			*
+			* @param Environs_CALL_   A value of Environs_CALL_* that determines whether (only this call) is performed synchronous or asynchronous.
+			*
 			* @return status	fase: Connection can't be conducted (maybe environs is stopped or the device id is invalid) &nbsp;
 			* 					true: A connection to the device already exists or a connection task is already in progress) &nbsp;
 			* 					true: A new connection has been triggered and is in progress
 			*/
-			ENVIRONS_LIB_API bool Connect ( int Environs_CALL_ );
+			ENVIRONS_LIB_API bool Connect ( environs::Call_t Environs_CALL_ );
 
 			/**
 			* Disconnect the device with the given id and a particular application environment.
@@ -234,7 +235,7 @@ namespace environs
 			*
 			* @return	success		true: Connection has been shut down; false: Device with deviceID is not connected.
 			*/
-			ENVIRONS_LIB_API bool Disconnect ( int Environs_CALL_ );
+			ENVIRONS_LIB_API bool Disconnect ( environs::Call_t Environs_CALL_ );
 
 			/**
 			* Retrieve display properties and dimensions of this device. The device must be connected before this object is available.
@@ -268,7 +269,7 @@ namespace environs
 			*
 			* @return 	PortalInstance-object
 			*/
-			PortalInstanceESP PortalRequest ( CPP_CLI ( PortalType_t, Environs::PortalType ) portalType );
+			PortalInstanceESP PortalRequest ( environs::PortalType_t portalType );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::PortalInstance OBJ_ptr PortalRequestRetained ( environs::PortalType_t portalType );
@@ -281,7 +282,7 @@ namespace environs
 			*
 			* @return 	PortalInstance-object
 			*/
-			PortalInstanceESP PortalProvide ( CPP_CLI ( PortalType_t, Environs::PortalType ) portalType );
+			PortalInstanceESP PortalProvide ( environs::PortalType_t portalType );
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::PortalInstance OBJ_ptr PortalProvideRetained ( environs::PortalType_t portalType );
@@ -346,12 +347,12 @@ namespace environs
 			 * or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
 			 * a registered EnvironsObserver instance.
 			 *
-			 * @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			 * @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			 * @param message		A message to send.
 			 * @param length		Length of the message to send.
 			 * @return success
 			 */
-			ENVIRONS_LIB_API bool SendMessage ( int async, CString_ptr msg, int length );
+			ENVIRONS_LIB_API bool SendMessage ( environs::Call_t async, CString_ptr msg, int length );
 
 			/**
 			 * Send a string message to a device through one of the following ways.&nbsp;
@@ -384,11 +385,11 @@ namespace environs
 			* or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
 			* a registered EnvironsObserver instance.
 			*
-			* @param async			(Environs.CALL_NOWAIT) Perform asynchronous. (Environs.CALL_WAIT) Non-async means that this call blocks until the call finished.
+			* @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			* @param message		A message to be send.
 			* @return success
 			*/
-			ENVIRONS_LIB_API bool SendMessage ( int async, CString_ptr msg );
+			ENVIRONS_LIB_API bool SendMessage ( environs::Call_t async, CString_ptr msg );
 
 
 			/**
@@ -457,8 +458,17 @@ namespace environs
 			 *
 			 * @return success true = enabled, false = failed.
 			 */
-			ENVIRONS_LIB_API bool SetSensorEventSending ( int ENVIRONS_SENSOR_TYPE_, bool enable );
-        
+			ENVIRONS_LIB_API bool SetSensorEventSending ( environs::SensorType_t type, bool enable );
+
+
+			/**
+			* Query whether sending of the given sensor events to this DeviceInstance is enabled or not.
+			*
+			* @param type	A value of type Environs::SensorType / environs::SensorType_t.
+			*
+			* @return success true = enabled, false = disabled.
+			*/
+			ENVIRONS_LIB_API bool IsSetSensorEventSending ( environs::SensorType_t type );
         
 #if ( defined(ENVIRONS_OSX) || defined(ENVIRONS_IOS) )
             void                    *   platformKeep;
@@ -580,8 +590,8 @@ namespace environs
 #ifdef CLI_CPP
 			virtual void	OnPropertyChanged ( String ^ prop, bool ignoreDefaultSetting ) = 0;
 #endif
-			void			NotifyObserversForMessage ( c_const MessageInstanceESP c_ref message, int flags, bool enqueue );
-			void			NotifyObserversForData ( c_const FileInstanceESP c_ref fileInst, int flags, bool enqueue );
+			void			NotifyObserversForMessage ( c_const MessageInstanceESP c_ref message, environs::MessageInfoFlag_t flags, bool enqueue );
+			void			NotifyObserversForData ( c_const FileInstanceESP c_ref fileInst, environs::FileInfoFlag_t flags, bool enqueue );
 			void			NotifySensorObservers ( environs::SensorFrame OBJ_ptr pack );
 
 			void			ClearMessagesThread ();
@@ -616,7 +626,7 @@ namespace environs
 			* @param slot
 			* @return PortalInstance-object
 			*/
-			PortalInstanceESP PortalCreate ( int Environs_PORTAL_DIR, CPP_CLI ( PortalType_t, Environs::PortalType ) portalType, int slot );
+			PortalInstanceESP PortalCreate ( int Environs_PORTAL_DIR, environs::PortalType_t portalType, int slot );
 
 			/**
 			* Creates a portal instance with a given portalID.

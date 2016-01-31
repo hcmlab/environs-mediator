@@ -68,7 +68,7 @@ namespace environs
             ENVIRONS_LIB_API ~PortalInstance ();
             
 #ifdef CLI_CPP
-			int						async;
+			environs::Call			async;
 
 			bool					startIfPossible;
 #else
@@ -89,7 +89,8 @@ namespace environs
             environs::PortalInfo OBJ_ptr  info ();
             
             
-            int                     status ();
+			environs::PortalStatus_t status ();
+
             bool                    disposeOngoing ();
             
             
@@ -102,7 +103,7 @@ namespace environs
             /** true = outgoing (Generator), false = incoming (Receiver). */
             bool                    isIncoming ();
 
-			ENVIRONS_LIB_API int GetObserverCount ();
+			ENVIRONS_LIB_API int    GetObserverCount ();
             
 			virtual environs::PortalType_t  portalType ();
 #endif
@@ -174,7 +175,8 @@ namespace environs
             
             environs::PortalInfo    info_;
             
-            int                     status_;
+            environs::PortalStatus_t status_;
+
             bool                    disposeOngoing_;
             
             /** true = outgoing (Generator), false = incoming (Receiver). */
@@ -202,9 +204,10 @@ namespace environs
 
             static int			GetKey ( int nativeID, int portalID_ );
 
-			bool				CreateInstance ( c_const DeviceInstanceESP c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
+            bool				CreateInstance ( c_const DeviceInstanceESP c_ref device, int Environs_PORTAL_DIR_, environs::PortalType_t type, int slot );
+        
 			bool				Create ( c_const DeviceInstanceESP c_ref device, int destID );
-			bool				Create ( c_const DeviceInstanceESP c_ref device, int Environs_PORTAL_DIR_, CPP_CLI ( PortalType_t, Environs::PortalType ) type, int slot );
+			bool				Create ( c_const DeviceInstanceESP c_ref device, int Environs_PORTAL_DIR_, environs::PortalType_t type, int slot );
 
 			static void c_OBJ_ptr PortalPresenterThread ( pthread_param_t pack );
 			static void			PresentPortalToObservers ( c_const PortalInstanceSP c_ref portal, int notification );
@@ -212,6 +215,7 @@ namespace environs
 			static void			HandleSuccessfulPortal ( c_const PortalInstanceSP c_ref portal, int notification );
             
 			static bool			UpdateWidthHeight ( c_const PortalInstanceSP c_ref portal, Addr_ptr context );
+        
             static void			UpdateOptions ( environs::ObserverNotifyContext OBJ_ptr ctx );
             
             void				Update ();
@@ -221,15 +225,18 @@ namespace environs
 			static void			Update ( int hInst, environs::ObserverNotifyContext OBJ_ptr ctx );
             
             bool				CheckNetworkConnection ();
+        
             void				ShowDialogOutgoingPortalView ();
             void				ShowDialogNoWiFiWarn ();
 			bool				ShowDialogOutgoingPortal ();
             
-			void				NotifyObservers ( int notification);
+			void				NotifyObservers ( environs::Notify::Portale_t notification);
+        
 			void				DisposeInstance ( bool removeFromGlobal );
             static void			Dispose ( int nativeID, int portalID );
 
             static void c_OBJ_ptr Destroyer ( pthread_param_t _targets );
+        
 			static void			KillZombies ();
 		};
 	}

@@ -176,7 +176,7 @@ namespace environs
 #		define pthread_wait_fail(val)				(val != WAIT_OBJECT_0)
 #		define pthread_equal(val,arg)				(val == GetThreadId(arg))
 #		define PTHREAD_THREAD_INITIALIZER			nill
-#		define pthread_setname_current(name)	
+#		define pthread_setname_current_envthread(name)
 		//#define pthread_self()					GetCurrentThreadId()
 
 #		ifdef WINDOWS_PHONE
@@ -377,12 +377,16 @@ namespace environs
 #	define pthread_param_t						void *
 #	define pthread_cond_manual_t				pthread_cond_t
 
-#	ifdef __APPLE__
-#		define pthread_setname_current(name)	pthread_setname_np ( name );
-#	else
-#		define pthread_setname_current(name)	pthread_setname_np ( pthread_self (), name );
-#	endif
-
+#   if ( defined(NDEBUG) || !defined(USE_THREAD_NAME_ASSIGN_INSTRUCTION) )
+#		define pthread_setname_current_envthread(name)
+#   else
+#       ifdef __APPLE__
+#           define pthread_setname_current_envthread(name)	pthread_setname_np ( name )
+#       else
+#           define pthread_setname_current_envthread(name)	pthread_setname_np ( pthread_self (), name )
+#       endif
+#   endif
+    
 #	ifdef _OPEN_THREADS
 #		define pthread_detach_handle(threadID)	pthread_detach ( &threadID )
 #	else

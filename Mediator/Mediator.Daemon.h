@@ -210,6 +210,7 @@ private:
 	vector<unsigned short>					ports;
 	vsp ( MediatorThreadInstance )          listeners;
 	unsigned int							networkOK;
+	unsigned int							networkMask;
 	bool									usersDBDirty;
     bool									configDirty;
     bool									deviceMappingDirty;

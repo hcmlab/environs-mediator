@@ -23,18 +23,15 @@
 
 #include "Interop.h"
 
-#ifdef CLI_CPP
-using namespace System;
+#ifndef CLI_CPP
 
-#endif
-
-#ifdef __cplusplus
+#	ifdef __cplusplus
 
 namespace environs
 {
 	namespace lib
     {
-#endif
+#	endif
 		typedef struct ObserverNotifyContext
 		{
 			/** The native/device identifier that targets the device */
@@ -93,99 +90,37 @@ namespace environs
 		}
         ObserverDataContext;
         
-#ifdef __cplusplus
+#	ifdef __cplusplus
 	}
 
-    
-#ifdef CLI_CPP
 
-	public ref class ObserverNotifyContext
-	{
-	public:
-		/** The native/device identifier that targets the device */
-		OBJIDType		destID;
-		/** Area name of the application environment */
-		CString_ptr		areaName;
-		/** Area name of the application environment */
-		CString_ptr		appName;
-		/**  */
-		int				notification;
-		/**  */
-		int				sourceIdent;
-		/**  */
-        Addr_ptr		contextPtr;
-        /**  */
-        int				context;
-		/**  */
-		int				hEnvirons;
-	};
+		///
+		/// We map these to those in lib (non cli)
+		///
+		typedef lib::ObserverNotifyContext  ObserverNotifyContext;
 
+#		define ObserverNotifyContextPtr    ObserverNotifyContext  OBJ_ptr;
 
-	public ref class ObserverMessageContext
-	{
-	public:
-		/** The native/device identifier that targets the device */
-		OBJIDType		destID;
-		/** Area name of the application environment */
-		CString_ptr		areaName;
-		/** Area name of the application environment */
-		CString_ptr		appName;
-		/** Determines the source ( either from a device, environs, or native layer ) */
-		int             sourceType;
-		/** The message as string text */
-		CVString_ptr	message;
-		/** The length of the message */
-		int             length;
-		/** A connection type */
-		char            connection;
-	};
+		typedef lib::ObserverMessageContext  ObserverMessageContext;
 
-	public ref class ObserverDataContext
-	{
-	public:
-		/** The object id of the sender device. */
-		OBJIDType		objID;
-		/** The native device id of the sender device. */
-		int				nativeID;
+#		define ObserverMessageContextPtr    ObserverMessageContext  OBJ_ptr;
 
-		/** The type of this message. */
-		int             type;
-		/** A fileID that was attached to the buffer. */
-		int             fileID;
-		/** A descriptor that was attached to the buffer. */
-		CString_ptr		descriptor;
-		/** The size of the data buffer. */
-		int             size;
-	};
-#else
+		typedef lib::ObserverDataContext  ObserverDataContext;
 
-    ///
-    /// We map these to those in lib (non cli)
-    ///
-    typedef lib::ObserverNotifyContext  ObserverNotifyContext;
-    
-#define ObserverNotifyContextPtr    ObserverNotifyContext  OBJ_ptr;
-
-    typedef lib::ObserverMessageContext  ObserverMessageContext;
-    
-#define ObserverMessageContextPtr    ObserverMessageContext  OBJ_ptr;
-
-    typedef lib::ObserverDataContext  ObserverDataContext;
-    
-#define ObserverDataContextPtr    ObserverDataContext  OBJ_ptr;
-
-#endif
+#		define ObserverDataContextPtr    ObserverDataContext  OBJ_ptr;
 
 }
 
-///
-/// We need these typedefs for plain objective c (no namespace support)
-///
-typedef environs::lib::ObserverNotifyContext  ObserverNotifyContext;
+	///
+	/// We need these typedefs for plain objective c
+	///
+	typedef environs::lib::ObserverNotifyContext  ObserverNotifyContext;
 
-typedef environs::lib::ObserverMessageContext  ObserverMessageContext;
+	typedef environs::lib::ObserverMessageContext  ObserverMessageContext;
 
-typedef environs::lib::ObserverDataContext  ObserverDataContext;
+	typedef environs::lib::ObserverDataContext  ObserverDataContext;
+
+#	endif
 
 #endif
 

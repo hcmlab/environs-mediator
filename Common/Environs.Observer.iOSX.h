@@ -24,19 +24,23 @@
 
 #import <Foundation/Foundation.h>
 #include "Notify.Context.h"
+#include "Environs.Types.h"
 
 
 /**
  * EnvironsObserver: Attachable to **Environs** objects in order to receive all notifications that the Environs instance processes or submits to the platform layer.
  */
 @protocol EnvironsObserver <NSObject>
+
+#ifdef __cplusplus
 /**
  * OnStatus is called whenever the framework status changes.&nbsp;
  *
  * @param Environs_STATUS_      A status constant of type STATUS_*
  */
-- (void) OnStatus:(int) Environs_STATUS_;
+- (void) OnStatus:(environs::Status_t) Environs_STATUS_;
 
+#endif
 
 /**
  * OnNotify is called whenever a notification is available either from a device (deviceID != 0) or Environs (deviceID == 0).&nbsp;
@@ -89,14 +93,19 @@
 */
 @protocol DeviceObserver <NSObject>
 
+#ifdef __cplusplus
+
 /**
 * OnDeviceChanged is called whenever the members of a DeviceInstance has changed.&nbsp;
 * The DEVICE_INFO_ATTR_changed parameter provides a bit set which indicates the member that has changed.
 *
-* @param device                    The DeviceInstance object that sends this notification.
-* @param DEVICE_INFO_ATTR_changed  The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
+* @param device         The DeviceInstance object that sends this notification.
+* @param changedFlags   The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
 */
-- (void) OnDeviceChanged:(id) device Flags:(int) DEVICE_INFO_ATTR_changed;
+- (void) OnDeviceChanged:(id) device Flags:(environs::DeviceInfoFlag_t) changedFlags;
+
+#endif
+
 
 @end
 
@@ -133,13 +142,18 @@
 * MessageObserver: Attachable to **DeviceInstance** objects in order to receive messages of a particular device.
 */
 @protocol MessageObserver <NSObject>
+
+#ifdef __cplusplus
+
 /**
  * OnMessage is called whenever a text message has been received from a device.
  *
- * @param msg                           The corresponding message object of type MessageInstance
- * @param MESSAGE_INFO_ATTR_changed     Flags that indicate the object change.
+ * @param msg           The corresponding message object of type MessageInstance
+ * @param changedFlags  Flags that indicate the object change.
  */
-- (void) OnMessage:(id) msg Flags:(int) MESSAGE_INFO_ATTR_changed;
+- (void) OnMessage:(id) msg Flags:(environs::MessageInfoFlag_t) changedFlags;
+
+#endif
 
 @end
 
@@ -162,6 +176,9 @@
 * DataObserver: Attachable to **DeviceInstance** objects in order to receive data transmissions of a particular device.
 */
 @protocol DataObserver <NSObject>
+
+#ifdef __cplusplus
+
 /**
  * OnData is called whenever new binary data (files, buffers) has been received.
  * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
@@ -169,7 +186,9 @@
  * @param fileData                  The corresponding file object of type FileInstance
  * @param FILE_INFO_ATTR_changed    Flags that indicate the object change.
  */
-- (void) OnData:(id) fileData Flags:(int) FILE_INFO_ATTR_changed;
+- (void) OnData:(id) fileData Flags:(environs::FileInfoFlag_t) changedFlags;
+
+#endif
 
 @end
 
@@ -207,13 +226,18 @@
  * PortalObserver: Attachable to **IPortalInstance** objects in order to receive changes of a particular interactive portal.
  */
 @protocol PortalObserver <NSObject>
+
+#ifdef __cplusplus
+
 /**
  * OnPortalChanged is called when the portal status has changed, e.g. stream has started, stopped, disposed, etc..
  *
- * @param portal                    The PortalInstance object.
- * @param Environs_NOTIFY_PORTAL_	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
+ * @param portal    The PortalInstance object.
+ * @param notify	The notification (Environs.NOTIFY_PORTAL_*) that indicates the change.
  */
-- (void) OnPortalChanged:(id) portal Notify:(int)Environs_NOTIFY_PORTAL_;
+- (void) OnPortalChanged:(id) portal Notify:(environs::Notify::Portal_t) notify;
+
+#endif
 
 @end
 

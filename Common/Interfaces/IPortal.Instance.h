@@ -63,7 +63,7 @@ namespace environs
 		virtual void            Release () = 0;
 
 		/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-		int                     async;
+		Call_t                  async;
 
 		/** An ID that identifies this portal across all available portals. */
 		virtual int             portalID () = 0;
@@ -87,7 +87,8 @@ namespace environs
 
 		virtual environs::PortalInfo  * info () = 0;
 
-		virtual int             status () = 0;
+		virtual environs::PortalStatus_t status () = 0;
+
 		virtual bool            disposeOngoing () = 0;
 
 		bool                    startIfPossible;

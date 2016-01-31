@@ -38,7 +38,7 @@
 #   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     60
 #endif
 
-#define MEDIATOR_LIMIT_STUNT_REG_REQUESTS
+//#define MEDIATOR_LIMIT_STUNT_REG_REQUESTS
 #define MEDIATOR_STUNT_REG_REQUEST_MIN_WAIT_MS  150
 #define MEDIATOR_STUN_REG_REQUEST_MIN_WAIT_MS   150
 
@@ -416,6 +416,7 @@ namespace environs	/// Namespace: environs ->
 #endif
         
 		bool					isRunning;
+		bool					aliveRunning;
 		char			*		certificate;
 
 		static NetPack          localNets;

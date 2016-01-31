@@ -1068,10 +1068,15 @@ namespace environs
 
 #ifdef USE_OPENSSL
         if ( !openssl_alg_added ) {
+			if ( dOpenSSL_add_all_algorithms )
+				dOpenSSL_add_all_algorithms ();
+			else
 # ifdef OPENSSL_LOAD_CONF
-            dOPENSSL_add_all_algorithms_conf();
+				if ( dOPENSSL_add_all_algorithms_conf )
+					dOPENSSL_add_all_algorithms_conf();
 # else
-            dOPENSSL_add_all_algorithms_noconf();
+				if ( dOPENSSL_add_all_algorithms_noconf )
+					dOPENSSL_add_all_algorithms_noconf();
 # endif
             dERR_load_crypto_strings();
             
@@ -2583,10 +2588,15 @@ namespace environs
 
             if ( !openssl_alg_added )
             {
+				if ( dOpenSSL_add_all_algorithms )
+					dOpenSSL_add_all_algorithms ();
+				else
 #   ifdef OPENSSL_LOAD_CONF
-                dOPENSSL_add_all_algorithms_conf();
+					if ( dOPENSSL_add_all_algorithms_conf )
+						dOPENSSL_add_all_algorithms_conf();
 #   else
-                dOPENSSL_add_all_algorithms_noconf();
+					if ( dOPENSSL_add_all_algorithms_noconf )
+						dOPENSSL_add_all_algorithms_noconf();
 #   endif
                 dERR_load_crypto_strings ();
             

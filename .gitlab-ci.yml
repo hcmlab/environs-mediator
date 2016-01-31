@@ -1,5 +1,5 @@
 before_script:
-  - "rm -rf ./Tools"
+  - "mv Tools Tools1 && mkdir Tools && cp Tools1/download.tools.sh Tools/. && cp Tools1/download.tools.upd.sh Tools/. && rm -rf ./Tools1"
     
 LinuxMediatorRelease:
   tags:

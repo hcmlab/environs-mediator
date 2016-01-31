@@ -1,8 +1,9 @@
+before_script:
+  - "rm -rf ./Tools"
+    
 LinuxMediatorRelease:
   tags:
     - linux
-  before_script:
-    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -15,8 +16,6 @@ LinuxMediatorRelease:
 LinuxMediatorDebug:
   tags:
     - linux
-  before_script:
-    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -30,8 +29,6 @@ LinuxMediatorDebug:
 OSXMakeMediatorRelease:
   tags:
     - osx
-  before_script:
-    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -44,8 +41,6 @@ OSXMakeMediatorRelease:
 OSXMakeMediatorDebug:
   tags:
     - osx
-  before_script:
-    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -60,8 +55,6 @@ WindowsMediatorDebug:
   tags:
     - windows
   stage: build
-  before_script:
-    - "rm -rf ./Tools"
   script: 
     - "bash ./3rd/download.sh"
     - "bash ./Tools/download.tools.upd.sh"
@@ -70,8 +63,6 @@ WindowsMediatorDebug:
 WindowsMediatorRelease:
   tags:
     - windows
-  before_script:
-    - "rm -rf ./Tools"
   stage: build
   script: 
     - "bash ./3rd/download.sh"
@@ -81,8 +72,6 @@ WindowsMediatorRelease:
 OSXMediatorRelease:
   tags:
     - osx
-  before_script:
-    - "rm -rf ./Tools"
   stage: build
   script:
     - "chmod ogu+x 3rd/download.sh"
@@ -95,8 +84,6 @@ OSXMediatorRelease:
 OSXMediatorDebug:
   tags:
     - osx
-  before_script:
-    - "rm -rf ./Tools"
   stage: build
   script:
     - "chmod ogu+x 3rd/download.sh"

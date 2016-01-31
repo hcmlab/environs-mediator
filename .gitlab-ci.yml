@@ -1,6 +1,8 @@
 LinuxMediatorRelease:
   tags:
     - linux
+  before_script:
+    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -9,11 +11,12 @@ LinuxMediatorRelease:
     - "./3rd/download.sh"
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "./Tools/build.mediator.linux.sh"
-    - "rm -rf ./Tools"
 
 LinuxMediatorDebug:
   tags:
     - linux
+  before_script:
+    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -22,12 +25,13 @@ LinuxMediatorDebug:
     - "./3rd/download.sh"
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "export DEBUG=1 && ./Tools/build.mediator.linux.sh"
-    - "rm -rf ./Tools"
 
 
 OSXMakeMediatorRelease:
   tags:
     - osx
+  before_script:
+    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -36,11 +40,12 @@ OSXMakeMediatorRelease:
     - "3rd/download.sh"    
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "./Tools/build.mediator.linux.sh"
-    - "rm -rf ./Tools"
 
 OSXMakeMediatorDebug:
   tags:
     - osx
+  before_script:
+    - "rm -rf ./Tools"
   stage: build
   script: 
     - "chmod ogu+x Tools/download.tools.upd.sh"
@@ -49,32 +54,35 @@ OSXMakeMediatorDebug:
     - "3rd/download.sh" 
     - "chmod ogu+x Tools/build.mediator.linux.sh"
     - "export DEBUG=1 && ./Tools/build.mediator.linux.sh"
-    - "rm -rf ./Tools"
 
 
 WindowsMediatorDebug:
   tags:
     - windows
   stage: build
+  before_script:
+    - "rm -rf ./Tools"
   script: 
     - "bash ./3rd/download.sh"
     - "bash ./Tools/download.tools.upd.sh"
     - "bash ./Tools/build.mediator.win32.sh d p"
-    - "rm -rf ./Tools"
     
 WindowsMediatorRelease:
   tags:
     - windows
+  before_script:
+    - "rm -rf ./Tools"
   stage: build
   script: 
     - "bash ./3rd/download.sh"
     - "bash ./Tools/download.tools.upd.sh"
     - "bash ./Tools/build.mediator.win32.sh r p"
-    - "rm -rf ./Tools"
 
 OSXMediatorRelease:
   tags:
     - osx
+  before_script:
+    - "rm -rf ./Tools"
   stage: build
   script:
     - "chmod ogu+x 3rd/download.sh"
@@ -83,11 +91,12 @@ OSXMediatorRelease:
     - "./Tools/download.tools.upd.sh"
     - "chmod ogu+x Tools/build.mediator.osx.sh"
     - "./Tools/build.mediator.osx.sh unattended"
-    - "rm -rf ./Tools"
 
 OSXMediatorDebug:
   tags:
     - osx
+  before_script:
+    - "rm -rf ./Tools"
   stage: build
   script:
     - "chmod ogu+x 3rd/download.sh"
@@ -96,6 +105,5 @@ OSXMediatorDebug:
     - "./Tools/download.tools.upd.sh"
     - "chmod ogu+x Tools/build.mediator.osx.sh"
     - "./Tools/build.mediator.osx.sh unattended d"
-    - "rm -rf ./Tools"
     
             

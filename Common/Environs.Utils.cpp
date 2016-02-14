@@ -29,6 +29,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
+
+#ifndef MEDIATORDAEMON
+#   include "Environs.Lib.h"
+#endif
+
 #include "Environs.Native.h"
 #include "Interop/Stat.h"
 #include "Interop.h"
@@ -36,6 +41,10 @@
 #if defined(_WIN32)
 #   include "windows.h"
 #else // <- _WIN32 ->
+#   include <iostream>
+#   include <string>
+#   include <termios.h>
+#   include <unistd.h>
 
 #   if defined(__APPLE__) || defined(ANDROID)
 #       include <time.h>
@@ -380,5 +389,77 @@ namespace environs
 		unsigned int now = (unsigned int) GetEnvironsTickCount ();
 		return now + (unsigned int) (uintptr_t) value;
 	}
+
+    
+#ifndef MEDIATORDAEMON
+
+    namespace API
+    {
+        int Environs_LoginDialogCommandLine ( int hInst )
+        {
+            char user [ 128 ];
+            char pass [ 128 ];
+            
+            printf ( ">> Logon to Mediator requires username and password.\n\n" );
+            printf ( ">> Please enter a username: " );
+            
+            char * line = fgets ( user, sizeof(user), stdin );
+            
+            size_t length = 0;
+            
+            if ( !line || (length = strlen(line)) <= 0 ) {
+                CErr ( "LoginDialog: Invalid username!" );
+                printf ( ">> LoginDialog: Invalid username!\n" );
+                return 0;
+            }
+            line [ length - 1 ] = 0;
+            
+            printf ( ">> Please enter a password: " );
+
+#ifdef _WIN32
+            HANDLE  hIn     = GetStdHandle ( STD_INPUT_HANDLE );
+            DWORD   mode    = 0;
+
+            GetConsoleMode ( hIn, &mode );
+            SetConsoleMode ( hIn, mode & (~ENABLE_ECHO_INPUT) );
+#else
+            termios old;
+            tcgetattr ( STDIN_FILENO, &old );
+            
+            termios term = old;
+            term.c_lflag &= ~ECHO;
+            
+            tcsetattr ( STDIN_FILENO, TCSANOW, &term );
+#endif
+            
+            line = fgets ( pass, sizeof(pass), stdin );
+            
+#ifdef _WIN32
+            SetConsoleMode ( hIn, mode );
+#else
+            tcsetattr ( STDIN_FILENO, TCSANOW, &old );
+#endif
+            if ( !line || (length = strlen(line)) <= 0 ) {
+                CErr ( "LoginDialog: Invalid password!" );
+                printf ( ">> LoginDialog: Invalid password!\n" );
+                return 0;
+            }
+            
+            line [ length - 1 ] = 0;
+            
+            FAKEJNI ();
+            
+            environs::API::SetMediatorUserNameNM ( hInst, user );
+            
+            environs::API::SetMediatorPasswordNM ( hInst, pass );
+            
+            EnvironsCallArg ( RegisterAtMediatorsN, hInst );
+            
+            return 1;
+        }
+        
+    }
+
+#endif
 
 }

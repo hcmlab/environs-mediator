@@ -183,6 +183,13 @@ namespace environs
 		virtual bool disposed () = 0;
 
         virtual bool isLocationNode () = 0;
+
+		virtual environs::DeviceSourceType_t sourceType () = 0;
+
+		virtual bool isObserverReady () = 0;
+		virtual bool isMessageObserverReady () = 0;
+		virtual bool isDataObserverReady () = 0;
+		virtual bool isSensorObserverReady () = 0;
         
 
 		/** An identifier that is unique for this object. */

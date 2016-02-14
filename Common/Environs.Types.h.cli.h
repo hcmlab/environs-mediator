@@ -249,6 +249,17 @@ namespace environs
 	};
 
 
+	/**
+	 * Device source type enumeration.
+	 * */
+	public enum class DeviceSourceType {
+			Mediator            	=	DEVICEINFO_DEVICE_MEDIATOR,
+			Broadcast           	=	DEVICEINFO_DEVICE_BROADCAST,
+			MediatorBroadcast   	=	DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR,
+		
+	};
+
+
 		
 		
 		
@@ -258,6 +269,27 @@ namespace environs
 		
 		
 		
+	/**
+	 * Deviceflags for internalFlags enumeration.
+	 * */
+	public enum class DeviceFlagsInternal {
+			PlatformReady       	=	DEVICEFLAGS_INTERNAL_PLATFORM_READY,
+			ObserverReady       	=	DEVICEFLAGS_INTERNAL_OBSERVER_READY,
+			MessageReady        	=	DEVICEFLAGS_INTERNAL_MESSAGE_READY,
+			DataReady           	=	DEVICEFLAGS_INTERNAL_DATA_READY,
+			SensorReady         	=	DEVICEFLAGS_INTERNAL_SENSOR_READY,
+			NotifyMask          	=	DEVICEFLAGS_INTERNAL_NOTIFY_MASK,
+		
+			CPPlatformReady     	=	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY,
+			CPObserverReady     	=	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY,
+			CPMessageReady      	=	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY,
+			CPDataReady         	=	DEVICEFLAGS_INTERNAL_CP_DATA_READY,
+			CPSensorReady       	=	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY,
+			CPNotifyMask        	=	DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK,
+		
+	};
+
+
 		
 		
 		
@@ -397,6 +429,8 @@ namespace environs
 			DirectContact       	=	DEVICE_INFO_ATTR_DIRECT_CONTACT,
 			AppContext          	=	DEVICE_INFO_ATTR_APP_CONTEXT,
 			PortalCreated       	=	DEVICE_INFO_ATTR_PORTAL_CREATED,
+			ObjectID            	=	DEVICE_INFO_ATTR_OBJID,
+			Flags               	=	DEVICE_INFO_ATTR_FLAGS,
 		
 	};
 
@@ -463,6 +497,9 @@ namespace environs
 			OSX_Flag            	=	ENVIRONS_PLATFORMS_OSX_FLAG,
 			MacBook_Flag        	=	ENVIRONS_PLATFORMS_MACBOOK_FLAG,
 			MacMini_Flag        	=	ENVIRONS_PLATFORMS_MACMINI_FLAG,
+		
+			Linux_Flag          	=	ENVIRONS_PLATFORMS_LINUX_FLAG,
+			Raspberry_Flag      	=	ENVIRONS_PLATFORMS_RASPBERRY,
 		
 			Windows_Flag        	=	ENVIRONS_PLATFORMS_WINDOWS_FLAG,
 			WindowsVista        	=	ENVIRONS_PLATFORMS_WINDOWSVISTA,
@@ -776,6 +813,7 @@ namespace Notify {
 			literal int Pairing                 	=	NOTIFY_PAIRING;
 			literal int DeviceOnSurface         	=	NOTIFY_DEVICE_ON_SURFACE;
 			literal int DeviceNotOnSurface      	=	NOTIFY_DEVICE_NOT_ON_SURFACE;
+			literal int DeviceFlagsUpdate       	=	NOTIFY_DEVICE_FLAGS_UPDATE;
 	};
 
 	public enum class Environse {
@@ -815,6 +853,7 @@ namespace Notify {
 			Pairing                 	=	NOTIFY_PAIRING,
 			DeviceOnSurface         	=	NOTIFY_DEVICE_ON_SURFACE,
 			DeviceNotOnSurface      	=	NOTIFY_DEVICE_NOT_ON_SURFACE,
+			DeviceFlagsUpdate       	=	NOTIFY_DEVICE_FLAGS_UPDATE,
 	};
 
 	typedef Environs	Environs_t;
@@ -948,6 +987,12 @@ namespace Notify {
 	/**
 	 * Types - This class defines integer values which identifies status values, events, message types and so on delivered by the environment.
 	 * Types - This class defines integer values which identifies status values, events, message types and so on delivered by the environment.
+	 *
+	 *
+	 * TypesSource.java can be removed prior to build of the library. It just serves for auto-generation of the java/c/cpp/cli headers and type files.
+	 * TypesSource.java can be removed prior to build of the library. It just serves for auto-generation of the java/c/cpp/cli headers and type files.
+	 *
+	 *
 	 * @author Chi-Tai Dang, dang@hcm-lab.de, University of Augsburg
 	 * @author Chi-Tai Dang, dang@hcm-lab.de, University of Augsburg
 	 *
@@ -3133,6 +3178,13 @@ namespace Notify {
 
 		literal int NOTIFY_DEVICE_NOT_ON_SURFACE                      =	(NOTIFY_PAIRING | 2);
 #		define	NOTIFY_DEVICE_NOT_ON_SURFACE                      		(NOTIFY_PAIRING | 2)
+
+#		ifdef NOTIFY_DEVICE_FLAGS_UPDATE                        
+#			undef NOTIFY_DEVICE_FLAGS_UPDATE                        
+#		endif
+
+		literal int NOTIFY_DEVICE_FLAGS_UPDATE                        =	(NOTIFY_PAIRING | 8);
+#		define	NOTIFY_DEVICE_FLAGS_UPDATE                        		(NOTIFY_PAIRING | 8)
 		
 		
 		/**
@@ -3227,6 +3279,13 @@ namespace Notify {
 		literal int DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          =	(2);
 #		define	DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          		(2)
 		
+		
+		/**
+		 * Device source type enumeration.
+		 * Device source type enumeration.
+		 * */
+		
+		
 		/**
 		 * Environs mediator broadcast message Start bytes
 		 * Environs mediator broadcast message Start bytes
@@ -3246,12 +3305,26 @@ namespace Notify {
 		literal int MEDIATOR_BROADCAST_DEVICEID_START                 =	(12);
 #		define	MEDIATOR_BROADCAST_DEVICEID_START                 		(12)
 
+#		ifdef MEDIATOR_BROADCAST_DEVICEID_ABS_START             
+#			undef MEDIATOR_BROADCAST_DEVICEID_ABS_START             
+#		endif
+
+		literal int MEDIATOR_BROADCAST_DEVICEID_ABS_START             =	(16);
+#		define	MEDIATOR_BROADCAST_DEVICEID_ABS_START             		(16)
+
 #		ifdef MEDIATOR_BROADCAST_PORTS_START                    
 #			undef MEDIATOR_BROADCAST_PORTS_START                    
 #		endif
 
 		literal int MEDIATOR_BROADCAST_PORTS_START                    =	(20);
 #		define	MEDIATOR_BROADCAST_PORTS_START                    		(20)
+
+#		ifdef MEDIATOR_BROADCAST_PORTS_ABS_START                
+#			undef MEDIATOR_BROADCAST_PORTS_ABS_START                
+#		endif
+
+		literal int MEDIATOR_BROADCAST_PORTS_ABS_START                =	(24);
+#		define	MEDIATOR_BROADCAST_PORTS_ABS_START                		(24)
 
 #		ifdef MEDIATOR_BROADCAST_PLATFORM_START                 
 #			undef MEDIATOR_BROADCAST_PLATFORM_START                 
@@ -3260,12 +3333,62 @@ namespace Notify {
 		literal int MEDIATOR_BROADCAST_PLATFORM_START                 =	(24);
 #		define	MEDIATOR_BROADCAST_PLATFORM_START                 		(24)
 
+#		ifdef MEDIATOR_BROADCAST_PLATFORM_ABS_START             
+#			undef MEDIATOR_BROADCAST_PLATFORM_ABS_START             
+#		endif
+
+		literal int MEDIATOR_BROADCAST_PLATFORM_ABS_START             =	(28);
+#		define	MEDIATOR_BROADCAST_PLATFORM_ABS_START             		(28)
+
 #		ifdef MEDIATOR_BROADCAST_DESC_START                     
 #			undef MEDIATOR_BROADCAST_DESC_START                     
 #		endif
 
 		literal int MEDIATOR_BROADCAST_DESC_START                     =	(28);
 #		define	MEDIATOR_BROADCAST_DESC_START                     		(28)
+
+#		ifdef MEDIATOR_BROADCAST_DESC_ABS_START                 
+#			undef MEDIATOR_BROADCAST_DESC_ABS_START                 
+#		endif
+
+		literal int MEDIATOR_BROADCAST_DESC_ABS_START                 =	(32);
+#		define	MEDIATOR_BROADCAST_DESC_ABS_START                 		(32)
+		
+
+#		ifdef MEDIATOR_BROADCAST_STATUS_SRCDEVICEID_ABS_START   
+#			undef MEDIATOR_BROADCAST_STATUS_SRCDEVICEID_ABS_START   
+#		endif
+
+		literal int MEDIATOR_BROADCAST_STATUS_SRCDEVICEID_ABS_START   =	(16);
+#		define	MEDIATOR_BROADCAST_STATUS_SRCDEVICEID_ABS_START   		(16)
+
+#		ifdef MEDIATOR_BROADCAST_STATUS_DEVICEID_ABS_START      
+#			undef MEDIATOR_BROADCAST_STATUS_DEVICEID_ABS_START      
+#		endif
+
+		literal int MEDIATOR_BROADCAST_STATUS_DEVICEID_ABS_START      =	(20);
+#		define	MEDIATOR_BROADCAST_STATUS_DEVICEID_ABS_START      		(20)
+
+#		ifdef MEDIATOR_BROADCAST_STATUS_CLEAR_SET_ABS_START     
+#			undef MEDIATOR_BROADCAST_STATUS_CLEAR_SET_ABS_START     
+#		endif
+
+		literal int MEDIATOR_BROADCAST_STATUS_CLEAR_SET_ABS_START     =	(24);
+#		define	MEDIATOR_BROADCAST_STATUS_CLEAR_SET_ABS_START     		(24)
+
+#		ifdef MEDIATOR_BROADCAST_STATUS_FLAGS_ABS_START         
+#			undef MEDIATOR_BROADCAST_STATUS_FLAGS_ABS_START         
+#		endif
+
+		literal int MEDIATOR_BROADCAST_STATUS_FLAGS_ABS_START         =	(28);
+#		define	MEDIATOR_BROADCAST_STATUS_FLAGS_ABS_START         		(28)
+
+#		ifdef MEDIATOR_BROADCAST_STATUS_DESC_ABS_START          
+#			undef MEDIATOR_BROADCAST_STATUS_DESC_ABS_START          
+#		endif
+
+		literal int MEDIATOR_BROADCAST_STATUS_DESC_ABS_START          =	(40);
+#		define	MEDIATOR_BROADCAST_STATUS_DESC_ABS_START          		(40)
 		
 		/**
 		 * Environs mediator broadcast message constants
@@ -3400,6 +3523,13 @@ namespace Notify {
 		literal int DEVICEINFO_ISCONNECTED_START                      =	(DEVICEINFO_UNAVAILABLE_START + 1);
 #		define	DEVICEINFO_ISCONNECTED_START                      		(DEVICEINFO_UNAVAILABLE_START + 1)
 
+#		ifdef DEVICEINFO_UNUSED_FLAGS_START                     
+#			undef DEVICEINFO_UNUSED_FLAGS_START                     
+#		endif
+
+		literal int DEVICEINFO_UNUSED_FLAGS_START                     =	(DEVICEINFO_ISCONNECTED_START + 2);
+#		define	DEVICEINFO_UNUSED_FLAGS_START                     		(DEVICEINFO_ISCONNECTED_START + 2)
+
 #		ifdef DEVICEINFO_DEVICETYPE_START                       
 #			undef DEVICEINFO_DEVICETYPE_START                       
 #		endif
@@ -3428,12 +3558,19 @@ namespace Notify {
 		literal int DEVICEINFO_APPNAME_START                          =	(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1));
 #		define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1))
 
+#		ifdef DEVICEINFO_FLAGS_START                            
+#			undef DEVICEINFO_FLAGS_START                            
+#		endif
+
+		literal int DEVICEINFO_FLAGS_START                            =	(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1));
+#		define	DEVICEINFO_FLAGS_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1))
+
 #		ifdef DEVICEINFO_OBJID_START                            
 #			undef DEVICEINFO_OBJID_START                            
 #		endif
 
-		literal int DEVICEINFO_OBJID_START                            =	(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2);
-#		define	DEVICEINFO_OBJID_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2)
+		literal int DEVICEINFO_OBJID_START                            =	(DEVICEINFO_FLAGS_START + 2);
+#		define	DEVICEINFO_OBJID_START                            		(DEVICEINFO_FLAGS_START + 2)
 		
 		
 		/**
@@ -3562,6 +3699,101 @@ namespace Notify {
 		/**
 		 * Notify mediator enumeration.
 		 * Notify mediator enumeration.
+		 * */
+		
+		/**
+		 * Deviceflags for internalFlags of DeviceInfo objects
+		 * Deviceflags for internalFlags of DeviceInfo objects
+		 */
+
+#		ifdef DEVICEFLAGS_INTERNAL_PLATFORM_READY               
+#			undef DEVICEFLAGS_INTERNAL_PLATFORM_READY               
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_PLATFORM_READY               =	(0x1);
+#		define	DEVICEFLAGS_INTERNAL_PLATFORM_READY               		(0x1)
+
+#		ifdef DEVICEFLAGS_INTERNAL_OBSERVER_READY               
+#			undef DEVICEFLAGS_INTERNAL_OBSERVER_READY               
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_OBSERVER_READY               =	(0x2);
+#		define	DEVICEFLAGS_INTERNAL_OBSERVER_READY               		(0x2)
+
+#		ifdef DEVICEFLAGS_INTERNAL_MESSAGE_READY                
+#			undef DEVICEFLAGS_INTERNAL_MESSAGE_READY                
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_MESSAGE_READY                =	(0x4);
+#		define	DEVICEFLAGS_INTERNAL_MESSAGE_READY                		(0x4)
+
+#		ifdef DEVICEFLAGS_INTERNAL_DATA_READY                   
+#			undef DEVICEFLAGS_INTERNAL_DATA_READY                   
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_DATA_READY                   =	(0x8);
+#		define	DEVICEFLAGS_INTERNAL_DATA_READY                   		(0x8)
+
+#		ifdef DEVICEFLAGS_INTERNAL_SENSOR_READY                 
+#			undef DEVICEFLAGS_INTERNAL_SENSOR_READY                 
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_SENSOR_READY                 =	(0x10);
+#		define	DEVICEFLAGS_INTERNAL_SENSOR_READY                 		(0x10)
+
+#		ifdef DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  
+#			undef DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  =	(0xFF);
+#		define	DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  		(0xFF)
+
+#		ifdef DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            
+#			undef DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            =	(0x0100);
+#		define	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            		(0x0100)
+
+#		ifdef DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            
+#			undef DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            =	(0x0200);
+#		define	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            		(0x0200)
+
+#		ifdef DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             
+#			undef DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             =	(0x0400);
+#		define	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             		(0x0400)
+
+#		ifdef DEVICEFLAGS_INTERNAL_CP_DATA_READY                
+#			undef DEVICEFLAGS_INTERNAL_CP_DATA_READY                
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_CP_DATA_READY                =	(0x0800);
+#		define	DEVICEFLAGS_INTERNAL_CP_DATA_READY                		(0x0800)
+
+#		ifdef DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              
+#			undef DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              =	(0x1000);
+#		define	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              		(0x1000)
+
+#		ifdef DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               
+#			undef DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               =	(0xFF00);
+#		define	DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               		(0xFF00)
+		
+		
+		/**
+		 * Deviceflags for internalFlags enumeration.
+		 * Deviceflags for internalFlags enumeration.
 		 * */
 		
 		
@@ -3964,6 +4196,13 @@ namespace Notify {
 
 		literal int MEDIATOR_BUFFER_SIZE_MAX                          =	(65535);
 #		define	MEDIATOR_BUFFER_SIZE_MAX                          		(65535)
+
+#		ifdef MEDIATOR_REC_BUFFER_SIZE_MAX                      
+#			undef MEDIATOR_REC_BUFFER_SIZE_MAX                      
+#		endif
+
+		literal int MEDIATOR_REC_BUFFER_SIZE_MAX                      =	((650 * 1024));
+#		define	MEDIATOR_REC_BUFFER_SIZE_MAX                      		((650 * 1024))
 
 #		ifdef ENVIRONS_SEND_SIZE_MAX                            
 #			undef ENVIRONS_SEND_SIZE_MAX                            
@@ -4522,6 +4761,13 @@ namespace Notify {
 
 		literal int DEVICE_INFO_ATTR_OBJID                            =	(0x20000);
 #		define	DEVICE_INFO_ATTR_OBJID                            		(0x20000)
+
+#		ifdef DEVICE_INFO_ATTR_FLAGS                            
+#			undef DEVICE_INFO_ATTR_FLAGS                            
+#		endif
+
+		literal int DEVICE_INFO_ATTR_FLAGS                            =	(0x40000);
+#		define	DEVICE_INFO_ATTR_FLAGS                            		(0x40000)
 		
 		
 		/**
@@ -4793,6 +5039,21 @@ namespace Notify {
 
 		literal int ENVIRONS_PLATFORMS_MACMINI_FLAG                   =	(0x10020);
 #		define	ENVIRONS_PLATFORMS_MACMINI_FLAG                   		(0x10020)
+		
+
+#		ifdef ENVIRONS_PLATFORMS_LINUX_FLAG                     
+#			undef ENVIRONS_PLATFORMS_LINUX_FLAG                     
+#		endif
+
+		literal int ENVIRONS_PLATFORMS_LINUX_FLAG                     =	(0x40000);
+#		define	ENVIRONS_PLATFORMS_LINUX_FLAG                     		(0x40000)
+
+#		ifdef ENVIRONS_PLATFORMS_RASPBERRY                      
+#			undef ENVIRONS_PLATFORMS_RASPBERRY                      
+#		endif
+
+		literal int ENVIRONS_PLATFORMS_RASPBERRY                      =	(0x40100);
+#		define	ENVIRONS_PLATFORMS_RASPBERRY                      		(0x40100)
 		
 
 #		ifdef ENVIRONS_PLATFORMS_WINDOWS_FLAG                   
@@ -5367,6 +5628,8 @@ namespace Notify {
 	typedef	InputState		InputState_t;
 	typedef	InputCommand		InputCommand_t;
 	typedef	MediatorFilter		MediatorFilter_t;
+	typedef	DeviceSourceType		DeviceSourceType_t;
+	typedef	DeviceFlagsInternal		DeviceFlagsInternal_t;
 	typedef	InterfaceType		InterfaceType_t;
 	typedef	CaptureType		CaptureType_t;
 	typedef	PortalBufferType		PortalBufferType_t;

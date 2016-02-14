@@ -378,9 +378,9 @@ namespace environs
              * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
              *
              * @param nativeID      The native identifier that targets the device.
-             * @param pack          The frame containing the sensor data
+             * @param sensorFrame   The frame containing the sensor data
              */
-            virtual void OnSensorData ( OBJIDType nativeID, environs::SensorFrame * pack ) = 0;
+            virtual void OnSensorData ( OBJIDType nativeID, environs::SensorFrame * sensorFrame ) = 0;
             
         protected:
             bool OnSensorData_;
@@ -401,9 +401,9 @@ namespace environs
 			/**
 			* OnSensorData is called whenever new sensor data has been received.
 			*
-			* @param pack     The corresponding SensorFrame of sensor data
+			* @param sensorFrame     The corresponding SensorFrame of sensor data
 			*/
-			virtual void OnSensorData ( environs::SensorFrame * pack ) = 0;
+			virtual void OnSensorData ( environs::SensorFrame * sensorFrame ) = 0;
 
 		protected:
 			bool OnSensorData_;

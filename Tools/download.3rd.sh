@@ -140,7 +140,7 @@ function dlKhronos
 
 cd $tmpDir
 
-if [[ -e "${TOOLSDIR}/../Android" ]]; then
+if [[ -e "${TOOLSDIR}/../Android" ]] && [[ "${ISRASPBERYY}" == "" ]]; then
 	STAGE=openh264
 	tDir="$targetDir/${STAGE}"
 	echo -e
@@ -405,49 +405,50 @@ if [[ ! -f "$tDir/inttypes.h" ]]; then
 fi
 echo "Done: $tName."
 
+if [[ "${ISRASPBERYY}" == "" ]]; then
+	tName=openssl
+	tDir="$targetDir/$tName"
+	echo -e
+	echo "Preparing $tName directory [$tDir]..."
+	echo '----------------------------------------'
+	#[[ "$dryrun" == "0" ]] && [[ -d "$tDir" ]] && rm -rf "$tDir"
+	prepareDir "${tDir}"
 
-tName=openssl
-tDir="$targetDir/$tName"
-echo -e
-echo "Preparing $tName directory [$tDir]..."
-echo '----------------------------------------'
-#[[ "$dryrun" == "0" ]] && [[ -d "$tDir" ]] && rm -rf "$tDir"
-prepareDir "${tDir}"
+	sDir="$tmpDir/$tName"
+	#[[ "$dryrun" == "0" ]] && [[ -d "$sDir" ]] && rm -rf "$sDir"
+	prepareDir "${sDir}"
 
-sDir="$tmpDir/$tName"
-#[[ "$dryrun" == "0" ]] && [[ -d "$sDir" ]] && rm -rf "$sDir"
-prepareDir "${sDir}"
+	item="${tmpDir}/$tName.zip"
 
-item="${tmpDir}/$tName.zip"
-
-if [[ ! -f "$item" ]]; then
-    echo "Download $tName ..."
-    
-    #curl -L -o "$item" "https://github.com/openssl/openssl/archive/master.zip"
-    curl -L -o "$item" "https://github.com/openssl/openssl/archive/6e3d015363ed09c4eff5c02ad41153387ffdf5af.zip"
-    [[ $? != 0 ]] && echo "Error $tName" && exit 1    
-    
-    echo "Done."
-    
-	cp "$item" "$sDir"/.
-	[[ $? != 0 ]] && echo "Error $tName" && exit 1
+	if [[ ! -f "$item" ]]; then
+		echo "Download $tName ..."
 	
-	echo "Unpacking files ..."
-	cd "$sDir"
-	[[ $? != 0 ]] && echo "Error $tName" && exit 1
+		#curl -L -o "$item" "https://github.com/openssl/openssl/archive/master.zip"
+		curl -L -o "$item" "https://github.com/openssl/openssl/archive/6e3d015363ed09c4eff5c02ad41153387ffdf5af.zip"
+		[[ $? != 0 ]] && echo "Error $tName" && exit 1    
 	
-	unzip -qo "$item"
-	[[ $? != 0 ]] && echo "Error $tName" && exit 1
-	echo "Done."
-	cd -
-fi
+		echo "Done."
+	
+		cp "$item" "$sDir"/.
+		[[ $? != 0 ]] && echo "Error $tName" && exit 1
+	
+		echo "Unpacking files ..."
+		cd "$sDir"
+		[[ $? != 0 ]] && echo "Error $tName" && exit 1
+	
+		unzip -qo "$item"
+		[[ $? != 0 ]] && echo "Error $tName" && exit 1
+		echo "Done."
+		cd -
+	fi
 
     
-if [[ ! -f "$tDir/aes.h" ]]; then
-	echo "Copying files to [$tDir] ..."
+	if [[ ! -f "$tDir/aes.h" ]]; then
+		echo "Copying files to [$tDir] ..."
 	
-	cp $sDir/openssl-6e3d015363ed09c4eff5c02ad41153387ffdf5af/include/openssl/* $tDir/.
-	[[ $? != 0 ]] && echo "Error $tName" && exit 1
+		cp $sDir/openssl-6e3d015363ed09c4eff5c02ad41153387ffdf5af/include/openssl/* $tDir/.
+		[[ $? != 0 ]] && echo "Error $tName" && exit 1
+	fi
 fi
 
 echo "Done."

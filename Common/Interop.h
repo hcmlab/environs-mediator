@@ -322,7 +322,7 @@
 #	define CLI_VIRTUAL						virtual
 
 #	define TCHAR							char
-#	define nill							nullptr
+#	define nill								nullptr
 #   define C_Only(v)                        
 #   define Cli_Only(v)                      v
 
@@ -423,5 +423,20 @@
 
 #endif
 
+#ifdef _WIN32
+#	ifdef CLI_CPP
+#		define NET_PACK_PUSH1            
+#		define NET_PACK_POP					
+#		define NET_PACK_ALIGN
+#	else
+#		define NET_PACK_PUSH1			__pragma(pack(push,1))
+#		define NET_PACK_POP				__pragma(pack(pop))
+#		define NET_PACK_ALIGN
+#	endif
+#else
+#   define NET_PACK_PUSH1             
+#   define NET_PACK_POP					        
+#   define NET_PACK_ALIGN               __attribute__ ((packed))
+#endif
 
 #endif // INCLUDE_HCM_ENVIRONS_INTEROP_H

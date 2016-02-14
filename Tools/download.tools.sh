@@ -21,6 +21,8 @@ fi
 
 rescueDir="$TOOLSDIR/../../EnvironsRescued"
 
+source "${TOOLSDIR}"/platform.detect.sh
+
 [[ $# > 0 ]] && cleanCmd=$1
 
 function safeMove

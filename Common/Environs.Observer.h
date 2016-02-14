@@ -288,10 +288,10 @@ namespace environs
 		* OnSensorData is called whenever new binary data (files, buffers) has been received.
 		* Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
 		*
-		* @param nativeID      The native identifier that targets the device.
-		* @param pack          The frame containing the sensor data
+		* @param objID          The native identifier that targets the device.
+		* @param sensorFrame    The frame containing the sensor data
 		*/
-		virtual void OnSensorData ( OBJIDType objID, ::environs::SensorFrame * pack ) { OnSensorData_ = false; };
+		virtual void OnSensorData ( OBJIDType objID, ::environs::SensorFrame * sensorFrame ) { OnSensorData_ = false; };
 	};
 
 
@@ -308,9 +308,9 @@ namespace environs
 		/**
 		* OnSensorData is called whenever new sensor data has been received.
 		*
-		* @param pack     The corresponding SensorFrame of sensor data
+		* @param sensorFrame     The corresponding SensorFrame of sensor data
 		*/
-		virtual void OnSensorData ( ::environs::SensorFrame * pack ) { OnSensorData_ = false; };
+		virtual void OnSensorData ( ::environs::SensorFrame * sensorFrame ) { OnSensorData_ = false; };
 	};
 
 

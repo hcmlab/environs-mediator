@@ -36,9 +36,8 @@ namespace environs
 	{
 #endif
         
-#ifdef _WIN32
-#	pragma pack(push, 1)
-#endif
+		NET_PACK_PUSH1
+
 		/**
 		* Environs DeviceInstance struct Start bytes
 		*/
@@ -79,7 +78,7 @@ namespace environs
 			char			internalUpdates;  // 1
 
 			/** Used internally by native layer. */
-			char            internalType;  // 1
+			char            hasAppEnv;  // 1
 
 										   /** The device name. */
 			char			deviceName [ MAX_LENGTH_DEVICE_NAME ]; // 31
@@ -91,25 +90,63 @@ namespace environs
 			char			appName [ MAX_LENGTH_APP_NAME ]; // 31
             
             /** Padding to fullfil 4 byte alignment. Compiler will do it anyway. */
-            unsigned short	pad1;  // 2
+            unsigned short	flags;  // 2
             
 #ifndef MEDIATORDAEMON
 			OBJIDType		objID; // 4
 #endif
 		}
-#ifndef _WIN32
-        __attribute__ ((packed))
-#endif
-        DeviceInfo;
+        NET_PACK_ALIGN DeviceInfo;
         
         
-#ifdef _WIN32
-#	pragma	pack(pop)
-#endif
-
-#define DEVICES_HEADER_SIZE				20
-#define DEVICE_PACKET_SIZE				sizeof(DeviceInfo)
-#define DEVICE_MEDIATOR_PACKET_SIZE		(sizeof(DeviceInfo) - sizeof(OBJIDType))
+#define DEVICE_INFO_CLIENT_SIZE     ( sizeof(DeviceInfo) - sizeof(OBJIDType) )
+        
+        /**
+         * Environs DeviceInstance struct Start bytes
+         */
+        typedef struct DeviceInfoShort
+        {
+            /** The device ID within the environment */
+            int				deviceID;	// 4
+            
+            /** The ID that is used by the native layer to identify this particular device within the environment: -1 means that this device is not connected and therefore not actively managed. */
+            int				nativeID;	// 4
+            
+            /** IP from device. The IP address reported by the device which it has read from network configuration. */
+            unsigned int 	ip;	// 4
+            
+            /** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
+             * This address could be different from IP due to NAT, Router, Gateways behind the device.
+             */
+            unsigned int 	ipe; // 4 The external IP or the IP resolved from the socket address
+            
+            /** The tcp port on which the device listens for device connections. */
+            unsigned short	tcpPort; // 2
+            
+            /** The udp port on which the device listens for device connections. */
+            unsigned short	udpPort;  // 2
+            
+            /** The number of alive updates noticed by the mediator layer since its appearance within the application environment. */
+            unsigned int	updates; // 4
+            
+            /** A value that describes the device platform. */
+            int				platform; // 4
+            
+            /** BroadcastFound is a value of DEVICEINFO_DEVICE_* and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
+            char			broadcastFound; // 1
+            bool            unavailable;  // 1
+            
+            /** isConnected is true if the device is currently in the connected state. */
+            bool			isConnected; // 1
+            char			internalUpdates;  // 1
+            
+            /** Used internally by native layer. */
+            char            hasAppEnv;  // 1
+            
+            /** The device name. */
+            char			deviceName [ MAX_LENGTH_DEVICE_NAME ]; // 31
+        }
+		NET_PACK_ALIGN DeviceInfoShort;
 
 
 		typedef struct DeviceHeader
@@ -118,7 +155,7 @@ namespace environs
 			unsigned int	startIndex;
 			unsigned int	deviceCount;
 		}
-		DeviceHeader;
+		NET_PACK_ALIGN DeviceHeader;
 
 
 		typedef struct DevicePack
@@ -129,7 +166,13 @@ namespace environs
 			DeviceInfo		device;
 			unsigned int    pad2;
 		}
-		DevicePack;
+		NET_PACK_ALIGN DevicePack;
+
+		NET_PACK_POP
+
+#define DEVICES_HEADER_SIZE				20
+#define DEVICE_PACKET_SIZE				sizeof(DeviceInfo)
+#define DEVICE_MEDIATOR_PACKET_SIZE		(sizeof(DeviceInfo) - sizeof(OBJIDType))
         
 #ifdef __cplusplus
     }
@@ -175,7 +218,7 @@ namespace environs
 		char			internalUpdates;  // 1
 
 		/** Used internally by native layer. */
-		char            internalType;  // 1
+		char            hasAppEnv;  // 1
 
 		/** The device name. */
 		System::String^	deviceName; // 31
@@ -187,13 +230,14 @@ namespace environs
         System::String^	appName; // 31
         
         /** The udp port on which the device listens for device connections. */
-        unsigned short	pad1;  // 2
+        unsigned short	flags;  // 2
         
 		OBJIDType		objID;
 	};
 #else
     
-	typedef lib::DeviceInfo	DeviceInfo;
+    typedef lib::DeviceInfo         DeviceInfo;
+    typedef lib::DeviceInfoShort	DeviceInfoShort;
     
 #endif
 

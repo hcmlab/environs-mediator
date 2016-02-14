@@ -21,22 +21,26 @@
 #ifndef _INCLUDE_HCM_ENVIRONS_MSG_TYPES_H
 #define _INCLUDE_HCM_ENVIRONS_MSG_TYPES_H
 
+#include "Interop.h"
+
 /* Namespace: environs -> */
+
+#ifdef __cplusplus
 namespace environs
 {
-
 	namespace lib
     {
-#ifdef _WIN32
-#	pragma pack(push, 1)
 #endif
+        
+		NET_PACK_PUSH1
+
 		typedef struct SensorFrame
 		{
 			// Static data initialized at construction time
 			char 		preamble [ 3 ];
 			char		version;
 
-			// Static data initialized at construction time
+			// A value of type environs::SensorType
 			int			type;
 
 			// Increase with each frame
@@ -75,10 +79,7 @@ namespace environs
 			}
 			data;
         }
-#ifndef _WIN32
-        __attribute__ ((packed))
-#endif
-		SensorFrame;
+		NET_PACK_ALIGN SensorFrame;
         
         
         typedef struct SensorFrameExt
@@ -87,7 +88,7 @@ namespace environs
             char 		preamble [ 3 ];
             char		version;
             
-            // Static data initialized at construction time
+            // A value of type environs::SensorType
             int			type;
             
             // Increase with each frame
@@ -138,14 +139,10 @@ namespace environs
             }
             doubles;
         }
-#ifndef _WIN32
-        __attribute__ ((packed))
-#endif
-        SensorFrameExt;
+		NET_PACK_ALIGN SensorFrameExt;
         
-#ifdef _WIN32
-#	pragma	pack(pop)
-#endif
+		NET_PACK_POP
+
 
 		/*
 		* Format: HEADER (12) DATA (Length)
@@ -237,26 +234,34 @@ namespace environs
 		} UdpMessageHeader;
 
 #define PKT_HEADER_SIZE	(sizeof(environs::lib::UdpMessageHeader) - sizeof(unsigned int))
+        
+#ifdef __cplusplus
 	}
+#endif
 
 #ifndef CLI_CPP
+#   ifdef __cplusplus
 	class DeviceInstance;
 
 	typedef struct SensorFrame
 	{
 		lib::SensorFrameExt	frame;
 
-		DeviceInstance *	device;
+		DeviceInstance  *   device;
+        
+        void            *   devicePlatform;
 	}
 	SensorFrame;
 
-	//typedef lib::SensorFrame SensorFrame;
+    //typedef lib::SensorFrame SensorFrame;
+#   endif
 #endif
 
 
-
+    
+#ifdef __cplusplus
 } /* namespace Environs */
-
+#endif
 
 #endif // _INCLUDE_HCM_ENVIRONS_MSG_TYPES_H
 

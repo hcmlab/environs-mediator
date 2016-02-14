@@ -31,6 +31,9 @@ namespace environs {
 
 /**
  * Types - This class defines integer values which identifies status values, events, message types and so on delivered by the environment.
+ *
+ * TypesSource.java can be removed prior to build of the library. It just serves for auto-generation of the java/c/cpp/cli headers and type files.
+ *
  * @author Chi-Tai Dang, dang@hcm-lab.de, University of Augsburg
  *
  */
@@ -865,6 +868,7 @@ namespace environs {
 #define	NOTIFY_PAIRING                                    		(NOTIFY_TYPE_ENVIRONS | 0x800)
 #define	NOTIFY_DEVICE_ON_SURFACE                          		(NOTIFY_PAIRING | 1)
 #define	NOTIFY_DEVICE_NOT_ON_SURFACE                      		(NOTIFY_PAIRING | 2)
+#define	NOTIFY_DEVICE_FLAGS_UPDATE                        		(NOTIFY_PAIRING | 8)
 
 
 /**
@@ -933,14 +937,48 @@ namespace environs {
 #define	DEVICEINFO_DEVICE_BROADCAST                       		(1)
 #define	DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR          		(2)
 
+
+/**
+ * Device source type enumeration.
+ * */
+#ifndef CLI_CPP
+	typedef enum DeviceSourceType_t {
+			DeviceSourceType_Mediator            	=	DEVICEINFO_DEVICE_MEDIATOR,
+			DeviceSourceType_Broadcast           	=	DEVICEINFO_DEVICE_BROADCAST,
+			DeviceSourceType_MediatorBroadcast   	=	DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR,
+
+		} DeviceSourceType_t;
+
+#	ifdef __cplusplus
+	namespace DeviceSourceType {
+			const DeviceSourceType_t Mediator            	=	DeviceSourceType_Mediator            ;
+			const DeviceSourceType_t Broadcast           	=	DeviceSourceType_Broadcast           ;
+			const DeviceSourceType_t MediatorBroadcast   	=	DeviceSourceType_MediatorBroadcast   ;
+	};
+#	endif
+#endif
+
+
+
+
 /**
  * Environs mediator broadcast message Start bytes
  */
 #define	MEDIATOR_BROADCAST_DEVICETYPE_START               		(11)
 #define	MEDIATOR_BROADCAST_DEVICEID_START                 		(12)
+#define	MEDIATOR_BROADCAST_DEVICEID_ABS_START             		(16)
 #define	MEDIATOR_BROADCAST_PORTS_START                    		(20)
+#define	MEDIATOR_BROADCAST_PORTS_ABS_START                		(24)
 #define	MEDIATOR_BROADCAST_PLATFORM_START                 		(24)
+#define	MEDIATOR_BROADCAST_PLATFORM_ABS_START             		(28)
 #define	MEDIATOR_BROADCAST_DESC_START                     		(28)
+#define	MEDIATOR_BROADCAST_DESC_ABS_START                 		(32)
+
+#define	MEDIATOR_BROADCAST_STATUS_SRCDEVICEID_ABS_START   		(16)
+#define	MEDIATOR_BROADCAST_STATUS_DEVICEID_ABS_START      		(20)
+#define	MEDIATOR_BROADCAST_STATUS_CLEAR_SET_ABS_START     		(24)
+#define	MEDIATOR_BROADCAST_STATUS_FLAGS_ABS_START         		(28)
+#define	MEDIATOR_BROADCAST_STATUS_DESC_ABS_START          		(40)
 
 /**
  * Environs mediator broadcast message constants
@@ -970,11 +1008,13 @@ namespace environs {
 #define	DEVICEINFO_BROADCAST_START                        		(DEVICEINFO_PLATFORM_START + 4)
 #define	DEVICEINFO_UNAVAILABLE_START                      		(DEVICEINFO_BROADCAST_START + 1)
 #define	DEVICEINFO_ISCONNECTED_START                      		(DEVICEINFO_UNAVAILABLE_START + 1)
+#define	DEVICEINFO_UNUSED_FLAGS_START                     		(DEVICEINFO_ISCONNECTED_START + 2)
 #define	DEVICEINFO_DEVICETYPE_START                       		(DEVICEINFO_ISCONNECTED_START + 2)
 #define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_DEVICETYPE_START + 1)
 #define	DEVICEINFO_AREANAME_START                         		(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1))
 #define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1))
-#define	DEVICEINFO_OBJID_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2)
+#define	DEVICEINFO_FLAGS_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1))
+#define	DEVICEINFO_OBJID_START                            		(DEVICEINFO_FLAGS_START + 2)
 
 
 /**
@@ -1013,6 +1053,64 @@ namespace environs {
 
 
 
+
+
+
+/**
+ * Deviceflags for internalFlags of DeviceInfo objects
+ */
+#define	DEVICEFLAGS_INTERNAL_PLATFORM_READY               		(0x1)
+#define	DEVICEFLAGS_INTERNAL_OBSERVER_READY               		(0x2)
+#define	DEVICEFLAGS_INTERNAL_MESSAGE_READY                		(0x4)
+#define	DEVICEFLAGS_INTERNAL_DATA_READY                   		(0x8)
+#define	DEVICEFLAGS_INTERNAL_SENSOR_READY                 		(0x10)
+#define	DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  		(0xFF)
+#define	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            		(0x0100)
+#define	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            		(0x0200)
+#define	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             		(0x0400)
+#define	DEVICEFLAGS_INTERNAL_CP_DATA_READY                		(0x0800)
+#define	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              		(0x1000)
+#define	DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               		(0xFF00)
+
+
+/**
+ * Deviceflags for internalFlags enumeration.
+ * */
+#ifndef CLI_CPP
+	typedef enum DeviceFlagsInternal_t {
+			DeviceFlagsInternal_PlatformReady       	=	DEVICEFLAGS_INTERNAL_PLATFORM_READY,
+			DeviceFlagsInternal_ObserverReady       	=	DEVICEFLAGS_INTERNAL_OBSERVER_READY,
+			DeviceFlagsInternal_MessageReady        	=	DEVICEFLAGS_INTERNAL_MESSAGE_READY,
+			DeviceFlagsInternal_DataReady           	=	DEVICEFLAGS_INTERNAL_DATA_READY,
+			DeviceFlagsInternal_SensorReady         	=	DEVICEFLAGS_INTERNAL_SENSOR_READY,
+			DeviceFlagsInternal_NotifyMask          	=	DEVICEFLAGS_INTERNAL_NOTIFY_MASK,
+
+			DeviceFlagsInternal_CPPlatformReady     	=	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY,
+			DeviceFlagsInternal_CPObserverReady     	=	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY,
+			DeviceFlagsInternal_CPMessageReady      	=	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY,
+			DeviceFlagsInternal_CPDataReady         	=	DEVICEFLAGS_INTERNAL_CP_DATA_READY,
+			DeviceFlagsInternal_CPSensorReady       	=	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY,
+			DeviceFlagsInternal_CPNotifyMask        	=	DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK,
+
+		} DeviceFlagsInternal_t;
+
+#	ifdef __cplusplus
+	namespace DeviceFlagsInternal {
+			const DeviceFlagsInternal_t PlatformReady       	=	DeviceFlagsInternal_PlatformReady       ;
+			const DeviceFlagsInternal_t ObserverReady       	=	DeviceFlagsInternal_ObserverReady       ;
+			const DeviceFlagsInternal_t MessageReady        	=	DeviceFlagsInternal_MessageReady        ;
+			const DeviceFlagsInternal_t DataReady           	=	DeviceFlagsInternal_DataReady           ;
+			const DeviceFlagsInternal_t SensorReady         	=	DeviceFlagsInternal_SensorReady         ;
+			const DeviceFlagsInternal_t NotifyMask          	=	DeviceFlagsInternal_NotifyMask          ;
+			const DeviceFlagsInternal_t CPPlatformReady     	=	DeviceFlagsInternal_CPPlatformReady     ;
+			const DeviceFlagsInternal_t CPObserverReady     	=	DeviceFlagsInternal_CPObserverReady     ;
+			const DeviceFlagsInternal_t CPMessageReady      	=	DeviceFlagsInternal_CPMessageReady      ;
+			const DeviceFlagsInternal_t CPDataReady         	=	DeviceFlagsInternal_CPDataReady         ;
+			const DeviceFlagsInternal_t CPSensorReady       	=	DeviceFlagsInternal_CPSensorReady       ;
+			const DeviceFlagsInternal_t CPNotifyMask        	=	DeviceFlagsInternal_CPNotifyMask        ;
+	};
+#	endif
+#endif
 
 
 
@@ -1125,6 +1223,7 @@ namespace environs {
  *  
  */
 #define	MEDIATOR_BUFFER_SIZE_MAX                          		(65535)
+#define	MEDIATOR_REC_BUFFER_SIZE_MAX                      		((650 * 1024))
 #define	ENVIRONS_SEND_SIZE_MAX                            		((40 * 1024 * 1024))
 
 
@@ -1459,6 +1558,7 @@ namespace environs {
 #define	DEVICE_INFO_ATTR_APP_CONTEXT                      		(0x8000)
 #define	DEVICE_INFO_ATTR_PORTAL_CREATED                   		(0x10000)
 #define	DEVICE_INFO_ATTR_OBJID                            		(0x20000)
+#define	DEVICE_INFO_ATTR_FLAGS                            		(0x40000)
 
 
 /**
@@ -1484,6 +1584,8 @@ namespace environs {
 			DeviceInfoFlag_DirectContact       	=	DEVICE_INFO_ATTR_DIRECT_CONTACT,
 			DeviceInfoFlag_AppContext          	=	DEVICE_INFO_ATTR_APP_CONTEXT,
 			DeviceInfoFlag_PortalCreated       	=	DEVICE_INFO_ATTR_PORTAL_CREATED,
+			DeviceInfoFlag_ObjectID            	=	DEVICE_INFO_ATTR_OBJID,
+			DeviceInfoFlag_Flags               	=	DEVICE_INFO_ATTR_FLAGS,
 
 		} DeviceInfoFlag_t;
 
@@ -1507,6 +1609,8 @@ namespace environs {
 			const DeviceInfoFlag_t DirectContact       	=	DeviceInfoFlag_DirectContact       ;
 			const DeviceInfoFlag_t AppContext          	=	DeviceInfoFlag_AppContext          ;
 			const DeviceInfoFlag_t PortalCreated       	=	DeviceInfoFlag_PortalCreated       ;
+			const DeviceInfoFlag_t ObjectID            	=	DeviceInfoFlag_ObjectID            ;
+			const DeviceInfoFlag_t Flags               	=	DeviceInfoFlag_Flags               ;
 	};
 #	endif
 #endif
@@ -1614,6 +1718,9 @@ namespace environs {
 #define	ENVIRONS_PLATFORMS_MACBOOK_FLAG                   		(0x10010)
 #define	ENVIRONS_PLATFORMS_MACMINI_FLAG                   		(0x10020)
 
+#define	ENVIRONS_PLATFORMS_LINUX_FLAG                     		(0x40000)
+#define	ENVIRONS_PLATFORMS_RASPBERRY                      		(0x40100)
+
 #define	ENVIRONS_PLATFORMS_WINDOWS_FLAG                   		(0x20000)
 #define	ENVIRONS_PLATFORMS_WINDOWSVISTA                   		(0x20050)
 #define	ENVIRONS_PLATFORMS_WINDOWSXP                      		(0x20060)
@@ -1669,6 +1776,9 @@ namespace environs {
 			Platforms_MacBook_Flag        	=	ENVIRONS_PLATFORMS_MACBOOK_FLAG,
 			Platforms_MacMini_Flag        	=	ENVIRONS_PLATFORMS_MACMINI_FLAG,
 
+			Platforms_Linux_Flag          	=	ENVIRONS_PLATFORMS_LINUX_FLAG,
+			Platforms_Raspberry_Flag      	=	ENVIRONS_PLATFORMS_RASPBERRY,
+
 			Platforms_Windows_Flag        	=	ENVIRONS_PLATFORMS_WINDOWS_FLAG,
 			Platforms_WindowsVista        	=	ENVIRONS_PLATFORMS_WINDOWSVISTA,
 			Platforms_WindowsXP           	=	ENVIRONS_PLATFORMS_WINDOWSXP,
@@ -1718,6 +1828,8 @@ namespace environs {
 			const Platforms_t OSX_Flag            	=	Platforms_OSX_Flag            ;
 			const Platforms_t MacBook_Flag        	=	Platforms_MacBook_Flag        ;
 			const Platforms_t MacMini_Flag        	=	Platforms_MacMini_Flag        ;
+			const Platforms_t Linux_Flag          	=	Platforms_Linux_Flag          ;
+			const Platforms_t Raspberry_Flag      	=	Platforms_Raspberry_Flag      ;
 			const Platforms_t Windows_Flag        	=	Platforms_Windows_Flag        ;
 			const Platforms_t WindowsVista        	=	Platforms_WindowsVista        ;
 			const Platforms_t WindowsXP           	=	Platforms_WindowsXP           ;
@@ -2310,6 +2422,7 @@ namespace Notify {
 			Environs_Pairing                 	=	NOTIFY_PAIRING,
 			Environs_DeviceOnSurface         	=	NOTIFY_DEVICE_ON_SURFACE,
 			Environs_DeviceNotOnSurface      	=	NOTIFY_DEVICE_NOT_ON_SURFACE,
+			Environs_DeviceFlagsUpdate       	=	NOTIFY_DEVICE_FLAGS_UPDATE,
 	} Environs_t;
 
 	typedef	Environs_t	Environse_t;
@@ -2350,6 +2463,7 @@ namespace Notify {
 			const Environs_t Pairing                 	=	Environs_Pairing;
 			const Environs_t DeviceOnSurface         	=	Environs_DeviceOnSurface;
 			const Environs_t DeviceNotOnSurface      	=	Environs_DeviceNotOnSurface;
+			const Environs_t DeviceFlagsUpdate       	=	Environs_DeviceFlagsUpdate;
 	};
 
 	namespace Environse = Environs;

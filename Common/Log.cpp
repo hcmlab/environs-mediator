@@ -263,8 +263,10 @@ namespace environs
     {
         CVerbN ( "OpenLog" );
         
-        if ( !native.workDir || !*native.workDir )
+        if ( !native.workDir || !*native.workDir ) {
+            CVerbVerbN ( "OpenLog: ERROR - Missing workDir for creating logfile!" );
             return false;
+        }
         
         char fileName [ 1024 ];
         
@@ -286,7 +288,9 @@ namespace environs
             }
         }
         
-        
+#ifdef DEBUGVERB
+        printf ( "OpenLog: Open logfile [ %s ]\n.", fileName );
+#endif
         FILE * fp = fopen ( fileName, "a" );
         if ( !fp ) {
             if ( environsLogFileErrCount < 10 ) {
@@ -306,13 +310,13 @@ namespace environs
     }
     
     
-    void CloseLog ()
+    void CloseLog ( bool lock )
     {
         CVerbN ( "CloseLog" );
         
 		bool locked = false;
 
-		if ( log.alive ) {
+		if ( lock && log.alive ) {
 			if ( pthread_mutex_lock ( &environsLogMutex ) )
 				printf ( "CloseLog: ERROR ---> Failed to lock mutex." );
 			else
@@ -344,7 +348,7 @@ namespace environs
 				locked = true;
 		}
         
-        CloseLog ();
+        CloseLog ( false );
 
 		if ( locked && pthread_mutex_unlock ( &environsLogMutex ) ) {
 			printf ( "DisposeLog: ERROR ---> Failed to unlock mutex." );
@@ -359,7 +363,11 @@ namespace environs
 #else
 	void COutLog ( const char * msg, int length, bool useLock )
 #endif
-	{
+    {
+#ifdef LINUX
+        if ( !native.useStdout && !native.useLogFile )
+            return;
+#endif
 		if ( length <= 0 ) {
 			length = ( int ) strlen ( msg );
 			//printf ( "COutLog: Length [%i].", length );
@@ -436,10 +444,11 @@ namespace environs
         
 //#if !defined(ANDROID) && !defined(_WIN32) // <-- ANY other platform, e.g. Linux
         
+        if ( native.useStdout )
 #if ( defined(LOG_TIMESTRING) )
-        printf ( "%s%s", timeString, LOG_OUT_BUFFER_NAME );
+            printf ( "%s%s", timeString, LOG_OUT_BUFFER_NAME );
 #else
-        printf ( "%s", LOG_OUT_BUFFER_NAME );
+            printf ( "%s", LOG_OUT_BUFFER_NAME );
 #endif
         
 #endif  // -> end-_ANDROID
@@ -471,6 +480,10 @@ namespace environs
     void COutArgLog ( const char * format, ... )
 #endif
     {
+#ifdef LINUX
+        if ( !native.useStdout && !native.useLogFile )
+            return;
+#endif
         va_list marker;
 
 		bool locked = false;

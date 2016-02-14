@@ -92,6 +92,7 @@ class AreaApps : public ILock, public ILock1
 {
 public:
 	unsigned int						id;
+    string                              name;
 	msp ( string, ApplicationDevices )	apps;
 	msp ( long long, ThreadInstance )   notifyTargets;
 };
@@ -199,7 +200,7 @@ public:
 	void									ReleaseDeviceMappings ( );
 	void									ReleaseClient ( ThreadInstance * client );
 
-	void									BuildBroadcastMessage ( );
+	void									BuildBroadcastMessage ( bool withStatus = true );
 	
 private:
     bool									allocated;
@@ -219,7 +220,7 @@ private:
     InstanceList                            acceptClients;
     bool                                    RemoveAcceptClient ( ThreadInstance * );
 
-	sp ( ApplicationDevices )				GetApplicationDevices ( const char * areaName, const char * appName );
+	sp ( ApplicationDevices )				GetApplicationDevices ( const char * appName, const char * areaName );
 	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
 	DeviceInstanceNode *					GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
 
@@ -315,22 +316,29 @@ private:
 	bool									HandleRequest ( char * buffer, ThreadInstance * client );
 	bool									UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, unsigned int ip, char * msg );
 
-	int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+    int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+    int										HandleRegistrationV4 ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
 
-	bool									HandleDeviceRegistration ( sp ( ThreadInstance ) client, unsigned int ip, char * msg );
+    bool									HandleDeviceRegistration ( sp ( ThreadInstance ) client, unsigned int ip, char * msg );
+    bool									HandleDeviceRegistrationV4 ( sp ( ThreadInstance ) client, unsigned int ip, char * msg );
 	bool									SecureChannelAuth ( ThreadInstance * client );
 	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
 	bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
+	bool									HandleSTUNTRequestV4 ( ThreadInstance * client, STUNTReqPacketV4 * msg );
 	bool									NotifySTUNTRegRequest ( ThreadInstance * client );
     int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
     
 	void									HandleCLSGenHelp ( ThreadInstance * client );
 	void									HandleCertSign ( ThreadInstance * client, char * msg );
+
+	void									HandleDeviceFlagSet ( ThreadInstance * client, char * msg );
 	
     bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
-	bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+    bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+    bool									HandleSTUNRequestV4 ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 
 	bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
+	bool									HandleQueryDevicesV4 ( const sp ( ThreadInstance ) &client, char * msg );
 	bool									HandleShortMessage ( ThreadInstance * client, char * msg );
 
     pthread_t								notifyThreadID;

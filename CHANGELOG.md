@@ -1,3 +1,17 @@
+### v 0.9.7.1
+
+---------------------------
+
+* Added: Mediator protocol version to broadcast identifier
+* Updated: Mediator STUN protocol with flat and compressed apparea
+* Updated: GetDeviceList from Mediator to V5 protocol
+* Changed: Broadcast and Mediator protocol version to 5
+* Added: Populate platform object activation flag
+* Added: Type MediatorStatusMsgExt for device updates
+* Added: Broadcast deviceflags update
+* Updated: Mediator server with deviceflags update handler
+
+
 ### v 0.9.7.0
 
 ---------------------------

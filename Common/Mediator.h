@@ -53,6 +53,9 @@
 #include "Environs.Crypt.h"
 #include "Interop/Smart.Pointer.h"
 
+#ifdef MEDIATORDAEMON
+#   include <string>
+#endif
 
 #define DEFAULT_MEDIATOR_PORT					5898
 #define DEFAULT_BROADCAST_PORT					5899
@@ -72,10 +75,11 @@
 #define MEDIATOR_BROADCAST_DEVICE				"E.D."
 #define MEDIATOR_SPARE_SOCKET_REQ				"E.DS"
 #define MEDIATOR_BROADCAST_DEVICEINFO			"E.D.Client"
+#define MEDIATOR_BROADCAST_DEVICE_UPDATE		"E.D.DFlags"
 #define MEDIATOR_BROADCAST_GREET				"E.D.Helo"
 #define MEDIATOR_BROADCAST_BYEBYE				"E.D.Bye"
 #define MEDIATOR_PROTOCOL_VERSION_MIN			'2'
-#define MEDIATOR_PROTOCOL_VERSION				'4'
+#define MEDIATOR_PROTOCOL_VERSION				'5'
 
 #define	MEDIATOR_CMD_SET						's'
 #define	MEDIATOR_CMD_GET						'g'
@@ -101,6 +105,7 @@
 #define	MEDIATOR_CMD_STUN						'y'
 #define	MEDIATOR_CMD_HELP_TLS_GEN				't'
 #define	MEDIATOR_CMD_SESSION_ASSIGN				's'
+#define	MEDIATOR_CMD_DEVICE_FLAGS				'o'
 #define	MEDIATOR_CMD_AUTHTOKEN_ASSIGN			'a'
 #define	MEDIATOR_CMD_MEDIATOR_NOTIFY			'i'
 #define	MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE		16
@@ -112,6 +117,7 @@
 #define	MEDIATOR_CMD_DEVICE_LIST_QUERY_RESPONSE	'l'
 #define	MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR	'e'
 #define	MEDIATOR_OPT_DEVICE_LIST_DEVICE_ID		'i'
+#define	MEDIATOR_CMD_DEVICE_LIST_QUERY_SEARCH	's'
 
 #define	MEDIATOR_CMD_GET_VERSION				'v'
 
@@ -126,6 +132,8 @@
 #define MEDIATOR_STUNT_ACK_EXT_SIZE				20
 #define MEDIATOR_STUN_REQ_SIZE					16
 #define MEDIATOR_STUN_RESP_SIZE					20
+
+#define MEDIATOR_STUN_REQUEST                   'u'
 
 #define MEDIATOR_NAT_REQ_SIZE					12
 #define MEDIATOR_MSG_VERSION_SIZE				16
@@ -142,6 +150,8 @@ const unsigned int		maxSpareSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
 namespace environs	/// Namespace: environs ->
 {
 	extern unsigned int		primaryInterface;
+
+	extern bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext );
 
 	typedef struct NetPack
 	{
@@ -257,14 +267,18 @@ namespace environs	/// Namespace: environs ->
 		unsigned int			areaId;
 		int						count;
 		long					access;
-		
+        
+#ifdef MEDIATORDAEMON
+        std::string             name;
+#endif
 		long					latestAssignedID;
 
 		DeviceInstanceNode	*	devices;
 
 		bool					deviceCacheDirty;
-		int						deviceCacheCount;
-		DeviceInstanceNode	*	devicesCache;
+        int						deviceCacheCount;
+        int						deviceCacheCapacity;
+        char                *   devicesCache;
 	};
 
     
@@ -282,9 +296,9 @@ namespace environs	/// Namespace: environs ->
         DAEMONEXP ( sp ( ThreadInstance )     clientSP; )
         
         // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
-        CLIENTEXP ( char					  key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; );
+        CLIENTEXP ( char				key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; );
 
-		char					  userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
+		//char							userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
 
         // Links used by Mediator base layer
 		struct DeviceInstanceNode	*	next;  // 4
@@ -307,15 +321,38 @@ namespace environs	/// Namespace: environs ->
 	}
 	DeviceInstanceNode;
 
-    
+
 	typedef struct DeviceInfoNode
+    {
+        // Links used by Mediator base layer
+        struct DeviceInfoNode	*	next;  // 4
+        struct DeviceInfoNode	*	prev;  // 4
+        
+		lib::DeviceInfoShort info;
+	}
+	DeviceInfoNode;
+
+    
+	typedef struct DeviceInfoNodeFirst
+    {
+        // Links used by Mediator base layer
+        struct DeviceInfoNode	*	next;  // 4
+        struct DeviceInfoNode	*	prev;  // 4
+        
+		lib::DeviceInfo info;
+    
+	}
+	DeviceInfoNodeFirst;
+
+
+	typedef struct DeviceInfoNodeV4
 	{
 		lib::DeviceInfo info;
 
-        // Links used by Mediator base layer
-		struct DeviceInfoNode	*	next;  // 4        
+		// Links used by Mediator base layer
+		struct DeviceInfoNodeV4	*	next;  // 4        
 	}
-	DeviceInfoNode;
+	DeviceInfoNodeV4;
 
 
 	typedef struct _MediatorThreadInstance
@@ -389,11 +426,12 @@ namespace environs	/// Namespace: environs ->
 
 		void					StopMediators ();
 
-		virtual void			BuildBroadcastMessage () = 0;
-		bool					SendBroadcast ();
+		virtual void			BuildBroadcastMessage ( bool withStatus = true ) = 0;
+		bool					SendBroadcast ( bool enforce = false, bool sendStatus = false );
 
 		bool					AddMediator ( unsigned int ip, unsigned short port );
         void					BroadcastByeBye ();
+		void					BroadcastGenerateToken ();
         
         static bool				LoadNetworks ();
         static unsigned int		GetLocalIP ();
@@ -416,6 +454,7 @@ namespace environs	/// Namespace: environs ->
 #endif
         
 		bool					isRunning;
+		bool					broadcastRunning;
 		bool					aliveRunning;
 		char			*		certificate;
 
@@ -429,13 +468,17 @@ namespace environs	/// Namespace: environs ->
         
         int                     broadcastReceives;
 		unsigned int			broadcastMessageLen;
-		char					broadcastMessage [MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
+		unsigned int			broadcastMessageLenExt;
+        char					broadcastMessage [ MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 188 ]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
+        
+        unsigned int            broadcastStatusMessageOffset;
+        unsigned int            broadcastStatusMessageLen;
+        char                    broadcastStatusMessage [ MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
 
 		unsigned long long		lastGreetUpdate;
 
 		int						broadcastSocketID;
         ThreadSync              broadcastThread;
-		//pthread_t				broadcastThreadID;
 
 		bool					IsLocalIP ( unsigned int ip );
         static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
@@ -451,14 +494,24 @@ namespace environs	/// Namespace: environs ->
 		virtual void			RemoveDevice ( unsigned int ip, char * msg ) {};
 		virtual void			RemoveDevice ( DeviceInstanceNode * device, bool useLock = true ) = 0;
 
+		int                     randBroadcastToken;
+
 #ifdef __cplusplus
-		sp ( DeviceInstanceNode ) UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
+        
+#	ifdef MEDIATORDAEMON
+		sp ( DeviceInstanceNode ) UpdateDevicesV4 ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
+#	endif
+
+#   ifdef MEDIATORDAEMON
+	 	sp ( DeviceInstanceNode )
+#   else        
+        bool
+#   endif
+            UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
 
 		virtual void			UpdateDeviceInstance ( sp ( DeviceInstanceNode ) device, bool added, bool changed ) = 0;
 #endif
 		virtual void			ReleaseDevices ( ) = 0;
-
-		//virtual void			NotifyClients ( unsigned int notify, const char * areaName, const char * appName, int deviceID ) {};
 		
 		MediatorInstance *		IsKnownMediator ( unsigned int ip, unsigned short port );
 		MediatorInstance *		AddMediator ( MediatorInstance * med );
@@ -508,9 +561,14 @@ namespace environs	/// Namespace: environs ->
 
 	}
 	MediatorMsg;
-
-
-	typedef struct _MediatorReqMsg
+    
+    
+    NET_PACK_PUSH1
+    
+    /**
+     * Mediator status (Device updates) message structure
+     */
+	typedef struct _MediatorStatusMsg
 	{
 		unsigned int	size;
 		char			cmd0;
@@ -518,16 +576,86 @@ namespace environs	/// Namespace: environs ->
 		char			opt0;
 		char			opt1;
 
-		/** The area name of the application environment. */
-		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
-
-		/** The application name of the application environment. */
-		char			appName [MAX_NAMEPROPERTY + 1]; // 31
+		int				deviceID;
+		int				status1;
+		int				status2;
+        int				status3;
         
-		/** The machine name of the device */
-		char			deviceUID [MAX_NAMEPROPERTY * 6]; // 31
+        char            status45 [ 2 ];
+        unsigned char   sizes [ 2 ];
 	}
-	MediatorReqMsg;
+	NET_PACK_ALIGN MediatorStatusMsg;
+    
+    
+    /**
+     * Mediator status (Device updates) message structure
+     * with appArea space
+     */
+	typedef struct _MediatorStatusMsgExt
+	{
+        MediatorStatusMsg header;
+		char			  appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+	}
+	NET_PACK_ALIGN MediatorStatusMsgExt;
+
+    
+    /**
+     * Mediator registration/deviceID request/authoToken message structure
+     */
+	typedef struct _MediatorReqHeader
+	{
+		unsigned int	size;
+		char			cmd0;
+		char			cmd1;
+		char			opt0;
+        char			opt1;
+        
+        char            pads [ 2 ];
+        unsigned char   sizes [ 2 ];
+	}
+    NET_PACK_ALIGN MediatorReqHeader;
+    
+    
+    /**
+     * Mediator registration/deviceID request/authoToken message structure
+     * with appArea space
+     */
+    typedef struct _MediatorReqMsg
+    {
+        MediatorReqHeader   header;
+        
+        char                pad;
+        
+        /** The machine name of the device */
+        char                deviceUID [MAX_NAMEPROPERTY * 6]; // 31
+        
+        char                appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
+    NET_PACK_ALIGN MediatorReqMsg;
+    
+    
+    /**
+     * Mediator registration/deviceID request/authoToken message structure
+     * Deprecated V4 protocol
+     */
+    typedef struct _MediatorReqMsgV4
+    {
+        unsigned int	size;
+        char			cmd0;
+        char			cmd1;
+        char			opt0;
+        char			opt1;
+        
+        /** The area name of the application environment. */
+        char			areaName [MAX_NAMEPROPERTY + 1]; // 31
+        
+        /** The application name of the application environment. */
+        char			appName [MAX_NAMEPROPERTY + 1]; // 31
+        
+        /** The machine name of the device */
+        char			deviceUID [MAX_NAMEPROPERTY * 6]; // 31
+    }
+    NET_PACK_ALIGN MediatorReqMsgV4;
 
 
 	typedef struct _MediatorGetPacket
@@ -538,10 +666,14 @@ namespace environs	/// Namespace: environs ->
 		char			opt0;
 		char			opt1;
 	}
-	MediatorGetPacket;
+	NET_PACK_ALIGN MediatorGetPacket;
 
-
-	typedef struct _MediatorNotify
+    
+    /**
+     * Mediator notification message structure
+     * Deprecated V4 protocol
+     */
+	typedef struct _MediatorNotifyV4
 	{
 		unsigned int	size;
 		char			cmd0;
@@ -558,10 +690,81 @@ namespace environs	/// Namespace: environs ->
 		/** The application name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 	}
-	MediatorNotify;
+    MediatorNotifyV4;
+    
+    
+    
+    /**
+     * Mediator notification message structure
+     */
+    typedef struct _MediatorNotifyHeader
+    {
+        unsigned int	size;
+        char			cmd0;
+        char			cmd1;
+        char			opt0;
+        char			opt1;
+        
+        unsigned int	msgID;
+        int				notifyDeviceID;
+        
+        unsigned char   pads [ 2 ];
+        unsigned char   sizes [ 2 ];
+    }
+    NET_PACK_ALIGN MediatorNotifyHeader;
+    
+    
+    /**
+     * Mediator notification message structure
+     * with appArea space
+     */
+    typedef struct _MediatorNotify
+    {
+        MediatorNotifyHeader header;
+        char				 appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
+    NET_PACK_ALIGN MediatorNotify;
+    
+    
+    /**
+     * Mediator device list query message structure
+     */
+	typedef struct _MediatorQueryHeader
+	{
+		unsigned int	size;
+		char			cmdVersion;
+		char			cmd1;
+		char			opt0;
+		char			opt1;
 
+		unsigned int	msgID;
+		unsigned int	resultCount;
+		int				deviceID;
 
+		unsigned char   sizes [ 2 ];
+    }
+	NET_PACK_ALIGN MediatorQueryHeader;
+    
+    
+    /**
+     * Mediator device list query message structure
+     * with appArea space
+     */
 	typedef struct _MediatorQueryMsg
+	{
+		MediatorQueryHeader	header;
+		char				appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
+	NET_PACK_ALIGN MediatorQueryMsg;
+    
+	NET_PACK_POP
+
+    
+    /**
+     * Mediator device list query message structure
+     * Deprecated V4 protocol
+     */
+	typedef struct _MediatorQueryMsgV4
 	{
 		unsigned int	size;
 		char			cmdVersion;
@@ -574,14 +777,18 @@ namespace environs	/// Namespace: environs ->
 		int				deviceID;
 
 		/** The area name of the application environment. */
-		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
+		char			areaName [ MAX_NAMEPROPERTY + 1 ]; // 31
 
-		/** The application name of the application environment. */
-		char			appName [MAX_NAMEPROPERTY + 1]; // 31
+														   /** The application name of the application environment. */
+		char			appName [ MAX_NAMEPROPERTY + 1 ]; // 31
 	}
-	MediatorQueryMsg;
+	MediatorQueryMsgV4;
 
-
+    
+    /**
+     * Mediator device list response message structure
+     * Header part
+     */
 	typedef struct _MediatorQueryResponse
 	{
 		unsigned int	size;
@@ -593,8 +800,11 @@ namespace environs	/// Namespace: environs ->
 		lib::DeviceHeader	deviceHead;
 	}
 	MediatorQueryResponse;
-
-
+    
+    
+    /**
+     * Mediator spare socket registration message structure
+     */
 	typedef struct _SpareSockRegPack
 	{
 		unsigned int	alignPad;
@@ -608,7 +818,10 @@ namespace environs	/// Namespace: environs ->
 	}
 	SpareSockRegPack;
 
-
+    
+    /**
+     * Mediator spare socket registration message structure
+     */
 	typedef struct _SpareSockDecPack
 	{
 		unsigned int	sizeReq;
@@ -619,28 +832,69 @@ namespace environs	/// Namespace: environs ->
 		char			payload;
 	}
 	SpareSockDecPack;
-
-
-	typedef struct _STUNTReqPacket
+    
+    
+    NET_PACK_PUSH1
+    
+    /**
+     * Mediator STUNT request message structure
+     */
+	typedef struct _STUNTReqHeader
 	{
 		unsigned int	size;
 		char			version;
-		char			ident [2];
+		char			ident [ 2 ];
 		char			channel;
 
 		int				deviceID;
-        
-		/** The area name of the application environment. */
-		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
-        
-		/** The application name of the application environment. */
-		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 
-		char			pad [2];
+		unsigned char   sizes [ 2 ];
 	}
-	STUNTReqPacket;
+	NET_PACK_ALIGN STUNTReqHeader;
 
+    
+    /**
+     * Mediator STUNT request message structure
+     * with appArea space
+     */
+	typedef struct _STUNTReqPacket
+	{
+		STUNTReqHeader	header;
+		char			appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+	}
+    NET_PACK_ALIGN STUNTReqPacket;
+    
+    NET_PACK_POP
+    
+    
+    /**
+     * Mediator STUNT request message structure
+     * Deprecated V4 protocol
+     */
+	typedef struct _STUNTReqPacketV4
+	{
+		unsigned int	size;
+		char			version;
+		char			ident [ 2 ];
+		char			channel;
 
+		int				deviceID;
+
+		/** The area name of the application environment. */
+		char			areaName [ MAX_NAMEPROPERTY + 1 ]; // 31
+
+														   /** The application name of the application environment. */
+		char			appName [ MAX_NAMEPROPERTY + 1 ]; // 31
+
+		char			pad [ 2 ];
+	}
+	STUNTReqPacketV4;
+
+    
+    
+    /**
+     * Mediator STUNT response message structure
+     */
 	typedef struct _STUNTRespPacket
 	{
 		unsigned int	size;
@@ -654,31 +908,75 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	ipe; // 16
 	}
 	STUNTRespPacket;
-
-	typedef struct _STUNTRespReqPacket
+    
+    
+    NET_PACK_PUSH1
+    
+    /**
+     * Mediator STUNT response/request message structure
+     */
+	typedef struct _STUNTRespReqHeader
 	{
 		unsigned int	size;
 		//char			respCode;
-		char			ident [3];
+		char			ident [ 3 ];
 		char			channel;
 
 		int				deviceID;
 		unsigned int	ip;
 		unsigned int	ipe;
-        unsigned short	porti;
-        unsigned short	porte;
+		unsigned short	porti;
+		unsigned short	porte;
+
+		unsigned char   sizes [ 2 ];
+	}
+	NET_PACK_ALIGN STUNTRespReqHeader;
+
+    
+    /**
+     * Mediator STUNT response/request message structure
+     * with appArea space
+     */
+	typedef struct _STUNTRespReqPacket
+	{
+		STUNTRespReqHeader	header;
+		char				appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+	}
+    NET_PACK_ALIGN STUNTRespReqPacket;
+    
+    
+    /**
+     * Mediator STUNT response/request message structure
+     * Deprecated V4 protocol
+     */
+	typedef struct _STUNTRespReqPacketV4
+	{
+		unsigned int	size;
+		//char			respCode;
+		char			ident [ 3 ];
+		char			channel;
+
+		int				deviceID;
+		unsigned int	ip;
+		unsigned int	ipe;
+		unsigned short	porti;
+		unsigned short	porte;
 
 		/** The area name of the application environment. */
-		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
+		char			areaName [ MAX_NAMEPROPERTY + 1 ]; // 31
 
-		/** The application name of the application environment. */
-		char			appName [MAX_NAMEPROPERTY + 1]; // 31
+														   /** The application name of the application environment. */
+		char			appName [ MAX_NAMEPROPERTY + 1 ]; // 31
 		unsigned int	pad0;
 	}
-	STUNTRespReqPacket;
+	STUNTRespReqPacketV4;
 
-
-	typedef struct _STUNReqPacket
+    
+    /**
+     * Mediator STUN UDP request message structure
+     * Deprecated V4 protocol
+     */
+	typedef struct _STUNReqPacketV4
 	{
 		char			ident [4];
 
@@ -697,10 +995,75 @@ namespace environs	/// Namespace: environs ->
 		/** The application name of the application environment. */
 		char			appNameSrc [MAX_NAMEPROPERTY + 1]; // 31
 	}
-	STUNReqPacket;
-
-
-	typedef struct _STUNReqReqPacket
+    NET_PACK_ALIGN STUNReqPacketV4;
+    
+    
+    /**
+     * Mediator STUN UDP request message structure
+     */
+    typedef struct _STUNReqHeader
+    {
+        char			ident [4];
+        
+        unsigned int	sourceID;
+        unsigned int	destID;
+        
+        unsigned char   pads [ 2 ];
+        unsigned char   sizes [ 2 ];
+    }
+    NET_PACK_ALIGN STUNReqHeader;
+    
+    
+    /**
+     * Mediator STUNT response/request message structure
+     * with appArea space
+     */
+    typedef struct STUNReqPacket
+    {
+        STUNReqHeader	header;
+        char            appArea [ ( MAX_NAMEPROPERTY + 2 ) * 4 ];
+    }
+    NET_PACK_ALIGN STUNReqPacket;
+    
+    
+    /**
+     * Mediator to client STUN UDP -> TCP request response message structure
+     */
+    typedef struct _STUNReqReqHeader
+    {
+        unsigned int	size;
+        char			ident [4];
+        
+        int				deviceID;
+        unsigned int	IPi;
+        unsigned int	IPe;
+        unsigned short	Porti;
+        unsigned short	Porte;
+        
+        unsigned char   pads [ 2 ];
+        unsigned char   sizes [ 2 ];
+    }
+    NET_PACK_ALIGN STUNReqReqHeader;
+    
+    
+    /**
+     * Mediator to client STUN UDP -> TCP request response message structure
+     * with appArea space
+     */
+    typedef struct _STUNReqReqPacket
+    {
+        STUNReqReqHeader header;
+        char			 appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
+    NET_PACK_ALIGN STUNReqReqPacket;
+    
+    NET_PACK_POP
+    
+    /**
+     * Mediator to client STUN UDP -> TCP request response message structure
+     * Deprecated V4 protocol
+     */
+	typedef struct _STUNReqReqPacketV4
 	{
 		unsigned int	size;
 		char			ident [4];
@@ -717,7 +1080,7 @@ namespace environs	/// Namespace: environs ->
 		/** The applcation name of the application environment. */
 		char			appName [MAX_NAMEPROPERTY + 1]; // 31
 	}
-	STUNReqReqPacket;
+	STUNReqReqPacketV4;
 
 	
 	typedef struct _STUNTRegReqPacket
@@ -731,7 +1094,10 @@ namespace environs	/// Namespace: environs ->
 	}
 	STUNTRegReqPacket;
 
-
+    
+    /**
+     * Device to device udp hello message structure
+     */
 	typedef struct _UdpHelloPacket
 	{
 		char			ident [3];
@@ -747,7 +1113,10 @@ namespace environs	/// Namespace: environs ->
 	}
 	UdpHelloPacket;
 
-
+    
+    /**
+     * Mediator server encoded udp STUN message structure
+     */
 	typedef struct _UdpEncHelloPacket
 	{
 		unsigned int	size;
@@ -755,29 +1124,102 @@ namespace environs	/// Namespace: environs ->
 		long long		sessionID;
 		char			aes;
 	}
-	UdpEncHelloPacket;
-
-
+    UdpEncHelloPacket;
+    
+    
+    
+    NET_PACK_PUSH1
+    
+    /**
+     * Mediator short message to Server and response message structure
+     */
+    typedef struct _ShortMsgPacketHeader
+    {
+        unsigned int	size;
+        char			version;
+        char			ident [3];
+        
+        int				deviceID;
+        
+        char			pads [2];
+        unsigned char   sizes [2];
+    }
+    NET_PACK_ALIGN ShortMsgPacketHeader;
+    
+    
+    /**
+     * Mediator short message to Server and response message structure
+     * with appArea space
+     */
 	typedef struct _ShortMsgPacket
 	{
-		unsigned int	size;
-		char			version;
-		char			ident [3];
+		ShortMsgPacketHeader	header;
+        char                    appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+	}
+    NET_PACK_ALIGN ShortMsgPacket;
+
+    
+    /**
+     * Device short message between devices message structure
+     */
+	typedef struct _ShortMsgHeader
+	{
+		char 			preamble [ 4 ];	// 4 bytes
+		unsigned int	length;			// 4 bytes
+		char			version;		// 1 byte
+		char			type;			// 1 byte
+		unsigned short	payloadType;	// 2 byte
 
 		int				deviceID;
 
-		/** The area name of the application environment. */
-		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
-
-		/** The application name of the application environment. */
-		char			appName [MAX_NAMEPROPERTY + 1]; // 31
-
-		char			msg;
+		unsigned char   sizes [ 2 ];
 	}
-	ShortMsgPacket;
+	NET_PACK_ALIGN ShortMsgHeader;
 
-
+    
+    /**
+     * Device short message between devices message structure
+     * with appArea space
+     */
 	typedef struct _ShortMsg
+	{
+		ShortMsgHeader	header;
+		char			appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+	}
+	NET_PACK_ALIGN ShortMsg;
+    
+    NET_PACK_POP
+    
+    
+    
+    /**
+     * Mediator Short message to Server and response message structure
+     * Deprecated V4 protocol
+     */
+    typedef struct _ShortMsgPacketV4
+    {
+        unsigned int	size;
+        char			version;
+        char			ident [3];
+        
+        int				deviceID;
+        
+        /** The area name of the application environment. */
+        char			areaName [MAX_NAMEPROPERTY + 1]; // 31
+        
+        /** The application name of the application environment. */
+        char			appName [MAX_NAMEPROPERTY + 1]; // 31
+        
+        char			msg;
+    }
+    ShortMsgPacketV4;
+    
+    
+    /**
+     * Device short message between devices message structure
+     * Deprecated V4 protocol
+     */
+	typedef struct _ShortMsgV4
 	{
 		char			version;
 		char			deviceType;
@@ -792,7 +1234,7 @@ namespace environs	/// Namespace: environs ->
 
 		char			text;
 	}
-	ShortMsg;
+	ShortMsgV4;
 
 
 } /* namepace Environs */

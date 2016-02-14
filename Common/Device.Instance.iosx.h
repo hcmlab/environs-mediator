@@ -21,6 +21,7 @@
 #ifndef INCLUDE_HCM_ENVIRONS_DEVICEINSTANCE_IOSX_H
 #define INCLUDE_HCM_ENVIRONS_DEVICEINSTANCE_IOSX_H
 
+
 #include "Device.Instance.h"
 
 #include "Environs.iOSX.Imp.h"
@@ -29,6 +30,7 @@
 #import "Portal.Instance.iOSX.h"
 #import "Environs.Observer.iOSX.h"
 
+#   if (!defined(DISABLE_ENVIRONS_OBJC_API))
 
 /**
  *	DeviceInstance iOSX
@@ -82,8 +84,19 @@
 /** A value that describes the device platform. */
 @property (readonly, nonatomic) int				platform;
 
-/** BroadcastFound is a value of DEVICEINFO_DEVICE_* and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
-@property (readonly, nonatomic) char			broadcastFound;
+
+#ifdef __cplusplus
+
+/** sourceType is a value of environs::DeviceSourceType and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
+@property (readonly, nonatomic) environs::DeviceSourceType_t	sourceType;
+
+#endif
+
+@property (readonly, nonatomic) bool			isObserverReady;
+@property (readonly, nonatomic) bool			isMessageObserverReady;
+@property (readonly, nonatomic) bool			isDataObserverReady;
+@property (readonly, nonatomic) bool			isSensorObserverReady;
+
 @property (readonly, nonatomic) bool            unavailable;
 
 /** isConnected is true if the device is currently in the connected state. */
@@ -93,7 +106,7 @@
 @property (readonly, nonatomic) bool			isLocationNode;
 
 /** Used internally by native layer. */
-@property (readonly, nonatomic) char            internalType;
+@property (readonly, nonatomic) char            flags;
 
 /** The device name. */
 @property (readonly, nonatomic) const char *    deviceName;
@@ -446,6 +459,9 @@
 #endif
 
 @end
+
+#   endif
+
 
 #endif	/// INCLUDE_HCM_ENVIRONS_DEVICEINSTANCE_IOSX_H
 

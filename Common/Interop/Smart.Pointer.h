@@ -67,6 +67,9 @@
 #	define smsp(key,type)			std::shared_ptr < std::map < key, std::shared_ptr < type > > >
 
 #	define devListNew(UIControl,type) make_shared < vsp ( type ) > ()
+#	define devListNewArg(UIControl,type,arg)	make_shared < vsp ( type ) > ( arg->begin (), arg->end () )
+#	define deviceListCopy(type,src,dst)
+
 #	define devList(type)			svsp(type)
 #	define devListRef(type)			vsp(type) *
 #	define DeviceListAppend(l,d)	l->push_back (d)
@@ -163,8 +166,17 @@ using System::Collections::Generic::List;
 #	define smsp(key,type)			Dictionary < key, type ^ > ^
 
 #	define sp_assign(type,name,val) type ^ name = ((type ^ )val)
-//#	define devListNew(type)			gcnew ObservableCollection<type ^> ()
-#	define devListNew(UIControl,type)	(UIControl ? gcnew ObservableCollection<type ^> () : gcnew Collection<type ^> ())
+
+#ifdef CLI_NOUI
+#	define devListNew(UIControl,type)			gcnew Collection<type ^> ()
+#	define devListNewArg(UIControl,type,arg)	gcnew Collection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg ))
+#	define deviceListCopy(type,src,dst)			
+//#	define deviceListCopy(type,src,dst)			for each ( type device in src ) { dst->Add ( device ); }
+#else
+#	define devListNew(UIControl,type)			( UIControl ? gcnew ObservableCollection<type ^> () : gcnew Collection<type ^> () )
+#	define devListNewArg(UIControl,type,arg)	( UIControl ? gcnew ObservableCollection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) : gcnew Collection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) )
+#	define deviceListCopy(type,src,dst)
+#endif
 
 #	define devList(type)			Collection<type ^> ^
 //#	define devList(type)			ObservableCollection<type ^> ^

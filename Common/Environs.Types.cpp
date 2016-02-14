@@ -561,6 +561,8 @@ namespace environs
 				return "NOTIFY_DEVICE_ON_SURFACE";
 			case ( NOTIFY_PAIRING | 2 ):
 				return "NOTIFY_DEVICE_NOT_ON_SURFACE";
+			case ( NOTIFY_PAIRING | 8 ):
+				return "NOTIFY_DEVICE_FLAGS_UPDATE";
 		} /// -> switch
 		if ( constToResolve == ( MSG_TYPE_SENSOR + 1 ) )
 			return "MSG_TYPE_MAX_COUNT";
@@ -571,9 +573,13 @@ namespace environs
 			case ( 20 ):
 				return "MEDIATOR_BROADCAST_PORTS_START";
 			case ( 24 ):
-				return "MEDIATOR_BROADCAST_PLATFORM_START";
+				return "MEDIATOR_BROADCAST_PORTS_ABS_START";
 			case ( 28 ):
-				return "MEDIATOR_BROADCAST_DESC_START";
+				return "MEDIATOR_BROADCAST_PLATFORM_ABS_START";
+			case ( 32 ):
+				return "MEDIATOR_BROADCAST_DESC_ABS_START";
+			case ( 40 ):
+				return "MEDIATOR_BROADCAST_STATUS_DESC_ABS_START";
 		} /// -> switch
 		if ( constToResolve == ( 30 ) )
 			return "MAX_NAMEPROPERTY";
@@ -599,14 +605,16 @@ namespace environs
 			case ( DEVICEINFO_UNAVAILABLE_START + 1 ):
 				return "DEVICEINFO_ISCONNECTED_START";
 			case ( DEVICEINFO_ISCONNECTED_START + 2 ):
-				return "DEVICEINFO_DEVICETYPE_START";
+				return "DEVICEINFO_UNUSED_FLAGS_START";
 			case ( DEVICEINFO_DEVICETYPE_START + 1 ):
 				return "DEVICEINFO_DEVICENAME_START";
 			case ( DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1) ):
 				return "DEVICEINFO_AREANAME_START";
 			case ( DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1) ):
 				return "DEVICEINFO_APPNAME_START";
-			case ( DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) + 2 ):
+			case ( DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1) ):
+				return "DEVICEINFO_FLAGS_START";
+			case ( DEVICEINFO_FLAGS_START + 2 ):
 				return "DEVICEINFO_OBJID_START";
 		} /// -> switch
 
@@ -644,6 +652,26 @@ namespace environs
 				return "NOTIFY_MEDIATOR_SERVER_PASSWORD_FAIL";
 			case ( NOTIFY_MEDIATOR | 42 ):
 				return "NOTIFY_MEDIATOR_SERVER_PASSWORD_MISSING";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
+			case ( 0x8 ):
+				return "DEVICEFLAGS_INTERNAL_DATA_READY";
+			case ( 0xFF ):
+				return "DEVICEFLAGS_INTERNAL_NOTIFY_MASK";
+			case ( 0x0100 ):
+				return "DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY";
+			case ( 0x0200 ):
+				return "DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY";
+			case ( 0x0400 ):
+				return "DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY";
+			case ( 0x0800 ):
+				return "DEVICEFLAGS_INTERNAL_CP_DATA_READY";
+		} /// -> switch
+
+
+		switch ( constToResolve ) {
 			case ( NOTIFY_TYPE_ENVIRONS | 0x2000 ):
 				return "NOTIFY_NETWORK";
 			case ( NOTIFY_NETWORK | 0x1 ):
@@ -654,8 +682,6 @@ namespace environs
 		switch ( constToResolve ) {
 			case ( NOTIFY_TYPE_ENVIRONS | 0x4000 ):
 				return "NOTIFY_TRACKER";
-			case ( 0x8 ):
-				return "NOTIFY_TRACKER_FAILED_FLAG";
 			case ( NOTIFY_TRACKER | 0x1 ):
 				return "NOTIFY_TRACKER_ENABLED";
 			case ( NOTIFY_TRACKER | 0x2 ):
@@ -695,8 +721,14 @@ namespace environs
 		} /// -> switch
 		if ( constToResolve == ( 0x8000 ) )
 			return "DEVICE_ACTIVITY_LISTENER_CLOSED";
-		if ( constToResolve == ( 65535 ) )
-			return "MEDIATOR_BUFFER_SIZE_MAX";
+
+
+		switch ( constToResolve ) {
+			case ( 65535 ):
+				return "MEDIATOR_BUFFER_SIZE_MAX";
+			case ( (650 * 1024) ):
+				return "MEDIATOR_REC_BUFFER_SIZE_MAX";
+		} /// -> switch
 		if ( constToResolve == ( (40 * 1024 * 1024) ) )
 			return "ENVIRONS_SEND_SIZE_MAX";
 
@@ -722,15 +754,11 @@ namespace environs
 				return "DEVICE_INFO_ATTR_PORTAL_CREATED";
 			case ( 0x20000 ):
 				return "DEVICE_INFO_ATTR_OBJID";
-		} /// -> switch
-
-
-		switch ( constToResolve ) {
 			case ( 0x40000 ):
-				return "FILE_INFO_ATTR_SEND_PROGRESS";
-			case ( 0x80000 ):
-				return "FILE_INFO_ATTR_RECEIVE_PROGRESS";
+				return "DEVICE_INFO_ATTR_FLAGS";
 		} /// -> switch
+		if ( constToResolve == ( 0x80000 ) )
+			return "FILE_INFO_ATTR_RECEIVE_PROGRESS";
 		if ( constToResolve == ( 0x200000 ) )
 			return "MESSAGE_INFO_ATTR_CREATED";
 		if ( constToResolve == ( 60 ) )
@@ -776,6 +804,8 @@ namespace environs
 				return "ENVIRONS_PLATFORMS_MACBOOK_FLAG";
 			case ( 0x10020 ):
 				return "ENVIRONS_PLATFORMS_MACMINI_FLAG";
+			case ( 0x40100 ):
+				return "ENVIRONS_PLATFORMS_RASPBERRY";
 			case ( 0x20050 ):
 				return "ENVIRONS_PLATFORMS_WINDOWSVISTA";
 			case ( 0x20060 ):

@@ -41,7 +41,7 @@
 #endif
 
 
-#define CLASS_NAME		"Main"
+#define CLASS_NAME	"Main . . . . . . . . . ."
 
 
 int main(int argc, char* argv[])

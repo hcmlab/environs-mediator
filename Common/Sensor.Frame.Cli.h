@@ -39,7 +39,7 @@ namespace environs
 		// An id that identifies this input entity for its whole lifecycle
 		int			id;
 
-		// A type according to Environs.ENVIRONS_SENSOR_TYPE_* or environs.SensorType
+		// A value of type environs.SensorType
 		environs::SensorType	type;
 
 		// Increase with each frame

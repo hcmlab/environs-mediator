@@ -38,7 +38,11 @@
 // Include automatically generated API exports for Android.
 #	include "Environs.Native.jni.h"
 
-#	define	EnvironsAndroidNullEnv()			JNIEnv * jenv = 0; jclass jcls = 0;
+#define ANDROID_ASSERT(check,exp)               if (check) { exp; }
+#define ANDROID_ASSERT_ErRrtf(check,msg)        if (check) { CErr ( msg ); return false; }
+#define ANDROID_ASSERT_ErRrtv(check,msg)        if (check) { CErr ( msg ); return; }
+
+#	define EnvironsAndroidNullEnv()             JNIEnv * jenv = 0; jclass jcls = 0;
 #	define EnvironsCallArg(name, ...)			Java_environs_Environs_##name(jenv, jcls, __VA_ARGS__)
 #	define EnvironsCall(name)					Java_environs_Environs_##name(jenv, jcls)
 
@@ -53,21 +57,27 @@
 #	define	EnvironsAndroidNullEnv()
 
 /**
-*	API exports for all platforms but Android
-*
-* */
+ *	API exports for all platforms but Android
+ *
+ * */
+#   define ANDROID_ASSERT(check,exp)
+#   define ANDROID_ASSERT_ErRrtf(check,msg)
+#   define ANDROID_ASSERT_ErRrtv(check,msg)
 
 #	define EnvironsCallArg(name, ...)			name(__VA_ARGS__)
 #	define EnvironsCall(name)					name()
 
 #	define INIT_PCHAR(szname,ref)				const char * szname = (const char *) ref;
-#	define RELEASE_PCHAR(szname,ref)			szname = NULL;
+#	define RELEASE_PCHAR(szname,ref)			
+//szname = NULL;
 
 #	define INIT_BYTEARR(name,ref)				char * name = (char *) ref;
-#	define RELEASE_BYTEARR(name,ref,mode)		name = NULL;
+#	define RELEASE_BYTEARR(name,ref,mode)		
+//name = NULL;
 
 #	define INIT_VOIDARR(name,ref)				void * name = (void *) ref;
-#	define RELEASE_VOIDARR(name,ref,mode)		name = NULL;				
+#	define RELEASE_VOIDARR(name,ref,mode)		
+// name = NULL;
 
 #endif // ANDROID - include only the jni-exports
 

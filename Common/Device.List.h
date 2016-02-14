@@ -133,6 +133,8 @@ namespace environs
             ENVIRONS_LIB_API void	SetListType ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ );
         
             ENVIRONS_LIB_API void	SetIsUIAdapter ( bool enable );
+        
+            ENVIRONS_LIB_API void   SetEnableListCache ( bool enable );
 
 			DeviceInstanceESP		GetItem ( int position );
 
@@ -147,15 +149,37 @@ namespace environs
 
 			DeviceInstanceESP		RefreshItem ( DeviceInstanceEPtr source, DeviceObserverPtr observer );
 
+			/**
+			* Lock access to the devicelist returned by GetDevicesSource methods.
+			*
+			* @return success
+			*/
+			bool Lock ();
+
+			/**
+			* Unlock access to the devicelist returned by GetDevicesSource methods.
+			*
+			* @return success
+			*/
+			bool Unlock ();
+
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::DeviceInstancePtr RefreshItemRetained ( environs::DeviceInstancePtr source, environs::DeviceObserverPtr observer );
 #endif
 			/**
-			* Get a collection that holds the devices according to the specified listtype. This list ist updated dynamically by Environs.
+			* Get a copy of the collection that holds the devices according to the specified listtype.
 			*
 			* @return Collection with DeviceInstance objects
 			*/
-			c_const devList ( DeviceInstanceEP ) c_ref GetDevices ();
+			devList ( DeviceInstanceEP ) GetDevices ();
+
+			/**
+			* Get the collection that holds the devices according to the specified listtype. 
+			* This list is updated dynamically by Environs (even when user code access the list).
+			*
+			* @return Collection with DeviceInstance objects
+			*/
+			c_const devList ( DeviceInstanceEP ) c_ref GetDevicesSource ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::ArrayList * GetDevicesRetained ();
@@ -240,11 +264,19 @@ namespace environs
 
 
 			/**
-			 * Get a collection that holds the nearby devices. This list ist updated dynamically by Environs.
+			 * Get a copy of the collection that holds the nearby devices.
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( DeviceInstanceEP ) c_ref GetDevicesNearby ();
+			devList ( DeviceInstanceEP ) GetDevicesNearby ();
+
+			/**
+			* Get the collection that holds the nearby devices.
+			* This list is updated dynamically by Environs (even when user code access the list).
+			*
+			* @return Collection with DeviceInstance objects
+			*/
+			c_const devList ( DeviceInstanceEP ) c_ref GetDevicesNearbySource ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::ArrayList * GetDevicesNearbyRetained ();
@@ -279,11 +311,19 @@ namespace environs
 
 
 			/**
-			 * Get a collection that holds the Mediator server devices. This list ist updated dynamically by Environs.
+			 * Get a copy of the collection that holds the Mediator server devices.
 			 *
 			 * @return ArrayList with DeviceInstance objects
 			 */
-			c_const devList ( DeviceInstanceEP ) c_ref GetDevicesFromMediator ();
+			devList ( DeviceInstanceEP ) GetDevicesFromMediator ();
+
+			/**
+			* Get the collection that holds the Mediator server devices.
+			* This list is updated dynamically by Environs (even when user code access the list).
+			*
+			* @return Collection with DeviceInstance objects
+			*/
+			c_const devList ( DeviceInstanceEP ) c_ref GetDevicesFromMediatorSource ();
 
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API environs::ArrayList * GetDevicesFromMediatorRetained ();
@@ -344,7 +384,10 @@ namespace environs
 
 #ifndef CLI_CPP
 			Instance           *			env;
+            environs::ArrayList *           listCached;
 #endif
+			bool                            listCacheEnabled;
+
 			environs::lib::EnvironsPtr		envObj;
 
 			bool                            disposed_;
@@ -430,9 +473,7 @@ namespace environs
 
 			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList, NLayerVecType ( DeviceInstanceEP ) vanished, NLayerVecType ( DeviceInstanceEP ) appeared, bool enqueue );
 
-
-
-
+			
 			static void UpdateConnectProgress ( pthread_mutex_t_ptr lock, c_const devList ( DeviceInstanceEP ) c_ref list, OBJIDType objID, int progress );
 
 			static void UpdateMessage ( pthread_mutex_t_ptr lock, c_const devList ( DeviceInstanceEP ) c_ref list, environs::ObserverMessageContext OBJ_ptr ctx );

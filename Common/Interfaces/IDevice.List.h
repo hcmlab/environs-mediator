@@ -69,6 +69,8 @@ namespace environs
         virtual void					SetListType ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ ) = 0;
         
         virtual void					SetIsUIAdapter ( bool enable ) = 0;
+        
+        virtual void					SetEnableListCache ( bool enable ) = 0;
 
 		virtual void					AddObserver ( ListObserver * observer ) = 0;
 		virtual void					RemoveObserver ( ListObserver * observer ) = 0;

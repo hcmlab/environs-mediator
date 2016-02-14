@@ -39,6 +39,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdlib.h>
 
 #ifndef _WIN32
 #   include <signal.h>
@@ -51,6 +52,8 @@
 
 #include <map>
 #include <string>
+
+//#define USE_BROADCAST_ADDR_ANY
 
 #define	CLASS_NAME 	"Mediator . . . . . . . ."
 
@@ -76,7 +79,7 @@ namespace environs
         
         CLIENTEXP ( info.objID = __sync_add_and_fetch ( &deviceInstanceObjIDs, 1 ); )
         
-        *userName = 0;
+        //*userName = 0;
         baseSP = 0;
         
         CLIENTEXP ( hEnvirons = 0; )
@@ -108,7 +111,9 @@ namespace environs
 	}
 
 	ILock::~ILock ()
-	{
+    {
+        //CVerbVerb ( "~ILock" );
+        
 		if ( init )
 			MutexDispose ( &lock );
     }
@@ -199,6 +204,36 @@ namespace environs
 	}
 
 
+	bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext )
+	{
+		if ( !sizesDst )
+			return false;
+
+		char * dst = ( char * ) ( sizesDst + 2 );
+
+		size_t max = ( ext ? MAX_NAMEPROPERTY + 1 : MAX_NAMEPROPERTY );
+
+		size_t len = strlcpy ( dst, app, max );
+		if ( len >= max )
+			return false;
+		*sizesDst = ( unsigned char ) ( len + 1 );
+		sizesDst++;
+
+		dst [ len ] = 0;
+		dst += len + 1;
+
+		max = ( ext ? 180 : MAX_NAMEPROPERTY );
+
+		len = strlcpy ( dst, area, max );
+		if ( len >= max )
+			return false;
+		*sizesDst = ( unsigned char ) ( len + 1 );
+
+		dst [ len ] = 0;
+		return true;
+	}
+
+
 	ApplicationDevices::ApplicationDevices ()
 	{
 		count				= 0;
@@ -207,7 +242,8 @@ namespace environs
 
 		devicesCache		= 0;
 		deviceCacheCount	= 0;
-		deviceCacheDirty	= false;
+        deviceCacheCapacity = 0;
+		deviceCacheDirty	= true;
 
 		access = 1;
 	}
@@ -231,13 +267,32 @@ namespace environs
 
 		isRunning 				= false;
 		aliveRunning			= false;
+
+		broadcastRunning		= false;
 		broadcastSocketID 		= -1;
 
 		broadcastMessageLen		= 0;
+		broadcastMessageLenExt	= 0;
 		lastGreetUpdate			= 0;
         broadcastReceives       = 0;
 
-		certificate				= 0;
+        certificate				= 0;
+
+		srand ( (unsigned int) GetEnvironsTickCount () );
+
+		BroadcastGenerateToken ();
+        
+#ifdef USE_THREADSYNC_OWNER_NAME
+        broadcastThread.owner = "broadcastThread";
+#endif
+	}
+
+
+	void Mediator::BroadcastGenerateToken ()
+	{
+		CVerb ( "BroadcastGenerateID" );
+
+		randBroadcastToken      = (int) (GetEnvironsTickCount () + rand ());
 	}
 
 
@@ -333,7 +388,7 @@ namespace environs
 	{
 		strlcpy ( broadcastMessage + 4, MEDIATOR_BROADCAST_BYEBYE, sizeof ( MEDIATOR_BROADCAST_BYEBYE ) );
 
-		SendBroadcast ();
+		SendBroadcast ( true, false );
 	}
 
 
@@ -566,7 +621,7 @@ namespace environs
 		// Conduct a "Prerelease" by closing all sockets before actually releasing them
 		StopMediators ();
 
-		MediatorInstance * inst = &mediator;
+		MediatorInstance * inst;
 
 		MutexLockV ( &mediatorLock, "ReleaseMediators" );
 
@@ -884,9 +939,9 @@ namespace environs
 			shutdown ( sock, 2 );
 			closesocket ( sock );
 		}
-#else
 
-#ifdef ANDROID
+#elif ANDROID
+
 		int sock, rval;
 		struct ifreq ifreqs [ 20 ];
 		struct ifreq ifr_mask;
@@ -992,7 +1047,9 @@ namespace environs
         char   gw [ 1024 ];
         *gw = 0;
         
+#	ifndef LINUX
         GetDefaultGateway ( gw, sizeof(gw) );
+#	endif
 
 		if ( getifaddrs ( &ifList ) != 0 ) {
 			CErr ( "LoadNetworks: getifaddrs failed!" );
@@ -1055,8 +1112,6 @@ namespace environs
 
 		if ( ifList )
 			freeifaddrs ( ifList );
-#endif
-
 #endif
 
 	EndOfMethod:
@@ -1163,13 +1218,13 @@ namespace environs
 			}
 #endif
 			/// Create broadcast thread
-            if ( !broadcastThread.Run(pthread_make_routine(BroadcastThreadStarter), ( void * )this, "Mediator.Start", true ) )
+            if ( !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) )
                 return false;
 		}
 
 		OnStarted ();
 
-		SendBroadcast ();
+		//SendBroadcast ();
 
 		CVerb ( "Start: success" );
 		return true;
@@ -1181,11 +1236,11 @@ namespace environs
 	}
 
 
-	bool Mediator::SendBroadcast ()
+	bool Mediator::SendBroadcast ( bool enforce, bool sendStatus )
 	{
 		CVerbVerb ( "SendBroadcast" );
 
-		if ( broadcastSocketID == -1 )
+		if ( broadcastSocketID == -1 || (!enforce && !broadcastRunning) )
 			return false;
 
 #ifndef MEDIATORDAEMON
@@ -1194,9 +1249,22 @@ namespace environs
 #endif
 
 		bool ret = true;
-		size_t sentBytes = 0;
+		int sentBytes = 0;
+        
+        char * msg;
+        int sendLen;
+        
+        if ( sendStatus ) {
+            msg		= broadcastStatusMessage;
+			sendLen = ( int ) broadcastStatusMessageLen;
+            
+        }
+        else {
+            msg		= broadcastMessage;
+            sendLen = ( int ) broadcastMessageLen;
+        }
 
-		CVerbArg ( "SendBroadcast: Broadcasting message [%s] (%d)...", broadcastMessage + 4, broadcastMessageLen );
+        CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
 
 		struct 	sockaddr_in		broadcastAddr;
 		Zero ( broadcastAddr );
@@ -1204,14 +1272,17 @@ namespace environs
 		broadcastAddr.sin_family = PF_INET;
 		broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
 
-		broadcastAddr.sin_addr.s_addr = inet_addr ( "255.255.255.255" );
+#ifdef USE_BROADCAST_ADDR_ANY
+        broadcastAddr.sin_addr.s_addr = 0xFFFFFFFF;
+        //broadcastAddr.sin_addr.s_addr = inet_addr ( "255.255.255.255" );
 
-		sentBytes = sendto ( broadcastSocketID, broadcastMessage + 4, broadcastMessageLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-		if ( sentBytes != broadcastMessageLen )
+		sentBytes = sendto ( broadcastSocketID, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+		if ( sentBytes != sendLen )
         {
 			CErr ( "SendBroadcast: Broadcast failed!" );
 			return false;
 		}
+#endif
 
 		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
 		NetPack * net = 0;
@@ -1231,8 +1302,8 @@ namespace environs
 		while ( net ) {
 			broadcastAddr.sin_addr.s_addr = net->bcast;
 
-			sentBytes = sendto ( broadcastSocketID, broadcastMessage + 4, broadcastMessageLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-			if ( sentBytes != broadcastMessageLen ) {
+			sentBytes = ( int ) sendto ( broadcastSocketID, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+			if ( sentBytes != sendLen ) {
 				CErr ( "SendBroadcast: Broadcast failed!" );
 				ret = false;
 			}
@@ -1311,7 +1382,7 @@ namespace environs
 		return false;
 	}
 
-
+	
 	void Mediator::VanishedDeviceWatcher ()
 	{
 		DeviceInstanceNode	**	listRoot	= 0;
@@ -1363,11 +1434,13 @@ namespace environs
 
 		MutexUnlockV ( mutex, "VanishedDeviceWatcher" );
 	}
-    
 
-	sp ( DeviceInstanceNode ) Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
+
+#ifdef MEDIATORDAEMON
+
+	sp ( DeviceInstanceNode ) Mediator::UpdateDevicesV4 ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
 	{
-		CVerbVerb ( "UpdateDevices" );
+		CVerbVerb ( "UpdateDevicesV4" );
 
 		if ( !msg )
 			return 0;
@@ -1379,7 +1452,7 @@ namespace environs
 		char		*	deviceName	= 0;
 		char		*	areaName	= 0;
 		char		*	appName		= 0;
-		char		*	userName	= 0;
+		//char		*	userName	= 0;
 
 		DeviceInstanceNode * device		= 0;
 		DeviceInstanceNode * devicePrev	= 0;
@@ -1391,11 +1464,11 @@ namespace environs
 
 		int *						pDevicesAvailable	= 0;
 
-        sp ( ApplicationDevices ) appDevices			= 0;
+		sp ( ApplicationDevices ) appDevices			= 0;
 
 		// Get the id at first (>0)	
-		int * pIntBuffer = ( int * ) ( msg + MEDIATOR_BROADCAST_DEVICEID_START );
-		value = *pIntBuffer;
+		int * pInt = ( int * ) ( msg + MEDIATOR_BROADCAST_DEVICEID_START );
+		value = *pInt;
 		if ( !value )
 			return 0;
 
@@ -1428,41 +1501,359 @@ namespace environs
 
 #if !defined(MEDIATORDAEMON)
 		if ( value == env->deviceID )
+		{
+			if ( !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) && !strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
+			{
+				// Another device has broadcasted with our app area identifiers.
+				// If we have just started, then generate a random deviceID and start again. Otherwise, let's ignore this.
+				CWarnArg ( "UpdateDevicesV4: Another device with our identifiers found [ %i ].", broadcastReceives );
+
+				if ( broadcastReceives < 100 ) {
+					BroadcastByeBye ();
+					env->deviceID = 0;
+
+					environs::API::SetDeviceID ( env->hEnvirons, 0 );
+
+					SendBroadcast ();
+
+					StopMediators ();
+					return 0;
+				}
+
+				// Broadcast ourself to indicate that we are gonna take this "slot"
+				return 1;
+			}
+		}
+
+		if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
+			if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) )
+				return 1; // We ignore the device, but broadcast ourself to indicate that we are there ...
+
+			if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
+				if ( strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
+					return 1; // We ignore the device, but broadcast ourself to indicate that we are there ...
+			}
+		}
+#endif
+		appDevices = GetDeviceList ( areaName, appName, &mutex, &pDevicesAvailable, listRoot );
+		if ( !listRoot )
+			return 0;
+
+		if ( !MutexLock ( mutex, "UpdateDevicesV4" ) )
+			goto Finish;
+
+		device = *listRoot;
+
+		while ( device )
+		{
+			CVerbVerbArg ( "UpdateDevicesV4: Comparing [0x%X / 0x%X] Area [%s / %s] App [%s / %s]", device->info.deviceID, value, device->info.areaName, areaName, device->info.appName, appName );
+
+			if ( device->info.deviceID == value
+#ifndef MEDIATORDAEMON
+				&& !strncmp ( device->info.areaName, areaName, sizeof ( device->info.areaName ) ) && !strncmp ( device->info.appName, appName, sizeof ( device->info.appName ) )
+#endif
+				)
+			{
+#ifndef MEDIATORDAEMON
+				if ( strncmp ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) ) )
+				{
+					// Another device with the same identifiers has already been registered. Let's ignore this.
+					MutexUnlockV ( mutex, "UpdateDevicesV4" );
+					goto Finish;
+				}
+#endif
+				found = true; device->info.unavailable = true;
+				break;
+			}
+
+			if ( !device->next || device->info.deviceID > value )
+				break;
+
+			devicePrev = device;
+			device = device->next;
+		}
+
+#ifdef MEDIATORDAEMON
+		if ( found ) {
+			deviceSP = device->baseSP;
+			MutexUnlockV ( mutex, "UpdateDevicesV4" );
+			return deviceSP;
+		}
+		if ( created )
+			*created = true;
+#endif
+
+		while ( !found ) {
+			// Create a new list node
+			DeviceInstanceNode	*		dev		= 0;
+			deviceSP	= sp_make ( DeviceInstanceNode );
+
+			if ( !deviceSP || ( dev = deviceSP.get () ) == 0 ) {
+				CErr ( "UpdateDevicesV4: Failed to allocate memory for new device!" );
+				device = 0;
+				break;
+			}
+			dev->baseSP = deviceSP;
+
+			dev->info.deviceID = value;
+			( *pDevicesAvailable )++;
+
+#ifdef MEDIATORDAEMON
+			dev->rootSP = appDevices;
+#else
+			dev->hEnvirons = env->hEnvirons;
+			dev->info.broadcastFound = broadcastFound;
+
+			// Build the key
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+			*( ( int * ) dev->key ) = value;
+
+			int copied = snprintf ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
+#else
+			int copied = snprintf ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
+#endif
+			if ( copied <= 0 ) {
+				CErr ( "UpdateDevicesV4: Failed to build the key for new device!" );
+			}
+#endif
+			if ( devicePrev )
+			{
+				dev->prev = devicePrev;
+
+				if ( devicePrev->next ) {
+					// Glue next links together
+					dev->next = devicePrev->next;
+					devicePrev->next = dev;
+
+					// Glue previous links together
+					dev->next->prev = dev;
+				}
+				else
+					devicePrev->next = dev;
+			}
+			else {
+				if ( device ) {
+					if ( device->info.deviceID > value ) {
+						/// Device must be the listRoot (because there is no previous device)
+						dev->next = device;
+						device->prev = dev;
+						*listRoot = dev;
+					}
+					else {
+						dev->prev = device;
+
+						if ( device->next ) {
+							// Glue next links together
+							dev->next = device->next;
+							device->next = dev;
+
+							// Glue previous links together
+							dev->next->prev = dev;
+						}
+						else
+							device->next = dev;
+					}
+				}
+				else
+					*listRoot = dev;
+			}
+			device = dev;
+
+			changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
+			strlcpy ( device->info.areaName, areaName, sizeof ( device->info.areaName ) );
+			strlcpy ( device->info.appName, appName, sizeof ( device->info.appName ) );
+			//if ( userName ) {
+			//	strlcpy ( device->userName, sizeof(device->userName) - 1, userName );
+			//	//flags |= DEVICE_INFO_ATTR_USER_NAME;
+			//}
+			break;
+		}
+
+		if ( device ) {
+			device->info.updates = ( unsigned int ) lastGreetUpdate;
+
+#ifndef MEDIATORDAEMON
+			if ( !device->info.ipe && device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
+#endif
+				if ( ip != device->info.ipe ) {
+					device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;
+				}
+
+			int platform = *( ( int * ) ( msg + MEDIATOR_BROADCAST_PLATFORM_START ) );
+
+			if ( device->info.platform != platform ) {
+				device->info.platform = platform; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
+			}
+
+			pInt += 1;
+
+			// Get the ip
+			value = *pInt;
+			if ( device->info.ip != ( unsigned ) value ) {
+				device->info.ip = value; changed = true; //flags |= DEVICE_INFO_ATTR_IP;
+			}
+			// Get ports
+			unsigned short * pUShort = ( unsigned short * ) ( msg + MEDIATOR_BROADCAST_PORTS_START );
+			unsigned short svalue = *pUShort++;
+			if ( svalue != device->info.tcpPort ) {
+				device->info.tcpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_TCP;
+			}
+
+			svalue = *pUShort;
+			if ( svalue != device->info.udpPort ) {
+				device->info.udpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_UDP;
+			}
+
+			if ( strncmp ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) - 1 ) ) {
+				strlcpy ( device->info.deviceName, deviceName, sizeof ( device->info.deviceName ) ); changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_NAME;
+			}
+
+#ifdef MEDIATORDAEMON
+			if ( device->info.broadcastFound != broadcastFound ) {
+				device->info.broadcastFound = broadcastFound; changed = true; //flags |= DEVICE_INFO_ATTR_BROADCAST_FOUND;
+			}
+#endif
+			//if ( userName && *userName && strncmp ( device->userName, userName, sizeof ( device->userName ) - 1 ) ) {
+			//	strlcpy ( device->userName, userName, sizeof ( device->userName ) ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
+			//}
+
+			if ( changed ) {
+				CVerbArg ( "UpdateDevicesV4: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+				if ( device->info.ip != device->info.ipe ) {
+					CVerbArg ( "UpdateDevicesV4: Device IPe != IP  [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ip ) ) );
+					CVerbArg ( "UpdateDevicesV4: Device IP  != IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+				}
+				else {
+					CListLogArg ( "UpdateDevicesV4: Device IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+				}
+
+				CListLogArg ( "UpdateDevicesV4: Area/App = [%s / %s]", device->info.areaName, device->info.appName );
+				CListLogArg ( "UpdateDevicesV4: Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), device->info.tcpPort, device->info.udpPort );
+			}
+		}
+
+		if ( !MutexUnlock ( mutex, "UpdateDevicesV4" ) ) {
+			if ( device ) {
+				device->baseSP = 0;
+				device = 0;
+			}
+		}
+		else {
+			if ( deviceSP )
+				UpdateDeviceInstance ( deviceSP, !found, changed );
+		}
+
+	Finish:
+		if ( appDevices )
+			__sync_sub_and_fetch ( &appDevices->access, 1 );
+
+		return deviceSP;
+	}
+#endif
+
+    
+#ifdef MEDIATORDAEMON
+    sp ( DeviceInstanceNode )
+#else
+    bool
+#endif
+	Mediator::UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char broadcastFound )
+	{
+		CVerbVerb ( "UpdateDevices" );
+
+		if ( !msg )
+			return 0;
+
+		int				value;
+		//unsigned int	flags		= 0;
+		bool			found		= false;
+		bool			changed		= false;
+		char		*	deviceName	= 0;
+		char		*	areaName	= 0;
+		char		*	appName		= 0;
+		//char		*	userName	= 0;
+
+		DeviceInstanceNode * device		= 0;
+		DeviceInstanceNode * devicePrev	= 0;
+		DeviceInstanceNode ** listRoot	= 0;
+
+		sp ( DeviceInstanceNode ) deviceSP = 0;
+
+		pthread_mutex_t * mutex		= 0;
+
+		int *						pDevicesAvailable	= 0;
+
+        sp ( ApplicationDevices ) appDevices			= 0;
+
+		// Get the id at first (>0)	
+		int * pInt = ( int * ) ( msg + MEDIATOR_BROADCAST_DEVICEID_START );
+		value = *pInt;
+		if ( !value )
+			return 0;
+
+		// Get the areaName, appname, etc..
+
+		unsigned char * sizesDst = ( unsigned char * ) ( msg + MEDIATOR_BROADCAST_DESC_START );
+
+		// Get the areaName, appname, etc..
+		appName  = ( char * ) ( sizesDst + 2 );
+		areaName = appName + *sizesDst;
+
+		if ( !*appName || *sizesDst >= MAX_NAMEPROPERTY || !*areaName )
+			return 0;
+
+		sizesDst++;
+
+		deviceName = areaName + *sizesDst + 2;
+
+		if ( *sizesDst >= MAX_NAMEPROPERTY || !*deviceName || *( deviceName - 2 ) >= ( MAX_NAMEPROPERTY + 1 ) )
+			return 0;
+
+		if ( uid ) {
+			char * uuid = deviceName + *( deviceName - 2 );
+
+			if ( *( (unsigned char *) deviceName - 1 ) >= 180 || !*uuid )
+				return 0;
+
+			*uid = uuid;
+		}
+
+#if !defined(MEDIATORDAEMON)
+		if ( value == env->deviceID )
         {
             if ( !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) && !strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
             {
-                if ( broadcastFound && strncmp ( native.deviceName, deviceName, sizeof ( native.deviceName ) ) )
-                {
-                    // Another device has broadcasted with our identifiers.
-                    // If we have just started, then generate a random deviceID and start again. Otherwise, let's ignore this.
-                    CWarnArg ( "UpdateDevices: Another device with our identifiers found [ %i ].", broadcastReceives );
-                    
-                    if ( broadcastReceives < 100 ) {
-                        BroadcastByeBye ();
-                        env->deviceID = 0;
-                        
-                        environs::API::SetDeviceID ( env->hEnvirons, 0 );
-                        
-                        SendBroadcast ();
-                        
-                        StopMediators ();
-                    }
-                }
-                return 0;
+				// Another device has broadcasted with our app area identifiers.
+				// If we have just started, then generate a random deviceID and start again. Otherwise, let's ignore this.
+				CWarnArg ( "UpdateDevices: Another device with our identifiers found [ %i ].", broadcastReceives );
+
+				if ( broadcastReceives < 100 ) {
+					BroadcastByeBye ();
+					env->deviceID = 0;
+
+					environs::API::SetDeviceID ( env->hEnvirons, 0 );
+
+					SendBroadcast ();
+
+					StopMediators ();
+					return 0;
+				}
+
+				// Broadcast ourself to indicate that we are gonna take this "slot"
+				return 1;
             }
         }
 
         if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
             if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) )
-                return 0;
+                return 1; // We ignore the device, but broadcast ourself to indicate that we are there ...
 
             if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
                 if ( strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
-                    return 0;
+                    return 1; // We ignore the device, but broadcast ourself to indicate that we are there ...
 			}
 		}
 #endif
-
 		appDevices = GetDeviceList ( areaName, appName, &mutex, &pDevicesAvailable, listRoot );
 		if ( !listRoot )
 			return 0;
@@ -1527,7 +1918,8 @@ namespace environs
 			( *pDevicesAvailable )++;
 
 #ifdef MEDIATORDAEMON
-			dev->rootSP = appDevices;
+            dev->rootSP = appDevices;
+            appDevices->deviceCacheDirty = true;
 #else
 			dev->hEnvirons = env->hEnvirons;
 			dev->info.broadcastFound = broadcastFound;
@@ -1613,21 +2005,21 @@ namespace environs
 				device->info.platform = platform; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
 			}
 
-			pIntBuffer += 1;
+			pInt += 1;
 
 			// Get the ip
-			value = *pIntBuffer;
+			value = *pInt;
 			if ( device->info.ip != ( unsigned ) value ) {
 				device->info.ip = value; changed = true; //flags |= DEVICE_INFO_ATTR_IP;
 			}
 			// Get ports
-			unsigned short * pUShortBuffer = ( unsigned short * ) ( msg + MEDIATOR_BROADCAST_PORTS_START );
-			unsigned short svalue = *pUShortBuffer++;
+			unsigned short * pUShort = ( unsigned short * ) ( msg + MEDIATOR_BROADCAST_PORTS_START );
+			unsigned short svalue = *pUShort++;
 			if ( svalue != device->info.tcpPort ) {
 				device->info.tcpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_TCP;
 			}
 
-			svalue = *pUShortBuffer;
+			svalue = *pUShort;
 			if ( svalue != device->info.udpPort ) {
 				device->info.udpPort = svalue; changed = true; //flags |= DEVICE_INFO_ATTR_PORT_UDP;
 			}
@@ -1641,9 +2033,9 @@ namespace environs
 				device->info.broadcastFound = broadcastFound; changed = true; //flags |= DEVICE_INFO_ATTR_BROADCAST_FOUND;
 		}
 #endif
-			if ( userName && *userName && strncmp ( device->userName, userName, sizeof ( device->userName ) - 1 ) ) {
-				strlcpy ( device->userName, userName, sizeof ( device->userName ) ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
-			}
+			//if ( userName && *userName && strncmp ( device->userName, userName, sizeof ( device->userName ) - 1 ) ) {
+			//	strlcpy ( device->userName, userName, sizeof ( device->userName ) ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
+			//}
 
 			if ( changed ) {
 				CVerbArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
@@ -1675,10 +2067,12 @@ namespace environs
 
 #ifdef MEDIATORDAEMON
 		if ( appDevices )
-			__sync_sub_and_fetch ( &appDevices->access, 1 );
+            __sync_sub_and_fetch ( &appDevices->access, 1 );
+        
+        return deviceSP;
+#else
+		return 1; // ( device != 0 );
 #endif
-
-		return deviceSP;
 }
 
 
@@ -1820,7 +2214,7 @@ namespace environs
 		med->connection.instance.socket         = -1;
 		med->connection.instance.spareSocket    = -1;
 
-		med->connection.buffer = ( char * ) malloc ( MEDIATOR_BUFFER_SIZE_MAX );
+		med->connection.buffer = ( char * ) malloc ( MEDIATOR_REC_BUFFER_SIZE_MAX );
 		if ( !med->connection.buffer ) {
 			CErr ( "AddMediator: Failed to allocate memory!" );
 			goto Failed;

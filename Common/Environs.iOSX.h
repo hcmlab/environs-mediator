@@ -25,10 +25,27 @@
 
 #if ( defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX) )
 
-#import <Foundation/Foundation.h>
-#import <CoreLocation/CoreLocation.h>
+#   if __has_feature(modules)
+        @import Foundation;
+        @import CoreLocation;
 
-#import "Environs.Observer.iOSX.h"
+#       if ( defined(ENVIRONS_IOS) )
+            @import CoreMotion;
+            @import VideoToolbox;
+            @import AVFoundation;
+            @import SystemConfiguration;
+
+#           ifdef ENABLE_IOS_HEALTHKIT_SUPPORT
+                @import HealthKit;
+#           endif
+#       endif
+
+#   else
+#       import <Foundation/Foundation.h>
+#       import <CoreLocation/CoreLocation.h>
+#   endif
+
+#   import "Environs.Observer.iOSX.h"
 
 #if (!defined(DISABLE_ENVIRONS_OBJC_API))
 #   import "Device.List.iOSX.h"
@@ -39,20 +56,20 @@
 
 #   include "Device.Display.Decl.h"
 
-#ifdef __cplusplus
-#define ENVIRONS_NAMES  environs::
-#else
-#define ENVIRONS_NAMES
-#endif
+#   ifdef __cplusplus
+#       define ENVIRONS_NAMES  environs::
+#   else
+#       define ENVIRONS_NAMES
+#   endif
 
 bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 @interface Environs :
-#ifdef ENVIRONS_IOS
-    NSObject<UIAlertViewDelegate>
-#else
-    NSObject
-#endif
+#   ifdef ENVIRONS_IOS
+        NSObject<UIAlertViewDelegate>
+#   else
+        NSObject
+#   endif
 {
 }
 
@@ -707,6 +724,69 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 
 /**
+* Instruct Environs to log to stdout.
+*
+* @param enable      true = enable, false = disable
+*/
+-( void ) SetUseLogToStdout : ( bool ) enable;
+
+
+/**
+* Query Environs settings whether to log to stdout.
+*
+* @return enable      true = enabled, false = disabled
+*/
+-( bool ) GetUseLogToStdout;
+
+
+/**
+* Instruct Environs to create DeviceLists that are used as UIAdapter by client code.
+* Any changes of those lists are made within the applications main / UI thread context.
+* Only DeviceList objects that are created after this call are affected.
+* DeviceList objects created before this call remain using the setting at the time they are created.
+*
+* @param enable      true = enable, false = disable
+*/
+-( void ) SetUseDeviceListAsUIAdapter : ( bool ) enable;
+
+
+/**
+* Query Environs settings whether to create DeviceLists that are used as UIAdapter by client code.
+* Any changes of those lists are made within the applications main / UI thread context.
+*
+* @return enable      true = enabled, false = disabled
+*/
+-( bool ) GetUseDeviceListAsUIAdapter;
+
+
+
+#ifdef ENVIRONS_OSX
+/**
+* Instruct Environs to use command line mode.
+*
+* @param enable      true = enable, false = disable
+*/
+-( void ) SetUseCommandLine : ( bool ) enable;
+
+
+/**
+* Query Environs settings whether to use command line mode.
+*
+* @return enable      true = enabled, false = disabled
+*/
+-( bool ) GetUseCommandLine;
+
+
+/**
+* Check for mediator logon credentials and query on command line if necessary.
+*
+* @param success      true = successful, false = failed
+*/
+-( bool ) QueryMediatorLogonCommandLine;
+#endif
+
+
+/**
  * Enable or disable a touch recognizer module by name (libEnv-Rec...).
  *
  * @param	moduleName  The module name
@@ -837,6 +917,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 #else
 
 
+#ifdef __cplusplus
 - (int) SetUseTracker:(environs::Call_t) async module:(const char *) moduleName;
 
 - (int) GetUseTracker:(const char *) moduleName;
@@ -844,6 +925,7 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 - (EBOOL) DisposeTracker:(environs::Call_t) async module:(const char *) moduleName;
 
 - (EBOOL) PushTrackerCommand:(environs::Call_t) async module: (int) index cmd:(int) command;
+#endif
 
 #endif
 

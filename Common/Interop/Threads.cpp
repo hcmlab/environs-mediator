@@ -572,7 +572,8 @@ namespace environs
 
 		DWORD dw = WAIT_OBJECT_0;
 
-		GetExitCodeThread ( thread, &dw );
+		if ( !GetExitCodeThread ( thread, &dw ) )
+			dw = WAIT_OBJECT_0;
 
 		if ( dw == STILL_ACTIVE )
 			dw = WaitForSingleObject ( thread, INFINITE );
@@ -926,7 +927,11 @@ namespace environs
 
 
 	ThreadSync::~ThreadSync ()
-	{
+    {
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "~ThreadSync: [ %s ]", owner );
+#endif
+        
 		if ( allocated ) {
 			CondDisposeA ( signal );
 
@@ -939,6 +944,10 @@ namespace environs
         
     void ThreadSync::DisposeInstance ()
     {
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "ThreadSync.DisposeInstance: [ %s ]", owner );
+#endif
+            
         if ( allocated ) {
             CondDisposeA ( signal );
             
@@ -954,6 +963,10 @@ namespace environs
         allocated = false;
         autoreset = true;
         
+#ifdef USE_THREADSYNC_OWNER_NAME
+        owner       = "Unknown";
+#endif
+        
 #ifdef CLI_CPP
 		signal = nill;
 		threadID = nill;
@@ -968,6 +981,10 @@ namespace environs
     
     bool ThreadSync::LockCond ( CString_ptr func )
     {
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "LockCond: [ %s ]", owner );
+#endif
+        
         if ( pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
 #ifndef CLI_CPP
             CErrArg ( "LockCond: Failed [%s]", func );
@@ -980,6 +997,10 @@ namespace environs
         
     bool ThreadSync::Lock ( CString_ptr func )
     {
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "Lock: [ %s ]", owner );
+#endif
+        
         if ( pthread_mutex_lock ( Addr_of ( lock ) ) ) {
 #ifndef CLI_CPP
             CErrArg ( "Lock: Failed [%s]", func );
@@ -990,7 +1011,7 @@ namespace environs
     }
     
     
-    bool ThreadSync::ResetSync ( CString_ptr func, bool useLock )
+    bool ThreadSync::ResetSync ( CString_ptr func, bool useLock, bool keepLocked )
     {
         if ( useLock && !LockCond ( func ) )
             return false;
@@ -999,10 +1020,13 @@ namespace environs
 #ifndef CLI_CPP
             CErrArg ( "ResetSync: Failed [%s]", func );
 #endif
+            if ( useLock )
+                UnlockCond ( func );
+            
             return false;
         }
         
-        if ( useLock && !UnlockCond ( func ) )
+        if ( useLock && !keepLocked && !UnlockCond ( func ) )
             return false;
         
         return true;
@@ -1029,7 +1053,7 @@ namespace environs
             return false;
         
         if ( WaitLocked ( func, ms ) ) {
-            if ( keepLocked || UnlockCond ( func ) )
+            if ( !useLock || keepLocked || UnlockCond ( func ) )
                 return true;
         }
         else {
@@ -1088,7 +1112,11 @@ namespace environs
 
 
 	bool ThreadSync::Notify ( CString_ptr func, bool useLock )
-	{
+    {
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "Notify.Lock: [ %s ]", owner );
+#endif
+        
 		if ( useLock && pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
 			CErr ( "Notify: Failed to acquire mutex" );
 			return false;
@@ -1099,7 +1127,11 @@ namespace environs
 			return false;
 		}
 		CVerb ( "Notify: Thread signaled." );
-
+        
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "Notify.Unlock: [ %s ]", owner );
+#endif
+        
 		if ( useLock && pthread_cond_mutex_unlock ( c_Addr_of ( lock ) ) ) {
 			CErr ( "Notify: Failed to release mutex" );
 			return false;
@@ -1109,7 +1141,11 @@ namespace environs
 
 
 	bool ThreadSync::UnlockCond ( CString_ptr func )
-	{
+    {
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "UnlockCond: [ %s ]", owner );
+#endif
+            
         if ( pthread_cond_mutex_unlock ( &lock ) ) {
 #ifndef CLI_CPP
             CErrArg ( "UnlockCond: Failed [%s]", func );
@@ -1122,6 +1158,10 @@ namespace environs
         
     bool ThreadSync::Unlock ( CString_ptr func )
     {
+#ifdef USE_THREADSYNC_OWNER_NAME
+        CVerbVerbArg ( "Unlock: [ %s ]", owner );
+#endif
+            
         if ( pthread_mutex_unlock ( Addr_of ( lock ) ) ) {
 #ifndef CLI_CPP
             CErrArg ( "Unlock: Failed [%s]", func );
@@ -1144,7 +1184,7 @@ namespace environs
 
 		int ret;
 
-		if ( waitForStart && !ResetSync ( func, true ) )
+		if ( waitForStart && !ResetSync ( func, true, true ) )
 			goto Failed;
 
 #ifndef CLI_CPP
@@ -1156,14 +1196,19 @@ namespace environs
 #ifndef CLI_CPP
 			CErrArg ( "Run: [%s] Failed to create thread!", func );
 #endif
-			
 			if ( waitForStart ) 
 				UnlockCond ( func );
 		}
 		else {
-			if ( !waitForStart || WaitOne ( func, 2000, false, false ) )
+			if ( !waitForStart )
 				return true;
 
+            if ( WaitOne ( func, 2000, false, false ) ) {
+                UnlockCond ( func );
+                return true;
+            }
+            
+            UnlockCond ( func );
 #ifndef CLI_CPP
 			CErrArg ( "Run: [%s] Failed to wait for thread start!", func );
 #endif

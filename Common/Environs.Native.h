@@ -94,6 +94,10 @@
 #	define ENVIRONS_DEVICE_KEY_EXT
 #endif
 
+#if ( !defined(NDEBUG) && !defined(CLI_CPP) )
+//#   define USE_THREADSYNC_OWNER_NAME
+#endif
+
 #define ENABLE_DONT_LINGER_SOCKETS
 
 #define USE_LOCAL_MEDIATOR_CACHE_PARAMS
@@ -103,8 +107,6 @@
 //#define USE_NSLOG
 //#define USE_PORTAL_THREADS_FOR_IOSX_CAM
 
-
-#define ENABLE_IOS_HEALTHKIT_SUPPORT
 
 #define ENABLE_IOS_NATIVE_H264_ONLY
 //#define ENABLE_IOS_STATIC_TOUCH_LISTENER
@@ -218,7 +220,7 @@ namespace environs {
 #define		DATA_BUFFER_COUNT					5
 #define		DATA_BUFFER_SIZE					1000000
 #define		STREAM_BUFFER_SIZE_MIN				100000
-#define		TCP_MSG_PROTOCOL_VERSION			2
+#define		TCP_MSG_PROTOCOL_VERSION			3
 #define		UDP_MSG_PROTOCOL_VERSION			3
 #define		UDP_MSG_EXT_PROTOCOL_VERSION		4
 
@@ -416,12 +418,14 @@ namespace environs {
 
 
 #ifdef CLI_CPP
-#	define CLogArg1(msgFormat,name1,type1,arg1)		ENVIRONS_VERB_SBL_CMD( ENVIRONS_MAKE_BODY_SBL( ENVIRONS_LOG_PREFIX, ->Append(msgFormat)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
+#	define CLogArg1(msgFormat,name1,type1,arg1)		\
+		ENVIRONS_VERB_SBL_CMD ( ENVIRONS_MAKE_BODY_SBL ( ENVIRONS_LOG_PREFIX, \
+			->Append(msgFormat)->Append(" ")->Append(name1)->Append(": [")->Append(arg1)->Append("]") ) )
 
 #	define CLogArg2(msgFormat,name1,type1,arg1,name2,type2,arg2)		\
-	ENVIRONS_VERB_SBL_CMD	( ENVIRONS_MAKE_BODY_SBL	( ENVIRONS_LOG_PREFIX,	\
-	->Append(msgFormat)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ] ") \
-	->Append(name2)->Append(": [ ")->Append(arg2)->Append(" ]") ) )
+		ENVIRONS_VERB_SBL_CMD ( ENVIRONS_MAKE_BODY_SBL ( ENVIRONS_LOG_PREFIX,	\
+			->Append(msgFormat)->Append(" ")->Append(name1)->Append(": [ ")->Append(arg1)->Append(" ] ") \
+			->Append(name2)->Append(": [ ")->Append(arg2)->Append(" ]") ) )
 
 #else
 #	define CLogArg1(msgFormat,name1,type1,arg1)			ENVIRONS_LOGARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msgFormat " " name1 ": [ %" type1 " ]" ), arg1 )

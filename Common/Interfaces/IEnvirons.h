@@ -202,8 +202,68 @@ namespace environs
 		*
 		* @return enable      true = enabled, false = disabled
 		*/
-		virtual bool GetUseLogFile () = 0;
+        virtual bool GetUseLogFile () = 0;
+        
+        
+        /**
+         * Instruct Environs to log to stdout.
+         *
+         * @param enable      true = enable, false = disable
+         */
+        virtual void SetUseLogToStdout ( bool enable ) = 0;
+        
+        
+        /**
+         * Query Environs settings whether to log to stdout.
+         *
+         * @return enable      true = enabled, false = disabled
+         */
+        virtual bool GetUseLogToStdout () = 0;
 
+
+		/**
+		* Instruct Environs to use command line mode.
+		*
+		* @param enable      true = enable, false = disable
+		*/
+		virtual void SetUseCommandLine ( bool enable ) = 0;
+
+
+		/**
+		* Query Environs settings whether to use command line mode.
+		*
+		* @return enable      true = enabled, false = disabled
+		*/
+		virtual bool GetUseCommandLine () = 0;
+        
+        
+        /**
+         * Check for mediator logon credentials and query on command line if necessary.
+         *
+         * @param success      true = successful, false = failed
+         */
+        virtual bool QueryMediatorLogonCommandLine () = 0;
+
+
+		/**
+		* Instruct Environs to create DeviceLists that are used as UIAdapter by client code.
+		* Any changes of those lists are made within the applications main / UI thread context.
+		* Only DeviceList objects that are created after this call are affected.
+		* DeviceList objects created before this call remain using the setting at the time they are created.
+		*
+		* @param enable      true = enable, false = disable
+		*/
+		virtual void SetUseDeviceListAsUIAdapter ( bool enable ) = 0;
+
+
+		/**
+		* Query Environs settings whether to create DeviceLists that are used as UIAdapter by client code.
+		* Any changes of those lists are made within the applications main / UI thread context.
+		*
+		* @return enable      true = enabled, false = disabled
+		*/
+		virtual bool GetUseDeviceListAsUIAdapter () = 0;
+        
 
 		//virtual bool opt ( const char * key ) = 0;
 
@@ -267,7 +327,7 @@ namespace environs
 		*
 		* @param	type	Environs.DEVICE_TYPE_*
 		*/
-		virtual void SetDeviceType ( char value ) = 0;
+		//virtual void SetDeviceType ( char value ) = 0;
 
 
 		/**
@@ -277,7 +337,7 @@ namespace environs
 		*
 		* @return	type	Environs.DEVICE_TYPE_*
 		*/
-		virtual char GetDeviceType () = 0;
+		//virtual char GetDeviceType () = 0;
 
 
 		/**
@@ -871,6 +931,21 @@ namespace environs
         virtual int GetHandle () = 0;
         
         virtual DeviceDisplay * GetDeviceDisplayProps ( int nativeID ) = 0;
+        
+        
+        /**
+         * Option whether to allow connections by every device.
+         *
+         * @param enable  true = enabled, false = failed.
+         */
+        virtual void SetConnectAllowFromAll ( int enable ) = 0;
+        
+        /**
+         * Option whether to allow connections by every device.
+         *
+         * @return  true = enabled, false = failed.
+         */
+        virtual int GetConnectAllowFromAll () = 0;
         
         /**
          * Connect to device with the given ID and a particular application environment.

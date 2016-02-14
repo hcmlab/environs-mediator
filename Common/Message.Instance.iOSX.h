@@ -23,6 +23,8 @@
 
 #include "Environs.iOSX.Imp.h"
 
+#   if (!defined(DISABLE_ENVIRONS_OBJC_API))
+
 /**
  *	MessageInstance iOSX
  *
@@ -74,6 +76,8 @@
 @property (readonly, nonatomic, copy) NSString * shortText;
 
 @end
+
+#   endif
 
 #endif	/// INCLUDE_HCM_ENVIRONS_MESSAGEINSTANCE_IOSX_H
 

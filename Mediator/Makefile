@@ -1,4 +1,18 @@
-CC	= g++
+PDETECT := ../Tools/platform.detect.sh
+
+EXLDF := 
+
+ifneq (,$(wildcard $(PDETECT)))
+	CC := $(shell $(PDETECT) 1)
+	EXLDF := $(shell $(PDETECT) 2)	
+else
+	CC	= g++
+endif
+
+ifeq ($(CC),)
+	CC	= g++
+endif
+
 # This must be set to the common code directory of Environs
 INCS	= ../Common/
 3RD	= ../3rd/
@@ -18,12 +32,23 @@ else
     endif
 endif
 
+export CC
+export ENVCC
+export PLATFORMDETECTED
+
 # For release builds add -DNDEBUG to suppress debug messages
 
-CFLAGS	= -std=gnu++11 -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -g -I$(INCS) -I$(3RD) -I/opt/ssl/include/ -I/opt/local/include -I$(3RD)inc -Wno-deprecated
-LDFLAGS	= -lm -lpthread -lcurses -lcurl -ldl -L/opt/local/lib 
+CFLAGS	= -std=gnu++11 -Wall -Wno-unused -DMEDIATORDAEMON -DLINUX -DMEDIATOR -g -I$(INCS) -I$(3RD) 
+CFLAGS	+= -I/opt/ssl/include/ -I/opt/local/include -I$(3RD)inc -Wno-deprecated
+
+LDFLAGS	= -lm -lpthread -lcurses -lcurl -ldl -L/opt/local/lib $(EXLDF)
+# -lrt
 #-lcrypto
 OTHER_C_FLAGS = -isystem /opt/local/include
+
+ifdef ENVCC
+   CC = $(ENVCC)
+endif
 
 ifndef DEBUG
    CFLAGS += -Os -DNDEBUG
@@ -36,40 +61,28 @@ ifeq ($(UNAME_S),Linux)
    CFLAGS += -Wno-unused-but-set-variable
 endif
 
-OBJ	= main.o stdafx.o Mediator.o Mediator.Daemon.o Threads.o Environs.Types.o Environs.Utils.o Environs.Crypt.o Export.o Dyn.Lib.Crypto.o
+SRC	= main.cpp Mediator.Daemon.cpp stdafx.cpp $(INCS)Mediator.cpp $(INCS)Interop/Threads.cpp $(INCS)Environs.Types.cpp $(INCS)Environs.Utils.cpp 
+SRC	+= $(INCS)Environs.Crypt.cpp $(INCS)Interop/Export.cpp $(3RD)DynLib/Dyn.Lib.Crypto.cpp
 
+OBJ = $(SRC:%.cpp=%.o)
 
-all: $(OBJ)
+all: install
+
+new: clean install
+	
+install: pre-build $(OUTF)
+
+pre-build:
+	@$(PDETECT)
+	
+$(OUTF): $(OBJ)
 	$(CC) $(CFLAGS) -o $(OUTF) $(OBJ) $(LDFLAGS)
-
-Mediator.o: $(INCS)Mediator.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-Threads.o: $(INCS)Interop/Threads.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-Environs.Types.o: $(INCS)Environs.Types.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-Environs.Utils.o: $(INCS)Environs.Utils.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-    
-Environs.Crypt.o: $(INCS)Environs.Crypt.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-    
-Export.o: $(INCS)Interop/Export.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
-    
-Dyn.Lib.Crypto.o: $(3RD)DynLib/Dyn.Lib.Crypto.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.o: %.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 	
-clean:
-	rm *.o $(OUTF)
-
-new: clean all
+clean: pre-build
+	-rm *.o $(OUTF) $(INCS)*.o $(INCS)Interop/*.o $(3RD)DynLib/*.o
 
 #prepare: 
 #	@if [ -d "/opt/local/include/openssl" ]; then export CFLAGS += -I/opt/local/include/openssl; fi

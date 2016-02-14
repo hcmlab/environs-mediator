@@ -55,7 +55,11 @@ namespace environs
 		* @return	true = Release build, false = Debug build.
 		*/
 		CLI_INC ENVIRONSAPI LIBEXPORT EBOOL CallConv GetIsReleaseBuildN ();
-                
+        
+        
+        EBOOL SetMediatorUserNameNM ( int hInst, const char * name );
+        
+        EBOOL SetMediatorPasswordNM ( int hInst, const char * pass );
 /**
 *	API exports for all platforms but Android
 *
@@ -190,9 +194,21 @@ namespace environs
 
 			CLI_INC LIBEXPORT EBOOL CallConv		SetPortsN ( int hInst, int tcpPort, int udpPort );
 
-			CLI_INC LIBEXPORT void CallConv			SetDeviceTypeN ( char type );
+			//CLI_INC LIBEXPORT void CallConv			SetDeviceTypeN ( char type );
 
-			CLI_INC LIBEXPORT char CallConv			GetDeviceTypeN ();
+			//CLI_INC LIBEXPORT char CallConv			GetDeviceTypeN ();
+
+
+			/**
+			* Update device flags to native layer and populate them to the environment.
+			*
+			* @param	hInst    The handle to the environs instance.
+            * @param	objID    The identifier for the native device object.
+            * @param	flags    The internal flags to set or clear.
+            * @param	set    	 true = set, false = clear.
+			*/
+			CLI_INC LIBEXPORT  void SetDeviceFlagsN ( int hInst, int objID, int flags, jboolean set );
+
 
 			/**
 			* Query whether the name of the current device has been set before.
@@ -397,7 +413,7 @@ namespace environs
 			* @return	success
 			*/
 			CLI_INC
-				LIBEXPORT EBOOL CallConv		SetMediatorUserNameN ( int hInst, CString_ptr name );
+                LIBEXPORT EBOOL CallConv		SetMediatorUserNameN ( int hInst, CString_ptr name );
 
 			/**
 			* Set the user password for authentication with a Mediator service.&nbsp;The password is stored as a hashed token within Environs.
@@ -406,8 +422,8 @@ namespace environs
 			* @return	success
 			*/
 			CLI_INC
-				LIBEXPORT EBOOL CallConv		SetMediatorPasswordN ( int hInst, CString_ptr name );
-
+                LIBEXPORT EBOOL CallConv		SetMediatorPasswordN ( int hInst, CString_ptr name );
+            
 			/**
 			* Enable or disable authentication with the Mediator using username/password.
 			*
@@ -475,7 +491,50 @@ namespace environs
 			CLI_INC
 				LIBEXPORT void CallConv			SetUseLogFileN ( EBOOL usage );
 			CLI_INC
-				LIBEXPORT EBOOL CallConv		GetUseLogFileN ();
+                LIBEXPORT EBOOL CallConv		GetUseLogFileN ();
+            
+            /**
+             * Instruct Environs to log to stdout.
+             *
+             * @param enable      true = enable, false = disable
+             */
+            CLI_INC
+                LIBEXPORT  void                 SetUseLogToStdoutN ( EBOOL enable );            
+            
+            /**
+             * Query Environs settings whether to log to stdout.
+             *
+             * @return enable      true = enabled, false = disabled
+             */
+            CLI_INC
+                LIBEXPORT EBOOL CallConv		GetUseLogToStdoutN ();
+
+
+			/**
+			* Instruct Environs to use command line mode.
+			*
+			* @param enable      true = enable, false = disable
+			*/
+            CLI_INC
+				LIBEXPORT  void                 SetUseCommandLineN ( int enable );
+
+			/**
+			* Query Environs settings whether to use command line mode.
+			*
+			* @return enable      true = enabled, false = disabled
+			*/
+			CLI_INC
+				LIBEXPORT int CallConv		GetUseCommandLineN ();
+
+
+            /**
+             * Check for mediator logon credentials and query on command line if necessary.
+             *
+             * @param success      true = successful, false = failed
+             */
+            CLI_INC
+                LIBEXPORT int CallConv		QueryMediatorLogonCommandLineN ( int hInst );
+
 
 			CLI_INC
 				LIBEXPORT void CallConv			SetNetworkStatusN ( int netStat );
@@ -650,7 +709,22 @@ namespace environs
 				LIBEXPORT int CallConv			GetDeviceWidthN ( int nativeID );
 			CLI_INC
 				LIBEXPORT int CallConv			GetDeviceHeightN ( int nativeID );
-
+            
+            /**
+             * Option whether to allow connections by every device.
+             *
+             */
+            CLI_INC
+                LIBEXPORT void                  SetConnectAllowFromAllN ( int hInst, int enable );
+            
+            /**
+             * Option whether to allow connections by every device.
+             *
+             * @return  true = enabled, false = failed.
+             */
+            CLI_INC
+                LIBEXPORT int                   GetConnectAllowFromAllN ( int hInst );
+            
 
 			/**
 			* Request a portal stream from the device with the given id.&nbsp;The device must be connected before with deviceConnect ().

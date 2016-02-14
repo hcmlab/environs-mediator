@@ -25,6 +25,8 @@
 #import "File.Instance.iOSX.h"
 
 
+#   if (!defined(DISABLE_ENVIRONS_OBJC_API))
+
 /**
  *	DeviceLists iOSX
  *
@@ -67,7 +69,7 @@
  *
  * @return ArrayList with DeviceInstance objects
  */
-- (NSMutableArray *) GetDevices;
+- (NSArray *) GetDevices;
 
 
 /**
@@ -126,7 +128,7 @@
  *
  * @return ArrayList with DeviceInstance objects
  */
-- (NSMutableArray *) GetDevicesNearby;
+- (NSArray *) GetDevicesNearby;
 
 /**
  * Query the number of nearby (broadcast visible) devices within the environment.
@@ -153,7 +155,7 @@
  *
  * @return ArrayList with DeviceInstance objects
  */
-- (NSMutableArray *) GetDevicesFromMediator;
+- (NSArray *) GetDevicesFromMediator;
 
 /**
  * Query a DeviceInstance object of Mediator managed devices within the environment.
@@ -189,7 +191,7 @@
 
 @end
 
-
+#   endif
 
 
 #endif	/// INCLUDE_HCM_ENVIRONS_DEVICELISTS_IOSX_H

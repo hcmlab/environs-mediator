@@ -186,6 +186,13 @@ namespace environs
         
             ENVIRONS_LIB_API bool isLocationNode ();
 
+			ENVIRONS_LIB_API environs::DeviceSourceType_t sourceType ();
+
+			ENVIRONS_LIB_API bool isObserverReady ();
+			ENVIRONS_LIB_API bool isMessageObserverReady ();
+			ENVIRONS_LIB_API bool isDataObserverReady ();
+			ENVIRONS_LIB_API bool isSensorObserverReady ();
+
 #ifdef CLI_CPP
 			/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
 			environs::Call		async;
@@ -507,6 +514,8 @@ namespace environs
 			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
 			 * */
 			bool						disposed_;
+
+			bool						isSameAppArea;
         
 			void                        PlatformDispose ();
 
@@ -579,7 +588,15 @@ namespace environs
 
 			void			SetProgress ( int progress );
 			bool			SetDirectContact ( int status );
-			bool			SetFileProgress ( int fileID, int progress, bool send );
+            bool			SetFileProgress ( int fileID, int progress, bool send );
+        
+            /**
+             * Update device flags to native layer and populate them to the environment.
+             *
+             * @param	flags    The internal flags to set or clear.
+             * @param	set    	 true = set, false = clear.
+             */
+            void			SetDeviceFlags ( environs::DeviceFlagsInternal_t flags, bool set );
 
             void			DisposeInstance ();
             void			DisposeMessages ();

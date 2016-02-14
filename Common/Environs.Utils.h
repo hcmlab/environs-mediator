@@ -60,6 +60,15 @@ namespace environs
 	size_t strlcat ( char *d, char const *s, size_t n );
 #endif
 
+#ifdef __cplusplus
+    
+    namespace API
+    {
+        int Environs_LoginDialogCommandLine ( int hInst );
+    }
+    
+#endif
+    
 //#ifndef _WIN32
 //#   ifndef ANDROID
 //#       ifndef __APPLE__

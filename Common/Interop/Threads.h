@@ -594,6 +594,11 @@ namespace environs
         bool                    autoreset;
         LONGSYNC                state;
         pthread_t               threadID;
+        
+#if ( !defined(NDEBUG) && !defined(CLI_CPP) )
+        //#ifdef USE_THREADSYNC_OWNER_NAME
+        //const char          *   owner;
+#endif
                 
 		ThreadSync ();
 		~ThreadSync ();
@@ -601,13 +606,37 @@ namespace environs
         bool Init ();
         void DisposeInstance ();
         
+        /**
+         * Lock actually acquires the lock on all platforms
+         *
+         * @param success
+         */
         bool Lock ( CString_ptr func );
+        
+        /**
+         * LockCond acquires the lock on all platforms but Windows
+         * On Windows platforms, the underlying event will be a ManualReleaseEvent.
+         *
+         * @param success
+         */
         bool LockCond ( CString_ptr func );
         
+        /**
+         * Unlock actually releases the lock on all platforms
+         *
+         * @param success
+         */
         bool Unlock ( CString_ptr func );
+        
+        /**
+         * UnlockCond releases the lock on all platforms but Windows
+         * On Windows platforms, the underlying event will be a ManualReleaseEvent.
+         *
+         * @param success
+         */
         bool UnlockCond ( CString_ptr func );
         
-        bool ResetSync ( CString_ptr func, bool useLock C_Only ( = true ) );
+        bool ResetSync ( CString_ptr func, bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
 		void ResetState ( );
 		void Reset ();
         

@@ -25,6 +25,8 @@
 #import <Foundation/Foundation.h>
 #include "Notify.Context.h"
 #include "Environs.Types.h"
+#include "Environs.Msg.Types.h"
+
 
 
 /**
@@ -202,9 +204,14 @@
  * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
  *
  * @param nativeID      The native identifier that targets the device.
- * @param pack          The frame containing the sensor data
+ * @param sensorFrame   The frame containing the sensor data
  */
-- (void) OnSensorData:(int) nativeID Frame:(void *) pack;
+#ifdef __cplusplus
+
+- (void) OnSensorData:(int) nativeID Frame:(environs::SensorFrame *) sensorFrame;
+
+#endif
+
 @end
 
 
@@ -215,9 +222,13 @@
 /**
  * OnSensorData is called whenever new sensor data has been received.
  *
- * @param pack     The corresponding SensorFrame of sensor data
+ * @param sensorFrame     The corresponding SensorFrame of sensor data
  */
-- (void) OnSensorData:(void *) pack;
+#ifdef __cplusplus
+
+- (void) OnSensorData:(environs::SensorFrame *) sensorFrame;
+
+#endif
 
 @end
 

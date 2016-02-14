@@ -281,8 +281,68 @@ namespace environs
 			 *
 			 * @return enable      true = enabled, false = disabled
 			 */
-			ENVIRONS_LIB_API bool GetUseLogFile ();
+            ENVIRONS_LIB_API bool GetUseLogFile ();
+            
+            
+            /**
+             * Instruct Environs to log to stdout.
+             *
+             * @param enable      true = enable, false = disable
+             */
+            ENVIRONS_LIB_API void SetUseLogToStdout ( bool enable );
+            
+            
+            /**
+             * Query Environs settings whether to log to stdout.
+             *
+             * @return enable      true = enabled, false = disabled
+             */
+            ENVIRONS_LIB_API bool GetUseLogToStdout ();
 
+
+			/**
+			* Instruct Environs to use command line mode.
+			*
+			* @param enable      true = enable, false = disable
+			*/
+			ENVIRONS_LIB_API void SetUseCommandLine ( bool enable );
+
+
+			/**
+			* Query Environs settings whether to use command line mode.
+			*
+			* @return enable      true = enabled, false = disabled
+			*/
+			ENVIRONS_LIB_API bool GetUseCommandLine ();
+            
+            
+            /**
+             * Check for mediator logon credentials and query on command line if necessary.
+             *
+             * @param success      true = successful, false = failed
+             */
+            ENVIRONS_LIB_API bool QueryMediatorLogonCommandLine ();
+
+
+			/**
+			* Instruct Environs to create DeviceLists that are used as UIAdapter by client code.
+			* Any changes of those lists are made within the applications main / UI thread context.
+			* Only DeviceList objects that are created after this call are affected.
+			* DeviceList objects created before this call remain using the setting at the time they are created.
+			*
+			* @param enable      true = enable, false = disable
+			*/
+			ENVIRONS_LIB_API void SetUseDeviceListAsUIAdapter ( bool enable );
+
+
+			/**
+			* Query Environs settings whether to create DeviceLists that are used as UIAdapter by client code.
+			* Any changes of those lists are made within the applications main / UI thread context.
+			*
+			* @return enable      true = enabled, false = disabled
+			*/
+			ENVIRONS_LIB_API bool GetUseDeviceListAsUIAdapter ();
+            
 
 			//ENVIRONS_LIB_API bool opt ( CString_ptr key );
 
@@ -354,7 +414,7 @@ namespace environs
 			 *
 			 * @param	type	Environs.DEVICE_TYPE_*
 			 */
-			ENVIRONS_LIB_API void SetDeviceType ( char value );
+			//ENVIRONS_LIB_API void SetDeviceType ( char value );
 
 
 			/**
@@ -364,7 +424,7 @@ namespace environs
 			 *
 			 * @return	type	Environs.DEVICE_TYPE_*
 			 */
-			ENVIRONS_LIB_API char GetDeviceType ();
+			//ENVIRONS_LIB_API char GetDeviceType ();
 
 
 			/**
@@ -927,10 +987,8 @@ namespace environs
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool RemoveObserverForSensorData ( environs::EnvironsSensorDataObserver * observer );
-                        
+			ENVIRONS_LIB_API bool RemoveObserverForSensorData ( environs::EnvironsSensorDataObserver * observer );                        
 #endif
-
 
 			/**
 			 * Create a new DeviceList object that manages all devices of given list type. This list ist updated dynamically by Environs.
@@ -963,7 +1021,21 @@ namespace environs
 			ENVIRONS_LIB_API void SetPortalAutoStart ( bool enable );
 
 			ENVIRONS_LIB_API DeviceDisplay OBJ_ptr GetDeviceDisplayProps ( int nativeID );
-
+            
+            /**
+             * Option whether to allow connections by every device.
+             *
+             * @param enable  true = enabled, false = failed.
+             */
+            ENVIRONS_LIB_API void SetConnectAllowFromAll ( int enable );
+            
+            /**
+             * Option whether to allow connections by every device.
+             *
+             * @return  true = enabled, false = failed.
+             */
+            ENVIRONS_LIB_API int GetConnectAllowFromAll ();
+            
 			/**
 			* Connect to device with the given ID and a particular application environment.
 			*
@@ -1246,6 +1318,7 @@ namespace environs
             bool                                listCommandThreadRun;
             ThreadSync                          listCommandThread;
 
+			void								ListCommandQueueClear ();
             
             stdQueue ( DeviceNotifierContextPtr ) deviceNotifierQueue;
             pthread_mutex_t						deviceNotifierLock;
@@ -1256,6 +1329,16 @@ namespace environs
 
 			static bool				ObjectAPIInit ();
 			static void				ObjectAPIDispose ();
+
+			/**
+			* Update device flags to native layer and populate them to the environment.
+			*
+			* @param	hInst    The handle to the environs instance.
+            * @param	objID    The identifier for the native device object.
+            * @param	flags    The internal flags to set or clear.
+            * @param	set    	 true = set, false = clear.
+			*/
+			void					SetDeviceFlags ( int objID, int flags, bool set );
 
             void                    DoStop ();
             static void c_OBJ_ptr   EnvironsStop ( pthread_param_t arg );

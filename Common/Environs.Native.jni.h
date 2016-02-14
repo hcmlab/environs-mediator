@@ -401,6 +401,14 @@ JNIEXPORT jint JNICALL Java_environs_Environs_GetSensorEventSenderCountN
 
 /*
  * Class:     environs_Environs
+ * Method:    IsSensorAvailableN
+ * Signature: (II)I
+ */
+JNIEXPORT jint JNICALL Java_environs_Environs_IsSensorAvailableN
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     environs_Environs
  * Method:    IsNativeAllocatedN
  * Signature: ()Z
  */
@@ -494,6 +502,22 @@ JNIEXPORT void JNICALL Java_environs_Environs_SetPlatformN
  */
 JNIEXPORT void JNICALL Java_environs_Environs_SetIsLocationNodeN
   (JNIEnv *, jclass, jboolean);
+
+/*
+ * Class:     environs_Environs
+ * Method:    SetConnectAllowFromAllN
+ * Signature: (IZ)V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_SetConnectAllowFromAllN
+  (JNIEnv *, jclass, jint, jboolean);
+
+/*
+ * Class:     environs_Environs
+ * Method:    GetConnectAllowFromAllN
+ * Signature: (I)I
+ */
+JNIEXPORT jint JNICALL Java_environs_Environs_GetConnectAllowFromAllN
+  (JNIEnv *, jclass, jint);
 
 /*
  * Class:     environs_Environs
@@ -617,11 +641,11 @@ JNIEXPORT void JNICALL Java_environs_Environs_SetDeviceTypeN
 
 /*
  * Class:     environs_Environs
- * Method:    GetDeviceTypeN
- * Signature: ()C
+ * Method:    SetDeviceFlagsN
+ * Signature: (IIIZ)V
  */
-JNIEXPORT jchar JNICALL Java_environs_Environs_GetDeviceTypeN
-  (JNIEnv *, jclass);
+JNIEXPORT void JNICALL Java_environs_Environs_SetDeviceFlagsN
+  (JNIEnv *, jclass, jint, jint, jint, jboolean);
 
 /*
  * Class:     environs_Environs

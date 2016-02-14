@@ -51,6 +51,8 @@ namespace environs
 {
 	bool							openssl_LibInitialized		= false;
 	HMODULE							hLibOpenSSL                 = 0;
+
+	pOpenSSL_version_num				 dOpenSSL_version_num = 0;
     
     pOPENSSL_add_all_algorithms_noconf   dOPENSSL_add_all_algorithms_noconf = 0;
     pOPENSSL_add_all_algorithms_conf     dOPENSSL_add_all_algorithms_conf = 0;
@@ -250,6 +252,17 @@ namespace environs
 			goto Finish;
 		}
 
+		dOpenSSL_version_num				= ( pOpenSSL_version_num ) dlsym ( hLib, "OpenSSL_version_num" );
+
+        if ( !dOpenSSL_version_num ) {
+            dOpenSSL_version_num			= ( pOpenSSL_version_num ) dlsym ( hLib, "SSLeay" );
+            
+            if ( dOpenSSL_version_num ) {
+                unsigned long version = dOpenSSL_version_num ();
+                CLogArg ( "InitLibOpenSSL: Version [ 0.%X ]", version );
+            }
+        }
+
 		dOPENSSL_add_all_algorithms_noconf  = ( pOPENSSL_add_all_algorithms_noconf ) dlsym ( hLib, "OPENSSL_add_all_algorithms_noconf" );
 		dOPENSSL_add_all_algorithms_conf    = ( pOPENSSL_add_all_algorithms_conf ) dlsym ( hLib, "OPENSSL_add_all_algorithms_conf" );
 		dOpenSSL_add_all_algorithms			= ( pOpenSSL_add_all_algorithms ) dlsym ( hLib, "OpenSSL_add_all_algorithms" );
@@ -371,6 +384,7 @@ namespace environs
 			return true;
 		}
 
+		dOpenSSL_version_num				= ( pOpenSSL_version_num ) OpenSSL_version_num;
 
 		dOPENSSL_add_all_algorithms_noconf  = ( pOPENSSL_add_all_algorithms_noconf ) OPENSSL_add_all_algorithms_noconf;
 		dOPENSSL_add_all_algorithms_conf    = ( pOPENSSL_add_all_algorithms_conf ) OPENSSL_add_all_algorithms_conf;

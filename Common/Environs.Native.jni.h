@@ -361,10 +361,10 @@ JNIEXPORT jboolean JNICALL Java_environs_Environs_RegisterAtMediatorsN
 
 /*
  * Class:     environs_Environs
- * Method:    ResetIdentKeysN
+ * Method:    ResetCryptLayerN
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_environs_Environs_ResetIdentKeysN
+JNIEXPORT void JNICALL Java_environs_Environs_ResetCryptLayerN
   (JNIEnv *, jclass);
 
 /*

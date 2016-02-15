@@ -131,8 +131,12 @@ namespace environs
 
 			CLI_INC LIBEXPORT void CallConv			SetOSLevelN ( int level );
 
-
-			CLI_INC LIBEXPORT void CallConv			ResetIdentKeysN ();
+            /**
+             * Reset crypt layer and all created resources. Those will be recreated if necessary.
+             * This method is intended to be called directly after creation of an Environs instance.
+             *
+             */
+			CLI_INC LIBEXPORT void CallConv			ResetCryptLayerN ();
 
 			CLI_INC LIBEXPORT int CallConv			GetAppAreaIDN ( int hInst );
 

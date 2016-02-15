@@ -278,8 +278,13 @@ namespace environs
 		*/
 		virtual bool Init () = 0;
 
-
-		virtual void ResetIdentKeys () = 0;
+        
+        /**
+         * Reset crypt layer and all created resources. Those will be recreated if necessary.
+         * This method is intended to be called directly after creation of an Environs instance.
+         *
+         */
+		virtual void ResetCryptLayer () = 0;
 
 
 		/**

@@ -357,8 +357,13 @@ namespace environs
 			 */
 			ENVIRONS_LIB_API bool Init ();
 
-
-			ENVIRONS_LIB_API void ResetIdentKeys ();
+            
+            /**
+             * Reset crypt layer and all created resources. Those will be recreated if necessary.
+             * This method is intended to be called directly after creation of an Environs instance.
+             *
+             */
+			ENVIRONS_LIB_API void ResetCryptLayer ();
 
 
 			/**

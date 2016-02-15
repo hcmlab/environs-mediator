@@ -2572,19 +2572,19 @@ namespace environs
         if ( InitLibOpenSSL ( 0 ) ) {
             CInfo ( "InitEnvironsCrypt: Successfuly loaded libcrypto!" );
             
-            EncryptMessage = cryptEncryptMessage;
-            DecryptMessage = cryptDecryptMessage;
-            ReleaseCert = cryptReleaseCert;
-            SHAHashCreate = cryptSHAHashCreate;
-            AESEncrypt = cryptAESEncrypt;
-            AESDecrypt = cryptAESDecrypt;
+            EncryptMessage      = cryptEncryptMessage;
+            DecryptMessage      = cryptDecryptMessage;
+            ReleaseCert         = cryptReleaseCert;
+            SHAHashCreate       = cryptSHAHashCreate;
+            AESEncrypt          = cryptAESEncrypt;
+            AESDecrypt          = cryptAESDecrypt;
             GenerateCertificate = cryptGenerateCertificate;
             AESDeriveKeyContext = cryptAESDeriveKeyContext;
             AESUpdateKeyContext = cryptAESUpdateKeyContext;
             AESDisposeKeyContext = cryptAESDisposeKeyContext;
             PreparePrivateKey   = cryptPreparePrivateKey;
-            DisposePublicKey   = cryptDisposePublicKey;
-            DisposePrivateKey = cryptDisposePrivateKey;
+            DisposePublicKey    = cryptDisposePublicKey;
+            DisposePrivateKey   = cryptDisposePrivateKey;
 
             if ( !openssl_alg_added )
             {
@@ -2604,52 +2604,54 @@ namespace environs
             }
         }
         else {
-#   ifndef ANDROID
+#   ifdef ANDROID
+            CWarn ( "InitEnvironsCrypt: Failed to load libcrypto! Using platform layer encryption!" );
+#   else
             CErr ( "InitEnvironsCrypt: CRITICAL ERROR. Failed to load libcrypto! Encryption not available!" );
 #   endif
-            EncryptMessage = dEncryptMessage;
-            DecryptMessage = dDecryptMessage;
-            ReleaseCert = dReleaseCert;
-            SHAHashCreate = dSHAHashCreate;
-            AESEncrypt = dAESEncrypt;
-            AESDecrypt = dAESDecrypt;
+            EncryptMessage      = dEncryptMessage;
+            DecryptMessage      = dDecryptMessage;
+            ReleaseCert         = dReleaseCert;
+            SHAHashCreate       = dSHAHashCreate;
+            AESEncrypt          = dAESEncrypt;
+            AESDecrypt          = dAESDecrypt;
             GenerateCertificate = dGenerateCertificate;
             AESDeriveKeyContext = dAESDeriveKeyContext;
             AESUpdateKeyContext = dAESUpdateKeyContext;
             AESDisposeKeyContext = dAESDisposeKeyContext;
             PreparePrivateKey   = dPreparePrivateKey;
-            DisposePublicKey   = dDisposePublicKey;
-            DisposePrivateKey = dDisposePrivateKey;
+            DisposePublicKey    = dDisposePublicKey;
+            DisposePrivateKey   = dDisposePrivateKey;
         }
 #else
 #   ifdef _WIN32
-		EncryptMessage = cryptEncryptMessage;
-		DecryptMessage = cryptDecryptMessage;
-		ReleaseCert = cryptReleaseCert;
-		SHAHashCreate = cryptSHAHashCreate;
-		AESEncrypt = cryptAESEncrypt;
-		AESDecrypt = cryptAESDecrypt;
+		EncryptMessage      = cryptEncryptMessage;
+		DecryptMessage      = cryptDecryptMessage;
+		ReleaseCert         = cryptReleaseCert;
+		SHAHashCreate       = cryptSHAHashCreate;
+		AESEncrypt          = cryptAESEncrypt;
+		AESDecrypt          = cryptAESDecrypt;
 		GenerateCertificate = cryptGenerateCertificate;
 		AESDeriveKeyContext = cryptAESDeriveKeyContext;
 		AESUpdateKeyContext = dAESUpdateKeyContext;
 		AESDisposeKeyContext = cryptAESDisposeKeyContext;
 		PreparePrivateKey   = dPreparePrivateKey;
-		DisposePublicKey   = dDisposePublicKey;
-		DisposePrivateKey = dDisposePrivateKey;
+		DisposePublicKey    = dDisposePublicKey;
+		DisposePrivateKey   = dDisposePrivateKey;
 #   else
-        EncryptMessage = dEncryptMessage;
-        DecryptMessage = dDecryptMessage;
-        ReleaseCert = dReleaseCert;
-        SHAHashCreate = dSHAHashCreate;
-        AESEncrypt = dAESEncrypt;
-        AESDecrypt = dAESDecrypt;
+        EncryptMessage      = dEncryptMessage;
+        DecryptMessage      = dDecryptMessage;
+        ReleaseCert         = dReleaseCert;
+        SHAHashCreate       = dSHAHashCreate;
+        AESEncrypt          = dAESEncrypt;
+        AESDecrypt          = dAESDecrypt;
         GenerateCertificate = dGenerateCertificate;
         AESDeriveKeyContext = dAESDeriveKeyContext;
         AESUpdateKeyContext = dAESUpdateKeyContext;
         AESDisposeKeyContext = dAESDisposeKeyContext;
         PreparePrivateKey   = dPreparePrivateKey;
-        DisposePublicKey   = dDisposePublicKey;
-        DisposePrivateKey = dDisposePrivateKey;
+        DisposePublicKey    = dDisposePublicKey;
+        DisposePrivateKey   = dDisposePrivateKey;
 #   endif
 #endif
         if ( !allocated )
@@ -2659,8 +2661,8 @@ namespace environs
                 return false;
 #endif
             
-#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
-            if ( !CryptLocksCreate () )
+#if ( defined(ENABLE_CRYPT_AES_LOCKED_ACCESS) && defined(USE_OPENSSL) )
+            if ( openssl_LibInitialized && !CryptLocksCreate () )
                 return false;
 #endif
             allocated = true;

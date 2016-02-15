@@ -843,8 +843,8 @@ namespace environs
 				unsigned int mask = ( unsigned int ) addr.sin_addr.s_addr;
 
 				if ( ip && mask ) {
-					CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-					CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+					CLogArg ( "Local IP %i: \t[ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+					CVerbArg ( "Local SN %i: \t[ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 
 					bcast = GetBroadcast ( ip, mask );
 					if ( !bcast ) {
@@ -855,7 +855,7 @@ namespace environs
 					inet_pton ( AF_INET, adapter->GatewayList.IpAddress.String, &( addr.sin_addr ) );
 					unsigned int gw = ( unsigned int ) addr.sin_addr.s_addr;
 					if ( gw ) {
-						CLogArg ( "Local GW %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &gw ) ) );
+						CLogArg ( "Local GW %i: \t[ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &gw ) ) );
 					}
 
 					CVerbArg ( "LoadNetworks: Local BC %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &bcast ) ) );
@@ -922,8 +922,8 @@ namespace environs
 				pAddress = ( sockaddr_in * ) & ( InterfaceList [ i ].iiNetmask );
 				unsigned int mask = pAddress->sin_addr.s_addr;
 
-				CLogArg ( "Local IP %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-				CVerbArg ( "Local SN %i: [ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
+				CLogArg ( "Local IP %i: \t[ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+				CVerbArg ( "Local SN %i: \t[ %s ]", i, inet_ntoa ( *( ( struct in_addr * ) &mask ) ) );
 
 				bcast = GetBroadcast ( ip, mask );
 				if ( !bcast ) {
@@ -980,7 +980,7 @@ namespace environs
 		{
 			ip = ( ( struct sockaddr_in * )&ifreqs [ i ].ifr_ifru.ifru_addr )->sin_addr.s_addr;
 
-			CLogArg ( "LoadNetworks: Interface name: '%s' - ip: [ %s ]", ifreqs [ i ].ifr_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+			CLogArg ( "LoadNetworks: Interface name: '%s'\tip: [ %s ]", ifreqs [ i ].ifr_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 
 			if ( strlen ( ifreqs [ i ].ifr_name ) < 1 ) {
 				CVerb ( "LoadNetworks: Omiting invalid interface name." );
@@ -1062,7 +1062,7 @@ namespace environs
 				// IPv4
 				ip = ( ( struct sockaddr_in * ) ifa->ifa_addr )->sin_addr.s_addr;
 
-				CLogArg ( "LoadNetworks: [%s] => IP: [ %s ]", ifa->ifa_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+				CLogArg ( "LoadNetworks: [%s] => \tIP: [ %s ]", ifa->ifa_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 
 				if ( !ip ) {
 					CVerb ( "LoadNetworks: Omiting invalid interface." );

@@ -5419,6 +5419,9 @@ bool CollectDevices ( bool search, int reqDeviceID, ApplicationDevices * appDevi
         if ( listCount > resultCapacity )
             listCount = resultCapacity;
         
+		if ( listCount <= 0 )
+			goto Finish;
+
         size_t cacheSize = ( ( ( listCount - 1 ) * sizeof ( DeviceInfoShort ) ) + sizeof ( DeviceInfo ) );
         
         memcpy ( resultList, appDevices->devicesCache, cacheSize );

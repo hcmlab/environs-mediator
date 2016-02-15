@@ -356,8 +356,8 @@ namespace environs
 
 	Finish:
 		if ( ret ) {
-			hLibOpenSSL = hLib;
-			openssl_LibInitialized = true;
+			hLibOpenSSL             = hLib;
+			openssl_LibInitialized  = true;
 			CVerb ( "InitLibOpenSSL: successfully initialized access to " MODLIBNAME );
 		}
         else {

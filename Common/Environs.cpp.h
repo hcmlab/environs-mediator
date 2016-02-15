@@ -58,7 +58,13 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  @returns success
  */
 + (bool) Init;
-+ (void) ResetIdentKeys;
+
+/**
+ * Reset crypt layer and all created resources. Those will be recreated if necessary.
+ * This method is intended to be called directly after creation of an Environs instance.
+ *
+ */
++ (void) ResetCryptLayer;
 
 /**
  * Get the native version of Environs.

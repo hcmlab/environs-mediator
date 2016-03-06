@@ -142,7 +142,10 @@
 #define CLASS_NAME	"Threads. . . . . . . . ."
 
 namespace environs
-{    
+{
+#if ( !defined(ENVIRONS_CORE_LIB) || defined(ENVIRONS_NATIVE_MODULE) )
+	int g_Debug = 0;
+#endif
 
 #ifdef ANDROID
 	INCLINEFUNC long ___sync_val_compare_and_swap ( long * destination, unsigned int compare, unsigned int swap )
@@ -243,6 +246,7 @@ namespace environs
 
 
 #ifdef USE_CRIT_SEC_MUTEX
+#	ifndef WINDOWS_PHONE
 	INCLINEFUNC bool pthread_mutex_init ( CRITICAL_SECTION  * critSEc, void * arg )
 	{
 		InitializeCriticalSection ( critSEc );
@@ -254,7 +258,37 @@ namespace environs
 		DeleteCriticalSection ( critSEc );
 		return false;
 	}
+#	endif
 #endif
+
+
+	INCLINEFUNC pthread_t_id getSelfThreadID ()
+	{
+#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
+		return GetCurrentThreadId ();
+#else
+		return pthread_self ();
+#endif
+	}
+
+
+	INCLINEFUNC bool areWeTheThreadID ( pthread_t_id thread )
+	{
+#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
+		if ( !thread )
+			return false;
+
+		DWORD id = thread;
+
+		DWORD our_id = GetCurrentThreadId ();
+
+		return ( our_id == id );
+#else
+		pthread_t our_id = pthread_self ();
+
+		return ( memcmp ( &our_id, &thread, sizeof ( pthread_t ) ) == 0 );
+#endif
+	}
 
 
 	INCLINEFUNC bool pthread_is_self_thread ( pthread_t thread )
@@ -263,7 +297,7 @@ namespace environs
 		if ( !thread )
 			return false;
 #ifdef WINDOWS_PHONE
-		DWORD id = (DWORD)thread;
+		DWORD id = ( DWORD ) thread;
 #else
 		DWORD id = GetThreadId ( thread );
 #endif
@@ -531,24 +565,25 @@ namespace environs
 		pthread_t thread = threadID;
 
 		if ( !pthread_valid ( thread ) ) {
-			if ( threadState )
-				*threadState = ENVIRONS_THREAD_NO_THREAD;
+			if ( threadState && ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE ) {
+				CVerbVerb ( "DisposeThread: Thread has not been started." );
+			}
 
 			CVerb ( "DisposeThread: Thread is already closed." );
 			return;
 		}
 
-		bool threadEqualsCaller	= false;
+		bool threadMatchesCaller	= false;
 
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
 
-		threadEqualsCaller		= pthread_is_self_thread ( thread );
+		threadMatchesCaller		= pthread_is_self_thread ( thread );
 #else
 		pthread_t our_id = pthread_self ();
 
-		threadEqualsCaller		= ( memcmp ( &our_id, &thread, sizeof ( pthread_t ) ) == 0 );
+		threadMatchesCaller		= ( memcmp ( &our_id, &thread, sizeof ( pthread_t ) ) == 0 );
 #endif
-		if ( threadEqualsCaller ) {
+		if ( threadMatchesCaller ) {
 			CWarnArg ( "DisposeThread: Skip waiting for %s ...", threadName );
 			return;
 		}
@@ -623,31 +658,6 @@ namespace environs
 		DisposeThread ( threadState, threadID, threadName );
     }
     
-	
-	/**
-	*	Dispose a thread and reset the threadID variable afterwards. 
-	*	Make sure that the thread has not bee detached before.
-	*	Reset the thread variable stored in threadID on success.
-	*
-    void DisposeThread ( pthread_t &threadID, const char * threadName, pthread_cond_t &threadEvent )
-    {
-        if ( !pthread_valid ( threadID ) ) {
-            CVerb ( "DisposeThread: Thread is already closed." );
-            return;
-        }
-        
-        if ( pthread_cond_valid ( threadEvent ) ) {
-            CVerbArg ( "DisposeThread: Signaling %s thread...", threadName );
-            
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-            SetEvent ( threadEvent );
-#else
-            pthread_cond_signal ( &threadEvent );
-#endif
-        }
-        DisposeThread ( threadID, threadName );
-     }
-     */
 
 #ifdef _WIN32
 #pragma warning( pop )
@@ -987,7 +997,7 @@ namespace environs
         
         if ( pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
 #ifndef CLI_CPP
-            CErrArg ( "LockCond: Failed [%s]", func );
+            CErrArg ( "LockCond: Failed [ %s ]", func );
 #endif
             return false;
         }
@@ -1003,7 +1013,7 @@ namespace environs
         
         if ( pthread_mutex_lock ( Addr_of ( lock ) ) ) {
 #ifndef CLI_CPP
-            CErrArg ( "Lock: Failed [%s]", func );
+            CErrArg ( "Lock: Failed [ %s ]", func );
 #endif
             return false;
         }
@@ -1018,7 +1028,7 @@ namespace environs
             
         if ( pthread_cond_prepare ( c_Addr_of ( signal ) ) ) {
 #ifndef CLI_CPP
-            CErrArg ( "ResetSync: Failed [%s]", func );
+            CErrArg ( "ResetSync: Failed [ %s ]", func );
 #endif
             if ( useLock )
                 UnlockCond ( func );
@@ -1047,67 +1057,90 @@ namespace environs
 	}
         
         
-    bool ThreadSync::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
+	int ThreadSync::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
     {
         if ( useLock && !LockCond ( func ) )
-            return false;
+            return 0;
         
-        if ( WaitLocked ( func, ms ) ) {
+		int waitRes = WaitLocked ( func, ms );
+        if ( waitRes ) 
+		{
             if ( !useLock || keepLocked || UnlockCond ( func ) )
-                return true;
+                return waitRes;
         }
         else {
             if ( !keepLocked )
                 UnlockCond ( func );
         }
-        return false;
+        return 0;
     }
         
         
-    bool ThreadSync::WaitLocked ( CString_ptr func, int ms )
+    int ThreadSync::WaitLocked ( CString_ptr func, int ms )
     {
-        if ( ms > 0 ) {
-            if (
 #ifdef _WIN32
-                !pthread_cond_wait_time ( c_Addr_of ( signal ), &lock, ms )
+#	ifdef CLI_CPP
+		bool waitRes;
+
+		if ( ms == ENV_INFINITE_MS )
+			waitRes = signal->WaitOne ();
+		else
+			waitRes = signal->WaitOne ( ms );
+#	else
+		DWORD waitRes;
+
+		if ( ms == ENV_INFINITE_MS )
+#ifdef WINDOWS_PHONE
+			waitRes = WaitForSingleObjectEx ( signal, INFINITE, TRUE );
 #else
-                pthread_cond_wait_time ( &signal, &lock, ms ) == 0
+			waitRes = WaitForSingleObject ( signal, INFINITE );
 #endif
-                )
-            {
-                if ( autoreset ) {
-                    pthread_cond_preparev ( c_Addr_of ( signal ) );
-                }
-                return true;
-            }
-        }
-        else {
-            if (
+		else
+#ifdef WINDOWS_PHONE
+			waitRes = WaitForSingleObjectEx ( signal, ms, TRUE );
+#else
+			waitRes = WaitForSingleObject ( signal, ms );
+#endif
+#	endif
+#else
+		int waitRes;
+
+		if ( ms == ENV_INFINITE_MS )
+			waitRes = pthread_cond_wait ( &signal, &lock );
+		else
+			waitRes = pthread_cond_timedwait_msec ( &signal, &lock, ms );
+#endif
+		if ( autoreset ) {
+			pthread_cond_preparev ( c_Addr_of ( signal ) );
+		}
+
 #ifdef _WIN32
-                !pthread_cond_manual_wait ( c_Addr_of ( signal ), &lock )
+#	ifdef CLI_CPP
+		if ( ms != ENV_INFINITE_MS )
+			return -1; // No signal means timeout
+		if ( waitRes )
+			return 1;
+#	else
+		if ( waitRes == WAIT_OBJECT_0 )
+			return 1;
+		else if ( waitRes == WAIT_TIMEOUT ) {
+			CVerbsArg ( 3, "WaitLocked: Time out [ %s ]", func );
+			return -1;
+		}
+#	endif
 #else
-                pthread_cond_wait ( &signal, &lock ) == 0
-#endif
-                )
-            {
-                if ( autoreset ) {
-                    pthread_cond_preparev ( c_Addr_of ( signal ) );
-                }
-                return true;
-            }
-        }
-        
-#ifndef CLI_CPP
-		if ( ms <= 0 ) {
-			CErrArg ( "WaitLocked: Failed [%s]", func );
-		}
-#ifdef ENVIRONS_CORE_LIB
-		else {
-			CVerbsArg ( 3, "WaitLocked: time out [%s]", func );
+		if ( waitRes == 0 )
+			return 1;
+		else if ( waitRes == ETIMEDOUT ) {
+			CVerbsArg ( 3, "WaitLocked: Time out [ %s ]", func );
+			return -1;
 		}
 #endif
+
+#if ( defined(ENVIRONS_CORE_LIB) && !defined(CLI_CPP) )
+		CErrArg ( "WaitLocked: Failed [ %s ]", func );
 #endif
-        return false;
+        return 0;
     }
 
 
@@ -1172,27 +1205,41 @@ namespace environs
     }
         
 
-	bool ThreadSync::Run ( pthread_start_routine_t startRoutine, pthread_param_t arg, CString_ptr func, bool waitForStart )
+	/*
+	* Run	Create a thread with the given thread routine
+	* @return	1	success, thread is running or was already runing. (if wait is requested, then wait was successful)
+	*			0	failed
+	*			-1	failed, thread was started and is probably running (soon). However, wait for thread start failed.
+	*/
+	int ThreadSync::Run ( pthread_start_routine_t startRoutine, pthread_param_t arg, CString_ptr func, bool waitForStart )
 	{
 		if ( ___sync_val_compare_and_swap ( c_ref state, ENVIRONS_THREAD_NO_THREAD, ENVIRONS_THREAD_DETACHEABLE ) != ENVIRONS_THREAD_NO_THREAD ) 
 		{
 #ifndef CLI_CPP
 			CWarnsArg ( 6, "Run: [%s] Thread already running!", func );
 #endif
-			return true;
+			return 1;
 		}
 
-		int ret;
+		int success;
 
 		if ( waitForStart && !ResetSync ( func, true, true ) )
 			goto Failed;
 
+#ifndef NDEBUG
 #ifndef CLI_CPP
-		ret = pthread_create ( c_Addr_of ( threadID ), 0, startRoutine, arg );
-#else
-		ret = pthread_create_cli ( c_Addr_of ( threadID ), 0, startRoutine, arg );
+		if ( threadID != 0 ) {
+			CErrArg ( "Run: [%s] Thread id already available!", func );
+		}
 #endif
-		if ( ret ) {
+#endif
+
+#ifndef CLI_CPP
+		success = pthread_create ( c_Addr_of ( threadID ), 0, startRoutine, arg );
+#else
+		success = pthread_create_cli ( c_Addr_of ( threadID ), 0, startRoutine, arg );
+#endif
+		if ( success ) {
 #ifndef CLI_CPP
 			CErrArg ( "Run: [%s] Failed to create thread!", func );
 #endif
@@ -1201,24 +1248,26 @@ namespace environs
 		}
 		else {
 			if ( !waitForStart )
-				return true;
+				return 1;
 
-            if ( WaitOne ( func, 2000, false, false ) ) {
-                UnlockCond ( func );
-                return true;
-            }
+			int waitRes = WaitOne ( func, 2000, false, false );
+
+			UnlockCond ( func );
             
-            UnlockCond ( func );
+			if ( waitRes <= 0 ) {
 #ifndef CLI_CPP
-			CErrArg ( "Run: [%s] Failed to wait for thread start!", func );
+				CErrArg ( "Run: [%s] Failed to wait for thread start!", func );
 #endif
-			Detach ( "Run" );
-			return false;
+				Detach ( "Run" );
+			}
+
+			if ( waitRes != 0 )
+				return waitRes;
 		}
 
 	Failed:
 		state = ENVIRONS_THREAD_NO_THREAD;
-		return false;
+		return 0;
 	}
        
 

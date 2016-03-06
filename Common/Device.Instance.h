@@ -33,9 +33,33 @@
 
 #ifdef CLI_CPP
 #else
-#	include "Interfaces/IDevice.Instance.h"
 
+#	include "Interfaces/IDevice.Instance.h"
+#	include "Queue.List.h"
 #	include <queue>
+
+#	define USE_QUEUE_VECTOR_T_CLASS
+
+#   ifdef USE_QUEUE_VECTOR_T_CLASS
+#       include "Queue.Vector.h"
+#   endif
+
+#ifndef NDEBUG
+//#	define DEBUG_TRACK_MESSAGE_INSTANCE
+//#   define DEBUG_TRACK_MESSAGE_INSTANCE1
+
+//#	define DEBUG_TRACK_ARC_MESSAGE_INSTANCE
+//#	define DEBUG_TRACK_ARC_MESSAGE_INSTANCE1
+
+//#   define DEBUG_TRACK_DEVICE_INSTANCE
+//#   define DEBUG_TRACK_DEVICE_INSTANCE1
+
+//#	define DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT
+//#	define DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT1
+//#	define DEBUG_TRACK_LIST_NOTIFIER_CONTEXT
+//#	define DEBUG_TRACK_LIST_NOTIFIER_CONTEXT1
+#endif
+
 #endif
 
 #include <string>
@@ -56,9 +80,13 @@ namespace environs
         class MessageInstance;
 #endif
 
-		CLASS DeviceNotifierContext
+		CLASS DeviceNotifierContext C_Only ( : public IQueueItem )
 		{
-		public:
+        public:
+#ifdef DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT
+            DeviceNotifierContext ();
+            ~DeviceNotifierContext ();
+#endif
 			int                 type;
 			int                 flags;
 			DeviceInstanceSP	device;
@@ -70,8 +98,33 @@ namespace environs
 #endif
 		};        
         
+        
+#ifdef DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT
+        void CheckNotifierContextContexts ( DeviceNotifierContext * inst, bool remove );
+#endif
+        
+		PUBLIC_CLASS UdpDataPack
+		{
+		public:
+			UdpDataPack ( Addr_ptr ptr, int sizeInBytes );
+			~UdpDataPack ();
 
-		PUBLIC_CLASS DeviceInstance CLI_ABSTRACT DERIVE_c_only ( environs::DeviceInstance ) DERIVE_DISPOSEABLE 
+			UCharArray_ptr	data;
+			int				size;
+        };
+        
+        
+        STRUCT UdpDataContext
+        {
+        public:
+            OBJIDType                       objID;
+            int                             size;
+            environs::SensorFrame OBJ_ptr   sensorFrame;
+            Addr_ptr                        dataPtr;
+        };
+        
+
+		PUBLIC_CLASS DeviceInstance CLI_ABSTRACT DERIVE_c_only ( environs::DeviceInstance ) DERIVE_DISPOSABLE 
 		{
             MAKE_FRIEND_CLASS ( Environs );
             MAKE_FRIEND_CLASS ( DeviceList );
@@ -159,11 +212,17 @@ namespace environs
 
 			/** The device properties structure into a DeviceInfo object. */
 			environs::DeviceInfo OBJ_ptr info ();
-
+        
+            /** A descriptive string with the most important details. */
 			ENVIRONS_LIB_API CString_ptr toString ();
-
+        
+            /** IP from device. The IP address reported by the device which it has read from network configuration. */
 			ENVIRONS_LIB_API CString_ptr ips ();
 
+        
+            /** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
+             * This address could be different from IP due to NAT, Router, Gateways behind the device.
+             */
 			ENVIRONS_LIB_API CString_ptr ipes ();
 
 			ENVIRONS_LIB_API bool EqualsAppEnv ( environs::DeviceInfoPtr equalTo );
@@ -180,25 +239,45 @@ namespace environs
 			ENVIRONS_LIB_API CString_ptr DeviceTypeString ();
 
 			ENVIRONS_LIB_API CString_ptr GetBroadcastString ( bool fullText );
-
+        
+            /** isConnected is true if the device is currently in the connected state. */
 			ENVIRONS_LIB_API bool isConnected ();
+        
             ENVIRONS_LIB_API bool directStatus ();
         
+            /** Determines whether this instance provides location node features. */
             ENVIRONS_LIB_API bool isLocationNode ();
-
+        
+            /** sourceType is a value of environs::DeviceSourceType and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
 			ENVIRONS_LIB_API environs::DeviceSourceType_t sourceType ();
 
-			ENVIRONS_LIB_API bool isObserverReady ();
+        
+            /** Determines whether the remote device has attached an observer. */
+            ENVIRONS_LIB_API bool isObserverReady ();
+        
+            /** Determines whether the remote device has attached a message observer. */
 			ENVIRONS_LIB_API bool isMessageObserverReady ();
+        
+            /** Determines whether the remote device has attached a data observer. */
 			ENVIRONS_LIB_API bool isDataObserverReady ();
+        
+            /** Determines whether the remote device has attached a sesnor observer. */
 			ENVIRONS_LIB_API bool isSensorObserverReady ();
-
+        
+            /** Allow connects by this device. The default value of for this property is determined by GetAllowConnectDefault() / SetAllowConnectDefault ().
+             Changes to this property or the allowConnectDefault has only effect on subsequent instructions. */
+            ENVIRONS_LIB_API bool   GetAllowConnect ();
+        
+            /** Allow connects by this device. The default value of for this property is determined by GetAllowConnectDefault() / SetAllowConnectDefault ().
+             Changes to this property or the allowConnectDefault has only effect on subsequent instructions. */
+            ENVIRONS_LIB_API void   SetAllowConnect ( bool value );
+        
 #ifdef CLI_CPP
 			/** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
 			environs::Call		async;
 
-			static bool			notifyPropertyChangedDefault;
-#endif
+            static bool			notifyPropertyChangedDefault;
+#endif        
 			/**
 			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.
 			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
@@ -339,8 +418,22 @@ namespace environs
 			* @param bytesToSend number of bytes in the buffer to send
 			* @return success
 			*/
-			ENVIRONS_LIB_API bool SendBuffer ( int fileID, CString_ptr fileDescriptor, UCharArray_ptr buffer, int bytesToSend );
-
+            ENVIRONS_LIB_API bool SendBuffer ( int fileID, CString_ptr fileDescriptor, UCharArray_ptr buffer, int bytesToSend );
+            
+            
+            /**
+             * Receives a buffer send using SendBuffer/SendFile by the DeviceInstance.
+             * This call blocks until a new data has been received or until the DeviceInstance gets disposed.
+             * Data that arrive while Receive is not called will be queued and provided with subsequent calls to Receive.
+             *
+             * @return FileInstance
+             */
+            ENVIRONS_LIB_API FileInstanceESP ReceiveBuffer ();
+        
+#ifndef CLI_CPP
+            ENVIRONS_LIB_API environs::FileInstance OBJ_ptr ReceiveBufferRetained ();
+#endif
+        
 			/**
 			 * Send a string message to a device through one of the following ways.&nbsp;
 			 * If a connection with the destination device has been established, then use that connection.
@@ -391,12 +484,65 @@ namespace environs
 			* On successful transmission, Environs returns true if the devices already had an active connection,
 			* or in case of a not connected status, Environs notifies the app by means of a NOTIFY_SHORT_MESSAGE_ACK through
 			* a registered EnvironsObserver instance.
-			*
-			* @param async			(Environs.Call.NoWait) Perform asynchronous. (Environs.Call.Wait) Non-async means that this call blocks until the call finished.
+            *
+            * @param async			(environs.Call.NoWait) Perform asynchronous. (environs.Call.Wait) Non-async means that this call blocks until the call finished.
 			* @param message		A message to be send.
 			* @return success
 			*/
-			ENVIRONS_LIB_API bool SendMessage ( environs::Call_t async, CString_ptr msg );
+            ENVIRONS_LIB_API bool SendMessage ( environs::Call_t async, CString_ptr msg );
+            
+            
+            /**
+             * Receives a message send using SendMessage by the DeviceInstance.
+             * This call blocks until a new message has been received or until the DeviceInstance gets disposed.
+             * Messages that arrive while Receive is not called will be queued and provided with subsequent calls to Receive.
+             *
+             * @return MessageInstance
+             */
+            ENVIRONS_LIB_API MessageInstanceESP Receive ();
+        
+#ifndef CLI_CPP
+            ENVIRONS_LIB_API environs::MessageInstance OBJ_ptr ReceiveRetained ();
+#endif
+
+			/**
+			* Send a buffer with bytes via udp to a device.&nbsp;The devices must be connected before for this call.
+			*
+			* @param buffer        A buffer to be send.
+			* @param offset        A user-customizable id that identifies the file to be send.
+			* @param bytesToSend number of bytes in the buffer to send
+			* @return success
+			*/
+			ENVIRONS_LIB_API bool SendDataUdp ( UCharArray_ptr buffer, int offset, int bytesToSend );
+        
+        
+            /**
+             * Send a buffer with bytes via udp to a device.&nbsp;The devices must be connected before for this call.
+             *
+             * @param async			(environs.Call.NoWait) Perform asynchronous. (environs.Call.Wait) Non-async means that this call blocks until the call finished.
+             * @param buffer        A buffer to be send.
+             * @param offset        A user-customizable id that identifies the file to be send.
+             * @param bytesToSend number of bytes in the buffer to send
+             * @return success
+             */
+            ENVIRONS_LIB_API bool SendDataUdp ( environs::Call_t async, UCharArray_ptr buffer, int offset, int bytesToSend );
+            
+            
+            /**
+             * Receives a data buffer sent by the DeviceInstance using SendDataUdp.
+             * This call blocks until new data has been received or until the DeviceInstance gets disposed.
+             *
+             * @return byte buffer
+             */
+            ENVIRONS_LIB_API UCharArray_ptr ReceiveData ();
+
+			/**
+			* Receives the raw pointer of a data buffer (including size) that was sent by the DeviceInstance using SendDataUdp.
+			* This call blocks until new data has been received or until the DeviceInstance gets disposed.
+			*
+			* @return byte buffer
+			*/
+			ENVIRONS_LIB_API UCharArray_ptr ReceiveDataRawPointer ( int * size );
 
 
 			/**
@@ -411,33 +557,52 @@ namespace environs
 			*/
 			ENVIRONS_LIB_API void ClearStorage ();
 
-			/**
-			* Get a dictionary with all files that this device instance has received.
+            /**
+             * Get a dictionary with all files that this device has received (and sent) since the Device instance has appeared.
 			*
 			* @return Collection with objects of type FileInstance with the fileID as the key.
 			*/
-			NLayerMapType ( int, EPSPACE FileInstance ) GetAllFiles ();
+            NLayerMapType ( int, EPSPACE FileInstance ) GetFiles ();
+            
+            /**
+             * Get a dictionary with all files that this device has received (and sent) from the storage.
+             *
+             * @return Collection with objects of type FileInstance with the fileID as the key.
+             */
+            NLayerMapType ( int, EPSPACE FileInstance ) GetFilesInStorage ();
 
 #ifndef CLI_CPP
-			ENVIRONS_LIB_API envArrayList OBJ_ptr GetAllFilesRetained ();
-#endif
+            ENVIRONS_LIB_API envArrayList OBJ_ptr GetFilesRetained ();
         
+            ENVIRONS_LIB_API envArrayList OBJ_ptr GetFilesInStorageRetained ();
+#endif
             /**
              * Clear cached MessageInstance and FileInstance objects for this DeviceInstance.
              *
              */
             ENVIRONS_LIB_API void DisposeStorageCache ();
-
-			/**
-			* Get a list with all messages that this device has received (and sent).
-			*
-			* @return Collection with objects of type MessageInstance
-			*/
-			NLayerVecType ( EPSPACE MessageInstance ) GetAllMessages ();
-#ifndef CLI_CPP
-			ENVIRONS_LIB_API envArrayList OBJ_ptr GetAllMessagesRetained ();
-#endif
         
+            /**
+             * Get a list with all messages that this device has received (and sent) since the Device instance has appeared.
+             * Note: These messages would otherwise been delivered by calls to Receive, that is by calling GetMessages,
+             *       the messages will not be delivered to Receive afterwards.
+             *
+             * @return Collection with objects of type MessageInstance
+             */
+            NLayerVecType ( EPSPACE MessageInstance ) GetMessages ();
+            
+            /**
+             * Get a list with all messages that this device has received (and sent) from the storage.
+             *
+             * @return Collection with objects of type MessageInstance
+             */
+            NLayerVecType ( EPSPACE MessageInstance ) GetMessagesInStorage ();
+        
+#ifndef CLI_CPP
+			ENVIRONS_LIB_API envArrayList OBJ_ptr GetMessagesRetained ();
+        
+            ENVIRONS_LIB_API envArrayList OBJ_ptr GetMessagesInStorageRetained ();
+#endif
             /**
              * Acquire or release lock on file and message instances.
              * Client code MUST balance successful locks. Otherwise deadlocks may happen.
@@ -481,8 +646,28 @@ namespace environs
             void                    *   platformKeep;
 #endif
         
+#ifdef DEBUG_TRACK_DEVICE_INSTANCE
+            bool disposalEnqueued;
+            bool disposalNotified;
+            size_t lastObserversSize;
+			int gotInserts;
+        int gotInserts1;
+        int gotInserts2;
+        int gotInserts3;
+        int gotInserts4;
+			int gotUpdates;
+			int gotUpdates1;
+			int gotRemoves;
+			int gotRemoves1;
+			int gotRemoves2;
+			int gotRemoves3;
+			int gotRemoves41;
+			int gotRemoves42;
+			int gotRemoves5;
+			int gotDisposes;
+#endif
 			/**
-			* Release ownership on this interface and mark it disposeable.
+			* Release ownership on this interface and mark it disposable.
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
@@ -491,7 +676,7 @@ namespace environs
 
 		INTERNAL:
 
-			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( DeviceInstance );
+			ENVIRONS_OUTPUT_ALLOC_WP_RESOURCE ( DeviceInstance );
 
 			static bool                 globalsInit;
 			static bool                 GlobalsInit ();
@@ -502,7 +687,16 @@ namespace environs
 #ifndef CLI_CPP
 			Instance                *   env;
 #endif
-            EnvironsPtr                 envObj;
+        
+#ifdef DEBUG_TRACK_DEVICE_INSTANCE
+    public:
+        EnvironsPtr                 envObj;
+        wp ( DeviceInstance )       myselfWP;
+        bool    IsValid ();
+    private:
+#else
+        EnvironsPtr                 envObj;
+#endif
         
 			pthread_mutex_t				devicePortalsLock;
 
@@ -513,7 +707,7 @@ namespace environs
 			 * disposed is true if DeviceInstance is no longer valid. Nothing will be updated anymore.
 			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
 			 * */
-			bool						disposed_;
+			LONGSYNC					disposed_;
 
 			bool						isSameAppArea;
         
@@ -523,7 +717,10 @@ namespace environs
 
 			/** The device properties structure into a DeviceInfo object. */
 			environs::DeviceInfoPtr 	info_;
-        
+
+			/** The previous object id within the environment. 0 means invalid (not connected).
+			* The previous object id is required if broadcast and mediator managed devices have to be merged.
+			* In this case, we keep the previous objID to manage old events that may come after the objID update.*/
 			OBJIDType					objIDPrevious;
 
 			/** A collection of observers that observe this device instance for changes and events. */
@@ -551,17 +748,31 @@ namespace environs
 			STRING_T	            filePath;
 
 			STRING_T				storagePath;
-
-			NLayerVecType ( EPSPACE MessageInstance ) messages;
-
-			NLayerMapType ( int, EPSPACE FileInstance ) files;
+        
+            pthread_cond_t          messagesEvent;
+            bool                    messagesEnqueue;
+        
+#   ifdef USE_QUEUE_VECTOR_T_CLASS
+            QueueVectorSP < MessageInstanceESP >   messages;
+#   else
+            stdQueue ( MessageInstanceESP ) messages;
+#   endif
+        
+            NLayerVecType ( EPSPACE MessageInstance ) messagesCache;
+        
+        
+            pthread_cond_t          filesEvent;
+            int                     filesLast;
+            NLayerMapType ( int, EPSPACE FileInstance ) files;
+            NLayerMapType ( int, EPSPACE FileInstance ) filesCache;
+			
+			pthread_cond_t                   udpDataEvent;
+            bool                             udpDataDisposeFront;
+			stdQueue ( UdpDataPack OBJ_ptr ) udpData;
 
 			pthread_mutex_t			storageLock;
 
 #ifdef CLI_CPP
-			static CString_ptr DefAreaName = "Environs";
-			static CString_ptr DefAppName = "HCMApp";
-
 			virtual DeviceInstanceEP ^ GetPlatformObj () = 0;
 
 			bool					notifyPropertyChanged;
@@ -576,9 +787,10 @@ namespace environs
 			/** A DeviceDisplay structure that describes the device's display properties. */
 			environs::DeviceDisplay display;
 
-			void            EnqueueNotification ( DeviceNotifierContextPtr ctx );
+            bool                        IsEnqueueSafe ();
+			void						EnqueueNotification ( DeviceNotifierContextPtr ctx );
 
-			static void c_OBJ_ptr   NotifierThread ( pthread_param_t envObj );
+			static void c_OBJ_ptr		 NotifierThread ( pthread_param_t envObj );
 
 			static DeviceInstanceESP	Create ( int hInst, environs::DeviceInfoPtr device );
 			bool						Init ( int hInst );
@@ -596,11 +808,16 @@ namespace environs
              * @param	flags    The internal flags to set or clear.
              * @param	set    	 true = set, false = clear.
              */
-            void			SetDeviceFlags ( environs::DeviceFlagsInternal_t flags, bool set );
+            void			SetDeviceFlags ( environs::DeviceFlagsInternal_t flags, environs::Call_t async, bool set );
 
-            void			DisposeInstance ();
-            void			DisposeMessages ();
-            void			DisposeFiles ();
+            void			DisposeInstance ( );
+            void			DisposeMessages ( );
+            void			DisposeMessages ( c_const NLayerVecType ( EPSPACE MessageInstance ) c_ref list );
+            void			DisposeMessagesQ ( );
+        
+            void			DisposeFiles ( );
+            void			DisposeFiles ( c_const NLayerMapType ( int, EPSPACE FileInstance ) c_ref list );
+            void			DisposeUdpPacks ();
         
 			void			NotifyObservers ( int flags, bool enqueue );
 
@@ -608,8 +825,12 @@ namespace environs
 			virtual void	OnPropertyChanged ( String ^ prop, bool ignoreDefaultSetting ) = 0;
 #endif
 			void			NotifyObserversForMessage ( c_const MessageInstanceESP c_ref message, environs::MessageInfoFlag_t flags, bool enqueue );
-			void			NotifyObserversForData ( c_const FileInstanceESP c_ref fileInst, environs::FileInfoFlag_t flags, bool enqueue );
-			void			NotifySensorObservers ( environs::SensorFrame OBJ_ptr pack );
+			
+            void			NotifyObserversForData ( c_const FileInstanceESP c_ref fileInst, environs::FileInfoFlag_t flags, bool enqueue );
+			
+            void			NotifySensorObservers ( environs::SensorFrame OBJ_ptr pack );
+        
+            void            NotifyUdpData ( UdpDataContext OBJ_ptr ctx );
 
 			void			ClearMessagesThread ();
 			static void c_OBJ_ptr	ClearMessagesThreader ( pthread_param_t arg );

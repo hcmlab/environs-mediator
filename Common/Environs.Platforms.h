@@ -47,7 +47,7 @@
 #ifndef ENVIRONS_IOS
 
 #   if (defined(_WIN32))
-#		if (!defined(CLI_CPP))
+#		if (!defined(CLI_CPP) && !defined(WINDOWS_PHONE))
 #			include "WinDef.h"
 #		endif
 #   else

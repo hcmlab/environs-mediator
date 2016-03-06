@@ -39,15 +39,20 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdlib.h>
+
+#ifndef WINDOWS_PHONE
+#	include <stdlib.h>
+#endif
 
 #ifndef _WIN32
 #   include <signal.h>
 #   include <unistd.h>
 #else
-#	include <iphlpapi.h>
+#	ifndef WINDOWS_PHONE
+#		include <iphlpapi.h>
 
-#	pragma comment(lib, "iphlpapi.lib")
+#		pragma comment(lib, "iphlpapi.lib")
+#	endif
 #endif
 
 #include <map>
@@ -57,6 +62,8 @@
 
 #define	CLASS_NAME 	"Mediator . . . . . . . ."
 
+//#define LINGER_ZERO
+#define USE_ABORTIVE_SHUTDOWN
 
 /* Namespace: environs -> */
 namespace environs
@@ -79,12 +86,9 @@ namespace environs
         
         CLIENTEXP ( info.objID = __sync_add_and_fetch ( &deviceInstanceObjIDs, 1 ); )
         
-        //*userName = 0;
-        baseSP = 0;
-        
         CLIENTEXP ( hEnvirons = 0; )
         CLIENTEXP ( *key = 0; )
-        CLIENTEXP ( mapSP = 0; )
+        //CLIENTEXP ( mapSP = 0; )
     }
     
 
@@ -170,6 +174,10 @@ namespace environs
         }
         
 #ifndef MEDIATORDAEMON
+        inst->spareSocketRegisteredTime = 0;
+#endif
+        
+#ifndef MEDIATORDAEMON
         MutexUnlockA ( inst->spareSocketLock, "GetSpareSocket" );
 #endif
         return sock;
@@ -181,23 +189,34 @@ namespace environs
 		if ( sock < 0 )
             return;
         
-        linger ling;
-        
+#ifdef USE_ABORTIVE_SHUTDOWN
+		shutdown ( sock, 2 );  //SHUT_RDWR
+			
+#else
+		linger ling;
+
 #ifdef MEDIATORDAEMON
         ling.l_onoff    = 1;
         ling.l_linger   = 10;
 #else
+#	ifdef LINGER_ZERO
+		ling.l_onoff    = 0;
+		ling.l_linger   = 0;
+#	else
 		ling.l_onoff    = 1;
 		ling.l_linger   = 10;
+#	endif
 #endif
 		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
-			CVerb ( "LimitLingerAndClose: Failed to set SO_LINGER on socket" );
-            VerbLogSocketError ();
+			CErrArg ( "LimitLingerAndClose: Failed to set SO_LINGER on socket [ %i ]", sock );
+			VerbLogSocketError ();
 		}
+
+		CVerbArg ( "LimitLingerAndClose: Closing [ %i ]", sock );
+
+		shutdown ( sock, 2 ); // SHUT_RDWR
+#endif
         
-        CVerbArg ( "LimitLingerAndClose: Closing [ %i ]", sock );
-        
-        shutdown ( sock, 2 ); // SHUT_RDWR
         closesocket ( sock );
         
         sock = -1;
@@ -275,10 +294,11 @@ namespace environs
 		broadcastMessageLenExt	= 0;
 		lastGreetUpdate			= 0;
         broadcastReceives       = 0;
+        broadcastThreadRestarts = 0;
 
         certificate				= 0;
 
-		srand ( (unsigned int) GetEnvironsTickCount () );
+		srand ( GetEnvironsTickCount32 () );
 
 		BroadcastGenerateToken ();
         
@@ -303,7 +323,8 @@ namespace environs
 		Dispose ();
 
 		if ( allocated )
-		{
+        {
+#ifdef ENABLE_MEDIATOR_LOCK
 			MutexLockVA ( mediatorLock, "Destructor" );
 
             MutexDisposeA ( devicesLock );
@@ -311,11 +332,10 @@ namespace environs
 			MutexUnlockVA ( mediatorLock, "Destructor" );
 
 			MutexDisposeA ( mediatorLock );
-		}
-
-#if ( !defined(MEDIATORDAEMON) )
-		envSP = 0;
+#else
+            MutexDisposeA ( devicesLock );
 #endif
+		}
 
 		CVerb ( "Destructor: Done." );
 	}
@@ -329,9 +349,11 @@ namespace environs
 			return false;
 
 		if ( !allocated )
-		{
+        {
+#ifdef ENABLE_MEDIATOR_LOCK
 			if ( !MutexInitA ( mediatorLock ) )
 				return false;
+#endif
 
 			if ( !MutexInitA ( devicesLock ) )
                 return false;
@@ -347,7 +369,7 @@ namespace environs
 			return false;
 		}
 
-		lastGreetUpdate			= 0;
+        lastGreetUpdate = GetEnvironsTickCount32 ();
 
 		return true;
 	}
@@ -592,14 +614,21 @@ namespace environs
             }
             inst->spareSocketsCount = 0;
             
+#ifndef MEDIATORDAEMON
+            inst->spareSocketRegisteredTime = 0;
+#endif
+            
             AESDisposeKeyContext ( &inst->aes );
             
             inst->encrypt = 0;
             
-            MutexDisposeA ( med->connection.rec_mutex );
-            MutexDisposeA ( med->connection.send_mutex );
+            MutexDisposeA ( med->connection.receiveLock );
             
-            CondDisposeA ( med->connection.rec_signal );
+            CondDisposeA ( med->connection.receiveEvent );
+            
+#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+            MutexDisposeA ( med->connection.sendLock );
+#endif
             
 #ifndef MEDIATORDAEMON
             MutexDisposeA ( inst->spareSocketLock );
@@ -622,9 +651,10 @@ namespace environs
 		StopMediators ();
 
 		MediatorInstance * inst;
-
+        
+#ifdef ENABLE_MEDIATOR_LOCK
 		MutexLockV ( &mediatorLock, "ReleaseMediators" );
-
+#endif
 		inst = &mediator;
 
 		while ( inst ) {
@@ -634,8 +664,10 @@ namespace environs
             toDelete->next = 0;
 			ReleaseMediator ( toDelete );
 		}
-
+        
+#ifdef ENABLE_MEDIATOR_LOCK
 		MutexUnlockV ( &mediatorLock, "ReleaseMediators" );
+#endif
 	}
 
     
@@ -649,7 +681,7 @@ namespace environs
         
         fp = popen ( command, "r" );
         if ( !fp ) {
-            CErrArg ( "GetDefaultGateway: Failed to open [%s]", command );
+            CErrArg ( "GetDefaultGateway: Failed to open [ %s ]", command );
             return 0;
         }
         
@@ -657,7 +689,7 @@ namespace environs
             *buffer = 0;
             if ( fgets ( buffer, sizeof(buffer), fp ) )
             {
-                CVerbArg ( "GetDefaultGateway: [%s]", buffer );
+                CVerbArg ( "GetDefaultGateway: [ %s ]", buffer );
                 
                 // 192.168.16.0/24 dev wlan0
                 // search for dev
@@ -690,7 +722,7 @@ namespace environs
                 *end = 0;
                 
                 strncpy ( gateway, search, size );
-                CVerbArg ( "GetDefaultGateway: gateway device [%s]", gateway );
+                CVerbArg ( "GetDefaultGateway: Gateway device [ %s ]", gateway );
                 break;
             }
         }
@@ -712,7 +744,7 @@ namespace environs
         
         fp = popen ( command, "r" );
         if ( !fp ) {
-            CErrArg ( "GetDefaultGateway: Failed to open [%s]", command );
+            CErrArg ( "GetDefaultGateway: Failed to open [ %s ]", command );
             return 0;
         }
         
@@ -720,7 +752,7 @@ namespace environs
             *buffer = 0;
             if ( fgets ( buffer, sizeof(buffer), fp ) )
             {
-                CVerbArg ( "GetDefaultGateway: [%s]", buffer );
+                CVerbArg ( "GetDefaultGateway: [ %s ]", buffer );
                 
                 search = strstr ( buffer, ": " );
                 if ( !search ) {
@@ -736,11 +768,13 @@ namespace environs
                         search [ len - 1 ] = 0;
                     
                     strncpy ( gateway, search, size );
-                    CVerbArg ( "GetDefaultGateway: gateway device [%s]", gateway );
+                    CVerbArg ( "GetDefaultGateway: Gateway device [ %s ]", gateway );
                 }
                 break;
             }
         }
+        
+        pclose ( fp );
         
         return 0;
     }
@@ -766,12 +800,12 @@ namespace environs
         fclose ( fp );
         
         if ( bytesRead == 0 || bytesRead >= sizeof (buffer) ) {
-            CErrArg ( "GetDefaultGateway: Invalid bytes read [%u]", bytesRead );
+            CErrArg ( "GetDefaultGateway: Invalid bytes read [ %u ]", bytesRead );
             return 0;
         }
         
         buffer [ bytesRead ] = 0;
-        CLogArg ( "GetDefaultGateway: [%s]", buffer );
+        CLogArg ( "GetDefaultGateway: [ %s ]", buffer );
         
         search = strstr ( buffer, "dev" );
         if ( !search ) {
@@ -800,6 +834,8 @@ namespace environs
 		MutexLockVA ( localNetsLock, "LoadNetworks" );
 
 #ifdef _WIN32
+
+#ifndef WINDOWS_PHONE
 		bool adaptersFound = 0;
 
 		IP_ADAPTER_INFO tmpAdapter;
@@ -939,6 +975,7 @@ namespace environs
 			shutdown ( sock, 2 );
 			closesocket ( sock );
 		}
+#endif
 
 #elif ANDROID
 
@@ -1187,40 +1224,8 @@ namespace environs
 
 		isRunning = true;
 
-		// Create socket for broadcast thread
-		if ( broadcastSocketID == -1 ) {
-			int sock = ( int ) socket ( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
-			if ( sock == -1 ) {
-				CErr ( "Start: Failed to create broadcast socket!" );
-				return false;
-			}
-			DisableSIGPIPE ( sock );
-
-			broadcastSocketID = sock;
-
-			int value = 1;
-			if ( setsockopt ( sock, SOL_SOCKET, SO_BROADCAST, ( const char * ) &value, sizeof ( value ) ) == -1 ) {
-				CErr ( "Start: Failed to set broadcast option on socket!" );
-				return false;
-			}
-
-			value = 1;
-			if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
-				CErr ( "Start: Failed to set reuseaddr option on socket!" );
-				return false;
-			}
-
-#ifdef SO_REUSEPORT
-			value = 1;
-			if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEPORT, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
-				CErr ( "Start: Failed to set reuseaddr option on socket!" );
-				return false;
-			}
-#endif
-			/// Create broadcast thread
-            if ( !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) )
-                return false;
-		}
+        if ( !StartBroadcastThread () )
+            return false;
 
 		OnStarted ();
 
@@ -1229,6 +1234,48 @@ namespace environs
 		CVerb ( "Start: success" );
 		return true;
 	}
+    
+    
+    bool Mediator::StartBroadcastThread ()
+    {
+        CVerb ( "StartBroadcastThread" );
+        
+        // Create socket for broadcast thread
+        if ( broadcastSocketID == -1 ) {
+            int sock = ( int ) socket ( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
+            if ( sock == -1 ) {
+                CErr ( "Start: Failed to create broadcast socket!" );
+                return false;
+            }
+            DisableSIGPIPE ( sock );
+            
+            broadcastSocketID = sock;
+            
+            int value = 1;
+            if ( setsockopt ( sock, SOL_SOCKET, SO_BROADCAST, ( const char * ) &value, sizeof ( value ) ) == -1 ) {
+                CErr ( "Start: Failed to set broadcast option on socket!" );
+                return false;
+            }
+            
+            value = 1;
+            if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
+                CErr ( "Start: Failed to set reuseaddr option on socket!" );
+                return false;
+            }
+            
+#ifdef SO_REUSEPORT
+            value = 1;
+            if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEPORT, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
+                CErr ( "Start: Failed to set reuseaddr option on socket!" );
+                return false;
+            }
+#endif
+            /// Create broadcast thread
+            if ( !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) )
+                return false;
+        }
+        return true;
+    }
 
 
 	void Mediator::OnStarted ()
@@ -1248,16 +1295,15 @@ namespace environs
 			return false;
 #endif
 
-		bool ret = true;
-		int sentBytes = 0;
+		bool success    = true;
+		int  sentBytes  = 0;
         
         char * msg;
         int sendLen;
         
         if ( sendStatus ) {
-            msg		= broadcastStatusMessage;
-			sendLen = ( int ) broadcastStatusMessageLen;
-            
+            msg		= udpStatusMessage;
+			sendLen = ( int ) udpStatusMessageLen;            
         }
         else {
             msg		= broadcastMessage;
@@ -1305,7 +1351,7 @@ namespace environs
 			sentBytes = ( int ) sendto ( broadcastSocketID, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
 			if ( sentBytes != sendLen ) {
 				CErr ( "SendBroadcast: Broadcast failed!" );
-				ret = false;
+				success = false;
 			}
 
 			net = net->next;
@@ -1313,7 +1359,7 @@ namespace environs
 
 		MutexUnlockVA ( localNetsLock, "SendBroadcast" );
 
-		return ret;
+		return success;
 	}
 
 
@@ -1401,7 +1447,7 @@ namespace environs
 
 		while ( device )
 		{
-			CVerbVerbArg ( "VanishedDeviceWatcher: Checking [0x%X] Area [%s] App [%s]", device->info.deviceID, device->info.areaName, device->info.appName );
+			CVerbVerbArg ( "VanishedDeviceWatcher: Checking [ 0x%X ] Area [ %s ] App [ %s ]", device->info.deviceID, device->info.areaName, device->info.appName );
 
 			if ( device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST && ( lastGreetUpdate - device->info.updates ) > 90000 )
 			{
@@ -1422,7 +1468,8 @@ namespace environs
 
 				//vanished->next = 0;
 
-				// Remove device and relink the list
+                // Remove device and relink the list
+                CLogArg ( "VanishedDeviceWatcher: Removing [ 0x%X ] Area [ %s ] App [ %s ]", device->info.deviceID, device->info.areaName, device->info.appName );
 				RemoveDevice ( vanished, false );
 
 				device = *listRoot;
@@ -1670,7 +1717,7 @@ namespace environs
 		}
 
 		if ( device ) {
-			device->info.updates = ( unsigned int ) lastGreetUpdate;
+			device->info.updates = lastGreetUpdate;
 
 #ifndef MEDIATORDAEMON
 			if ( !device->info.ipe && device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
@@ -1765,13 +1812,11 @@ namespace environs
 			return 0;
 
 		int				value;
-		//unsigned int	flags		= 0;
 		bool			found		= false;
 		bool			changed		= false;
 		char		*	deviceName	= 0;
 		char		*	areaName	= 0;
 		char		*	appName		= 0;
-		//char		*	userName	= 0;
 
 		DeviceInstanceNode * device		= 0;
 		DeviceInstanceNode * devicePrev	= 0;
@@ -1819,9 +1864,12 @@ namespace environs
 		}
 
 #if !defined(MEDIATORDAEMON)
+        bool sameApp = ( strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) == 0);
+        bool sameArea = ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) == 0);
+        
 		if ( value == env->deviceID )
         {
-            if ( !strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) && !strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
+            if ( sameApp && sameArea )
             {
 				// Another device has broadcasted with our app area identifiers.
 				// If we have just started, then generate a random deviceID and start again. Otherwise, let's ignore this.
@@ -1845,11 +1893,11 @@ namespace environs
         }
 
         if ( env->mediatorFilterLevel > MEDIATOR_FILTER_NONE ) {
-            if ( strncmp ( areaName, env->areaName, sizeof ( env->areaName ) - 1 ) )
+            if ( !sameArea )
                 return 1; // We ignore the device, but broadcast ourself to indicate that we are there ...
 
             if ( env->mediatorFilterLevel > MEDIATOR_FILTER_AREA ) {
-                if ( strncmp ( appName, env->appName, sizeof ( env->appName ) - 1 ) )
+                if ( !sameApp )
                     return 1; // We ignore the device, but broadcast ourself to indicate that we are there ...
 			}
 		}
@@ -1921,8 +1969,11 @@ namespace environs
             dev->rootSP = appDevices;
             appDevices->deviceCacheDirty = true;
 #else
-			dev->hEnvirons = env->hEnvirons;
-			dev->info.broadcastFound = broadcastFound;
+			dev->hEnvirons           = env->hEnvirons;
+            dev->info.broadcastFound = broadcastFound;
+            dev->info.flags          = DeviceFlagsInternal::NativeReady;
+            
+            dev->allowConnect        = env->allowConnectDefault;
 
 			// Build the key
 #ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
@@ -1980,28 +2031,28 @@ namespace environs
 			device = dev;
 
 			changed = true; //flags |= DEVICE_INFO_ATTR_AREA_NAME | DEVICE_INFO_ATTR_DEVICE_NAME;
+            
 			strlcpy ( device->info.areaName, areaName, sizeof ( device->info.areaName ) );
 			strlcpy ( device->info.appName, appName, sizeof ( device->info.appName ) );
-			//if ( userName ) {
-			//	strlcpy ( device->userName, sizeof(device->userName) - 1, userName );
-			//	//flags |= DEVICE_INFO_ATTR_USER_NAME;
-			//}
+            
 			break;
 		}
 
 		if ( device ) {
-			device->info.updates = ( unsigned int ) lastGreetUpdate;
+			device->info.updates = lastGreetUpdate;
 
 #ifndef MEDIATORDAEMON
+            device->info.hasAppEnv = (sameApp && sameArea) ? 0 : 1;
+            
 			if ( !device->info.ipe && device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST )
 #endif
-				if ( ip != device->info.ipe ) {
+            if ( ip != device->info.ipe ) {
 					device->info.ipe = ip; changed = true; //flags |= DEVICE_INFO_ATTR_IPE;
-				}
+			}
 
-			int platform = *( ( int * ) ( msg + MEDIATOR_BROADCAST_PLATFORM_START ) );
+                int platform = *( ( int * ) ( msg + MEDIATOR_BROADCAST_PLATFORM_START ) );
 
-			if ( device->info.platform != platform ) {
+                if ( device->info.platform != platform ) {
 				device->info.platform = platform; changed = true; //flags |= DEVICE_INFO_ATTR_DEVICE_TYPE;
 			}
 
@@ -2031,7 +2082,7 @@ namespace environs
 #ifdef MEDIATORDAEMON
 			if ( device->info.broadcastFound != broadcastFound ) {
 				device->info.broadcastFound = broadcastFound; changed = true; //flags |= DEVICE_INFO_ATTR_BROADCAST_FOUND;
-		}
+            }
 #endif
 			//if ( userName && *userName && strncmp ( device->userName, userName, sizeof ( device->userName ) - 1 ) ) {
 			//	strlcpy ( device->userName, userName, sizeof ( device->userName ) ); changed = true; //flags |= DEVICE_INFO_ATTR_USER_NAME;
@@ -2158,7 +2209,48 @@ namespace environs
 		Mediator * mediator = ( Mediator * ) arg;
 
 		// Execute thread
-		return mediator->BroadcastThread ();
+        mediator->BroadcastThread ();
+        
+        if ( mediator->isRunning && mediator->broadcastSocketID != -1 )
+        {
+            if ( mediator->broadcastThreadRestarts <= 3 )
+            {
+                // Let's restart the thread. Something has shut us down unexpectedly
+                // while all indicators expect us to be running for a working mediator layer
+                mediator->broadcastThreadRestarts++;
+                
+                // Prepare for restart of broadcast thread
+                mediator->broadcastThread.Detach ( "BroadcastThreadStarter" );
+                
+                // Close broadcast listener socket
+                int sock = mediator->broadcastSocketID;
+                if ( sock != -1 ) {
+                    CVerb ( "BroadcastThreadStarter: Closing broadcast socket." );
+                    
+                    mediator->broadcastSocketID = -1;
+                    LimitLingerAndClose ( sock );
+                }
+                
+                if ( mediator->StartBroadcastThread () )
+                {
+                    CWarn ( "BroadcastThreadStarter: Restarted thread." );
+                    return 0;
+                }
+            }
+            
+            // Restart has failed 3 times ... or restart has failed at all
+            // We're giving up here and shut down broadcast layer
+            
+            // Clear broadcast thread state
+            mediator->broadcastThread.Detach ( "BroadcastThreadStarter" );
+            
+#ifndef MEDIATORDAEMON
+            mediator->ReleaseDevices ();
+#endif
+            
+            CErr ( "BroadcastThreadStarter: Failed to restart thread !!!" );
+        }
+        return 0;
 	}
 
 
@@ -2189,18 +2281,20 @@ namespace environs
             goto Failed;
 #endif
 
-		if ( !MutexInit ( &med->connection.rec_mutex ) )
+		if ( !MutexInit ( &med->connection.receiveLock ) )
 			goto Failed;
 
-		Zero ( med->connection.rec_signal );
+		Zero ( med->connection.receiveEvent );
 
-		if ( pthread_cond_manual_init ( &med->connection.rec_signal, NULL ) ) {
-			CErr ( "AddMediator: Failed to init rec_signal!" );
+		if ( pthread_cond_manual_init ( &med->connection.receiveEvent, NULL ) ) {
+			CErr ( "AddMediator: Failed to init receiveEvent!" );
 			goto Failed;
 		}
-
-		if ( !MutexInitA ( med->connection.send_mutex ) )
+        
+#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+		if ( !MutexInitA ( med->connection.sendLock ) )
             goto Failed;
+#endif
         
 #ifndef MEDIATORDAEMON
         if ( !MutexInitA ( med->connection.instance.spareSocketLock ) )
@@ -2212,7 +2306,11 @@ namespace environs
         med->ip         = ip;
         med->port       = port;
 		med->connection.instance.socket         = -1;
-		med->connection.instance.spareSocket    = -1;
+        med->connection.instance.spareSocket    = -1;
+        
+#ifndef MEDIATORDAEMON
+        med->connection.instance.spareSocketRegisteredTime = 0;
+#endif
 
 		med->connection.buffer = ( char * ) malloc ( MEDIATOR_REC_BUFFER_SIZE_MAX );
 		if ( !med->connection.buffer ) {
@@ -2223,7 +2321,7 @@ namespace environs
 		AddMediator ( med );
 
 		return true;
-
+        
     Failed:
         
 #ifndef MEDIATORDAEMON
@@ -2243,12 +2341,14 @@ namespace environs
 			return 0;
 		}
 		MediatorInstance * added = med;
-
+        
+#ifdef ENABLE_MEDIATOR_LOCK
 		if ( !MutexLock ( &mediatorLock, "AddMediator" ) ) {
 			CErr ( "AddMediator: Failed to aquire mutex on mediator!" );
 			added = 0;
 			goto Failed;
 		}
+#endif
 
 		if ( mediator.ip ) {
 			// Find the last and make sure that we do not have this mediator already in the list
@@ -2279,10 +2379,13 @@ namespace environs
 			added = &mediator;
 		}
 
-	FinishUnlock:
-		MutexUnlockV ( &mediatorLock, "AddMediator" );
+    FinishUnlock:
 
-	Failed:
+#ifdef ENABLE_MEDIATOR_LOCK
+		MutexUnlockV ( &mediatorLock, "AddMediator" );
+        
+    Failed:
+#endif
 		if ( med ) {
 			if ( med->connection.buffer )
                 free ( med->connection.buffer );
@@ -2298,13 +2401,15 @@ namespace environs
 
 	bool Mediator::RemoveMediator ( unsigned int ip )
 	{
-		bool ret = true;
-
 		CVerb ( "RemoveMediator" );
 
+        if ( isRunning )
+            return false;
+        
+#ifdef ENABLE_MEDIATOR_LOCK
 		if ( !MutexLock ( &mediatorLock, "RemoveMediator" ) )
 			return false;
-
+#endif
 		// Find the mediator
 		MediatorInstance * s = 0;
 		MediatorInstance * t = &mediator;
@@ -2336,11 +2441,12 @@ namespace environs
 				ReleaseMediator ( t );
 			}
 		}
-
+        
+#ifdef ENABLE_MEDIATOR_LOCK
 		if ( !MutexUnlock ( &mediatorLock, "RemoveMediator" ) )
-			ret = false;
-
-		return ret;
+			return false;
+#endif
+		return true;
 	}
 
 

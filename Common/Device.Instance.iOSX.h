@@ -28,6 +28,8 @@
 #include "Device.Info.h"
 #include "Device.Display.Decl.h"
 #import "Portal.Instance.iOSX.h"
+#import "Message.Instance.iOSX.h"
+#import "File.Instance.iOSX.h"
 #import "Environs.Observer.iOSX.h"
 
 #   if (!defined(DISABLE_ENVIRONS_OBJC_API))
@@ -56,6 +58,15 @@
 @property (nonatomic) environs::Call_t			async;
 
 #endif
+
+/** Allow connects by this device. The default value of for this property is determined by GetAllowConnectDefault() / SetAllowConnectDefault ().
+ Changes to this property or the allowConnectDefault has only effect on subsequent instructions. */
+
+/** Default value for each DeviceInstance after object creation. */
+- (bool) GetAllowConnect;
+
+/** Default value for each DeviceInstance after object creation. */
+- (void) SetAllowConnect:(bool) value;
 
 /** The device ID within the environment */
 @property (readonly, nonatomic) int				deviceID;
@@ -92,9 +103,16 @@
 
 #endif
 
+/** Determines whether the remote device has attached an observer. */
 @property (readonly, nonatomic) bool			isObserverReady;
+
+/** Determines whether the remote device has attached a message observer. */
 @property (readonly, nonatomic) bool			isMessageObserverReady;
+
+/** Determines whether the remote device has attached a data observer. */
 @property (readonly, nonatomic) bool			isDataObserverReady;
+
+/** Determines whether the remote device has attached a sesnor observer. */
 @property (readonly, nonatomic) bool			isSensorObserverReady;
 
 @property (readonly, nonatomic) bool            unavailable;
@@ -103,6 +121,7 @@
 @property (readonly, nonatomic) bool			isConnected;
 @property (readonly, nonatomic) char			internalUpdates;
 
+/** Determines whether this instance provides location node features. */
 @property (readonly, nonatomic) bool			isLocationNode;
 
 /** Used internally by native layer. */
@@ -125,15 +144,19 @@
 
 @property (readonly, nonatomic) int				directStatus;
 
-/** Application defined contexts for arbitrary use. */
+/** Application defined context 0 for arbitrary use. */
 @property (nonatomic) int						appContext0;
+/** Application defined context 1 for arbitrary use. */
 @property (nonatomic) id						appContext1;
+/** Application defined context 2 for arbitrary use. */
 @property (nonatomic) id						appContext2;
+/** Application defined context 3 for arbitrary use. */
 @property (nonatomic) id						appContext3;
 
-/** An identifier that is unique for this object. */
+/** An identifier that is unique for this object of this type. */
 @property (readonly, nonatomic) long			objID;
 
+/** A descriptive string with the most important details. */
 @property (readonly, nonatomic, copy) NSString * toString;
 
 /**
@@ -199,8 +222,12 @@
 */
 - (void) NotifyAppContextChanged:(int) customFlags;
 
-
+/** IP from device. The IP address reported by the device which it has read from network configuration. */
 - (NSString *) ips;
+
+/** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
+ * This address could be different from IP due to NAT, Router, Gateways behind the device.
+ */
 - (NSString *) ipes;
 
 - (bool) EqualsAppEnv:(ENVIRONS_NAMESP DeviceInfo *) equalTo;
@@ -217,6 +244,7 @@
 - (NSString *) DeviceTypeString;
 
 - (const char *) GetBroadcastString:(bool) fullText;
+
 
 /**
  * Connect to this device asynchronously.
@@ -340,6 +368,16 @@
 #ifdef __cplusplus
 
 /**
+ * Receives a buffer send using SendBuffer/SendFile by the DeviceInstance.
+ * This call blocks until a new data has been received or until the DeviceInstance gets disposed.
+ * Data that arrive while Receive is not called will be queued and provided with subsequent calls to Receive.
+ *
+ * @return FileInstance
+ */
+- (FileInstance *) ReceiveBuffer;
+
+
+/**
  * Send a string message to a device through one of the following ways.&nbsp;
  * If a connection with the destination device has been established, then use that connection.
  * If the destination device is not already connected, then distinguish the following cases:
@@ -380,6 +418,7 @@
  */
 - (bool) SendMessage:(NSString *)message;
 
+
 #ifdef __cplusplus
 
 /**
@@ -401,7 +440,49 @@
  */
 - (bool) SendMessage:(environs::Call_t) async message:(NSString *)message;
 
+
+/**
+ * Receives a message send using SendMessage by the DeviceInstance.
+ * This call blocks until a new message has been received or until the DeviceInstance gets disposed.
+ * Messages that arrive while Receive is not called will be queued and provided with subsequent calls to Receive.
+ *
+ * @return MessageInstance
+ */
+- (MessageInstance *) Receive;
+
+
+/**
+ * Send a buffer with bytes via udp to a device.&nbsp;The devices must be connected before for this call.
+ *
+ * @param async			(environs.Call.NoWait) Perform asynchronous. (environs.Call.Wait) Non-async means that this call blocks until the call finished.
+ * @param buffer        A buffer to be send.
+ * @param offset        A user-customizable id that identifies the file to be send.
+ * @param bytesToSend number of bytes in the buffer to send
+ * @return success
+ */
+- (bool) SendDataUdp : (environs::Call_t) async buffer:(char *)buffer offset:(int)offset bytesToSend:(int)bytesToSend;
+
+
+/**
+ * Receives a data buffer send using SendDataUdp by the DeviceInstance.
+ * This call blocks until new data has been received or until the DeviceInstance gets disposed.
+ *
+ * @return byte buffer
+ */
+- (UCharArray_ptr) ReceiveData;
+
 #endif
+
+
+/**
+ * Send a buffer with bytes via udp to a device.&nbsp;The devices must be connected before for this call.
+ *
+ * @param buffer        A buffer to be send.
+ * @param offset        A user-customizable id that identifies the file to be send.
+ * @param bytesToSend number of bytes in the buffer to send
+ * @return success
+ */
+- (bool) SendDataUdp : (char *)buffer offset:(int)offset bytesToSend:(int)bytesToSend;
 
 
 /**
@@ -430,19 +511,34 @@
 - (void) ClearStorage;
 
 /**
- * Get a dictionary with all files that this device instance has received.
+ * Get a dictionary with all files that this device has received (and sent) since the Device instance has appeared.
  *
  * @return Collection with objects of type FileInstance with the fileID as the key.
  */
-- (NSMutableArray *) GetAllFiles;
+- (NSMutableArray *) GetFiles;
+
+/**
+ * Get a dictionary with all files that this device has received (and sent) from the storage.
+ *
+ * @return Collection with objects of type FileInstance with the fileID as the key.
+ */
+- (NSMutableArray *) GetFilesInStorage;
 
 
 /**
- * Get a list with all messages that this device has received (and sent).
+ * Get a list with all messages that this device has received (and sent) since the Device instance has appeared.
  *
  * @return Collection with objects of type MessageInstance
  */
-- (NSMutableArray *) GetAllMessages;
+- (NSMutableArray *) GetMessages;
+
+
+/**
+ * Get a list with all messages that this device has received (and sent) from the storage.
+ *
+ * @return Collection with objects of type MessageInstance
+ */
+- (NSMutableArray *) GetMessagesInStorage;
 
 
 #ifdef __cplusplus

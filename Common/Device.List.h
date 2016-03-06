@@ -30,6 +30,7 @@
 
 #ifndef CLI_CPP
 #	include "Interfaces/IDevice.List.h"
+#	include "Queue.List.h"
 #endif
 
 /**
@@ -52,7 +53,9 @@ namespace environs
 #ifndef DeviceInstancePtr
 #	define	DeviceInstancePtr	 DeviceInstance OBJ_ptr
 #endif
-		CLASS ListCommandContext;
+        CLASS ListCommandContext;
+        
+        CLASS ListContext;
         
 #ifndef EnvironsPtr
 #	define	EnvironsPtr Environs OBJ_ptr
@@ -62,6 +65,8 @@ namespace environs
 #	define	ListCommandContextPtr ListCommandContext OBJ_ptr
 #endif        
 
+        STRUCT UdpDataContext;
+        
 		PUBLIC_CLASS DeviceInstanceUpdateContext
 		{
 		public:
@@ -109,10 +114,10 @@ namespace environs
 			int					listType;
 			DeviceListItems		devices;
 			int					devicesCount;
-		};
+        };
 
 
-		PUBLIC_CLASS DeviceList DERIVE_c_only ( environs::DeviceList ) DERIVE_DISPOSEABLE
+		PUBLIC_CLASS DeviceList DERIVE_c_only ( environs::DeviceList ) DERIVE_DISPOSABLE
 		{
         
             MAKE_FRIEND_CLASS ( Environs );
@@ -346,7 +351,7 @@ namespace environs
 			/**
 			 * Query the number of Mediator managed devices within the environment.
 			 *
-			 * @return numberOfDevices
+			 * @return numberOfDevices (or -1 for error)
 			 */
 			ENVIRONS_LIB_API int GetDevicesFromMediatorCount ();
 
@@ -368,7 +373,7 @@ namespace environs
 
 
 			/**
-			* Release ownership on this interface and mark it disposeable.
+			* Release ownership on this interface and mark it disposable.
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
@@ -401,8 +406,7 @@ namespace environs
 			spv ( lib::ListObserverPtr )	listDevicesObservers;
 #else
 			spv ( lib::IIListObserver * )	listDevicesObservers;
-#endif            
-
+#endif
 			void                            PlatformDispose ();
 
 			c_const devList ( DeviceInstanceEP ) c_ref GetDevices ( environs::DeviceClass_t type );
@@ -458,20 +462,19 @@ namespace environs
 
 			static DeviceInstanceESP RemoveDevice ( c_const devList ( DeviceInstanceEP ) c_ref list, pthread_mutex_t_ptr lock, ListCommandContextPtr pack );
         
-            static bool RemoveDeviceNotifyEnqueue ( EnvironsPtr envObj, c_const spv ( lib::IIListObserver * ) c_ref observerList, c_const DeviceInstanceESP c_ref device );
+            static bool RemoveDeviceNotifyEnqueue ( EnvironsPtr envObj, ListContext OBJ_ref ctx, DeviceInstanceReferenceESP device );
 
             static void UpdateDevice ( ListCommandContextPtr pack );
         
             static void InsertDevice ( int hInst, c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr listLock,
-				DeviceInstanceESP c_ref deviceNew,
-                                  c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList );
+				DeviceInstanceReferenceESP deviceNew, ListContext OBJ_ref ctx );
         
-            static bool InsertDeviceDo ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, DeviceInstanceESP c_ref deviceNew,
+            static void InsertDeviceDo ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, DeviceInstanceReferenceESP deviceNew,
 				NLayerListTypeObj ( DeviceInstanceUpdateContext ) OBJ_ptr updates );
 
 			static void EnqueueCommand ( ListCommandContextPtr ctx );
 
-			static void NotifyListObservers ( int hInst, c_const spv ( lib::IIListObserver OBJ_ptr ) c_ref observerList, NLayerVecType ( DeviceInstanceEP ) vanished, NLayerVecType ( DeviceInstanceEP ) appeared, bool enqueue );
+			static void NotifyListObservers ( int hInst, environs::DeviceClass_t listType, bool enqueue );
 
 			
 			static void UpdateConnectProgress ( pthread_mutex_t_ptr lock, c_const devList ( DeviceInstanceEP ) c_ref list, OBJIDType objID, int progress );
@@ -480,7 +483,7 @@ namespace environs
 
 			static void UpdateData ( pthread_mutex_t_ptr lock, c_const devList ( DeviceInstanceEP ) c_ref list, environs::ObserverDataContext OBJ_ptr ctx );
 
-			static void UpdateSensorData ( pthread_mutex_t_ptr lock, c_const devList ( DeviceInstanceEP ) c_ref list, OBJIDType objID, environs::SensorFrame OBJ_ptr pack );
+            static void UpdateUdpData ( pthread_mutex_t_ptr lock, c_const devList ( DeviceInstanceEP ) c_ref list, UdpDataContext OBJ_ptr udpData );
 
 		};
 	}

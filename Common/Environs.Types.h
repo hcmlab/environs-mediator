@@ -7,7 +7,6 @@
  *
  * @author	Chi-Tai Dang
  * @version	1.0
- * @remarks
  *
  * This file is part of the Environs framework developed at the
  * Lab for Human Centered Multimedia of the University of Augsburg.
@@ -1008,9 +1007,9 @@ namespace environs {
 #define	DEVICEINFO_BROADCAST_START                        		(DEVICEINFO_PLATFORM_START + 4)
 #define	DEVICEINFO_UNAVAILABLE_START                      		(DEVICEINFO_BROADCAST_START + 1)
 #define	DEVICEINFO_ISCONNECTED_START                      		(DEVICEINFO_UNAVAILABLE_START + 1)
-#define	DEVICEINFO_UNUSED_FLAGS_START                     		(DEVICEINFO_ISCONNECTED_START + 2)
+#define	DEVICEINFO_HASAPPAREA_START                       		(DEVICEINFO_ISCONNECTED_START + 2)
 #define	DEVICEINFO_DEVICETYPE_START                       		(DEVICEINFO_ISCONNECTED_START + 2)
-#define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_DEVICETYPE_START + 1)
+#define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_HASAPPAREA_START + 1)
 #define	DEVICEINFO_AREANAME_START                         		(DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1))
 #define	DEVICEINFO_APPNAME_START                          		(DEVICEINFO_AREANAME_START + (MAX_NAMEPROPERTY + 1))
 #define	DEVICEINFO_FLAGS_START                            		(DEVICEINFO_APPNAME_START + (MAX_NAMEPROPERTY + 1))
@@ -1059,17 +1058,19 @@ namespace environs {
 /**
  * Deviceflags for internalFlags of DeviceInfo objects
  */
-#define	DEVICEFLAGS_INTERNAL_PLATFORM_READY               		(0x1)
-#define	DEVICEFLAGS_INTERNAL_OBSERVER_READY               		(0x2)
-#define	DEVICEFLAGS_INTERNAL_MESSAGE_READY                		(0x4)
-#define	DEVICEFLAGS_INTERNAL_DATA_READY                   		(0x8)
-#define	DEVICEFLAGS_INTERNAL_SENSOR_READY                 		(0x10)
+#define	DEVICEFLAGS_INTERNAL_NATIVE_READY                 		(0x1)
+#define	DEVICEFLAGS_INTERNAL_PLATFORM_READY               		(0x2)
+#define	DEVICEFLAGS_INTERNAL_OBSERVER_READY               		(0x4)
+#define	DEVICEFLAGS_INTERNAL_MESSAGE_READY                		(0x8)
+#define	DEVICEFLAGS_INTERNAL_DATA_READY                   		(0x10)
+#define	DEVICEFLAGS_INTERNAL_SENSOR_READY                 		(0x20)
 #define	DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  		(0xFF)
-#define	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            		(0x0100)
-#define	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            		(0x0200)
-#define	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             		(0x0400)
-#define	DEVICEFLAGS_INTERNAL_CP_DATA_READY                		(0x0800)
-#define	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              		(0x1000)
+#define	DEVICEFLAGS_INTERNAL_CP_NATIVE_READY              		(0x0100)
+#define	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            		(0x0200)
+#define	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            		(0x0400)
+#define	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             		(0x0800)
+#define	DEVICEFLAGS_INTERNAL_CP_DATA_READY                		(0x1000)
+#define	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              		(0x2000)
 #define	DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               		(0xFF00)
 
 
@@ -1078,6 +1079,7 @@ namespace environs {
  * */
 #ifndef CLI_CPP
 	typedef enum DeviceFlagsInternal_t {
+			DeviceFlagsInternal_NativeReady         	=	DEVICEFLAGS_INTERNAL_NATIVE_READY,
 			DeviceFlagsInternal_PlatformReady       	=	DEVICEFLAGS_INTERNAL_PLATFORM_READY,
 			DeviceFlagsInternal_ObserverReady       	=	DEVICEFLAGS_INTERNAL_OBSERVER_READY,
 			DeviceFlagsInternal_MessageReady        	=	DEVICEFLAGS_INTERNAL_MESSAGE_READY,
@@ -1085,6 +1087,7 @@ namespace environs {
 			DeviceFlagsInternal_SensorReady         	=	DEVICEFLAGS_INTERNAL_SENSOR_READY,
 			DeviceFlagsInternal_NotifyMask          	=	DEVICEFLAGS_INTERNAL_NOTIFY_MASK,
 
+			DeviceFlagsInternal_CPNativeReady       	=	DEVICEFLAGS_INTERNAL_CP_NATIVE_READY,
 			DeviceFlagsInternal_CPPlatformReady     	=	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY,
 			DeviceFlagsInternal_CPObserverReady     	=	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY,
 			DeviceFlagsInternal_CPMessageReady      	=	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY,
@@ -1096,12 +1099,14 @@ namespace environs {
 
 #	ifdef __cplusplus
 	namespace DeviceFlagsInternal {
+			const DeviceFlagsInternal_t NativeReady         	=	DeviceFlagsInternal_NativeReady         ;
 			const DeviceFlagsInternal_t PlatformReady       	=	DeviceFlagsInternal_PlatformReady       ;
 			const DeviceFlagsInternal_t ObserverReady       	=	DeviceFlagsInternal_ObserverReady       ;
 			const DeviceFlagsInternal_t MessageReady        	=	DeviceFlagsInternal_MessageReady        ;
 			const DeviceFlagsInternal_t DataReady           	=	DeviceFlagsInternal_DataReady           ;
 			const DeviceFlagsInternal_t SensorReady         	=	DeviceFlagsInternal_SensorReady         ;
 			const DeviceFlagsInternal_t NotifyMask          	=	DeviceFlagsInternal_NotifyMask          ;
+			const DeviceFlagsInternal_t CPNativeReady       	=	DeviceFlagsInternal_CPNativeReady       ;
 			const DeviceFlagsInternal_t CPPlatformReady     	=	DeviceFlagsInternal_CPPlatformReady     ;
 			const DeviceFlagsInternal_t CPObserverReady     	=	DeviceFlagsInternal_CPObserverReady     ;
 			const DeviceFlagsInternal_t CPMessageReady      	=	DeviceFlagsInternal_CPMessageReady      ;
@@ -1863,7 +1868,7 @@ namespace environs {
 #define	ENVIRONS_CRYPT_PAD_PKCS1SHA1                      		((4 << 24))
 #define	ENVIRONS_CRYPT_PAD_PKCS1SHA256                    		((8 << 24))
 
-#define	MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   		(0xFFFF)
+#define	MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   		(0x1FFFF)
 #define	DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  		(MEDIATOR_CLIENT_MAX_BUFFER_SIZE)
 
 

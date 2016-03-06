@@ -51,15 +51,6 @@ namespace environs
 	namespace lib
 	{
 
-
-		/*public ref class EnvironsBase : public IDisposable
-		{
-		internal:
-			EnvironsBase ();
-			~EnvironsBase ();
-
-		};*/
-
 	}
 }
 

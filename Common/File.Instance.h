@@ -48,11 +48,12 @@ namespace environs
         class DeviceInstance;
 #endif
 
-		PUBLIC_CLASS FileInstance DERIVE_c_only ( environs::FileInstance ) DERIVE_DISPOSEABLE
+		PUBLIC_CLASS FileInstance DERIVE_c_only ( environs::FileInstance ) DERIVE_DISPOSABLE
 		{
             MAKE_FRIEND_CLASS ( DeviceList );
             MAKE_FRIEND_CLASS ( DeviceInstance );
             MAKE_FRIEND_CLASS ( FileInstanceProxy );
+            MAKE_FRIEND_CLASS ( Environs );
 
 		public:
 			ENVIRONS_LIB_API FileInstance ();
@@ -145,7 +146,7 @@ namespace environs
 #endif
 
 			/**
-			* Release ownership on this interface and mark it disposeable.
+			* Release ownership on this interface and mark it disposable.
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
@@ -154,7 +155,7 @@ namespace environs
 
 		INTERNAL:
 
-			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( FileInstance );
+			ENVIRONS_OUTPUT_ALLOC_WP_RESOURCE ( FileInstance );
 
 			void DisposeInstance ();
 
@@ -162,7 +163,7 @@ namespace environs
 			 * disposed is true if the object is no longer valid. Nothing will be updated anymore.
 			 * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
 			 * */
-			bool			disposed_;
+			LONGSYNC		disposed_;
 
 			void            PlatformDispose ();
 

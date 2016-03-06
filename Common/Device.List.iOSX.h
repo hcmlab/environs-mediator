@@ -168,7 +168,7 @@
 /**
  * Query the number of Mediator managed devices within the environment.
  *
- * @return numberOfDevices
+ * @return numberOfDevices (or -1 for error)
  */
 - (int) GetDevicesFromMediatorCount;
 

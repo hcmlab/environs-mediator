@@ -84,15 +84,29 @@ namespace environs
 
 
 	namespace Loader
-	{
+    {
+        HMODULE		g_EnvironsModuleHandle	= 0;
+        
 		/// Forward declarations
 		environs::Environs * LocateLoadEnvirons ( COBSTR module, int crt );
-
+        
+        void DisposeEnvironsLib ();
+        
+        
+        class StaticDisposer
+        {
+        public:
+            ~StaticDisposer () {
+                DisposeEnvironsLib ();
+            }
+        };
+        
+        StaticDisposer staticDisposer;
+        
+        
 #ifdef USE_ENVIRONS_LOG_POINTERS
         void LocateLoadLogMethods ( COBSTR module, int crt, void ** outLog, void ** outLogArg );
 #endif
-
-		HMODULE		g_EnvironsModuleHandle	= 0;
 
 
 		/**
@@ -102,7 +116,7 @@ namespace environs
 		*/
 		sp ( environs::Environs ) ENVIRONS_CreateInstance ()
 		{
-			sp ( environs::Environs ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ) );
+			sp ( environs::Environs ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ), EnvironsDisposer );
 			return obj;
 		}
 
@@ -117,7 +131,7 @@ namespace environs
 		*/
 		sp ( environs::Environs ) ENVIRONS_CreateInstance ( const char * appName, const char * areaName )
 		{
-			sp ( environs::Environs ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ) );
+			sp ( environs::Environs ) obj ( LocateLoadEnvirons ( "Environs", ENVIRONS_BUILD_CRT ), EnvironsDisposer );
 			if ( obj )
 				obj->LoadSettings ( appName, areaName );
 			return obj;

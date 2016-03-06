@@ -78,7 +78,7 @@ namespace environs
 		*
 		* @param portal 		The PortalInstance object.
 		*/
-		virtual void OnPortalRequestOrProvided ( sp ( PortalInstance ) portal ) { OnEnvironsPortalRequestOrProvided_ = false; };
+		virtual void OnPortalRequestOrProvided ( const sp ( PortalInstance ) &portal ) { OnEnvironsPortalRequestOrProvided_ = false; };
 
 
 		/**
@@ -106,7 +106,7 @@ namespace environs
 		* @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
 		* @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
 		*/
-		virtual void OnListChanged ( sp ( DeviceInstanceList ) vanished, sp ( DeviceInstanceList ) appeared ) { OnListChanged_ = false; };
+		virtual void OnListChanged ( const sp ( DeviceInstanceList ) &vanished, const sp ( DeviceInstanceList ) &appeared ) { OnListChanged_ = false; };
 
 		/**
 		* OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
@@ -130,22 +130,22 @@ namespace environs
 
 		/**
 		* OnDeviceChanged is called whenever the members of a DeviceInstance has changed.&nbsp;
-		* The DEVICE_INFO_ATTR_changed parameter provides a bit set which indicates the member that has changed.
+		* The flags parameter provides a bit set which indicates the member that has changed.
 		*
-		* @param device			The DeviceInstance object that sends this notification.
-		* @param changedFlags	The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
+		* @param device     The DeviceInstance object that sends this notification.
+		* @param flags      The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
 		*/
-		virtual void OnDeviceChanged ( sp ( DeviceInstance ) device, environs::DeviceInfoFlag_t changedFlags ) { OnDeviceChanged_ = false; };
+		virtual void OnDeviceChanged ( const sp ( DeviceInstance ) &device, environs::DeviceInfoFlag_t flags ) { OnDeviceChanged_ = false; };
 
 
 		/**
 		* OnDeviceChanged is called whenever the members of a DeviceInstance has changed.&nbsp;
-		* The DEVICE_INFO_ATTR_changed parameter provides a bit set which indicates the member that has changed.
+		* The flags parameter provides a bit set which indicates the member that has changed.
 		*
-		* @param device			The DeviceInstance object that sends this notification.
-		* @param changedFlags	The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
+		* @param device     The DeviceInstance object that sends this notification.
+		* @param flags      The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
 		*/
-		virtual void OnDeviceChangedInterface ( DeviceInstance * device, environs::DeviceInfoFlag_t changedFlags ) { OnDeviceChangedInterface_ = false; };
+		virtual void OnDeviceChangedInterface ( DeviceInstance * device, environs::DeviceInfoFlag_t flags ) { OnDeviceChangedInterface_ = false; };
 	};
 
 
@@ -205,18 +205,18 @@ namespace environs
 		/**
 		* OnMessage is called whenever a text message has been received from a device.
 		*
-		* @param msg			The corresponding message object of type MessageInstance
-		* @param changedFlags	Flags that indicate the object change.
+		* @param msg    The corresponding message object of type MessageInstance
+		* @param flags	Flags that indicate the object change.
 		*/
-		virtual void OnMessage ( sp ( MessageInstance ) msg, environs::MessageInfoFlag_t changedFlags ) { OnMessage_ = false; };
+		virtual void OnMessage ( const sp ( MessageInstance ) &msg, environs::MessageInfoFlag_t flags ) { OnMessage_ = false; };
 
 		/**
 		* OnMessage is called whenever a text message has been received from a device.
 		*
-		* @param msg			The corresponding message object of type MessageInstance
-		* @param changedFlags	Flags that indicate the object change.
+		* @param msg    The corresponding message object of type MessageInstance
+		* @param flags	Flags that indicate the object change.
 		*/
-		virtual void OnMessageInterface ( MessageInstance * msg, environs::MessageInfoFlag_t changedFlags ) { OnMessageInterface_ = false; };
+		virtual void OnMessageInterface ( MessageInstance * msg, environs::MessageInfoFlag_t flags ) { OnMessageInterface_ = false; };
 	};
 
 
@@ -258,19 +258,19 @@ namespace environs
 		* OnData is called whenever new binary data (files, buffers) has been received.
 		* Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
 		*
-		* @param fileData		The corresponding file object of type FileInstance
-		* @param changedFlags	Flags that indicate the object change.
+		* @param fileData   The corresponding file object of type FileInstance
+		* @param flags      Flags that indicate the object change.
 		*/
-		virtual void OnData ( sp ( FileInstance ) fileData, environs::FileInfoFlag_t changedFlags ) { OnData_ = false; };
+		virtual void OnData ( const sp ( FileInstance ) &fileData, environs::FileInfoFlag_t flags ) { OnData_ = false; };
 
 		/**
 		* OnData is called whenever new binary data (files, buffers) has been received.
 		* Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
 		*
-		* @param fileData		The corresponding file object of type FileInstance
-		* @param changedFlags	Flags that indicate the object change.
+		* @param fileData   The corresponding file object of type FileInstance
+		* @param flags      Flags that indicate the object change.
 		*/
-		virtual void OnDataInterface ( FileInstance * fileData, environs::FileInfoFlag_t changedFlags ) { OnDataInterface_ = false; };
+		virtual void OnDataInterface ( FileInstance * fileData, environs::FileInfoFlag_t flags ) { OnDataInterface_ = false; };
 	};
 
 
@@ -328,15 +328,15 @@ namespace environs
 		* OnPortalChanged is called when the portal status has changed, e.g. stream has started, stopped, disposed, etc..
 		*
 		* @param portal		The PortalInstance object.
-		* @param notify		The notification (environs::Notify::Portale) that indicates the change.
+		* @param notify		The notification that indicates the change.
 		*/
-		virtual void OnPortalChanged ( sp ( PortalInstance ) portal, environs::Notify::Portale_t notify ) { OnPortalChanged_ = false; };
+		virtual void OnPortalChanged ( const sp ( PortalInstance ) &portal, environs::Notify::Portale_t notify ) { OnPortalChanged_ = false; };
 
 		/**
 		* OnPortalChanged is called when the portal status has changed, e.g. stream has started, stopped, disposed, etc..
 		*
 		* @param portal		The PortalInstance object.
-		* @param notify		The notification (environs::Notify::Portale) that indicates the change.
+		* @param notify		The notification that indicates the change.
 		*/
 		virtual void OnPortalChangedInterface ( PortalInstance * portal, environs::Notify::Portale_t notify ) { OnPortalChangedInterface_ = false; };
 	};

@@ -73,6 +73,8 @@
 #define WAIT_TIME_FOR_RECEIVING_TCP_MSG		10
 
 
+//#define USE_TRACE_ALL_LOCK_CALLS
+
 /*
 *	//////// Declarations outside of namespace environs
 *	- Include files
@@ -83,20 +85,20 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 
-#ifndef CLI_CPP
-#include "windows.h"
+#if (!defined(CLI_CPP) && !defined(WINDOWS_PHONE))
+#	include "windows.h"
 #endif
 
 #ifdef WINDOWS_PHONE
-#include "winbase.h"
+#	include "winbase.h"
 
-#define _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
-#include <process.h>
-#undef _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
+#	define _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
+#	include <process.h>
+#	undef _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
 #endif
 
 #ifdef USE_PTHREADS_FOR_WINDOWS
-#include <pthread.h>
+#	include <pthread.h>
 #endif
 
 #else	//---- NTDDI_WIN8
@@ -152,12 +154,14 @@ namespace environs
 #		ifdef CLI_CPP
 #			define pthread_mvalid(m)				(m != nill && m->ThreadState == ThreadState::Stopped)
 #			define pthread_t						Thread ^
+#			define pthread_t_id						Thread ^
 #			define pthread_param_t					System::Object ^
 #			define pthread_close(threadID)			
 #			define pthread_detach_handle(threadID)	
 #		else
 #			define pthread_mvalid(m)				(true)
 #			define pthread_t						HANDLE
+#			define pthread_t_id						DWORD
 #			define pthread_param_t					void *
 #			define pthread_close(threadID)			CloseHandle ( threadID )
 #			define pthread_detach_handle(threadID)	CloseHandle ( threadID )
@@ -200,7 +204,7 @@ namespace environs
 #			define pthread_make_routine(r)			((LPTHREAD_START_ROUTINE) r)
 
 #			define pthread_create(threadID,s0,startRoutine,arg) \
-				((*threadID = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, 0 )) == 0)
+				((*(threadID) = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, 0 )) == 0)
 #		endif
 
 #		define pthread_cond_mutex_init(e,d)			false
@@ -296,7 +300,7 @@ namespace environs
 #			define pthread_mutex_t_ptr				pthread_mutex_t *
 
 #			ifdef WINDOWS_PHONE
-#				define pthread_mutex_init(m,d)			
+#				define pthread_mutex_init(m,d)		false
 #			else
 				extern INCLINEFUNC bool pthread_mutex_init ( CRITICAL_SECTION  * critSEc, void * arg );
 #			endif
@@ -313,6 +317,9 @@ namespace environs
 			_When_(return == 0, _Acquires_lock_(*lock))
 #endif
 			extern INCLINEFUNC int pthread_mutex_lock (		pthread_mutex_t OBJ_ptr lock );
+
+#	define	pthread_mutex_lock_n(m)			EnterCriticalSection (m);
+#	define	pthread_mutex_unlock_n(m)		LeaveCriticalSection (m);
 			
 #if _MSC_VER >= 1800
 			_When_(return == 0, _Acquires_lock_(*lock))
@@ -365,7 +372,11 @@ namespace environs
 	extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
 	extern INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
 
+#	define pthread_t_id						pthread_t
 #	define pthread_mutex_t_ptr				pthread_mutex_t *
+
+#	define	pthread_mutex_lock_n(m)			pthread_mutex_lock (m);
+#	define	pthread_mutex_unlock_n(m)		pthread_mutex_unlock (m);
 
 	/*
 	* Android/iOS/MacOS/Linux specific definintions
@@ -457,12 +468,20 @@ namespace environs
 	/*
 	* pthread Extensions for Environs.
 	*/
+
 #	ifdef CLI_CPP
+
+#	define	pthread
+#	define 	getSelfThreadID()			System::Threading::Thread::CurrentThread
+#	define 	areWeTheThreadID(t)			(System::Threading::Thread::CurrentThread == t)
 
 #	else
 	extern INCLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t OBJ_ref lock );
 	extern INCLINEFUNC bool pthread_is_self_thread ( pthread_t thread );
 	extern INCLINEFUNC bool pthread_valid ( pthread_t thread );
+
+	extern INCLINEFUNC pthread_t_id getSelfThreadID ();
+	extern INCLINEFUNC bool areWeTheThreadID ( pthread_t_id thread );
 
 	/*
 	* POSIX Semaphore extensions for Environs.
@@ -550,6 +569,7 @@ namespace environs
 #	define MutexDisposeA(m)		MutexDisposeBool(&m,#m)
 	extern bool MutexDisposeBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
 
+#ifdef USE_TRACE_ALL_LOCK_CALLS
 #	define MutexLockV(m,f)		MutexLockVoid(m,#m,CLASS_NAME,f)
 #	define MutexLockVA(m,f)		MutexLockVoid(&m,#m,CLASS_NAME,f)
 	extern void MutexLockVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
@@ -557,6 +577,13 @@ namespace environs
 #	define MutexUnlockV(m,f)	MutexUnlockVoid(m,#m,CLASS_NAME,f)
 #	define MutexUnlockVA(m,f)	MutexUnlockVoid(&m,#m,CLASS_NAME,f)
 	extern void MutexUnlockVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+#else
+#	define MutexLockV(m,f)		pthread_mutex_lock_n(m)
+#	define MutexLockVA(m,f)		pthread_mutex_lock_n(&m)
+
+#	define MutexUnlockV(m,f)	pthread_mutex_unlock_n(m)
+#	define MutexUnlockVA(m,f)	pthread_mutex_unlock_n(&m)
+#endif
 
 #	define MutexLock(m,f)		MutexLockBool(m,#m,CLASS_NAME,f)
 #	define MutexLockA(m,f)		MutexLockBool(&m,#m,CLASS_NAME,f)
@@ -577,7 +604,17 @@ namespace environs
 #	endif
 
 #endif
-    
+
+#ifdef _WIN32
+#	ifdef CLI_CPP
+#		define			ENV_INFINITE_MS		-1
+#	else
+#		define			ENV_INFINITE_MS		INFINITE
+#	endif
+#else
+#		define			ENV_INFINITE_MS		-1
+#endif
+
 #ifndef _WIN32
 #    define	GetCurrentThreadId()	pthread_self ( )
 #endif
@@ -640,12 +677,18 @@ namespace environs
 		void ResetState ( );
 		void Reset ();
         
-        bool WaitLocked ( CString_ptr func, int ms C_Only ( = 0 ) );
-        bool WaitOne ( CString_ptr func, int ms C_Only ( = 0 ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
+        int WaitLocked ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ) );
+		int WaitOne ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
         
         bool Notify ( CString_ptr func, bool useLock C_Only ( = true ) );
 
-		bool Run ( pthread_start_routine_t, pthread_param_t arg, CString_ptr func, bool waitForStart C_Only ( = false ) );
+		/*
+		* Run	Create a thread with the given thread routine
+		* @return	1	success, thread is running or was already runing. (if wait is requested, then wait was successful)
+		*			0	failed
+		*			-1	failed, thread was started and is probably running (soon). However, wait for thread start failed.
+		*/
+		int Run ( pthread_start_routine_t, pthread_param_t arg, CString_ptr func, bool waitForStart C_Only ( = false ) );
         
 		bool isRunning ();
 		bool areWeTheThread ();

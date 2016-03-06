@@ -374,40 +374,6 @@ ILock1::~ILock1 ()
 }
 
 
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-
-bool WaitForData ( int sock )
-{
-    fd_set fds;
-    struct timeval timeout;
-
-	timeout.tv_sec = 10;
-	timeout.tv_usec = 0;
-    
-    FD_ZERO ( &fds );
-    FD_SET ( ( unsigned ) sock, &fds );
-    
-    int rc = select ( sock + 1, &fds, NULL, NULL, &timeout );
-    if ( rc == -1 )
-    {
-        VerbLogSocketError (); VerbLogSocketError1 ();
-        CVerbArg ( "WaitForData [ %i ]:\tconnection/socket closed by someone; rc [ -1 ]!", sock );
-        return false;
-    }
-    if ( rc == 0 ) {
-        CVerbVerbArg ( "WaitForData [ %i ]:\tconnection/socket timeoout; rc [ 0 ]!", sock );
-        return true;
-    }
-    if ( !FD_ISSET(sock, &fds) ) {
-        CVerbVerbArg ( "WaitForData [ %i ]:\tconnection/socket error; rc [ %i ]!", sock, rc );
-        //return false;
-    }
-    return true;
-}
-
-#endif
-
-
 DeviceInstanceNode::~DeviceInstanceNode ()
 {
 	clientSP = 0; rootSP = 0;
@@ -824,9 +790,11 @@ bool MediatorDaemon::SaveConfig ()
 	else
 		configs << "5899";
 	configs << endl;	
-	
+    
+#ifdef ENABLE_MEDIATOR_LOCK
 	if ( MutexLock ( &mediatorLock, "SaveConfig" ) ) 
 	{
+#endif
 		MediatorInstance * net = &mediator;
 
 		while ( net && net->ip ) {
@@ -835,11 +803,13 @@ bool MediatorDaemon::SaveConfig ()
 			configs << endl;
 			net = net->next;
 		}
-	
+        
+#ifdef ENABLE_MEDIATOR_LOCK
 		MutexUnlock ( &mediatorLock, "SaveConfig" );
     }
+#endif
 
-	if ( networkOK != 0xFFFFFFFF ) 
+	if ( networkOK != 0xFFFFFFFF )
 	{
 		struct sockaddr_in addr;
 		char ipStr [ INET_ADDRSTRLEN ];
@@ -2414,7 +2384,7 @@ void MediatorDaemon::RemoveDevice ( unsigned int ip, char * msg )
 }
 
 
-void MediatorDaemon::UpdateDeviceInstance ( sp ( DeviceInstanceNode ) device, bool added, bool changed )
+void MediatorDaemon::UpdateDeviceInstance ( const sp ( DeviceInstanceNode ) & device, bool added, bool changed )
 {
 	if ( added )
 		NotifyClients ( NOTIFY_MEDIATOR_SRV_DEVICE_ADDED, device );
@@ -3027,10 +2997,11 @@ void MediatorDaemon::Run ()
                         printf ( "No more mediators known yet!\n" );
 					continue;
 				}
-				else {
+                else {
+#ifdef ENABLE_MEDIATOR_LOCK
 					if ( !MutexLock ( &mediatorLock, "Run" ) )
 						continue;
-
+#endif
 					CLog ( "Mediators:" );
                     CLog ( "----------------------------------------------------------------" );
                     if ( printStdOut ) {
@@ -3060,8 +3031,10 @@ void MediatorDaemon::Run ()
                     CLog ( "----------------------------------------------------------------" );
                     if ( printStdOut )
                         printf ( "----------------------------------------------------------------\n" );
-
+                    
+#ifdef ENABLE_MEDIATOR_LOCK
 					MutexUnlockV ( &mediatorLock, "Run" );
+#endif
 				}
 				continue;
 			}
@@ -4613,21 +4586,6 @@ void * MediatorDaemon::ClientThreadStarter ( void *arg )
             CErr ( "ClientThreadStarter: Failed to set TCP_NODELAY on socket" ); LogSocketError ();
         }
 #endif
-        
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-#ifdef _WIN32
-        u_long ul = 1;
-        
-        if ( ioctlsocket ( (int) client->socket, FIONBIO, &ul ) != NO_ERROR )
-#else
-        long arg;
-        arg = fcntl ( (int) client->socket, F_GETFL, 0 );
-        if ( fcntl ( (int) client->socket, F_SETFL, arg | O_NONBLOCK ) < 0 )
-#endif
-        {
-            CErr ( "ClientThreadStarter: Failed to set NONBLOCK on socket" ); LogSocketError ();
-        }
-#endif
         // Execute thread
         daemon->ClientThread ( client );
     }
@@ -4722,8 +4680,6 @@ void * MediatorDaemon::ClientThread ( void * arg )
 	int deviceID = 0;
 	char * buffer = 0;
 
-	//socklen_t addrLen = sizeof(client->addr);
-
 	CVerbArg ( "Client [ %s : %i ]:\tSource port [ %u ]", client->ips, client->socket, ntohs ( client->addr.sin_port ) );
 
 	char		*	msg;
@@ -4735,12 +4691,6 @@ void * MediatorDaemon::ClientThread ( void * arg )
     char		*	decrypted		= 0;
     up ( char [ ] ) bufferUP;
     
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-    fd_set fds;
-    struct timeval timeout;
-    
-    int rc;
-#endif
 
     bool isBanned = IsIpBanned ( client->addr.sin_addr.s_addr );
 	if ( isBanned )
@@ -4755,48 +4705,14 @@ void * MediatorDaemon::ClientThread ( void * arg )
     while ( isRunning ) {
         CVerbVerbArgID ( "Client [ %s : %i ]:\tGoing into recv ... buffer free [ %i ]!", client->ips, sock, remainingSize );
         
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-		FD_ZERO ( &fds );
-		FD_SET ( ( unsigned ) sock, &fds );
-
-		timeout.tv_sec	= 120;
-		timeout.tv_usec = 0;
-        
-        rc = select ( sock + 1, &fds, NULL, NULL, &timeout );
-        if ( rc == -1 ) {
+        bytesReceived = ( int ) recv ( sock, msgEnd, remainingSize, 0 );
+        if ( bytesReceived <= 0 ) {
             VerbLogSocketError (); VerbLogSocketError1 ();
-            CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; rc [ -1 ]!", client->ips, sock );
+            CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; Bytes [ %i ]!", client->ips, sock, bytesReceived );
             break;
         }
-        if ( rc == 0 ) {
-            CVerbVerbArgID ( "Client [ %s : %i ]:\tconnection/socket timeoout; rc [ 0 ]!", client->ips, sock );
-            continue;
-        }
-		if ( !FD_ISSET ( sock, &fds ) ) {
-			CVerbVerbArgID ( "Client [ %s : %i ]:\tconnection/socket error; rc [ %i ]!", client->ips, sock, rc );
-			continue;
-		}
 
-		bytesReceived = ( int ) recvfrom ( sock, msgEnd, remainingSize, 0, ( struct sockaddr* ) &client->addr, &addrLen );
-		if ( bytesReceived <= 0 ) {
-			SOCKETRETRY ();
-
-			VerbLogSocketError (); VerbLogSocketError1 ();
-			CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; Bytes [ %i ]!", client->ips, sock, bytesReceived );
-			break;
-		}
-#else
-
-        //bytesReceived = ( int ) recvfrom ( sock, msgEnd, remainingSize, 0, ( struct sockaddr* ) &client->addr, &addrLen );
-        bytesReceived = ( int ) recv ( sock, msgEnd, remainingSize, 0 );
-		if ( bytesReceived <= 0 ) {
-			VerbLogSocketError (); VerbLogSocketError1 ();
-			CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; Bytes [ %i ]!", client->ips, sock, bytesReceived );
-			break;
-		}
-#endif
-
-		msgEnd [bytesReceived] = 0;
+		msgEnd [ bytesReceived ] = 0;
 		msg = buffer;
 
 		unsigned int msgLength;
@@ -4810,7 +4726,7 @@ void * MediatorDaemon::ClientThread ( void * arg )
 			
 			msgLength &= 0xFFFFFFF;
 
-			CVerbVerbArgID ( "Client [ %s : %i ]:\tmsgLength [%d] Bytes left [ %i ]!", client->ips, sock, msgLength, bytesLeft );
+			CVerbVerbArgID ( "Client [ %s : %i ]:\tmsgLength [ %d ] Bytes left [ %i ]!", client->ips, sock, msgLength, bytesLeft );
 
 			if ( msgLength > (unsigned int) bytesLeft ) 
 			{
@@ -5041,17 +4957,17 @@ Continue:
 
             if ( decrypted ) { free ( decrypted ); decrypted = 0; }
 		}
-
+        
 		remainingSize = MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
 
-		if ( bytesLeft > 0 ) {
+        if ( bytesLeft > 0 ) {
 			msgEnd += bytesReceived;
 
-			refactorBuffer ( msg, buffer, bytesLeft, msgEnd );
+			RefactorBuffer ( msg, buffer, bytesLeft, msgEnd );
 			remainingSize -= bytesLeft;
 		}
-		else
-			msgEnd = buffer;
+        else
+            msgEnd = buffer;
 	}
 
 ShutdownClient:
@@ -5218,6 +5134,11 @@ bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * 
 		CErrArgID ( "HandleShortMessage [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID );
 		goto SendResponse;
     }
+
+	if ( destClient.get () == sourceClient ) {
+		CVerbArgID ( "HandleShortMessage [ %i ]: Destination and source are the same.", destID );
+		goto SendResponse;
+	}
     
     shortMsg->deviceID = deviceID;
     
@@ -5779,7 +5700,7 @@ bool MediatorDaemon::HandleQueryDevices ( const sp ( ThreadInstance ) &sourceCli
         
 		header->msgID       = CollectDevicesCount ( sourceDevice, filterMode );
 
-		CVerbArgID ( "HandleQueryDevices [ %i ]: Number of devices [%u]", sourceClient->socket, query->msgID );
+		CVerbArgID ( "HandleQueryDevices [ %i ]: Number of devices [%u]", sourceClient->socket, header->msgID );
 		error = false; goto SendResponse;
     }
     
@@ -6320,18 +6241,18 @@ void MediatorDaemon::HandleDeviceFlagSet ( ThreadInstance * client, char * msgDe
 
 	DeviceInstanceNode *		device	= 0;
 	char * areaName = 0;
-	char * appName = 0;
+	char * appName  = 0;
 
-	bool  ext = ( msg->sizes [0] > 1 && msg->sizes [1] > 1 && msg->sizes [0] < MAX_NAMEPROPERTY && msg->sizes [1] < MAX_NAMEPROPERTY );
+	bool ext = ( msg->sizes [0] > 1 && msg->sizes [1] > 1 && msg->sizes [0] < MAX_NAMEPROPERTY && msg->sizes [1] < MAX_NAMEPROPERTY );
 	if ( ext ) {
-		appName = (( MediatorStatusMsgExt * ) msg)->appArea;
+		appName   = (( MediatorStatusMsgExt * ) msg)->appArea;
 		areaName  = appName + msg->sizes [0];
 
         if ( !*appName || !*areaName ) {
-            appName = srcDevice->info.appName;
+            appName  = srcDevice->info.appName;
             areaName = srcDevice->info.areaName;
         }
-		appDevices = GetApplicationDevices ( appName, areaName );
+		appDevices   = GetApplicationDevices ( appName, areaName );
 	}
 	else {
 		appDevices = srcDevice->rootSP;
@@ -6365,7 +6286,7 @@ void MediatorDaemon::HandleDeviceFlagSet ( ThreadInstance * client, char * msgDe
 
 	int sentBytes = SendBuffer ( destClient.get (), msg, msg->size );
 	if ( sentBytes != ( int ) msg->size ) {
-		CErrArg ( "[0x%X].HandleDeviceFlagSet [ %i ]: Failed to send device flags to device IP [%s]!", client->deviceID, client->socket, inet_ntoa ( destClient->addr.sin_addr ) );
+		CErrArg ( "[ 0x%X ].HandleDeviceFlagSet [ %i ]: Failed to send device flags to device IP [ %s ]!", client->deviceID, client->socket, inet_ntoa ( destClient->addr.sin_addr ) );
 	}
 }
 
@@ -6384,7 +6305,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 	unsigned int SourceID	= *pUI; pUI++;
 	unsigned int DestID		= *pUI;
 
-	CVerbArg ( "[0x%X].HandleSTUNRequest [ %i ]: TCPrec -> [0x%X]", SourceID, sourceClient->socket, DestID );
+	CVerbArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: TCPrec -> [0x%X]", SourceID, sourceClient->socket, DestID );
 
 	// find the source client
 	sp ( ThreadInstance ) destClient;
@@ -6400,7 +6321,7 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 		destClient = device->clientSP;
 
 	if ( !destClient ) {
-		CWarnArg ( "[0x%X].HandleSTUNRequest [ %i ] -> Destination device -> [0x%X] not found.", SourceID, sourceClient->socket, DestID );
+		CWarnArg ( "[ 0x%X ].HandleSTUNRequest [ %i ] -> Destination device -> [0x%X] not found.", SourceID, sourceClient->socket, DestID );
 		
 		rootSP->Unlock ( "HandleSTUNRequest" );
 		return false;
@@ -6418,11 +6339,11 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 	*pUI = (unsigned int) sourceClient->addr.sin_addr.s_addr; pUI++;
 	*pUI = sourceClient->portUdp;
 
-	CLogArg ( "[0x%X].HandleSTUNRequest [ %i ]: send STUN request to device IP [%s]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
+	CLogArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: send STUN request to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
 	
 	int sentBytes = SendBuffer ( destClient.get (), buffer, MEDIATOR_STUN_RESP_SIZE );
 	if ( sentBytes != MEDIATOR_STUN_RESP_SIZE ) {
-		CErrArg ( "[0x%X].HandleSTUNRequest [ %i ]: Failed to send STUN request to device IP [%s]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
+		CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN request to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
 		//return false;
 	}
 	
@@ -6433,14 +6354,14 @@ bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * m
 	*pUI = destClient->portUdp; pUI++;
 	*pUI = 0;
 	
-	CLogArg ( "[0x%X].HandleSTUNRequest [ %i ]: send STUN reply to device IP [%s]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+	CLogArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: send STUN reply to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
 	
 	sentBytes = SendBuffer ( sourceClient, buffer, MEDIATOR_STUN_RESP_SIZE );
 
 	rootSP->Unlock ( "HandleSTUNRequest" );
 
 	if ( sentBytes != MEDIATOR_STUN_RESP_SIZE ) {
-		CErrArg ( "[0x%X].HandleSTUNRequest [ %i ]: Failed to send STUN reply to device IP [%s]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+		CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN reply to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
 		return false;
 	}
 
@@ -6577,8 +6498,12 @@ bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
 
 	req.size    = MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE;
 	req.version = MEDIATOR_PROTOCOL_VERSION;
+    
+    req.ident [ 0 ] = MEDIATOR_CMD_MEDIATOR_NOTIFY;
+    req.ident [ 1 ] = MEDIATOR_OPT_NULL;
+    req.ident [ 2 ] = MEDIATOR_OPT_NULL;
 
-	memcpy ( req.ident, "i;;", 3 );
+	//memcpy ( req.ident, "i;;", 3 );
 
 	req.notify = NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ;
 	    
@@ -6674,7 +6599,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	appDevices->Unlock ( "HandleSTUNTRequest" );
 
 	if ( !destClient || !destDeviceSP ) {
-		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [0x%X]!", sourceClient->socket, destID ); goto Quit;
+		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
     }
     
     sourceClient->stuntTarget = destClient.get();
@@ -6714,7 +6639,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	///
 	portDest = destClient->sparePort;
 	if ( !portDest ) {
-		CLogArgID ( "HandleSTUNTRequest [ %i ]: Destination client [0x%X] has not renewed the spare socket yet!", sourceClient->socket, destID );
+		CLogArgID ( "HandleSTUNTRequest [ %i ]: Destination client [ 0x%X ] has not renewed the spare socket yet!", sourceClient->socket, destID );
 
 		NotifySTUNTRegRequest ( destClient.get () );  status = -1; goto UnlockQuit;
 	}
@@ -6722,7 +6647,7 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 	IPe = sourceClient->addr.sin_addr.s_addr;
 
 	if ( !IP || !IPe ) {
-		CErrArgID ( "HandleSTUNTRequest [ %i ]: Invalid ip [%s] IPe [%x] Port [%d] for sourceDevice or invalid Port[%d] for destinationDevice in database!", sourceClient->socket,
+		CErrArgID ( "HandleSTUNTRequest [ %i ]: Invalid IP [ %s ] IPe [ %x : %d ] for sourceDevice or invalid Port [ %d ] for destinationDevice in database!", sourceClient->socket,
 			inet_ntoa ( *((struct in_addr *) &IP) ), IPe, portSource, portDest );
 		goto UnlockQuit;
     }
@@ -6751,12 +6676,12 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 
 	header->size = sizeof ( STUNTRespReqHeader ) + header->sizes [ 0 ] + header->sizes [ 1 ];
 	
-	CLogArgID ( "STUNTRequest [ %i ]: Send request to device [0x%X] IP [%s], port [%d]", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ), portSource );
+	CLogArgID ( "STUNTRequest [ %i ]: Send request to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ), portSource );
 	
 	sentBytes = SendBuffer ( destClient.get (), header, header->size, false );
 
 	if ( sentBytes != ( int ) header->size ) {
-		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [0x%X] IP [%s]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
+		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
 		LogSocketError ();
 		goto UnlockQuit;
 	}
@@ -6775,14 +6700,14 @@ bool MediatorDaemon::HandleSTUNTRequest ( ThreadInstance * sourceClient, STUNTRe
 		reqResponse->ipe = destClient->addr.sin_addr.s_addr;
 	}
 
-	CLogArgID ( "STUNTRequest [ %i ]: Send response to device [0x%X] IP [%s:%d]", sourceClient->socket, destID, inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
+	CLogArgID ( "STUNTRequest [ %i ]: Send response to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
 
 	destClient->sparePort = 0; // Clear the port
 		
 	sentBytes = SendBuffer ( sourceClient, reqResponse, sendSize, false );
 
 	if ( sentBytes != (int) sendSize ) {
-		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [%s]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
         LogSocketError ();
         goto UnlockQuit;
 	}
@@ -6816,7 +6741,7 @@ Quit:
 	sentBytes = SendBuffer ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE );
 	
 	if ( sentBytes != MEDIATOR_STUNT_ACK_SIZE ) {
-		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send %s message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
+		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
 		LogSocketError ();
     }
     sourceClient->stuntTarget = 0;
@@ -6902,7 +6827,7 @@ bool MediatorDaemon::HandleSTUNTRequestV4 ( ThreadInstance * sourceClient, STUNT
 	appDevices->Unlock ( "HandleSTUNTRequest" );
 
 	if ( !destClient || !destDeviceSP ) {
-		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [0x%X]!", sourceClient->socket, destID ); goto Quit;
+		CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
 	}
 
 	sourceClient->stuntTarget = destClient.get ();
@@ -6942,7 +6867,7 @@ bool MediatorDaemon::HandleSTUNTRequestV4 ( ThreadInstance * sourceClient, STUNT
 	///
 	portDest = destClient->sparePort;
 	if ( !portDest ) {
-		CLogArgID ( "HandleSTUNTRequest [ %i ]: Destination client [0x%X] has not renewed the spare socket yet!", sourceClient->socket, destID );
+		CLogArgID ( "HandleSTUNTRequest [ %i ]: Destination client [ 0x%X ] has not renewed the spare socket yet!", sourceClient->socket, destID );
 
 		NotifySTUNTRegRequest ( destClient.get () );  status = -1; goto UnlockQuit;
 	}
@@ -6950,7 +6875,7 @@ bool MediatorDaemon::HandleSTUNTRequestV4 ( ThreadInstance * sourceClient, STUNT
 	IPe = sourceClient->addr.sin_addr.s_addr;
 
 	if ( !IP || !IPe ) {
-		CErrArgID ( "HandleSTUNTRequest [ %i ]: Invalid ip [%s] IPe [%x] Port [%d] for sourceDevice or invalid Port[%d] for destinationDevice in database!", sourceClient->socket,
+		CErrArgID ( "HandleSTUNTRequest [ %i ]: Invalid ip [ %s ] IPe [ %x ] Port [ %d ] for sourceDevice or invalid Port [ %d ] for destinationDevice in database!", sourceClient->socket,
 			inet_ntoa ( *( ( struct in_addr * ) &IP ) ), IPe, portSource, portDest );
 		goto UnlockQuit;
 	}
@@ -7328,7 +7253,7 @@ Continue:
 }
 
 
-bool MediatorDaemon::HandleDeviceRegistration ( sp ( ThreadInstance ) clientSP, unsigned int ip, char * msg )
+bool MediatorDaemon::HandleDeviceRegistration ( const sp ( ThreadInstance ) &clientSP, unsigned int ip, char * msg )
 {
     CVerb ( "HandleDeviceRegistration" );
     
@@ -7585,7 +7510,7 @@ bool MediatorDaemon::HandleDeviceRegistration ( sp ( ThreadInstance ) clientSP, 
 }
 
 
-bool MediatorDaemon::HandleDeviceRegistrationV4 ( sp ( ThreadInstance ) clientSP, unsigned int ip, char * msg )
+bool MediatorDaemon::HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &clientSP, unsigned int ip, char * msg )
 {
 	CVerb ( "HandleDeviceRegistration" );
 	
@@ -7882,13 +7807,13 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
     int sock = (int) client->socket;
     
     if ( sock != -1 )
-        sentBytes = (int) send ( sock, buffer, length, 0 );
-        //sentBytes = (int)sendto ( sock, buffer, length, 0, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
+        sentBytes = (int) send ( sock, buffer, length, MSG_NOSIGNAL );
+        //sentBytes = (int)sendto ( sock, buffer, length, MSG_NOSIGNAL, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
 #else
 	client->Lock ( "SecureChannelAuth" );
 
 	if ( client->socket != -1 )
-		sentBytes = (int)sendto ( client->socket, buffer, length, 0, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
+		sentBytes = (int)sendto ( client->socket, buffer, length, MSG_NOSIGNAL, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
 
 	client->Unlock ( "SecureChannelAuth" );
 #endif
@@ -7905,26 +7830,11 @@ bool MediatorDaemon::SecureChannelAuth ( ThreadInstance * client )
     int				bytesReceived	= 0;
     
 ReceiveNext:
-    
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-    if ( !WaitForData ( ( int ) client->socket ) ) {
-        return false;
+    /// Wait for response
+    bytesReceived = ( int ) recvfrom ( ( int ) client->socket, recBuffer, recBufferSize, 0, ( struct sockaddr* ) &client->addr, ( socklen_t * ) &addrLen );
+    if ( bytesReceived <= 0 ) {
+        CLogArg ( "SecureChannelAuth [ %i ]: Socket closed; Bytes [%i]!", client->socket, bytesReceived ); return false;
     }
-
-	/// Wait for response
-	bytesReceived = ( int ) recvfrom ( ( int ) client->socket, recBuffer, recBufferSize, 0, ( struct sockaddr* ) &client->addr, ( socklen_t * ) &addrLen );
-	if ( bytesReceived <= 0 ) {
-        SOCKETRETRYGOTO ( ReceiveNext );
-
-		CLogArg ( "SecureChannelAuth [ %i ]: Socket closed; Bytes [%i]!", client->socket, bytesReceived ); return false;
-	}
-#else
-	/// Wait for response
-	bytesReceived = ( int ) recvfrom ( ( int ) client->socket, recBuffer, recBufferSize, 0, ( struct sockaddr* ) &client->addr, ( socklen_t * ) &addrLen );
-	if ( bytesReceived <= 0 ) {
-		CLogArg ( "SecureChannelAuth [ %i ]: Socket closed; Bytes [%i]!", client->socket, bytesReceived ); return false;
-	}
-#endif
 
     length += bytesReceived;
     
@@ -8111,11 +8021,7 @@ ReceiveNext:
 }
 
 
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock, int retries )
-#else
 int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock )
-#endif
 {
 	CVerbVerbArg ( "SendBuffer [ %i ]", client->socket );
 	
@@ -8139,10 +8045,6 @@ int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned i
 		msg = cipher;
     }
     
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-Retry:
-#endif
-    
     CVerbArgID ( "SendBuffer [ %i ]: [ %i ] bytes", client->socket, toSendLen );
     
 #ifdef USE_LOCKFREE_SOCKET_ACCESS
@@ -8150,17 +8052,7 @@ Retry:
     sock = (int) client->socket;
     
     if ( sock != -1 )
-        rc = (int) send ( sock, (char *)msg, toSendLen, 0 );
-        //rc = (int)sendto ( sock, (char *)msg, toSendLen, 0, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
-
-#   ifdef USE_NONBLOCK_CLIENT_SOCKET
-    if ( rc <= 0 ) {
-        if ( retries > 0 ) {
-            retries--;
-            goto Retry;
-        }
-    }
-#   endif
+		rc = ( int ) send ( sock, ( char * ) msg, toSendLen, MSG_NOSIGNAL );
 #else
 
 	if ( useLock )
@@ -8169,7 +8061,7 @@ Retry:
     sock = client->socket;
     
     if ( sock != -1 )
-        rc = (int)sendto ( sock, (char *)msg, toSendLen, 0, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
+        rc = (int)sendto ( sock, (char *)msg, toSendLen, MSG_NOSIGNAL, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
 	
 	if ( useLock )
 		client->Unlock ( "SendBuffer" );
@@ -8437,7 +8329,7 @@ Finish:
 }
 
 
-void MediatorDaemon::NotifyClients ( unsigned int notifyID, sp ( DeviceInstanceNode ) &device )
+void MediatorDaemon::NotifyClients ( unsigned int notifyID, const sp ( DeviceInstanceNode ) &device )
 {
     if ( !device )
         return;
@@ -8449,7 +8341,7 @@ void MediatorDaemon::NotifyClients ( unsigned int notifyID, sp ( DeviceInstanceN
 	ctx->notify     = notifyID;
 	ctx->device     = device;
 
-	if ( !MutexLockA ( notifyLock, "NotifyClients" ) ) {
+	if ( !ctx->device || !MutexLockA ( notifyLock, "NotifyClients" ) ) {
         delete ctx;
         return;
 	}
@@ -8753,8 +8645,8 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
 		if ( sock != -1 ) {
             CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
 
-            send ( (int) sock, (char *) &msgV4, sendSize, 0 );
-            //sendto ( (int) sock, (char *)&msg, sendSize, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
+			send ( ( int ) sock, ( char * ) &msgV4, sendSize, MSG_NOSIGNAL );
+            //sendto ( (int) sock, (char *)&msg, sendSize, MSG_NOSIGNAL, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
         }
 #else
 		if ( !dest->Lock ( "NotifyClients" ) )
@@ -8763,7 +8655,7 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         //if ( IsSocketAlive ( dest->socket ) ) {
 			CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
         
-			sendto ( dest->socket, (char *)&msgV4, sendSizeV4, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
+			sendto ( dest->socket, (char *)&msgV4, sendSizeV4, MSG_NOSIGNAL, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
 		//}
 
         dest->Unlock ( "NotifyClients" );
@@ -8795,8 +8687,8 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         if ( sock != -1 ) {
             CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
             
-            send ( (int) sock, (char *) &msg, sendSize, 0 );
-            //sendto ( (int) sock, (char *)&msg, sendSize, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
+            send ( (int) sock, (char *) &msg, sendSize, MSG_NOSIGNAL );
+            //sendto ( (int) sock, (char *)&msg, sendSize, MSG_NOSIGNAL, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
         }
 #else
         if ( !dest->Lock ( "NotifyClients" ) )
@@ -8805,7 +8697,7 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         //if ( IsSocketAlive ( dest->socket ) ) {
         CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
         
-        sendto ( dest->socket, (char *)&msg, sendSize, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
+        sendto ( dest->socket, (char *)&msg, sendSize, MSG_NOSIGNAL, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
         //}
         
         dest->Unlock ( "NotifyClients" );
@@ -8842,8 +8734,8 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         if ( sock != -1 ) {
             CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
             
-            send ( (int) sock, (char *) &msg, sendSize, 0 );
-            //sendto ( (int) sock, (char *)&msg, sendSize, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
+            send ( (int) sock, (char *) &msg, sendSize, MSG_NOSIGNAL );
+            //sendto ( (int) sock, (char *)&msg, sendSize, MSG_NOSIGNAL, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
         }
 #else
         if ( !dest->Lock ( "NotifyClients" ) )
@@ -8852,7 +8744,7 @@ void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
         //if ( IsSocketAlive ( dest->socket ) ) {
         CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
         
-        sendto ( dest->socket, (char *)&msg, sendSize, 0, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
+        sendto ( dest->socket, (char *)&msg, sendSize, MSG_NOSIGNAL, (struct sockaddr *) &dest->addr, sizeof(struct sockaddr) );
         //}
         
         dest->Unlock ( "NotifyClients" );

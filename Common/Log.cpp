@@ -19,14 +19,18 @@
 */
 #include "stdafx.h"
 
-#include <stdio.h>
+#ifndef WINDOWS_PHONE
+#	include <stdio.h>
+#endif
 
 #ifndef CLI_CPP
 #	include <stdarg.h>
-#	include <stdlib.h>
 
 #	ifdef _WIN32
-#		include "windows.h"
+#		ifndef WINDOWS_PHONE
+#			include <stdlib.h>
+#			include "windows.h"
+#		endif
 #		include <time.h>
 #	endif
 
@@ -61,7 +65,7 @@ using namespace environs;
 
 
 //#ifdef NDEBUG
-#   define LOG_TIMESTRING
+//#   define LOG_TIMESTRING
 //#endif
 
 #define ENVIRONS_LOGFILE_TEMP_MAXSIZE               200000
@@ -185,7 +189,8 @@ namespace environs
 #ifdef WIN32
 		if ( localtime_s ( &timeInfo, &now ) ) {
 #else
-		if ( !localtime_s ( &timeInfo, &now ) ) {
+        //if ( !localtime_s ( &timeInfo, &now ) ) {
+        if ( !localtime_r ( &now, &timeInfo ) ) {
 #endif
 			timeBuffer [ 0 ] = 'e';
 			timeBuffer [ 1 ] = 0;

@@ -59,6 +59,8 @@
 #	include "Environs.Cpp.Base.h"
 
 #	include <queue>
+#	include "Queue.List.h"
+#	include "Queue.Vector.h"
 
 #else
 #	include "Environs.Platforms.h"
@@ -87,9 +89,14 @@ namespace environs
 	{
 		CLASS Environs;
 
-		CLASS ListCommandContext
+		CLASS ListCommandContext C_Only ( : public IQueueItem )
 		{
-		public:
+        public:
+            
+#ifdef DEBUG_TRACK_LIST_NOTIFIER_CONTEXT
+            ListCommandContext ();
+            ~ListCommandContext ();
+#endif
 			int					hEnvirons;
 			EnvironsPtr         envObj;
 			OBJIDType			destID;
@@ -103,16 +110,33 @@ namespace environs
 #else
 			spv ( lib::IIEnvironsObserver OBJ_ptr ) observerList;
 #endif
-			NLayerVecType ( DeviceInstanceEP ) vanished;
-			NLayerVecType ( DeviceInstanceEP ) appeared;
-
-			int     notification;
+            int                 notification;
+            
+            environs::DeviceClass_t     listType;
 
 			sp ( environs::DeviceInfo ) device;
 		};
+        
+        
+        PUBLIC_CLASS ListContext
+        {
+		public:
+#ifdef CLI_CPP
+			ListContext() { lock = gcnew Object(); };
+#endif
+            environs::DeviceClass_t             type;
+            pthread_mutex_t  cli_OBJ_ptr        lock;
+            
+            NLayerVecType ( DeviceInstanceEP )  vanished;
+            NLayerVecType ( DeviceInstanceEP )  appeared;
+        };
+        
+        
+#ifdef DEBUG_TRACK_LIST_NOTIFIER_CONTEXT
+        void CheckListCommandContexts ( ListCommandContext * inst, bool remove );
+#endif
 
-
-		PUBLIC_CLASS Environs DERIVE_c_only ( environs::Environs ) DERIVE_DISPOSEABLE DERIVE_TYPES
+		PUBLIC_CLASS Environs DERIVE_c_only ( environs::Environs ) DERIVE_DISPOSABLE DERIVE_TYPES
 		{
             MAKE_FRIEND_CLASS ( environs::EnvironsNative );
             MAKE_FRIEND_CLASS ( DeviceList );
@@ -164,6 +188,13 @@ namespace environs
 			* @param level      debug level 0 ... 16
 			*/
             ENVIRONS_LIB_API void SetDebug ( int level );
+            
+            
+            /**
+             * Dispose the storage, that is remove all data and messages received in the data store.
+             *
+             */
+            ENVIRONS_LIB_API void ClearStorage ();
             
             
             /**
@@ -301,19 +332,19 @@ namespace environs
 
 
 			/**
-			* Instruct Environs to use command line mode.
+			* Instruct Environs to use headless mode without worrying about UI thread.
 			*
 			* @param enable      true = enable, false = disable
 			*/
-			ENVIRONS_LIB_API void SetUseCommandLine ( bool enable );
+			ENVIRONS_LIB_API void SetUseHeadless ( bool enable );
 
 
 			/**
-			* Query Environs settings whether to use command line mode.
+			* Query Environs settings whether to use headless mode without worrying about UI thread.
 			*
 			* @return enable      true = enabled, false = disabled
 			*/
-			ENVIRONS_LIB_API bool GetUseCommandLine ();
+			ENVIRONS_LIB_API bool GetUseHeadless ();
             
             
             /**
@@ -341,10 +372,14 @@ namespace environs
 			*
 			* @return enable      true = enabled, false = disabled
 			*/
-			ENVIRONS_LIB_API bool GetUseDeviceListAsUIAdapter ();
+            ENVIRONS_LIB_API bool GetUseDeviceListAsUIAdapter ();
             
-
-			//ENVIRONS_LIB_API bool opt ( CString_ptr key );
+            
+            /** Default value for each DeviceInstance after object creation. */
+            ENVIRONS_LIB_API bool GetAllowConnectDefault ();
+            
+            /** Default value for each DeviceInstance after object creation. */
+            ENVIRONS_LIB_API void SetAllowConnectDefault ( bool value );
 
 
 			/**
@@ -1027,19 +1062,6 @@ namespace environs
 
 			ENVIRONS_LIB_API DeviceDisplay OBJ_ptr GetDeviceDisplayProps ( int nativeID );
             
-            /**
-             * Option whether to allow connections by every device.
-             *
-             * @param enable  true = enabled, false = failed.
-             */
-            ENVIRONS_LIB_API void SetConnectAllowFromAll ( int enable );
-            
-            /**
-             * Option whether to allow connections by every device.
-             *
-             * @return  true = enabled, false = failed.
-             */
-            ENVIRONS_LIB_API int GetConnectAllowFromAll ();
             
 			/**
 			* Connect to device with the given ID and a particular application environment.
@@ -1176,7 +1198,7 @@ namespace environs
 #endif
 
 			/**
-			 * Release ownership on this interface and mark it disposeable.
+			 * Release ownership on this interface and mark it disposable.
 			 * Release must be called once for each Interface that the Environs framework returns to client code.
 			 * Environs will dispose the underlying object if no more ownership is hold by anyone.
 			 *
@@ -1195,6 +1217,12 @@ namespace environs
             static Environs                             *   instancesAPI [ ENVIRONS_MAX_ENVIRONS_INSTANCES ];
 #endif
 			int                                             hEnvirons;
+
+			STRING_T                                        envAppName;
+            STRING_T                                        envAreaName;
+            
+            /** Default value for each DeviceInstance after object creation. */
+            bool                                            allowConnectDefault;
 
 			void			SetInstance ( int hInst );
 
@@ -1285,16 +1313,17 @@ namespace environs
 			* @param size          The size of the data buffer.
 			*/
 			CLI_NO_STATIC void BridgeForData ( int hInst, OBJIDType objID, int nativeID, int type, int fileID, CString_ptr descriptor, int size );
-
-
-			/**
-			* BridgeForSensorData is called (by the native layer) when a sensor input event has been received from a connected device.
-			*
-			* @param hInst			A handle to the Environs instance
-			* @param objID          The native device id of the sender device.
-			* @param pack			The sensor data frame.
-			*/
-			CLI_NO_STATIC void BridgeForSensorData ( int hInst, OBJIDType objID, Addr_obj pack );
+            
+            
+            /**
+             * BridgeForUdpData static method to be called by native layer in order to notify about udp data received from a device.
+             *
+             * @param hInst			A handle to the Environs instance
+             * @param objID         The native device id of the sender device.
+             * @param pack          A udp data structure containing the received udp or sensor data.
+             * @param packSize      The size of the data buffer in number of bytes.
+             */
+			CLI_NO_STATIC void BridgeForUdpData ( int hInst, OBJIDType objID, Addr_obj pack, int packSize );
 
 			pthread_mutex_t             queryLock;
 			pthread_mutex_t             listLock;
@@ -1306,30 +1335,62 @@ namespace environs
 
             bool                        isUIAdapter;
 			pthread_mutex_t             listAllLock;
-			devList ( DeviceInstanceEP )listAll;
+            
+            
+#ifdef DEBUG_TRACK_DEVICE_INSTANCE
+        public:
+            devList ( DeviceInstanceEP )listAll;
+        private:
+#else
+            devList ( DeviceInstanceEP )listAll;
+#endif
 
 			pthread_mutex_t             listNearbyLock;
 			devList ( DeviceInstanceEP )listNearby;
 
 			pthread_mutex_t             listMediatorLock;
+#ifdef DEBUG_TRACK_DEVICE_INSTANCE
+		public:
 			devList ( DeviceInstanceEP )listMediator;
+		private:
+#else
+			devList ( DeviceInstanceEP )listMediator;
+#endif
+            
+            ListContext                 contextAll;
+            ListContext                 contextMediator;
+            ListContext                 contextNearby;
 
+            ListContext OBJ_ptr GetListContext ( environs::DeviceClass_t listType );
+            
 			spv ( lib::IIListObserver * )		listAllObservers;
 			spv ( lib::IIListObserver * )       listNearbyObservers;
 			spv ( lib::IIListObserver * )       listMediatorObservers;
 
-			stdQueue ( ListCommandContextPtr )  listCommandQueue;
+			envQueueVector ( ListCommandContextPtr )  listCommandQueue;
             
             bool                                listCommandThreadRun;
             ThreadSync                          listCommandThread;
 
-			void								ListCommandQueueClear ();
+            void								ListCommandQueueClear ();
+            void                                DisposeListCommandContext ( ListContext OBJ_ptr ctx );
             
-            stdQueue ( DeviceNotifierContextPtr ) deviceNotifierQueue;
+            void                                DisposeListContainer ( NLayerVecType ( DeviceInstanceEP ) c_ref list );
+            
+            void                                AddToListContainer ( DeviceClass_t listType, NLayerVecType ( DeviceInstanceEP ) c_ref vanished, NLayerVecType ( DeviceInstanceEP ) c_ref appeared );
+            
+			envQueueVector ( DeviceNotifierContextPtr ) deviceNotifierQueue;
             pthread_mutex_t						deviceNotifierLock;
             bool                                deviceNotifierThreadRun;
             ThreadSync                          deviceNotifierThread;
+            
+			pthread_t_id						startStopThread;
+			bool								IsDisposalContextSafe ();
+            void								DeviceNotifierQueueClear ();
+            void                                DisposeNotifierContext ( DeviceNotifierContextPtr c_ref ctx );
 
+            void                                DisposeDevice ( DeviceInstanceReferenceSP device );
+            
 			static bool             objetAPIInit INIT_to_false_in_cli;
 
 			static bool				ObjectAPIInit ();
@@ -1344,6 +1405,8 @@ namespace environs
             * @param	set    	 true = set, false = clear.
 			*/
 			void					SetDeviceFlags ( int objID, int flags, bool set );
+
+			static void c_OBJ_ptr	EnvironsStart ( pthread_param_t arg );
 
             void                    DoStop ();
             static void c_OBJ_ptr   EnvironsStop ( pthread_param_t arg );
@@ -1432,7 +1495,7 @@ namespace environs
 
 			void UpdateData ( environs::ObserverDataContext OBJ_ptr ctx );
 
-			void UpdateSensorData ( OBJIDType objID, environs::SensorFrame OBJ_ptr pack );
+			void UpdateUdpData ( UdpDataContext OBJ_ptr udpData );
             
             /**
              * Enable sending of sensor events to this DeviceInstance.

@@ -31,7 +31,7 @@ namespace environs
 
 #ifndef CLI_CPP
 
-#define DERIVE_DISPOSEABLE	
+#define DERIVE_DISPOSABLE
 #define DERIVE_TYPES		
 
 	namespace lib
@@ -67,7 +67,7 @@ namespace environs
 
 
 			/**
-			* Release ownership on this interface and mark it disposeable.
+			* Release ownership on this interface and mark it disposable.
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
@@ -88,7 +88,7 @@ namespace environs
 
 	using namespace System;
 
-#	define DERIVE_DISPOSEABLE		: IDisposable	
+#	define DERIVE_DISPOSABLE		: IDisposable	
 #	define DERIVE_TYPES				, public Types
 
 #endif
@@ -106,6 +106,8 @@ namespace environs
 
 #define ENVIRONS_OUTPUT_ALLOC_RESOURCE(type)	sp ( type ) myself; sp ( type ) myselfAtClients
 
+#define ENVIRONS_OUTPUT_ALLOC_WP_RESOURCE(type)	wp ( type ) myself; sp ( type ) myselfAtClients
+
 
 #define ENVIRONS_OUTPUT_DE_ALLOC_DECL()         ENVIRONS_LIB_API bool	Retain (); \
                                                 ENVIRONS_LIB_API void	Release (); \
@@ -114,65 +116,50 @@ namespace environs
                                                 LONGSYNC				refCountSP; \
                                                 LONGSYNC                objID_;
 
-/*
-#define ENVIRONS_OUTPUT_DE_ALLOC_DECL()         ENVIRONS_LIB_API bool	Retain (); \
-												ENVIRONS_LIB_API void	Release (); \
-                                                void * platformRef; \
-												private: \
-                                                int						refCountSP; \
-												pthread_mutex_t			refCountMutex; long objID_;
-*/
+#define ENVIRONS_OUTPUT_ALLOC_INIT()			refCountSP = 0; platformRef = 0; objID_ = __sync_add_and_fetch ( &objectIdentifiers, 1 );
 
-#define ENVIRONS_OUTPUT_ALLOC_INIT()			myself = 0; refCountSP = 0; myselfAtClients = 0; platformRef = 0; objID_ = __sync_add_and_fetch ( &objectIdentifiers, 1 );
 
-/*
-#define ENVIRONS_OUTPUT_ALLOC_INIT()			myself = 0; refCountSP = 0; myselfAtClients = 0; MutexInit ( &refCountMutex ); platformRef = 0; objID_ = __sync_add_and_fetch ( &objectIdentifiers, 1 );
-*/
- 
 #define ENVIRONS_OUTPUT_ALLOC(type)				extern LONGSYNC objectIdentifiers; \
 bool type::Retain () { \
 	CVerbVerbArg ( "Retain [%i]: [%i]", objID_, refCountSP );  \
 	\
 	LONGSYNC localRefCount = __sync_add_and_fetch ( &refCountSP, 1 ); \
 	\
-    if ( refCountSP == 1 && myself ) { \
-        CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
-        myselfAtClients = myself; \
+    if ( localRefCount == 1 ) { \
+        if ( myself ) { \
+            CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
+            myselfAtClients = myself; \
+        } \
     } \
 	CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, localRefCount );  \
 	\
 	return (localRefCount > 0); \
-} 
-/*
+}
+
+
+#define ENVIRONS_OUTPUT_WP_ALLOC(type)				extern LONGSYNC objectIdentifiers; \
 bool type::Retain () { \
     CVerbVerbArg ( "Retain [%i]: [%i]", objID_, refCountSP );  \
     \
-    bool success = true; \
+    LONGSYNC localRefCount = __sync_add_and_fetch ( &refCountSP, 1 ); \
     \
-    MutexLockV ( &refCountMutex, "Retain" ); \
-    \
-    if ( refCountSP < 0 )  {\
-        success = false; \
-        CErrArg ( "Retain [%i]: Negative reference count!!!", objID_ );  \
-    } \
-    else \
-    { \
-        if ( refCountSP == 0 && myself ) { \
+    if ( localRefCount == 1 ) { \
+        if ( myself.use_count () > 0 ) { \
             CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
-            myselfAtClients = myself; \
+            myselfAtClients = myself.lock (); \
+            if ( !myselfAtClients ) { \
+                localRefCount = __sync_sub_and_fetch ( &refCountSP, 1 ); \
+            } \
         } \
-        ++refCountSP; \
     } \
+    CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, localRefCount );  \
     \
-    CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, refCountSP );  \
-    \
-    MutexUnlockV ( &refCountMutex, "Retain" ); \
-    return success; \
+    return (localRefCount > 0); \
 }
-*/
+
 
  /**
- * Release ownership on this interface and mark it disposeable.
+ * Release ownership on this interface and mark it disposable.
  * Release must be called once for each Interface that the Environs framework returns to client code.
  * Environs will dispose the underlying object if no more ownership is hold by anyone.
  *
@@ -180,37 +167,16 @@ bool type::Retain () { \
  */
 #define ENVIRONS_OUTPUT_RELEASE()				 CVerbVerbArg ( "Release  [%i]: [%i]", objID_, refCountSP ); \
 \
-LONGSYNC localRefCount = __sync_sub_and_fetch ( &refCountSP, 1 ); \
-\
-if ( localRefCount == 0 )  { \
-	ReleaseLocked (); \
-} \
-CVerbVerbArg ( "Release  [%i]: -> [%i]", objID_, localRefCount ); \
-\
-if ( localRefCount == 0 ) { \
-	CVerbVerbArg ( "Release  [%i]: -> Disposing SP", objID_ );  \
-	myselfAtClients = 0; \
-}
+    LONGSYNC localRefCount = __sync_sub_and_fetch ( &refCountSP, 1 ); \
+    \
+    if ( localRefCount == 0 )  { \
+        ReleaseLocked (); \
+        CVerbVerbArg ( "Release  [%i]: -> [%i]", objID_, localRefCount ); \
+        \
+        CVerbVerbArg ( "Release  [%i]: -> Disposing SP", objID_ );  \
+        myselfAtClients = 0; \
+    } 
 
-/*
-int localRefCount = 0; \
-\
-MutexLockV ( &refCountMutex, "Release" ); \
-\
-localRefCount = --refCountSP; \
-\
-if ( localRefCount == 0 )  { \
-    ReleaseLocked (); \
-} \
-MutexUnlockV ( &refCountMutex, "Release" ); \
-\
-CVerbVerbArg ( "Release  [%i]: -> [%i]", objID_, localRefCount ); \
-\
-if ( localRefCount == 0 ) { \
-    CVerbVerbArg ( "Release  [%i]: -> Disposing SP", objID_ );  \
-    myselfAtClients = 0; \
-}
-*/
 
 #if ((defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX)))
 
@@ -266,6 +232,8 @@ sp ( type ) ent ( p1, ::environs::EnvironsDisposer ); \
 #endif
 
 #	define ENVIRONS_OUTPUT_ALLOC_RESOURCE(type)	
+#	define ENVIRONS_OUTPUT_ALLOC_WP_RESOURCE(type) 
+
 #	define ENVIRONS_OUTPUT_DE_ALLOC_DECL()				ENVIRONS_LIB_API void	Release (); \
 														PLATFORMREF platformRef; \
 													protected: \
@@ -275,6 +243,7 @@ sp ( type ) ent ( p1, ::environs::EnvironsDisposer ); \
 #	define ENVIRONS_OUTPUT_ALLOC_INIT()					platformRef = PLATFORMREFNILL; __int64 %tRef = objectIdentifiers; objID_ = __sync_add_and_fetch ( tRef, 1 );
 
 #	define ENVIRONS_OUTPUT_ALLOC(type)					extern LONGSYNC objectIdentifiers;
+#	define ENVIRONS_OUTPUT_WP_ALLOC(type)				extern LONGSYNC objectIdentifiers;
 
 #	define ENVIRONS_OUTPUT_RELEASE()						 
 

@@ -57,7 +57,7 @@ namespace environs
 
 
 		/**
-		* Release ownership on this interface and mark it disposeable.
+		* Release ownership on this interface and mark it disposable.
 		* Release must be called once for each Interface that the Environs framework returns to client code.
 		* Environs will dispose the underlying object if no more ownership is hold by anyone.
 		*
@@ -240,7 +240,7 @@ namespace environs
 		/**
 		* Query the number of Mediator managed devices within the environment.
 		*
-		* @return numberOfDevices
+		* @return numberOfDevices (or -1 for error)
 		*/
 		virtual int GetDevicesFromMediatorCount () = 0;
 

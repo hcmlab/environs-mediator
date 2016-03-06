@@ -36,7 +36,7 @@
 #define ENABLE_CRYPT_PRIVKEY_LOCKED_ACCESS
 
 
-#if ( defined(ANDROID) || defined(LINUX) )
+#if ( defined(ANDROID) || defined(LINUX) || defined(WINDOWS_PHONE) )
 #   define USE_OPENSSL
 #   define USE_OPENSSL_AES
 #else

@@ -10,7 +10,6 @@
  *
  * @author	Chi-Tai Dang
  * @version	1.0
- * @remarks
  *
  * This file is part of the Environs framework developed at the
  * Lab for Human Centered Multimedia of the University of Augsburg.
@@ -605,8 +604,8 @@ namespace environs
 			case ( DEVICEINFO_UNAVAILABLE_START + 1 ):
 				return "DEVICEINFO_ISCONNECTED_START";
 			case ( DEVICEINFO_ISCONNECTED_START + 2 ):
-				return "DEVICEINFO_UNUSED_FLAGS_START";
-			case ( DEVICEINFO_DEVICETYPE_START + 1 ):
+				return "DEVICEINFO_HASAPPAREA_START";
+			case ( DEVICEINFO_HASAPPAREA_START + 1 ):
 				return "DEVICEINFO_DEVICENAME_START";
 			case ( DEVICEINFO_DEVICENAME_START + (MAX_NAMEPROPERTY + 1) ):
 				return "DEVICEINFO_AREANAME_START";
@@ -657,17 +656,17 @@ namespace environs
 
 		switch ( constToResolve ) {
 			case ( 0x8 ):
-				return "DEVICEFLAGS_INTERNAL_DATA_READY";
+				return "DEVICEFLAGS_INTERNAL_MESSAGE_READY";
 			case ( 0xFF ):
 				return "DEVICEFLAGS_INTERNAL_NOTIFY_MASK";
 			case ( 0x0100 ):
-				return "DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY";
+				return "DEVICEFLAGS_INTERNAL_CP_NATIVE_READY";
 			case ( 0x0200 ):
-				return "DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY";
+				return "DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY";
 			case ( 0x0400 ):
-				return "DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY";
+				return "DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY";
 			case ( 0x0800 ):
-				return "DEVICEFLAGS_INTERNAL_CP_DATA_READY";
+				return "DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY";
 		} /// -> switch
 
 
@@ -839,7 +838,7 @@ namespace environs
 			case ( (8 << 24) ):
 				return "ENVIRONS_CRYPT_PAD_PKCS1SHA256";
 		} /// -> switch
-		if ( constToResolve == ( 0xFFFF ) )
+		if ( constToResolve == ( 0x1FFFF ) )
 			return "MEDIATOR_CLIENT_MAX_BUFFER_SIZE";
 		if ( constToResolve == ( MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) )
 			return "DEVICE_HANDSHAKE_BUFFER_MAX_SIZE";

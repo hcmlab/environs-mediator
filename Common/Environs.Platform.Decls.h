@@ -35,15 +35,23 @@
 #endif
 
 #ifndef DeviceInstanceEPtr
-#	define DeviceInstanceEPtr         EPSPACE DeviceInstance OBJ_ptr
+#	define DeviceInstanceEPtr			EPSPACE DeviceInstance OBJ_ptr
 #endif
 
 #ifndef DeviceInstanceSP
-#	define DeviceInstanceSP         sp ( DeviceInstance )
+#	define DeviceInstanceSP				sp ( DeviceInstance )
+#endif
+
+#ifndef DeviceInstanceReferenceSP
+#	define DeviceInstanceReferenceSP	c_const sp ( DeviceInstance ) c_ref
 #endif
 
 #ifndef DeviceInstanceESP
-#	define DeviceInstanceESP         sp ( EPSPACE DeviceInstance )
+#	define DeviceInstanceESP			sp ( EPSPACE DeviceInstance )
+#endif
+
+#ifndef DeviceInstanceReferenceESP
+#	define DeviceInstanceReferenceESP   c_const sp ( EPSPACE DeviceInstance ) c_ref
 #endif
 
 #ifndef DeviceInfoPtr

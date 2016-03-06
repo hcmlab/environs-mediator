@@ -29,8 +29,9 @@
 #	include <memory>
 #	include <vector>
 #	include <map>
+#	include <queue>
 
-#	define sp_reset(sp)				sp = 0
+#	define sp_reset(sp)				sp.reset ()
 #	define sp_set_no_cli(d,s)		d = s
 #	define sp_get(v)				v.get()
 #	define sp_make(type)			std::make_shared < type > ();
@@ -47,6 +48,20 @@
 #	define stdQueue_pop(q)			q.pop()
 #	define stdQueue_push(q,e)		q.push(e)
 
+#	define stdQueuep_empty(q)		q->empty()
+#	define stdQueuep_front(q)		q->front()
+#	define stdQueuep_pop(q)			q->pop()
+#	define stdQueuep_push(q,e)		q->push(e)
+
+#	define envQueue(type)			QueueList
+#	define envQueue_empty(q)		(q.size_ == 0)
+#	define envQueue_nempty(q)		(q.size_)
+#	define envQueue_front(q)		q.pop()
+#	define envQueue_pop(q)			
+#	define envQueue_push(q,e)		q.push(e)
+
+#	define envQueueVector(type)		QueueVector
+
 #	define envArrayList				environs::ArrayList
 
 #	define sp(type)					std::shared_ptr < type >
@@ -62,6 +77,9 @@
 #	define vsp(type)				std::vector < std::shared_ptr < type > >
 
 #	define svsp(type)				std::shared_ptr < std::vector < std::shared_ptr < type > > >
+
+#	define sqsp(type)				std::shared_ptr < std::queue < std::shared_ptr < type > > >
+#	define sqosp(type)				std::queue < std::shared_ptr < type > >
 
 #	define msp(key,type)			std::map < key, std::shared_ptr < type > >
 #	define smsp(key,type)			std::shared_ptr < std::map < key, std::shared_ptr < type > > >
@@ -92,7 +110,10 @@
 #	define NLayerMapTypeObj(a,b)	msp(a,b)
 #	define NLayerVecTypeObj(a)		vsp(a)
 #	define NLayerListType(a)		std::shared_ptr < std::vector < a * > >
-#	define NLayerListTypeObj(a)		std::vector < a * > 
+#	define NLayerListTypeObj(a)		std::vector < a * >
+
+#	define NLayerQueueType(a)		sqsp(a)
+#	define NLayerQueueObj(a)		sqosp(a)
 
 #	define NLayerMapRaw(key,t)		std::map < key, t * >
 
@@ -128,12 +149,25 @@ using System::Collections::Generic::List;
 	using System::Collections::ObjectModel::ObservableCollection;
 #endif
 
-
 #	define stdQueue(type)			System::Collections::Generic::Queue < type >
 #	define stdQueue_empty(q)		(q.Count == 0)
 #	define stdQueue_front(q)		q.Dequeue()
 #	define stdQueue_pop(q)			
 #	define stdQueue_push(q,e)		q.Enqueue(e)
+	
+#	define envQueue(type)			stdQueue(type)
+#	define envQueue_empty(q)		stdQueue_empty(q)
+#	define envQueue_nempty(q)		(q.Count != 0)
+#	define envQueue_front(q)		stdQueue_front(q)
+#	define envQueue_pop(q)			stdQueue_pop(q)
+#	define envQueue_push(q,e)		stdQueue_push(q,e)
+
+#	define envQueueVector(type)		stdQueue(type)
+
+#	define stdQueuep_empty(q)		(q->Count == 0)
+#	define stdQueuep_front(q)		q->Dequeue()
+#	define stdQueuep_pop(q)
+#	define stdQueuep_push(q,e)		q->Enqueue(e)
 
 #	define envArrayList				System::Collections::ArrayList
 
@@ -204,7 +238,10 @@ using System::Collections::Generic::List;
 #	define NLayerMapTypeObj(a,b)	Dictionary<a, b ^> 
 #	define NLayerVecTypeObj(a)		List<a ^> 
 #	define NLayerListType(a)		List<a ^> ^
-#	define NLayerListTypeObj(a)		List<a ^> 
+#	define NLayerListTypeObj(a)		List<a ^>
+
+#	define NLayerQueueType(a)		stdQueue(a)
+#	define NLayerQueueObj(a)		stdQueue(a)
 
 #	define NLayerMapRaw(key,t)		Dictionary<key, t ^> 
 

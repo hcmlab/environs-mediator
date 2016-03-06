@@ -31,7 +31,7 @@
 #include "Device.Display.Decl.h"
 #include "Interop/Threads.h"
 #include "Interop/jni.h"
-
+#include <string.h>
 
 /**
  *	Device Instance Interface
@@ -70,18 +70,32 @@ namespace environs
 		/** The device properties structure into a DeviceInfo object. */
 		virtual environs::DeviceInfo * info () = 0;
 
-
-		/** Application defined contexts for arbitrary use. */
+        
+        /** Application defined context 0 for arbitrary use. */
 		int                     appContext0;
+        
+        /** Application defined context 1 for arbitrary use. */
 		void *                  appContext1;
+        
+        /** Application defined context 2 for arbitrary use. */
 		void *                  appContext2;
+        
+        /** Application defined context 3 for arbitrary use. */
 		void *                  appContext3;
 
 		/** Perform the tasks asynchronously. If set to Environs.Call.Wait, the commands will block (if possible) until the task finishes. */
-		environs::Call_t		async;
-
+        environs::Call_t		async;
+        
+        /** Allow connects by this device. The default value of for this property is determined by GetAllowConnectDefault() / SetAllowConnectDefault ().
+         Changes to this property or the allowConnectDefault has only effect on subsequent instructions. */
+        virtual void            SetAllowConnect ( bool value ) = 0;
+        
+        /** Allow connects by this device. The default value of for this property is determined by GetAllowConnectDefault() / SetAllowConnectDefault ().
+         Changes to this property or the allowConnectDefault has only effect on subsequent instructions. */
+        virtual bool            GetAllowConnect () = 0;
+        
 		/**
-		* Release ownership on this interface and mark it disposeable.
+		* Release ownership on this interface and mark it disposable.
 		* Release must be called once for each Interface that the Environs framework returns to client code.
 		* Environs will dispose the underlying object if no more ownership is hold by anyone.
 		*
@@ -157,10 +171,16 @@ namespace environs
 		* @param customFlags Either custom declared flags or 0. If 0 is provided, then the flag Environs.DEVICE_INFO_ATTR_APP_CONTEXT will be used.
 		*/
 		virtual void NotifyAppContextChanged ( int customFlags ) = 0;
-
+        
+        /** A descriptive string with the most important details. */
 		virtual const char * toString () = 0;
-
-		virtual const char * ips () = 0;
+        
+        /** IP from device. The IP address reported by the device which it has read from network configuration. */
+        virtual const char * ips () = 0;
+        
+        /** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
+         * This address could be different from IP due to NAT, Router, Gateways behind the device.
+         */
 		virtual const char * ipes () = 0;
 
 		virtual bool EqualsAppEnv ( environs::DeviceInfo * equalTo ) = 0;
@@ -178,21 +198,37 @@ namespace environs
 
 		virtual const char * GetBroadcastString ( bool fullText ) = 0;
 
-
+        
+        /** isConnected is true if the device is currently in the connected state. */
 		virtual bool isConnected () = 0;
+        
+        /**
+         * disposed is true if DeviceInstance is no longer valid. Nothing will be updated anymore.
+         * disposed will be notified through Environs.ENVIRONS_OBJECT_DISPOSED to DeviceObservers.
+         * */
 		virtual bool disposed () = 0;
-
+        
+        /** Determines whether this instance provides location node features. */
         virtual bool isLocationNode () = 0;
-
+        
+        /** sourceType is a value of environs::DeviceSourceType and determines whether the device has been seen on the broadcast channel of the current network and/or from a Mediator service. */
 		virtual environs::DeviceSourceType_t sourceType () = 0;
 
-		virtual bool isObserverReady () = 0;
-		virtual bool isMessageObserverReady () = 0;
-		virtual bool isDataObserverReady () = 0;
-		virtual bool isSensorObserverReady () = 0;
         
+        /** Determines whether the remote device has attached an observer. */
+		virtual bool isObserverReady () = 0;
+        
+        /** Determines whether the remote device has attached a message observer. */
+		virtual bool isMessageObserverReady () = 0;
+        
+        /** Determines whether the remote device has attached a data observer. */
+		virtual bool isDataObserverReady () = 0;
+        
+        /** Determines whether the remote device has attached a sesnor observer. */
+		virtual bool isSensorObserverReady () = 0;
 
-		/** An identifier that is unique for this object. */
+        
+        /** An identifier that is unique for this object of this type. */
 		virtual long objID () = 0;
 
 		/**
@@ -329,7 +365,23 @@ namespace environs
 		* @param bytesToSend number of bytes in the buffer to send
 		* @return success
 		*/
-		virtual bool SendBuffer ( int fileID, const char * fileDescriptor, unsigned char * buffer, int bytesToSend ) = 0;
+        virtual bool SendBuffer ( int fileID, const char * fileDescriptor, unsigned char * buffer, int bytesToSend ) = 0;
+
+
+        /**
+         * Receives a buffer sent by the DeviceInstance using  SendBuffer/SendFile.
+         * This call blocks until a new data has been received or until the DeviceInstance gets disposed.
+         * Data that arrive while Receive is not called will be queued and provided with subsequent calls to Receive.
+         *
+         * @return FileInstance
+         */
+        sp ( FileInstance ) ReceiveBuffer ()
+        {
+            ENVIRONS_IR_SP1_RETURN ( FileInstance, ReceiveBufferRetained () );
+        }
+
+        virtual FileInstance * ReceiveBufferRetained () = 0;
+
 
 		/**
 		* Send a string message to a device through one of the following ways.&nbsp;
@@ -386,9 +438,75 @@ namespace environs
 		* @param message		A message to be send.
 		* @return success
 		*/
-		virtual bool SendMessage ( environs::Call_t async, const char * message ) = 0;
+        virtual bool SendMessage ( environs::Call_t async, const char * message ) = 0;
+
+
+        /**
+         * Receives a message sent by the DeviceInstance using SendMessage.
+         * This call blocks until a new message has been received or until the DeviceInstance gets disposed.
+         * Messages that arrive while Receive is not called will be queued and provided with subsequent calls to Receive.
+         *
+         * @return MessageInstance
+         */
+        sp ( MessageInstance ) Receive ()
+        {
+            ENVIRONS_IR_SP1_RETURN ( MessageInstance, ReceiveRetained () );
+        }
+
+        virtual MessageInstance * ReceiveRetained () = 0;
+
 
 		/**
+		* Send a buffer with bytes via udp to a device.&nbsp;The devices must be connected before for this call.
+		*
+		* @param buffer        A buffer to be send.
+		* @param offset        A user-customizable id that identifies the file to be send.
+		* @param bytesToSend number of bytes in the buffer to send
+		* @return success
+		*/
+		virtual bool SendDataUdp ( unsigned char * buffer, int offset, int bytesToSend ) = 0;
+
+
+        /**
+         * Send a buffer with bytes via udp to a device.&nbsp;The devices must be connected before for this call.
+         *
+         * @param async			(environs.Call.NoWait) Perform asynchronous. (environs.Call.Wait) Non-async means that this call blocks until the call finished.
+         * @param buffer        A buffer to be send.
+         * @param offset        A user-customizable id that identifies the file to be send.
+         * @param bytesToSend number of bytes in the buffer to send
+         * @return success
+         */
+        virtual bool SendDataUdp ( environs::Call_t async, unsigned char * buffer, int offset, int bytesToSend ) = 0;
+
+
+        /**
+         * Receives a data buffer sent by the DeviceInstance using SendDataUdp.
+         * This call blocks until new data has been received or until the DeviceInstance gets disposed.
+         *
+         * @return byte buffer
+         */
+		up ( unsigned char [ ] ) ReceiveData ( int * size )
+		{
+			int sizeInBytes = 0;
+            
+			UCharArray_ptr data = ReceiveDataRawPointer ( &sizeInBytes );
+            
+			if ( data && sizeInBytes > 0 ) {
+				up ( unsigned char [ ] ) bufferUP ( new unsigned char [ sizeInBytes ] );
+				if ( bufferUP ) {
+					memcpy ( bufferUP.get (), data, (size_t) sizeInBytes );
+                    if ( size )
+                        *size = sizeInBytes;
+					return bufferUP;
+				}
+			}
+			return 0;
+		};
+
+		virtual UCharArray_ptr ReceiveDataRawPointer ( int * size ) = 0;
+
+
+        /**
 		* Clear (Delete permanently) all messages for this DeviceInstance in the persistent storage.
 		*
 		*/
@@ -399,7 +517,7 @@ namespace environs
 		*
 		*/
         virtual void ClearStorage () = 0;
-        
+
         /**
          * Clear cached MessageInstance and FileInstance objects for this DeviceInstance.
          *
@@ -408,25 +526,49 @@ namespace environs
 
 
 		/**
-		* Get a list with all messages that this device has received (and sent).
+		* Get a dictionary with all files that this device has received (and sent) from the storage.
 		*
 		* @return Collection with objects of type MessageInstance
 		*/
-		sp ( FileList ) GetAllFiles ()
+		sp ( FileList ) GetFilesInStorage ()
 		{
-			ENVIRONS_IR_SP1_RETURN ( FileList, GetAllFilesRetained () );
-		};
+			ENVIRONS_IR_SP1_RETURN ( FileList, GetFilesInStorageRetained () );
+        };
+        
+        
+        /**
+         * Get a dictionary with all files that this device has received (and sent) since the Device instance has appeared.
+         *
+         * @return Collection with objects of type MessageInstance
+         */
+        sp ( FileList ) GetFiles ()
+        {
+            ENVIRONS_IR_SP1_RETURN ( FileList, GetFilesRetained () );
+        };
 
 
 		/**
-		* Get a list with all messages that this device has received (and sent).
+		* Get a list with all messages that this device has received (and sent) from the storage.
 		*
 		* @return Collection with objects of type MessageInstance
 		*/
-		sp ( MessageList ) GetAllMessages ()
+		sp ( MessageList ) GetMessagesInStorage ()
 		{
-			ENVIRONS_IR_SP1_RETURN ( MessageList, GetAllMessagesRetained () );
-		};
+			ENVIRONS_IR_SP1_RETURN ( MessageList, GetMessagesInStorageRetained () );
+        };
+        
+                
+        /**
+         * Get a list with all messages that this device has received (and sent) since the Device instance has appeared.
+         * Note: These messages would otherwise been delivered by calls to Receive, that is by calling GetMessages,
+         *       the messages will not be delivered to Receive afterwards.
+         *
+         * @return Collection with objects of type MessageInstance
+         */
+        sp ( MessageList ) GetMessages ()
+        {
+            ENVIRONS_IR_SP1_RETURN ( MessageList, GetMessagesRetained () );
+        };
 
 
 		/**
@@ -458,19 +600,33 @@ namespace environs
 
 	private:
 		/**
-		* Get a dictionary with all files that this device instance has received.
+		* Get a dictionary with all files that this device instance has received since the Device instance has appeared.
 		*
 		* @return Collection with objects of type FileInstance with the fileID as the key.
 		*/
-		virtual ArrayList * GetAllFilesRetained () = 0;
+        virtual ArrayList * GetFilesRetained () = 0;
+        
+        /**
+         * Get a dictionary with all files that this device instance has received from the storage.
+         *
+         * @return Collection with objects of type FileInstance with the fileID as the key.
+         */
+        virtual ArrayList * GetFilesInStorageRetained () = 0;
 
 
 		/**
-		* Get a list with all messages that this device has received (and sent).
+		* Get a list with all messages that this device has received (and sent) since the Device instance has appeared.
 		*
 		* @return Collection with objects of type MessageInstance
 		*/
-		virtual ArrayList * GetAllMessagesRetained () = 0;
+        virtual ArrayList * GetMessagesRetained () = 0;
+        
+        /**
+         * Get a list with all messages that this device has received (and sent) from the storage.
+         *
+         * @return Collection with objects of type MessageInstance
+         */
+        virtual ArrayList * GetMessagesInStorageRetained () = 0;
 
 
     };

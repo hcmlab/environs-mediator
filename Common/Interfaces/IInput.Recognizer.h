@@ -22,7 +22,10 @@
 #include "IEnvirons.Ident.h"
 #include "Human.Input.Decl.h"
 #include "Device.Display.Decl.h"
-#include "stdio.h"
+
+#ifndef WINDOWS_PHONE
+#	include "stdio.h"
+#endif
 
 
 #ifndef INCLUDE_HCM_ENVIRONS_IHUMAN_INPUT_RECOGNIZER_H

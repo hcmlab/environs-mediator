@@ -37,9 +37,9 @@ using namespace environs;
 
 #ifdef WINDOWS_PHONE
 #	include "winbase.h"
+#else
+#	include <stdio.h>
 #endif
-
-#include <stdio.h>
 
 #define CLASS_NAME	"Export . . . . . . . . ."
 

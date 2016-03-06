@@ -7,7 +7,6 @@
  *
  * @author	Chi-Tai Dang
  * @version	1.0
- * @remarks
  *
  * This file is part of the Environs framework developed at the
  * Lab for Human Centered Multimedia of the University of Augsburg.
@@ -273,6 +272,7 @@ namespace environs
 	 * Deviceflags for internalFlags enumeration.
 	 * */
 	public enum class DeviceFlagsInternal {
+			NativeReady         	=	DEVICEFLAGS_INTERNAL_NATIVE_READY,
 			PlatformReady       	=	DEVICEFLAGS_INTERNAL_PLATFORM_READY,
 			ObserverReady       	=	DEVICEFLAGS_INTERNAL_OBSERVER_READY,
 			MessageReady        	=	DEVICEFLAGS_INTERNAL_MESSAGE_READY,
@@ -280,6 +280,7 @@ namespace environs
 			SensorReady         	=	DEVICEFLAGS_INTERNAL_SENSOR_READY,
 			NotifyMask          	=	DEVICEFLAGS_INTERNAL_NOTIFY_MASK,
 		
+			CPNativeReady       	=	DEVICEFLAGS_INTERNAL_CP_NATIVE_READY,
 			CPPlatformReady     	=	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY,
 			CPObserverReady     	=	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY,
 			CPMessageReady      	=	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY,
@@ -3523,12 +3524,12 @@ namespace Notify {
 		literal int DEVICEINFO_ISCONNECTED_START                      =	(DEVICEINFO_UNAVAILABLE_START + 1);
 #		define	DEVICEINFO_ISCONNECTED_START                      		(DEVICEINFO_UNAVAILABLE_START + 1)
 
-#		ifdef DEVICEINFO_UNUSED_FLAGS_START                     
-#			undef DEVICEINFO_UNUSED_FLAGS_START                     
+#		ifdef DEVICEINFO_HASAPPAREA_START                       
+#			undef DEVICEINFO_HASAPPAREA_START                       
 #		endif
 
-		literal int DEVICEINFO_UNUSED_FLAGS_START                     =	(DEVICEINFO_ISCONNECTED_START + 2);
-#		define	DEVICEINFO_UNUSED_FLAGS_START                     		(DEVICEINFO_ISCONNECTED_START + 2)
+		literal int DEVICEINFO_HASAPPAREA_START                       =	(DEVICEINFO_ISCONNECTED_START + 2);
+#		define	DEVICEINFO_HASAPPAREA_START                       		(DEVICEINFO_ISCONNECTED_START + 2)
 
 #		ifdef DEVICEINFO_DEVICETYPE_START                       
 #			undef DEVICEINFO_DEVICETYPE_START                       
@@ -3541,8 +3542,8 @@ namespace Notify {
 #			undef DEVICEINFO_DEVICENAME_START                       
 #		endif
 
-		literal int DEVICEINFO_DEVICENAME_START                       =	(DEVICEINFO_DEVICETYPE_START + 1);
-#		define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_DEVICETYPE_START + 1)
+		literal int DEVICEINFO_DEVICENAME_START                       =	(DEVICEINFO_HASAPPAREA_START + 1);
+#		define	DEVICEINFO_DEVICENAME_START                       		(DEVICEINFO_HASAPPAREA_START + 1)
 
 #		ifdef DEVICEINFO_AREANAME_START                         
 #			undef DEVICEINFO_AREANAME_START                         
@@ -3706,40 +3707,47 @@ namespace Notify {
 		 * Deviceflags for internalFlags of DeviceInfo objects
 		 */
 
+#		ifdef DEVICEFLAGS_INTERNAL_NATIVE_READY                 
+#			undef DEVICEFLAGS_INTERNAL_NATIVE_READY                 
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_NATIVE_READY                 =	(0x1);
+#		define	DEVICEFLAGS_INTERNAL_NATIVE_READY                 		(0x1)
+
 #		ifdef DEVICEFLAGS_INTERNAL_PLATFORM_READY               
 #			undef DEVICEFLAGS_INTERNAL_PLATFORM_READY               
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_PLATFORM_READY               =	(0x1);
-#		define	DEVICEFLAGS_INTERNAL_PLATFORM_READY               		(0x1)
+		literal int DEVICEFLAGS_INTERNAL_PLATFORM_READY               =	(0x2);
+#		define	DEVICEFLAGS_INTERNAL_PLATFORM_READY               		(0x2)
 
 #		ifdef DEVICEFLAGS_INTERNAL_OBSERVER_READY               
 #			undef DEVICEFLAGS_INTERNAL_OBSERVER_READY               
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_OBSERVER_READY               =	(0x2);
-#		define	DEVICEFLAGS_INTERNAL_OBSERVER_READY               		(0x2)
+		literal int DEVICEFLAGS_INTERNAL_OBSERVER_READY               =	(0x4);
+#		define	DEVICEFLAGS_INTERNAL_OBSERVER_READY               		(0x4)
 
 #		ifdef DEVICEFLAGS_INTERNAL_MESSAGE_READY                
 #			undef DEVICEFLAGS_INTERNAL_MESSAGE_READY                
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_MESSAGE_READY                =	(0x4);
-#		define	DEVICEFLAGS_INTERNAL_MESSAGE_READY                		(0x4)
+		literal int DEVICEFLAGS_INTERNAL_MESSAGE_READY                =	(0x8);
+#		define	DEVICEFLAGS_INTERNAL_MESSAGE_READY                		(0x8)
 
 #		ifdef DEVICEFLAGS_INTERNAL_DATA_READY                   
 #			undef DEVICEFLAGS_INTERNAL_DATA_READY                   
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_DATA_READY                   =	(0x8);
-#		define	DEVICEFLAGS_INTERNAL_DATA_READY                   		(0x8)
+		literal int DEVICEFLAGS_INTERNAL_DATA_READY                   =	(0x10);
+#		define	DEVICEFLAGS_INTERNAL_DATA_READY                   		(0x10)
 
 #		ifdef DEVICEFLAGS_INTERNAL_SENSOR_READY                 
 #			undef DEVICEFLAGS_INTERNAL_SENSOR_READY                 
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_SENSOR_READY                 =	(0x10);
-#		define	DEVICEFLAGS_INTERNAL_SENSOR_READY                 		(0x10)
+		literal int DEVICEFLAGS_INTERNAL_SENSOR_READY                 =	(0x20);
+#		define	DEVICEFLAGS_INTERNAL_SENSOR_READY                 		(0x20)
 
 #		ifdef DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  
 #			undef DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  
@@ -3748,40 +3756,47 @@ namespace Notify {
 		literal int DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  =	(0xFF);
 #		define	DEVICEFLAGS_INTERNAL_NOTIFY_MASK                  		(0xFF)
 
+#		ifdef DEVICEFLAGS_INTERNAL_CP_NATIVE_READY              
+#			undef DEVICEFLAGS_INTERNAL_CP_NATIVE_READY              
+#		endif
+
+		literal int DEVICEFLAGS_INTERNAL_CP_NATIVE_READY              =	(0x0100);
+#		define	DEVICEFLAGS_INTERNAL_CP_NATIVE_READY              		(0x0100)
+
 #		ifdef DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            
 #			undef DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            =	(0x0100);
-#		define	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            		(0x0100)
+		literal int DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            =	(0x0200);
+#		define	DEVICEFLAGS_INTERNAL_CP_PLATFORM_READY            		(0x0200)
 
 #		ifdef DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            
 #			undef DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            =	(0x0200);
-#		define	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            		(0x0200)
+		literal int DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            =	(0x0400);
+#		define	DEVICEFLAGS_INTERNAL_CP_OBSERVER_READY            		(0x0400)
 
 #		ifdef DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             
 #			undef DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             =	(0x0400);
-#		define	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             		(0x0400)
+		literal int DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             =	(0x0800);
+#		define	DEVICEFLAGS_INTERNAL_CP_MESSAGE_READY             		(0x0800)
 
 #		ifdef DEVICEFLAGS_INTERNAL_CP_DATA_READY                
 #			undef DEVICEFLAGS_INTERNAL_CP_DATA_READY                
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_CP_DATA_READY                =	(0x0800);
-#		define	DEVICEFLAGS_INTERNAL_CP_DATA_READY                		(0x0800)
+		literal int DEVICEFLAGS_INTERNAL_CP_DATA_READY                =	(0x1000);
+#		define	DEVICEFLAGS_INTERNAL_CP_DATA_READY                		(0x1000)
 
 #		ifdef DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              
 #			undef DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              
 #		endif
 
-		literal int DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              =	(0x1000);
-#		define	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              		(0x1000)
+		literal int DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              =	(0x2000);
+#		define	DEVICEFLAGS_INTERNAL_CP_SENSOR_READY              		(0x2000)
 
 #		ifdef DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               
 #			undef DEVICEFLAGS_INTERNAL_CP_NOTIFY_MASK               
@@ -5211,8 +5226,8 @@ namespace Notify {
 #			undef MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   
 #		endif
 
-		literal int MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   =	(0xFFFF);
-#		define	MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   		(0xFFFF)
+		literal int MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   =	(0x1FFFF);
+#		define	MEDIATOR_CLIENT_MAX_BUFFER_SIZE                   		(0x1FFFF)
 
 #		ifdef DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  
 #			undef DEVICE_HANDSHAKE_BUFFER_MAX_SIZE                  

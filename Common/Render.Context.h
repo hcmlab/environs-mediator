@@ -27,7 +27,7 @@
 #include "Interop/Threads.h"
 
 #ifdef USE_ENCODER_BYTEBUFFER
-#include "Core/Byte.Buffer.h"
+#	include "Core/Byte.Buffer.h"
 #endif
 
 namespace environs

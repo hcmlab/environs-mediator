@@ -51,10 +51,10 @@ namespace environs
 	* DeviceObserver is called whenever the members of a DeviceInstance has changed.&nbsp;
 	* The DEVICE_INFO_ATTR_changed parameter provides a bit set which indicates the member that has changed.
 	*
-	* @param device				The DeviceInstance object that sends this notification.
-	* @param changedFlags		A flag field (DeviceInfoFlag) that indicates the properties that have changed.
+	* @param device		The DeviceInstance object that sends this notification.
+	* @param flags		A flag field (DeviceInfoFlag) that indicates the properties that have changed.
 	*/
-	public delegate void DeviceObserver ( DeviceInstance ^device, environs::DeviceInfoFlag changedFlags );
+	public delegate void DeviceObserver ( DeviceInstance ^device, environs::DeviceInfoFlag flags );
 
 
 	/**
@@ -63,10 +63,10 @@ namespace environs
 	/**
 	* OnMessage is called whenever a text message has been received from a device.
 	*
-	* @param msg			The corresponding message object of type MessageInstance
-	* @param changedFlags	Flags that indicate the object change.
+	* @param msg	The corresponding message object of type MessageInstance
+	* @param flags	Flags that indicate the object change.
 	*/
-	public delegate void MessageObserver ( MessageInstance ^messageInst, environs::MessageInfoFlag changedFlags );
+	public delegate void MessageObserver ( MessageInstance ^messageInst, environs::MessageInfoFlag flags );
 
 
 	/**
@@ -76,10 +76,10 @@ namespace environs
 	* OnData is called whenever new binary data (files, buffers) has been received.
 	* Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
 	*
-	* @param fileData		The corresponding file object of type FileInstance
-	* @param changedFlags	Flags that indicate the object change.
+	* @param fileData	The corresponding file object of type FileInstance
+	* @param flags		Flags that indicate the object change.
 	*/
-	public delegate void DataObserver ( FileInstance ^fileData, environs::FileInfoFlag changedFlags );
+	public delegate void DataObserver ( FileInstance ^fileData, environs::FileInfoFlag flags );
 
 
 	/**

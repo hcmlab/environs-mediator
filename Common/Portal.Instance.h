@@ -54,7 +54,7 @@ namespace environs
 		class IIPortalObserver;
 #endif
 
-		PUBLIC_CLASS PortalInstance CLI_ABSTRACT DERIVE_c_only ( environs::PortalInstance ) DERIVE_DISPOSEABLE
+		PUBLIC_CLASS PortalInstance CLI_ABSTRACT DERIVE_c_only ( environs::PortalInstance ) DERIVE_DISPOSABLE
 		{
             MAKE_FRIEND_CLASS ( Environs );
             MAKE_FRIEND_CLASS ( DeviceList );
@@ -139,7 +139,7 @@ namespace environs
 #endif
 
 			/**
-			* Release ownership on this interface and mark it disposeable.
+			* Release ownership on this interface and mark it disposable.
 			* Release must be called once for each Interface that the Environs framework returns to client code.
 			* Environs will dispose the underlying object if no more ownership is hold by anyone.
 			*
@@ -169,7 +169,7 @@ namespace environs
             int                     portalID_;
             
             /** true = Object is disposed and not updated anymore. */
-            bool                    disposed_;
+			LONGSYNC                disposed_;
             
             void                    PlatformDispose ();
             

@@ -46,6 +46,9 @@ namespace environs
     typedef void (CallConv * pERR_remove_thread_state)(const CRYPTO_THREADID *tid);
     
     typedef void (CallConv * pERR_free_strings)(void);
+    typedef void (CallConv * pEVP_cleanup)(void);
+    typedef void (CallConv * pCRYPTO_cleanup_all_ex_data)(void);
+    typedef void (CallConv * pENGINE_cleanup)(void);
     
     typedef int (CallConv * pCRYPTO_num_locks)(void);
     typedef void (CallConv * pCRYPTO_set_locking_callback)(void (*func) (int mode, int type, const char *file, int line));
@@ -190,6 +193,7 @@ namespace environs
     extern pERR_remove_thread_state             dERR_remove_thread_state;
 
     extern pERR_free_strings                    dERR_free_strings;
+    extern pENGINE_cleanup                      dENGINE_cleanup;
     
     extern pCRYPTO_num_locks                    dCRYPTO_num_locks;
     extern pCRYPTO_set_locking_callback         dCRYPTO_set_locking_callback;
@@ -197,6 +201,7 @@ namespace environs
     extern pCRYPTO_set_dynlock_create_callback  dCRYPTO_set_dynlock_create_callback;
     extern pCRYPTO_set_dynlock_lock_callback    dCRYPTO_set_dynlock_lock_callback;
     extern pCRYPTO_set_dynlock_destroy_callback dCRYPTO_set_dynlock_destroy_callback;    
+    extern pCRYPTO_cleanup_all_ex_data          dCRYPTO_cleanup_all_ex_data;
     
     extern pBN_new                              dBN_new;
     extern pBN_set_word                         dBN_set_word;
@@ -206,6 +211,8 @@ namespace environs
     extern pEVP_sha1                            dEVP_sha1;
     extern pEVP_PKEY_new                        dEVP_PKEY_new;
     extern pEVP_PKEY_free                       dEVP_PKEY_free;
+    extern pEVP_cleanup                         dEVP_cleanup;
+    
     extern pX509_free                           dX509_free;
     extern pRSA_generate_key                    dRSA_generate_key;
     extern pRSA_generate_key_ex                 dRSA_generate_key_ex;

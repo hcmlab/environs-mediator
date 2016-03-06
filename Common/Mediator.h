@@ -30,12 +30,19 @@
 #   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     26
 
 #	define USE_LOCKFREE_SOCKET_ACCESS
+
+#   define ENABLE_MEDIATOR_LOCK
+//#   define ENABLE_MEDIATOR_SEND_LOCK
 #else
 #   define  DAEMONEXP(exp)
 #   define  CLIENTEXP(exp)                      exp
 
 #   define MAX_SPARE_SOCKETS_IN_QUEUE			50
 #   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     60
+
+//#   define ENABLE_MEDIATOR_LOCK
+//#   define ENABLE_MEDIATOR_SEND_LOCK
+#   define ENABLE_MEDIATOR_SEND_LOCK_TEST
 #endif
 
 //#define MEDIATOR_LIMIT_STUNT_REG_REQUESTS
@@ -46,6 +53,7 @@
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_CLIENT
 //#define USE_NONBLOCK_CLIENT_SOCKET
+
 
 #include "Interop/Threads.h"
 #include "Interop/Sock.h"
@@ -190,6 +198,7 @@ namespace environs	/// Namespace: environs ->
         INTEROPTIMEVAL			connectTime;
         
         CLIENTEXP ( pthread_mutex_t spareSocketLock; )
+        CLIENTEXP ( INTEROPTIMEVAL spareSocketRegisteredTime; )
 
         SOCKETSYNC				spareSocket;
         
@@ -305,6 +314,7 @@ namespace environs	/// Namespace: environs ->
 		struct DeviceInstanceNode	*	prev;  // 4
 		
         CLIENTEXP ( int					hEnvirons; )
+        CLIENTEXP ( bool				allowConnect; )
 		        
 #ifdef __cplusplus        
         sp ( DeviceInstanceNode )		baseSP;         // SP used by Mediator base layer
@@ -370,14 +380,15 @@ namespace environs	/// Namespace: environs ->
 		ThreadInstance			instance;
 
 		char				*	buffer;
-		pthread_mutex_t			send_mutex;
 
-		pthread_mutex_t			rec_mutex;
-		pthread_cond_t			rec_signal;
+#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+		pthread_mutex_t			sendLock;
+#endif
+		pthread_mutex_t			receiveLock;
+		pthread_cond_t			receiveEvent;
 		char				*	responseBuffer;
         bool                    longReceive;
 
-		INTEROPTIMEVAL			lastSpareSocketRenewal;
         LONGSYNC                renewerAccess;
         LONGSYNC                renewerQueue;
         
@@ -449,7 +460,6 @@ namespace environs	/// Namespace: environs ->
         static bool				allocatedClass;
 
 #if (!defined(MEDIATORDAEMON) && defined(__cplusplus))
-		sp ( Instance )			envSP;
 		Instance			*	env;
 #endif
         
@@ -461,7 +471,9 @@ namespace environs	/// Namespace: environs ->
 		static NetPack          localNets;
         static pthread_mutex_t  localNetsLock;
         
+#ifdef ENABLE_MEDIATOR_LOCK
 		pthread_mutex_t			mediatorLock;
+#endif
 		MediatorInstance		mediator;
 
 		pthread_mutex_t			devicesLock;
@@ -471,14 +483,16 @@ namespace environs	/// Namespace: environs ->
 		unsigned int			broadcastMessageLenExt;
         char					broadcastMessage [ MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 188 ]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
         
-        unsigned int            broadcastStatusMessageOffset;
-        unsigned int            broadcastStatusMessageLen;
-        char                    broadcastStatusMessage [ MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
+        unsigned int            udpStatusMessageOffset;
+        unsigned int            udpStatusMessageLen;
+        char                    udpStatusMessage [ MEDIATOR_BROADCAST_DESC_START + ((MAX_NAMEPROPERTY + 2) * 6) + 4]; // 4; 12; 4; 4; 2; 2; => 24 byte; max. 50 byte for areaName
 
-		unsigned long long		lastGreetUpdate;
+		unsigned int            lastGreetUpdate;
 
+        int                     broadcastThreadRestarts;
 		int						broadcastSocketID;
         ThreadSync              broadcastThread;
+        bool                    StartBroadcastThread ();
 
 		bool					IsLocalIP ( unsigned int ip );
         static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
@@ -509,7 +523,7 @@ namespace environs	/// Namespace: environs ->
 #   endif
             UpdateDevices ( unsigned int ip, char * msg, char ** uid, bool * created, char isBroadcast = 0 );
 
-		virtual void			UpdateDeviceInstance ( sp ( DeviceInstanceNode ) device, bool added, bool changed ) = 0;
+		virtual void			UpdateDeviceInstance ( const sp ( DeviceInstanceNode ) & device, bool added, bool changed ) = 0;
 #endif
 		virtual void			ReleaseDevices ( ) = 0;
 		

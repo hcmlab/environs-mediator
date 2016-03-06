@@ -79,6 +79,8 @@ namespace environs
          */
         ENVIRONSAPI ENVIRONS_LIB_API void * CallConv	ENVIRONS_CreateInstance1 ( int crt );
         
+        void                        DisposeEnvironsLib ();
+        
         
         /**
          * Get log methods from Environs object.

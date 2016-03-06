@@ -276,7 +276,7 @@ private:
 	void									RemoveDevice ( int deviceID, const char * areaName, const char * appName );
 
 #ifdef __cplusplus
-	void									UpdateDeviceInstance ( sp ( DeviceInstanceNode ) device, bool added, bool changed );
+	void									UpdateDeviceInstance ( const sp ( DeviceInstanceNode ) & device, bool added, bool changed );
 #endif
 
     unsigned int                            bannAfterTries;
@@ -293,12 +293,9 @@ private:
 	bool									addToArea ( sp ( ListValues ) &values, const char * key, const char * value, unsigned int valueSize );
 	bool									addToArea ( const char * project, const char * app, const char * key, const char * value );
 	bool									sendDatabase ( int sock, struct sockaddr * addr );
-	
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-    int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true, int retries = 0 );
-#else
-	int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true );
-#endif
+    
+    int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true );
+    
 	bool									SendPushNotification ( map<string, ValuePack*> * values, int clientID, const char * value );
 	bool									HTTPPostRequest ( string domain, string path, string key, string jsonData );
 
@@ -319,8 +316,8 @@ private:
     int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
     int										HandleRegistrationV4 ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
 
-    bool									HandleDeviceRegistration ( sp ( ThreadInstance ) client, unsigned int ip, char * msg );
-    bool									HandleDeviceRegistrationV4 ( sp ( ThreadInstance ) client, unsigned int ip, char * msg );
+    bool									HandleDeviceRegistration ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
+    bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
 	bool									SecureChannelAuth ( ThreadInstance * client );
 	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
 	bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
@@ -347,7 +344,7 @@ private:
     pthread_mutex_t							notifyTargetsLock;
     
 #ifdef __cplusplus
-	void									NotifyClients ( unsigned int notify, sp ( DeviceInstanceNode ) &device );
+	void									NotifyClients ( unsigned int notify, const sp ( DeviceInstanceNode ) &device );
 #endif
 	static void 						*	NotifyClientsStarter ( void * daemon );
 	void									NotifyClientsThread ();

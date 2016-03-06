@@ -20,10 +20,12 @@
 */
 #include "stdafx.h"
 
+#ifdef _WIN32
+
 #include <direntw.h>
 #include <io.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 
 #ifdef CLI_CPP
 using namespace System::IO;
@@ -62,7 +64,7 @@ DIR OBJ_ptr opendir ( CString_ptr name )
 	dir = (DIR *) calloc ( 1, sizeof ( DIR ) );
 #endif
 
-	if ( dir != nill ) 
+	if ( dir != nill )
 	{
 		// Build search pattern
 #ifdef CLI_CPP
@@ -101,7 +103,7 @@ DIR OBJ_ptr opendir ( CString_ptr name )
 #endif
 	}
 
-	if ( !success && dir != nill ) 
+	if ( !success && dir != nill )
 	{
 #ifdef CLI_CPP
 #else
@@ -175,4 +177,6 @@ STRUCT dirent OBJ_ptr readdir ( DIR OBJ_ptr dir )
 
 	return nextDir;
 }
+
+#endif
 

@@ -521,6 +521,22 @@ JNIEXPORT jint JNICALL Java_environs_Environs_GetConnectAllowFromAllN
 
 /*
  * Class:     environs_Environs
+ * Method:    AllowConnectN
+ * Signature: (II)I
+ */
+JNIEXPORT jint JNICALL Java_environs_Environs_AllowConnectN
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    AllowConnectDefaultN
+ * Signature: (II)I
+ */
+JNIEXPORT jint JNICALL Java_environs_Environs_AllowConnectDefaultN
+  (JNIEnv *, jclass, jint, jint);
+
+/*
+ * Class:     environs_Environs
  * Method:    DeviceConnectN
  * Signature: (IILjava/lang/String;Ljava/lang/String;I)I
  */
@@ -642,10 +658,10 @@ JNIEXPORT void JNICALL Java_environs_Environs_SetDeviceTypeN
 /*
  * Class:     environs_Environs
  * Method:    SetDeviceFlagsN
- * Signature: (IIIZ)V
+ * Signature: (IIIIZ)V
  */
 JNIEXPORT void JNICALL Java_environs_Environs_SetDeviceFlagsN
-  (JNIEnv *, jclass, jint, jint, jint, jboolean);
+  (JNIEnv *, jclass, jint, jint, jint, jint, jboolean);
 
 /*
  * Class:     environs_Environs
@@ -1014,6 +1030,14 @@ JNIEXPORT jboolean JNICALL Java_environs_Environs_SendMessageN
  */
 JNIEXPORT jboolean JNICALL Java_environs_Environs_SendBufferN
   (JNIEnv *, jclass, jint, jint, jint, jint, jstring, jbyteArray, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    SendDataUdpN
+ * Signature: (III[BII)Z
+ */
+JNIEXPORT jboolean JNICALL Java_environs_Environs_SendDataUdpN
+  (JNIEnv *, jclass, jint, jint, jint, jbyteArray, jint, jint);
 
 /*
  * Class:     environs_Environs

@@ -69,6 +69,8 @@ namespace environs
 
 		CLASS ListCommandContext;
 		CLASS DeviceNotifierContext;
+		
+		STRUCT UdpDataContext;
 
 		typedef System::Object 		IIEnvironsObserver;
 	}

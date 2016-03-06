@@ -121,7 +121,10 @@ namespace environs
 			* @return   success
 			*/
 			CLI_INC LIBEXPORT EBOOL CallConv        LoadSettingsN ( int hInst, CString_ptr app, CString_ptr area );
-
+            
+            
+            CLI_INC LIBEXPORT void CallConv			ClearStorageN ();
+            
 
 			CLI_INC LIBEXPORT void CallConv			RegisterMainThreadN ( int hInst );
 
@@ -206,12 +209,13 @@ namespace environs
 			/**
 			* Update device flags to native layer and populate them to the environment.
 			*
-			* @param	hInst    The handle to the environs instance.
+            * @param	hInst    The handle to the environs instance.
+            * @param	async    Asyncronous using AsyncWorker or call it directly.
             * @param	objID    The identifier for the native device object.
             * @param	flags    The internal flags to set or clear.
             * @param	set    	 true = set, false = clear.
 			*/
-			CLI_INC LIBEXPORT  void SetDeviceFlagsN ( int hInst, int objID, int flags, jboolean set );
+			CLI_INC LIBEXPORT  void SetDeviceFlagsN ( int hInst, int async, int objID, int flags, jboolean set );
 
 
 			/**
@@ -300,7 +304,18 @@ namespace environs
 			*/
 			CLI_INC
 				LIBEXPORT int CallConv          GetPortalIDN ( int hInst, int nativeID, int portalType );
-
+            
+            
+            /** Allow connects by this device. The default value of for this property is determined by GetAllowConnectDefault() / SetAllowConnectDefault ().
+             Changes to this property or the allowConnectDefault has only effect on subsequent instructions. */
+            CLI_INC
+                LIBEXPORT int CallConv			AllowConnectN ( int hInst, int objID, int value );
+            
+            /** Default value for each DeviceInstance after object creation. */
+            CLI_INC
+                LIBEXPORT int CallConv			AllowConnectDefaultN ( int hInst, int value );
+            
+            
 			/**
 			* Connect to device with the given ID and a particular application environment. Return value is of type enum Types.DeviceStatus
 			*
@@ -377,7 +392,20 @@ namespace environs
 
 			CLI_INC
 				LIBEXPORT EBOOL CallConv		SendMessageN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int async, jvoidArray message, int length );
-
+            
+            
+            /**
+             * Send a buffer with bytes via udp to a device.&nbsp;The devices must be connected before for this call.
+             *
+             * @param async			(environs.Call.NoWait) Perform asynchronous. (environs.Call.Wait) Non-async means that this call blocks until the call finished.
+             * @param buffer        A buffer to be send.
+             * @param offset        A user-customizable id that identifies the file to be send.
+             * @param bytesToSend number of bytes in the buffer to send
+             * @return success
+             */
+            CLI_INC
+                LIBEXPORT EBOOL CallConv		SendDataUdpN ( int hInst, int nativeID, int async, jbyteArray buffer, int offset, int size );
+            
 			CLI_INC
 				LIBEXPORT EBOOL CallConv		SendPushNotificationN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, CString_ptr message );
 
@@ -392,7 +420,6 @@ namespace environs
 				LIBEXPORT unsigned int CallConv GetMediatorIPValueN ( int hInst );
 			CLI_INC
 				LIBEXPORT int CallConv			GetMediatorPortN ( int hInst );
-
 			
 			/**
 			* Enable or disable anonymous logon to the Mediator.
@@ -515,20 +542,20 @@ namespace environs
 
 
 			/**
-			* Instruct Environs to use command line mode.
+			* Instruct Environs to use headless mode without worrying about UI thread.
 			*
 			* @param enable      true = enable, false = disable
 			*/
             CLI_INC
-				LIBEXPORT  void                 SetUseCommandLineN ( int enable );
+				LIBEXPORT  void                 SetUseHeadlessN ( int enable );
 
 			/**
-			* Query Environs settings whether to use command line mode.
+			* Query Environs settings whether to use headless mode without worrying about UI thread.
 			*
 			* @return enable      true = enabled, false = disabled
 			*/
 			CLI_INC
-				LIBEXPORT int CallConv		GetUseCommandLineN ();
+				LIBEXPORT int CallConv			GetUseHeadlessN ();
 
 
             /**
@@ -537,7 +564,7 @@ namespace environs
              * @param success      true = successful, false = failed
              */
             CLI_INC
-                LIBEXPORT int CallConv		QueryMediatorLogonCommandLineN ( int hInst );
+                LIBEXPORT int CallConv			QueryMediatorLogonCommandLineN ( int hInst );
 
 
 			CLI_INC
@@ -713,21 +740,6 @@ namespace environs
 				LIBEXPORT int CallConv			GetDeviceWidthN ( int nativeID );
 			CLI_INC
 				LIBEXPORT int CallConv			GetDeviceHeightN ( int nativeID );
-            
-            /**
-             * Option whether to allow connections by every device.
-             *
-             */
-            CLI_INC
-                LIBEXPORT void                  SetConnectAllowFromAllN ( int hInst, int enable );
-            
-            /**
-             * Option whether to allow connections by every device.
-             *
-             * @return  true = enabled, false = failed.
-             */
-            CLI_INC
-                LIBEXPORT int                   GetConnectAllowFromAllN ( int hInst );
             
 
 			/**

@@ -82,6 +82,13 @@ namespace environs
 
 
 		/**
+		* Dispose the storage, that is remove all data and messages received in the data store.
+		*
+		*/
+		virtual void ClearStorage () = 0;
+
+
+		/**
 		* Instruct Environs to output verbose debug logging.
 		*
 		* @param enable      true = enable, false = disable
@@ -222,19 +229,19 @@ namespace environs
 
 
 		/**
-		* Instruct Environs to use command line mode.
+		* Instruct Environs to use headless mode without worrying about UI thread.
 		*
 		* @param enable      true = enable, false = disable
 		*/
-		virtual void SetUseCommandLine ( bool enable ) = 0;
+		virtual void SetUseHeadless ( bool enable ) = 0;
 
 
 		/**
-		* Query Environs settings whether to use command line mode.
+		* Query Environs settings whether to use headless mode without worrying about UI thread.
 		*
 		* @return enable      true = enabled, false = disabled
 		*/
-		virtual bool GetUseCommandLine () = 0;
+		virtual bool GetUseHeadless () = 0;
         
         
         /**
@@ -262,11 +269,15 @@ namespace environs
 		*
 		* @return enable      true = enabled, false = disabled
 		*/
-		virtual bool GetUseDeviceListAsUIAdapter () = 0;
+        virtual bool GetUseDeviceListAsUIAdapter () = 0;
         
-
-		//virtual bool opt ( const char * key ) = 0;
-
+        
+        /** Default value for each DeviceInstance after object creation. */
+        virtual bool GetAllowConnectDefault () = 0;
+        
+        /** Default value for each DeviceInstance after object creation. */
+        virtual void SetAllowConnectDefault ( bool value ) = 0;
+        
 
 		/**
 		* Initialize the environment. This must be called after the user interface has been loaded, rendered and shown.
@@ -937,20 +948,6 @@ namespace environs
         
         virtual DeviceDisplay * GetDeviceDisplayProps ( int nativeID ) = 0;
         
-        
-        /**
-         * Option whether to allow connections by every device.
-         *
-         * @param enable  true = enabled, false = failed.
-         */
-        virtual void SetConnectAllowFromAll ( int enable ) = 0;
-        
-        /**
-         * Option whether to allow connections by every device.
-         *
-         * @return  true = enabled, false = failed.
-         */
-        virtual int GetConnectAllowFromAll () = 0;
         
         /**
          * Connect to device with the given ID and a particular application environment.

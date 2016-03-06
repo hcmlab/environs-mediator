@@ -48,7 +48,7 @@ namespace environs
 	*	@remarks	current size is (4 + 4 + 4 + 4 + 4) = 20 bytes
 	* ****************************************************************************************
 	*/
-	PUBLIC_CLASS PortalInfo DERIVE_c_only ( environs::IPortalInfo ) DERIVE_DISPOSEABLE
+	PUBLIC_CLASS PortalInfo DERIVE_c_only ( environs::IPortalInfo ) DERIVE_DISPOSABLE
 	{
         public:
 		PortalInfoBase  base;

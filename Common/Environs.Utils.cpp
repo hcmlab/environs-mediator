@@ -32,6 +32,7 @@
 
 #ifndef MEDIATORDAEMON
 #   include "Environs.Lib.h"
+#   include <direntw.h>
 #endif
 
 #include "Environs.Native.h"
@@ -39,7 +40,9 @@
 #include "Interop.h"
 
 #if defined(_WIN32)
-#   include "windows.h"
+#	ifndef WINDOWS_PHONE
+#		include "windows.h"
+#	endif
 #else // <- _WIN32 ->
 #   include <iostream>
 #   include <string>
@@ -65,24 +68,24 @@
 
 namespace environs
 {
-	void refactorBuffer ( char * &curStart, char * bufferStart, unsigned int bytesInBuffer, char * &curEnd )
+	void RefactorBuffer ( char * &curStart, char * bufferStart, unsigned int bytesInBuffer, char * &curEnd )
 	{
-		CVerbVerbArg ( "refactorBuffer: Refactoring memory usage, bytesInBuffer = %i", bytesInBuffer );
+		CVerbVerbArg ( "RefactorBuffer: Refactoring memory usage, bytesInBuffer [ %i ]", bytesInBuffer );
 
 		// Refactor memory usage
-		int chunkSize = (int) (curStart - bufferStart);
-		if ( chunkSize <= 0 ) {
-			CVerbVerb ( "refactorBuffer: Refactoring not neccessary since buffer is already pointing to the start." );
+		int freeBytesFromStart = (int) (curStart - bufferStart);
+		if ( freeBytesFromStart <= 0 ) {
+			CVerbVerb ( "RefactorBuffer: Refactoring not neccessary since buffer is already pointing to the start." );
 			return;
 		}
 
-		if ( bytesInBuffer < (unsigned int) chunkSize ) { // No overlap
+		if ( bytesInBuffer < (unsigned int) freeBytesFromStart ) { // No overlap
 			memcpy ( bufferStart, curStart, bytesInBuffer );
 		}
 		else { // Overlap, so alloc heap space
             void * tmp = malloc ( bytesInBuffer );
             if ( !tmp ) {
-                CErrArg ( "refactorBuffer: Allocation of memory failed [ %i ]", bytesInBuffer );
+                CErrArg ( "RefactorBuffer: Allocation of memory failed [ %i ]", bytesInBuffer );
                 return;
             }
             
@@ -92,24 +95,9 @@ namespace environs
             
             free ( tmp );
         }
-        /*else { // Overlap, so copy multipass
-            char * dest = bufferStart;
-            char * src = curStart;
-            
-            int remain = bytesInBuffer - chunkSize;
-            while ( remain > 0 ) {
-                if ( remain < chunkSize )
-                    chunkSize = remain;
-                memcpy ( dest, src, chunkSize );
-                
-                dest += chunkSize;
-                src += chunkSize;
-                remain -= chunkSize;
-                chunkSize += chunkSize;
-            }
-        }*/
-		curStart = bufferStart;
-		curEnd = curStart + bytesInBuffer;
+        
+		curStart    = bufferStart;
+		curEnd      = bufferStart + bytesInBuffer;
 	}
 
 
@@ -120,7 +108,7 @@ namespace environs
     
     size_t GetSizeOfFile ( const char * filePath )
 	{
-#ifdef _WIN32
+#if (defined(_WIN32) && !defined(WINDOWS_PHONE))
 		HANDLE handle = CreateFileA ( filePath, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		if ( handle == INVALID_HANDLE_VALUE)
 			return 0;
@@ -280,6 +268,7 @@ namespace environs
 	}
 #endif
     
+    
 //#ifndef _WIN32    
 //#   ifndef ANDROID
 //#       ifndef __APPLE__
@@ -293,7 +282,7 @@ namespace environs
 //    // <- POSIX includes
 //#endif
     
-#ifdef _WIN32
+#if (defined(_WIN32))
 	// Number of milliseconds since system has started
 	//
     INTEROPTIMEVAL GetEnvironsTickCount ()
@@ -301,6 +290,7 @@ namespace environs
         return ( INTEROPTIMEVAL ) GetTickCount64 ();
     }
     
+#if !defined(WINDOWS_PHONE)
 #pragma warning(push)
 #pragma warning(disable:4310)
     
@@ -333,6 +323,7 @@ namespace environs
 #pragma warning(pop) 
     
 #endif
+#endif
     
     
 #ifdef __APPLE__
@@ -362,6 +353,12 @@ namespace environs
 #endif
     
     
+    unsigned int GetEnvironsTickCount32 ()
+    {
+        return (GetEnvironsTickCount () & 0xFFFFFFFF);
+    }
+    
+    
     unsigned long long   GetUnixEpoch ()
     {
         unsigned long long unixEpoch = 0;
@@ -389,7 +386,147 @@ namespace environs
 		unsigned int now = (unsigned int) GetEnvironsTickCount ();
 		return now + (unsigned int) (uintptr_t) value;
 	}
+    
+    
+#ifndef MEDIATORDAEMON
+    
+    bool IsValidDirectory ( const char * path, size_t length )
+    {
+        if ( length < 1 )
+            return false;
+        
+        const char * found = strstr ( path, ".." );
+        if ( found )
+        {
+            if ( found == path && length <= 3 )
+                return false;
+            
+            if ( length <= 4 )
+                return false;
+        }
+        
+        found = strstr ( path, "." );
+        if ( found )
+        {
+            if ( found == path && length <= 2 )
+                return false;
+            
+            if ( length <= 3 )
+                return false;
+        }
+        
+        return true;
+    }
+    
+    
+#define MAX_STORAGE_SIZE    1024
+    
+    
+    void RmDir ( char * storage, size_t storageLen )
+    {
+        DIR * dir = opendir ( storage );
+        if ( !dir )
+            return;
+        
+        storage [ storageLen ] = '/';
+        storage [ storageLen + 1 ] = 0;
+        
+        storageLen++;
+        
+        struct dirent * dirEntry;
+        
+        while ( ( dirEntry = readdir ( dir ) ) != 0 )
+        {
+            const char * d_name = dirEntry->d_name;
+            
+#ifdef _DIRENT_HAVE_D_NAMLEN
+            int length = dirEntry->d_namlen;
+#else
+            size_t length = strlen ( d_name );
+#endif
+            if ( dirEntry->d_type == DT_DIR )
+            {
+                if ( !IsValidDirectory ( d_name, length ) )
+                    continue;
+                
+                strlcpy ( storage + storageLen, d_name, MAX_STORAGE_SIZE - storageLen );
+                
+                size_t storageLenAppended = storageLen + length;
+                
+                RmDir ( storage, storageLenAppended );
+                
+                rmdir ( storage );
+            }
+            else {
+                strlcpy ( storage + storageLen, d_name, MAX_STORAGE_SIZE - storageLen );
+                
+                unlink ( storage );
+            }
+        }
+        
+        closedir ( dir );
+        
+        storage [ storageLen - 1 ] = 0;
+    }
+    
+    
+    void ClearStorage ( const char * storagePath )
+    {
+        if ( !storagePath || !*storagePath )
+            return;
+        
+        DIR * dir = opendir ( storagePath );
+        if ( !dir )
+            return;
+        
+        size_t storageLen = 0;
 
+		char * storage = ( char * ) calloc ( 1, MAX_STORAGE_SIZE + 1 );
+        if ( storage )
+        {            
+            strlcpy ( storage, storagePath, MAX_STORAGE_SIZE );
+            
+            storageLen = strlen ( storage );
+            
+            storage [ storageLen ] = '/';
+            storage [ storageLen + 1 ] = 0;
+            
+            storageLen++;
+            
+            struct dirent * dirEntry;
+            
+            while ( ( dirEntry = readdir ( dir ) ) != 0 )
+            {
+                if ( dirEntry->d_type != DT_DIR )
+                    continue;
+                
+                const char * d_name = dirEntry->d_name;
+                
+#ifdef _DIRENT_HAVE_D_NAMLEN
+                int length = dirEntry->d_namlen;
+#else
+                size_t length = strlen ( d_name );
+#endif
+                if ( !IsValidDirectory ( d_name, length ) )
+                    continue;
+                
+                strlcpy ( storage + storageLen, d_name, MAX_STORAGE_SIZE - storageLen );
+                
+                size_t storageLenAppended = storageLen + length;
+                
+                RmDir ( storage, storageLenAppended );
+                
+                rmdir ( storage );
+            }
+            
+            free ( storage );
+        }
+    
+        closedir ( dir );
+    }
+    
+    
+#endif
     
 #ifndef MEDIATORDAEMON
 
@@ -397,6 +534,7 @@ namespace environs
     {
         int Environs_LoginDialogCommandLine ( int hInst )
         {
+#ifndef WINDOWS_PHONE
             char user [ 128 ];
             char pass [ 128 ];
             
@@ -454,7 +592,8 @@ namespace environs
             environs::API::SetMediatorPasswordNM ( hInst, pass );
             
             EnvironsCallArg ( RegisterAtMediatorsN, hInst );
-            
+
+#endif
             return 1;
         }
         

@@ -165,12 +165,21 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  */
 - (bool) Init;
 
+
+/**
+ * Dispose the storage, that is remove all data and messages received in the data store.
+ *
+ */
+- (void) ClearStorage;
+
+
 /**
  * Reset crypt layer and all created resources. Those will be recreated if necessary.
  * This method is intended to be called directly after creation of an Environs instance.
  *
  */
 - (void) ResetCryptLayer;
+
 
 /**
  * Get the native version of Environs.
@@ -395,6 +404,13 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  * @return enable      true = enable, false = disable
  */
 - (bool) GetMessagesSubscription;
+
+
+/** Default value for each DeviceInstance after object creation. */
+- (bool) GetAllowConnectDefault;
+
+/** Default value for each DeviceInstance after object creation. */
+- (void) SetAllowConnectDefault:(bool) value;
 
 
 /**
@@ -767,19 +783,19 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 #ifdef ENVIRONS_OSX
 /**
-* Instruct Environs to use command line mode.
+* Instruct Environs to use headless mode without worrying about UI thread.
 *
 * @param enable      true = enable, false = disable
 */
--( void ) SetUseCommandLine : ( bool ) enable;
+-( void ) SetUseHeadless : ( bool ) enable;
 
 
 /**
-* Query Environs settings whether to use command line mode.
+* Query Environs settings whether to use headless mode without worrying about UI thread.
 *
 * @return enable      true = enabled, false = disabled
 */
--( bool ) GetUseCommandLine;
+-( bool ) GetUseHeadless;
 
 
 /**

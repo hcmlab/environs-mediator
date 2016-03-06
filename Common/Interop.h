@@ -32,9 +32,15 @@
 */
 #if defined(_WIN32)
 // dlload defines
-#	define dlsym(mod,sym)					GetProcAddress(mod,sym)     
-#	define dlopen(mod,RTLD_LAZY)			LoadLibraryA(mod)           
-#	define dlclose(mod)						FreeLibrary(mod) 
+#	ifdef WINDOWS_PHONE
+#		define dlsym(mod,sym)				GetProcAddress(mod,sym)     
+#		define dlopen(mod,RTLD_LAZY)		LoadPackagedLibrary ( (LPWSTR) mod, 0 )           
+#		define dlclose(mod)					FreeLibrary(mod)
+#	else
+#		define dlsym(mod,sym)				GetProcAddress(mod,sym)     
+#		define dlopen(mod,RTLD_LAZY)		LoadLibraryA(mod)           
+#		define dlclose(mod)					FreeLibrary(mod) 
+#	endif
 #else
 #	include <dlfcn.h>
 #endif
@@ -121,8 +127,10 @@
 /// Since Objective-C BOOL conflicts with win32 BOOL, we introduce EBOOL to resolve name conflicts
 #	ifdef WINDOWS_PHONE
 #		define EBOOL						bool
+#		define ToEBOOL(e)					( e != 0 )
 #	else
 #		define EBOOL						BOOL
+#		define ToEBOOL(e)					e
 #	endif
 
 #	define EVAL_TO_STRING(s)				#s
@@ -130,8 +138,13 @@
 // __FILE__ ":" EXP_TO_STRING(__LINE__)
 
 #	define WARNING(msg) 					__pragma(message(__FILE__ "(" EXP_TO_STRING(__LINE__) ") : " #msg  ))
-#	define INCLINEFUNC						inline 
-											
+
+#	ifdef WINDOWS_PHONE
+#		define INCLINEFUNC
+#	else
+#		define INCLINEFUNC					inline 
+#	endif
+
 #else
 
 # ifdef CLI_CPP
@@ -186,11 +199,14 @@
 
 #	if defined(ANDROID) || !defined(__APPLE__)
 #		define EBOOL						jboolean
+#       define ToEBOOL(e)                   e
 #		define BSTR							jstring
 #	else /// !ANDROID
 
 /// Use bool as default for BOOL otherwise
 #	define EBOOL							bool
+#	define ToEBOOL(e)                       ( e != 0 )
+
 #	define BSTR								const char *
 #	endif  /// end-ANDROID
 
@@ -307,11 +323,14 @@
 #	define CString_contains(s,c)			s->Contains ( c )
 #	define CString_get_cstr(s)				s
 
+#	define new__UCharArray(size)            gcnew cli::array<unsigned char>(size)
 #	define UCharArray_ptr					cli::array<unsigned char> ^
 #	define PIN_PTR(p,t,n)					pin_ptr<t> p = &n [ 0 ]
 
 #	define new__obj(type)					gcnew type()
-#	define delete__obj(o)					o = nill		
+#	define new__obj2(type,a1,a2)			gcnew type(a1,a2)
+#	define delete__obj(o)					o = nill
+#	define delete__obj_n(o)					o = nill
 
 // using namespace System::Runtime::InteropServices;
 #	define CLI_INC							[System::Security::SuppressUnmanagedCodeSecurityAttribute ()] \
@@ -390,11 +409,14 @@
 #	define CLI_NO_STATIC					static
 #	define String_ptr						char *
 #	define String_ptr_reset(s)				if (s != nill) { free(s); s = nill; }
+#	define new__UCharArray(size)            new unsigned char [ size ]
 #	define UCharArray_ptr					unsigned char *
 #	define PIN_PTR(p,t,n)					t * p = n
 
-#	define new__obj(type)					new type()	
+#	define new__obj(type)					new type()
+#	define new__obj2(type,a1,a2)			new type(a1,a2)
 #	define delete__obj(o)					if (o != nill)  { delete o; o = nill; }
+#	define delete__obj_n(o)					delete o;
 
 #	define CLI_INC						
 #	define CLI_INCM(m)			

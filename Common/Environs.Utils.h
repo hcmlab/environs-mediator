@@ -26,7 +26,7 @@
 
 namespace environs
 {
-	extern void refactorBuffer ( char * &curStart, char * bufferStart, unsigned int remainingMsg, char * &curEnd );
+	extern void RefactorBuffer ( char * &curStart, char * bufferStart, unsigned int remainingMsg, char * &curEnd );
     
 	extern size_t GetSizeOfFile ( CString_ptr filePath );
 	extern char * LoadBinary ( const char * fileName, int * size );
@@ -41,9 +41,10 @@ namespace environs
 	INTEROPTIMEVAL GetEnvironsTickCount ();
 
     extern unsigned long long   GetUnixEpoch ();
+    extern unsigned int GetEnvironsTickCount32 ();
     
 #ifdef _WIN32
-#	ifndef CLI_CPP
+#	if (!defined(CLI_CPP) && !defined(WINDOWS_PHONE))
     struct ::timeval;
     
     int gettimeofday ( struct timeval *tv, void * );
@@ -60,6 +61,9 @@ namespace environs
 	size_t strlcat ( char *d, char const *s, size_t n );
 #endif
 
+    extern void ClearStorage ( const char * dataStore );
+    
+    
 #ifdef __cplusplus
     
     namespace API

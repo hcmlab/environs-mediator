@@ -25,10 +25,10 @@
 
 #include "Interop.h"
 
-#if (defined(__cplusplus))
-namespace environs {
-    class Instance;
-}
+#ifdef __cplusplus
+	namespace environs {
+		class Instance;
+	}
 #endif
 
 #if (defined(ENVIRONS_CORE_LIB) || defined(MEDIATORDAEMON))
@@ -46,8 +46,8 @@ namespace environs {
 #	define CreateEnvInstance(module,index,type,deviceID)  ((environs::Instance *)pEnvirons)->CreateInstance ( module, index, type, deviceID )
 #endif
 
-#if (defined(__cplusplus))
-typedef HLIB ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::Instance * obj  );
+#ifdef __cplusplus
+	typedef HLIB ( *pLocateLoadModule )( COBSTR module, int deviceID, environs::Instance * obj  );
 #endif
 
 #define	ENVMODPREFIX					"libEnv-"

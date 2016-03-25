@@ -35,6 +35,8 @@
 #   include "Environs.Lib.h"
 #else
 #   include <cstdio>
+
+int g_Debug = 0;
 #endif
 
 #include <errno.h>
@@ -58,12 +60,15 @@
 #include <map>
 #include <string>
 
-//#define USE_BROADCAST_ADDR_ANY
 
 #define	CLASS_NAME 	"Mediator . . . . . . . ."
 
-//#define LINGER_ZERO
-#define USE_ABORTIVE_SHUTDOWN
+
+
+#ifdef MEDIATORDAEMON
+bool CloseThreadSocket ( SOCKETSYNC * psock );
+#endif
+
 
 /* Namespace: environs -> */
 namespace environs
@@ -88,19 +93,20 @@ namespace environs
         
         CLIENTEXP ( hEnvirons = 0; )
         CLIENTEXP ( *key = 0; )
-        //CLIENTEXP ( mapSP = 0; )
     }
     
 
 	ILock::ILock ()
 	{
-		init =  MutexInit ( &lock );
+		init = false;
 	}
 
 	bool ILock::Init ()
 	{
-		if ( !init )
-			init =  MutexInit ( &lock );
+		if ( !init ) {
+			Zero ( lock );
+			init = MutexInitA ( lock );
+		}
 		return init;
 	}
 
@@ -119,109 +125,222 @@ namespace environs
         //CVerbVerb ( "~ILock" );
         
 		if ( init )
-			MutexDispose ( &lock );
+			MutexDisposeA ( lock );
     }
     
     
-    void LimitSpareSocketsCount ( ThreadInstance * client )
+    int GetStuntSocket ( ThreadInstance * inst )
     {
-        int size = client->spareSocketsCount;
-        
-        if ( size >= MAX_SPARE_SOCKETS_IN_QUEUE_CHECK )
-        {
-            int count = size - MAX_SPARE_SOCKETS_IN_QUEUE;
-            
-            for ( int i = 0; i < count; ++i )
-            {
-                int sock = client->spareSockets [i];
-                if ( sock != -1 )
-                {
-                    LimitLingerAndClose ( sock );
-                }
-            }
+        if ( IsInvalidFD ( inst->stuntSocket ) )
+            return INVALID_FD;
 
-            for ( int i = 0; i < MAX_SPARE_SOCKETS_IN_QUEUE; ++i, ++count )
-            {
-				client->spareSockets [i] = client->spareSockets [count];
-            }
-			
-            client->spareSocketsCount = MAX_SPARE_SOCKETS_IN_QUEUE;
-        }
-    }
-    
-    
-    int GetSpareSocket ( ThreadInstance * inst )
-    {
-        if ( inst->spareSocket == -1 )
-            return -1;
-        
-        int sock = -1;
-        
-#ifndef MEDIATORDAEMON
-        if ( !MutexLockA ( inst->spareSocketLock, "GetSpareSocket" ) )
-            return -1;
-#endif
-        sock = (int) inst->spareSocket;
-        if ( sock != -1 )
+		if ( !MutexLockA ( inst->stuntSocketLock, "GetStuntSocket" ) )
+			return INVALID_FD;
+
+		int sockToClose = INVALID_FD;
+
+		int sock = ( int ) inst->stuntSocket;
+        if ( IsValidFD ( sock ) )
         {
-            inst->spareSocket = -1;
+
+            inst->stuntSocket = INVALID_FD;
             
-            CVerbArg ( "GetSpareSocket: Adding socket [ %i ] to old spareSockets", sock );
-            
-            inst->spareSockets [ inst->spareSocketsCount ] = sock; inst->spareSocketsCount++;
-            
-            LimitSpareSocketsCount ( inst );
+            CVerbArg ( "GetStuntSocket: Adding socket [ %i ] to keepalive stuntSockets", sock );
+
+			int front = inst->stuntSocketsFront;
+			int end = inst->stuntSocketsLast;
+
+			front++;
+
+			if ( front >= MAX_STUNT_SOCKETS_IN_QUEUE )
+				front = 0;
+
+			if ( front == end ) {
+				sockToClose = inst->stuntSockets [ end ];
+
+				end++;
+				if ( end >= MAX_STUNT_SOCKETS_IN_QUEUE )
+					end = 0;
+			}
+
+			inst->stuntSockets [ front ] = ( int ) sock;
+
+			inst->stuntSocketsFront = front;
+			inst->stuntSocketsLast = end;
         }
         
 #ifndef MEDIATORDAEMON
-        inst->spareSocketRegisteredTime = 0;
+        inst->stuntSocketRegisteredTime = 0;
 #endif
-        
-#ifndef MEDIATORDAEMON
-        MutexUnlockA ( inst->spareSocketLock, "GetSpareSocket" );
-#endif
+        MutexUnlockA ( inst->stuntSocketLock, "GetStuntSocket" );
+
+		if ( IsValidFD ( sockToClose ) )
+			ShutdownCloseSocket ( sockToClose, true );
+
         return sock;
     }
-    
 
-	void LimitLingerAndClose ( int &sock )
+
+	bool SetNonBlockSocket ( int sock, bool set, const char * name )
 	{
-		if ( sock < 0 )
-            return;
-        
-#ifdef USE_ABORTIVE_SHUTDOWN
-		shutdown ( sock, 2 );  //SHUT_RDWR
-			
+#ifdef _WIN32
+		u_long flags;
 #else
-		linger ling;
-
-#ifdef MEDIATORDAEMON
-        ling.l_onoff    = 1;
-        ling.l_linger   = 10;
-#else
-#	ifdef LINGER_ZERO
-		ling.l_onoff    = 0;
-		ling.l_linger   = 0;
-#	else
-		ling.l_onoff    = 1;
-		ling.l_linger   = 10;
-#	endif
+		long flags;
 #endif
-		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
-			CErrArg ( "LimitLingerAndClose: Failed to set SO_LINGER on socket [ %i ]", sock );
-			VerbLogSocketError ();
+
+		if ( set )
+		{
+#ifdef _WIN32
+			flags = 1;
+
+			if ( ioctlsocket ( sock, FIONBIO, &flags ) != NO_ERROR )
+#else
+			flags = fcntl ( sock, F_GETFL, 0 );
+			if ( fcntl ( sock, F_SETFL, flags | O_NONBLOCK ) < 0 )
+#endif
+			{
+				goto Failed;
+			}
+			return true;
 		}
 
-		CVerbArg ( "LimitLingerAndClose: Closing [ %i ]", sock );
+#ifdef _WIN32
+		flags = 0;
 
-		shutdown ( sock, 2 ); // SHUT_RDWR
+		if ( ioctlsocket ( sock, FIONBIO, &flags ) != NO_ERROR )
+#else
+		flags = fcntl ( sock, F_GETFL, NULL );
+		flags &= ( ~O_NONBLOCK );
+		//	flags = (~O_NONBLOCK);
+
+		if ( fcntl ( sock, F_SETFL, flags ) < 0 )
+#endif
+		{
+			goto Failed;
+		}
+
+		return true;
+
+	Failed:
+		CErrArg ( "[ %s ].SetNonBlockSocket: Set socket to %sblocking mode failed!", name, set ? "non-" : "" );
+		LogSocketErrorF ( "SetNonBlockSocket" );
+		return false;
+    }
+    
+    
+    bool SocketTimeout ( int sock, int recvSec, int sendSec )
+    {
+        if ( sock < 0 )
+            return false;
+        
+        int rc = INVALID_FD;
+        
+#ifdef _WIN32
+        DWORD tv;
+#else
+        struct timeval tv;
 #endif
         
-        closesocket ( sock );
+        if ( recvSec >= 0 )
+        {
+#ifdef _WIN32
+            tv = recvSec * 1000;
+#else
+            tv.tv_sec	= recvSec;
+            tv.tv_usec	= 0;
+#endif
+            rc = setsockopt ( sock, SOL_SOCKET, SO_RCVTIMEO, (const char *) &tv, sizeof ( tv ) );
+            if ( rc < 0 ) {
+#ifdef MEDIATORDAEMON
+				CVerb ( "SocketTimeout: Failed to set SO_RCVTIMEO." ); VerbLogSocketError ();
+#else
+                CVerbs ( 2, "SocketTimeout: Failed to set SO_RCVTIMEO." ); VerbLogSocketError ();
+#endif
+                return false;
+            }
+        }
         
-        sock = -1;
-	}
+        if ( sendSec >= 0 )
+        {
+#ifdef _WIN32
+            tv = sendSec * 1000;
+#else
+            tv.tv_sec	= sendSec;
+            tv.tv_usec	= 0;
+#endif
+            rc = setsockopt ( sock, SOL_SOCKET, SO_SNDTIMEO, (const char *) &tv, sizeof ( tv ) );
+            if ( rc < 0 ) {
+#ifdef MEDIATORDAEMON
+				CVerb ( "SocketTimeout: Failed to set SO_SNDTIMEO." ); VerbLogSocketError ();
+#else
+                CVerbs ( 2, "SocketTimeout: Failed to set SO_SNDTIMEO." ); VerbLogSocketError ();
+#endif
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    
+    void ShutdownCloseSocket ( int sock, bool doClose )
+    {
+        if ( sock < 0 )
+            return;
+        
+        
+#ifdef MEDIATORDAEMON
+        //ling.l_linger   = 10;
+#else
+		linger ling;
+		//ling.l_onoff	= 1;
+        //ling.l_linger   = 1;
+		ling.l_onoff	= 0;
+		ling.l_linger   = 0;
 
+		if ( setsockopt ( sock, SOL_SOCKET, SO_LINGER, ( char * ) &ling, sizeof ( ling ) ) < 0 ) {
+			CVerbArg ( "ShutdownCloseSocket: Failed to set SO_LINGER on socket [ %i ]", sock );
+			VerbLogSocketError ();
+		}
+#endif
+        
+        if ( !doClose ) {
+            // Make subsequent calls to this socket return immediately
+            SetNonBlockSocket ( sock, true, "ShutdownCloseSocket" );
+            
+            //shutdown ( sock, 2 );  //SD_SEND
+            shutdown ( sock, 1 );  //SD_SEND
+            return;
+        }
+        
+        shutdown ( sock, 2 );  //SD_SEND
+
+		CSocketLogArg ( "ShutdownCloseSocket: Closing [ %i ].", sock );
+        closesocket ( sock );
+    }
+    
+    
+    bool FakeConnect ( int sock, unsigned int port )
+    {
+        int closer = ( int ) socket ( PF_INET, SOCK_STREAM, 0 );
+        if ( closer < 0 )
+            return false;
+        
+        struct sockaddr_in  addr;
+        Zero ( addr );
+        
+        addr.sin_family		 = PF_INET;
+        addr.sin_port		 = htons ( (unsigned short) port );
+        addr.sin_addr.s_addr = htonl ( INADDR_LOOPBACK );
+        
+        Mediator::Connect ( 0, closer, ( struct sockaddr * ) &addr, 2 );
+
+		CSocketLogArg ( "FakeConnect: Closing [ %i ].", closer );
+        closesocket ( closer );
+        return true;
+    }
+    
 
 	bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext )
 	{
@@ -250,8 +369,366 @@ namespace environs
 
 		dst [ len ] = 0;
 		return true;
-	}
+    }
+    
+    
+    ThreadInstance::ThreadInstance ()
+    {
+        allocated       = false;
+        
+        Reset ();
+    }
+    
+    
+    void ThreadInstance::Reset ()
+    {
+        daemon          = 0;
+        
+        deviceID        = 0;
+        version         = 0;
+        sessionID       = 0;
+        aliveLast       = 0;
+        
+        socket          = INVALID_FD;
+		stuntSocket     = INVALID_FD;
+        
+        port            = 0;
+        portUdp         = 0;
+        connectTime     = 0;
+		stuntPort       = 0;
+        filterMode      = 0;
+        
+        encrypt         = 0;
+        authenticated   = 0;
+        authLevel       = 0;
+        createAuthToken = false;
+        
+        *uid            = 0;
+        *ips            = 0;
+        
+#ifdef USE_MEDIATOR_OVERLAPPED_IO_SOCKET
+        socketReceiveEvent  = 0;
+#endif
+        
+#ifdef MEDIATORDAEMON
+        subscribedToNotifications   = true;
+        subscribedToMessages        = true;
+        
+        sendFails           = 0;
+        socketToClose       = INVALID_FD;
+        stuntTarget         = 0;
+        
+#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
+        stuntLastSend       = 0;
+        
+        stunLastSend        = 0;
+#endif
+        
+#else
+		stuntSocketRegisteredTime = 0;
+#endif
+		stuntSocketsLast	= 0;
+		stuntSocketsFront	= 0;
+        stuntSocketTime		= 0;
+    }
+    
+    
+    ThreadInstance::~ThreadInstance ()
+    {
+        Dispose ();
+        
+        if ( allocated ) {
+            MutexDisposeA ( stuntSocketLock );
+            
+            allocated = false;
+        }
+    }
+    
+    
+    bool ThreadInstance::Init ()
+    {
+        if ( !allocated )
+        {
+#ifdef MEDIATORDAEMON
+            if ( !ILock::Init () )
+                return false;
+#endif
+            if ( !MutexInitA ( stuntSocketLock ) )
+                return false;
+            
+            for ( int i = 0; i < MAX_STUNT_SOCKETS_IN_QUEUE; ++i )
+            {
+                stuntSockets [ i ] = INVALID_FD;
+            }
+            
+            Zero ( aes );
+            Zero ( addr );
+            
+            allocated = true;
+        }
+        
+        return thread.Init ();
+    }
+    
+    
+    void ThreadInstance::CloseStuntSockets ()
+    {
+        if ( stuntSocketsFront == stuntSocketsLast )
+            return;
+        
+        int sock = ( int ) stuntSockets [ stuntSocketsFront ];
+        if ( IsValidFD ( sock ) )
+        {
+            stuntSockets [ stuntSocketsFront ] = INVALID_FD;
+            
+            ShutdownCloseSocket ( sock, true );
+        }
+        
+        while ( stuntSocketsFront != stuntSocketsLast )
+        {
+            sock = ( int ) stuntSockets [ stuntSocketsLast ];
+            if ( IsValidFD ( sock ) )
+            {
+                stuntSockets [ stuntSocketsLast ] = INVALID_FD;
+                
+                ShutdownCloseSocket ( sock, true );
+            }
+            
+            stuntSocketsLast++;
+            if ( stuntSocketsLast >= MAX_STUNT_SOCKETS_IN_QUEUE )
+                stuntSocketsLast = 0;
+        }
+        
+        stuntSocketsFront   = 0;
+        stuntSocketsLast    = 0;
+    }
+    
+    
+    void ThreadInstance::Dispose ()
+    {
+#ifdef MEDIATORDAEMON
+        int sock = ( int ) socket;
+		socket = INVALID_FD;
 
+		if ( IsInvalidFD ( sock ) )
+			sock = ( int ) socketToClose;
+
+        if ( IsValidFD ( sock ) )
+        {
+            CVerb ( "Dispose: Shutdown socket" );
+            ShutdownCloseSocket ( sock, false );
+            
+            thread.WaitOne ( "Dispose", 100 );
+        }
+        
+        if ( IsValidFD ( sock ) ) {
+            CVerb ( "Dispose: Closing socket" );
+            ShutdownCloseSocket ( sock, true );
+        }
+        
+        int sockC = ( int ) socketToClose;
+		socketToClose = INVALID_FD;
+
+        if ( IsValidFD ( sockC ) )
+        {
+            if ( sockC != sock && sockC != stuntSocket )
+            {                
+                CVerb ( "Dispose: Shutdown socketToClose" );
+                ShutdownCloseSocket ( sockC, true );
+            }
+        }
+        
+        // Wait for the listening thread to shut down
+        thread.Join ( "Dispose" );
+        thread.Detach ( "Dispose" );
+#else
+        thread.Lock ( "ThreadInstance.Dispose" );
+        
+        int sock = ( int ) socket;
+        
+        socket = INVALID_FD;
+        
+		thread.ResetSync ( "ThreadInstance.Dispose", false );
+
+        thread.Unlock ( "ThreadInstance.Dispose" );
+        
+    ShutdownThread:
+        if ( IsValidFD ( sock )  )
+        {
+            CVerb ( "Dispose: Shutdown socket" );
+            ShutdownCloseSocket ( sock, false );
+        }
+        
+		if ( thread.isRunning () )
+			thread.WaitOne ( "ThreadInstance.Dispose", 500 );
+        
+        if ( IsValidFD ( sock ) ) {
+            CVerb ( "Dispose: Closing socket" );
+            ShutdownCloseSocket ( sock, true );
+        }
+        
+        // Wait for the listening thread to get terminated
+        thread.Join ( "Dispose" );
+        thread.Detach ( "Dispose" );
+        
+        sock = ( int ) socket;
+        
+        // It could happen, that a register thread was missed during disposal
+        // If that is the case, let's shutdown the newly created thead
+        if ( IsValidFD ( sock )  )
+            goto ShutdownThread;
+#endif
+        CloseStuntSockets ();
+
+		sock = ( int ) stuntSocket;
+		if ( IsValidFD ( sock ) ) {
+			stuntSocket = INVALID_FD;
+
+			CVerb ( "Dispose: Closing stuntSocket" );
+			ShutdownCloseSocket ( sock, true );
+		}
+        
+        
+#ifdef USE_MEDIATOR_OVERLAPPED_IO_SOCKET
+        if ( socketReceiveEvent != WSA_INVALID_EVENT ) {
+            WSACloseEvent ( socketReceiveEvent );
+            socketReceiveEvent = WSA_INVALID_EVENT;
+        }
+#endif
+        if ( aes.encCtx ) {
+            CVerbVerb ( "ThreadInstance: Disposing AES key context." );
+            AESDisposeKeyContext ( &aes );
+        }
+
+#ifndef MEDIATORDAEMON
+//        thread.DisposeInstance ();
+#endif
+        Reset ();
+    }
+    
+    
+    MediatorConnection::MediatorConnection ()
+    {
+        allocated       = false;
+        buffer          = 0;
+        
+        Reset ();
+    }
+    
+    
+    void MediatorConnection::Reset ()
+    {
+        
+        responseBuffer  = 0;
+        longReceive     = false;
+        
+        renewerAccess   = 0;
+        renewerQueue    = 0;
+        
+        env             = 0;
+    }
+    
+    
+    MediatorConnection::~MediatorConnection () {
+        Dispose ();
+        
+        if ( allocated ) {
+            MutexDisposeA ( receiveLock );
+            
+            CondDisposeA ( receiveEvent );
+            
+#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+            MutexDisposeA ( sendLock );
+#endif
+        }
+        
+        free_m ( buffer );
+    }
+    
+    
+    bool MediatorConnection::Init ()
+    {
+        if ( !allocated )
+        {
+            Zero ( receiveLock );
+            
+            if ( !MutexInitA ( receiveLock ) )
+                return false;
+            
+            Zero ( receiveEvent );
+            
+            if ( pthread_cond_manual_init ( &receiveEvent, NULL ) ) {
+                CErr ( "Init: Failed to init receiveEvent!" );
+                return false;
+            }
+            
+#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+            Zero ( sendLock );
+            
+            if ( !MutexInitA ( sendLock ) )
+                return false;
+#endif
+            allocated = true;
+        }
+        
+        if ( !buffer ) {
+            buffer = ( char * ) malloc ( MEDIATOR_REC_BUFFER_SIZE_MAX );
+            if ( !buffer ) {
+                CErr ( "Init: Failed to allocate memory!" );
+                return false;
+            }
+        }
+        
+        return instance.Init ();
+    }
+    
+    
+    void MediatorConnection::Dispose ()
+    {
+        instance.Dispose ();
+        
+        Reset ();
+    }
+    
+    
+    MediatorInstance::MediatorInstance () {
+        Reset ();
+    }
+    
+    
+    MediatorInstance::~MediatorInstance ()
+    {
+        if ( !ip )
+            return;
+        Dispose ();
+    }
+    
+    
+    bool MediatorInstance::Init ()
+    {
+        return connection.Init ();
+    }
+    
+    
+    void MediatorInstance::Dispose ()
+    {
+        connection.Dispose ();
+        
+        Reset ();
+    }
+    
+    
+    void MediatorInstance::Reset ()
+    {
+        ip          = 0;
+        port        = 0;
+        enabled     = false;
+        listening   = false;
+        
+        mediatorObject  = 0;
+        next            = 0;
+    }
+    
 
 	ApplicationDevices::ApplicationDevices ()
 	{
@@ -264,7 +741,7 @@ namespace environs
         deviceCacheCapacity = 0;
 		deviceCacheDirty	= true;
 
-		access = 1;
+		access              = 1;
 	}
 
 
@@ -278,17 +755,13 @@ namespace environs
 	{
 		CVerb ( "Construct" );
 
-		Zero ( mediator );
-		mediator.connection.instance.socket = -1;
-		mediator.connection.instance.spareSocket = -1;
-
 		allocated               = false;
 
 		isRunning 				= false;
 		aliveRunning			= false;
 
 		broadcastRunning		= false;
-		broadcastSocketID 		= -1;
+		broadcastSocket 		= INVALID_FD;
 
 		broadcastMessageLen		= 0;
 		broadcastMessageLenExt	= 0;
@@ -320,7 +793,7 @@ namespace environs
 	{
 		CVerb ( "Destructor" );
 
-		Dispose ();
+		//Dispose ();
 
 		if ( allocated )
         {
@@ -350,16 +823,19 @@ namespace environs
 
 		if ( !allocated )
         {
+            if ( !mediator.Init () )
+                return false;
+            
 #ifdef ENABLE_MEDIATOR_LOCK
 			if ( !MutexInitA ( mediatorLock ) )
 				return false;
 #endif
-
 			if ( !MutexInitA ( devicesLock ) )
                 return false;
 
             if ( !broadcastThread.Init () )
                 return false;
+			broadcastThread.autoreset = false;
             
 			allocated = true;
 		}
@@ -406,11 +882,11 @@ namespace environs
 	}
 
 
-	void Mediator::BroadcastByeBye ()
+	void Mediator::BroadcastByeBye ( int sock )
 	{
 		strlcpy ( broadcastMessage + 4, MEDIATOR_BROADCAST_BYEBYE, sizeof ( MEDIATOR_BROADCAST_BYEBYE ) );
 
-		SendBroadcast ( true, false );
+		SendBroadcastWithSocket ( true, false, true, sock );
 	}
 
 
@@ -434,7 +910,7 @@ namespace environs
 	{
 		CVerb ( "IsSocketAlive" );
 
-		if ( sock == -1 ) {
+		if ( IsInvalidFD ( sock ) ) {
 			CVerb ( "IsSocketAlive: socket argument is invalid" );
 			return false;
 		}
@@ -442,24 +918,24 @@ namespace environs
 		int value;
 		socklen_t size = sizeof ( socklen_t );
 
-		int ret = getsockopt ( (int) sock, SOL_SOCKET, SO_REUSEADDR, ( char * ) &value, &size );
+		int ret = getsockopt ( ( int ) sock, SOL_SOCKET, SO_REUSEADDR, ( char * ) &value, &size );
 		if ( ret < 0 ) {
 			CInfo ( "IsSocketAlive: disposing invalid socket!" );
 			//LogSocketError ();
 #ifdef MEDIATORDAEMON
-            try {
-                int sockl = (int) sock;
-                
-                LimitLingerAndClose ( sockl );
-                
-                sock = sockl;
+			try {
+				int sockl = ( int ) sock;
+
+				ShutdownCloseSocket ( sockl, true );
+
+				//sock = INVALID_FD;
 			}
 			catch ( ... ) {
 			}
 #else
-            LimitLingerAndClose ( sock );
+			ShutdownCloseSocket ( sock, true );
 #endif
-			sock = -1;
+			sock = INVALID_FD;
 			return false;
 		}
 
@@ -479,19 +955,7 @@ namespace environs
 
 			// Wait for the listening thread to be terminated
 #ifdef MEDIATORDAEMON
-			pthread_t thrd = inst->threadID;
-
-			if ( pthread_valid ( thrd ) ) {
-				CLog ( "VerifySockets: waiting for mediator listener thread to be termianted." );
-
-				/// EXC_BAD_ACCESS
-				int s = pthread_join ( thrd, NULL );
-				if ( pthread_wait_fail ( s ) ) {
-					CErrArg ( "VerifySockets: Error waiting for mediator listener thread (pthread_join:%i)", s );
-				}
-				pthread_close ( thrd );
-				pthread_reset ( inst->threadID );
-			}
+            inst->thread.Join ( "VerifySockets" );
 #endif
 		}
 	}
@@ -501,7 +965,7 @@ namespace environs
 	{
 		CVerb ( "ReleaseThreads" );
 
-		int value;
+		int sock;
 		bool ret		= true;
 
 		// Signal stop status to threads
@@ -509,16 +973,50 @@ namespace environs
 		aliveRunning	= false;
 
 		// Close broadcast listener socket
-		value = broadcastSocketID;
-		if ( value != -1 ) {
-			CVerb ( "ReleaseThreads: Closing broadcast socket." );
+		MutexLockVA ( localNetsLock, "ReleaseThreads" );
 
-            broadcastSocketID = -1;
-            LimitLingerAndClose ( value );
+		sock = broadcastSocket;
+
+		if ( IsValidFD ( sock ) )
+			broadcastSocket = INVALID_FD;
+
+		MutexUnlockVA ( localNetsLock, "ReleaseThreads" );
+
+		int repeats = 200;
+        int ms = 300;
+
+		if ( IsValidFD ( sock ) ) {
+			BroadcastByeBye ( sock );
+
+			CVerb ( "ReleaseThreads: Shutdown broadcast socket." );
+            ShutdownCloseSocket ( sock, false );
+            
+            shutdown ( sock, 2 );
+
+		Retry:
+			if ( broadcastThread.isRunning () )
+			{
+				broadcastThread.WaitOne ( "Mediator.ReleaseThreads", ms );
+				if ( repeats > 0 )
+				{
+					repeats--;
+                    if ( ms < 1000 )
+                        ms += 300;
+					goto Retry;
+				}
+			}
+		}
+
+		if ( repeats <= 0 && IsValidFD ( sock ) ) {
+			ShutdownCloseSocket ( sock, true );
+			sock = INVALID_FD;
 		}
 
 		// Waiting for broadcast thread
         broadcastThread.Join ( "Mediator.ReleaseThreads" );
+
+		if ( IsValidFD ( sock ) )
+			ShutdownCloseSocket ( sock, true );
 
 		return ret;
 	}
@@ -555,13 +1053,17 @@ namespace environs
 
 		while ( inst )
 		{
-			int s = ( int ) inst->connection.instance.socket;
-			if ( s != -1 ) {
-				inst->connection.instance.socket = -1;
+			inst->connection.instance.thread.Lock ( "StopMediators" );
 
-				CVerb ( "StopMediators: closing socket" );
-				LimitLingerAndClose ( s );
+			int sock = ( int ) inst->connection.instance.socket;
+            
+			if ( IsValidFD ( sock ) && inst->ip ) {
+				CVerbArg ( "StopMediators: Shutdown socket [ %i ]", sock );
+				ShutdownCloseSocket ( sock, false );
 			}
+
+			inst->connection.instance.thread.Unlock ( "StopMediators" );
+
 			inst = inst->next;
 		}
 	}
@@ -571,75 +1073,10 @@ namespace environs
 	{
 		if ( !med ) return;
         
-        if ( med->port )
-        {
-            med->port = 0;
-            
-            ThreadInstance * inst = &med->connection.instance;
-            
-            int s = (int) inst->socket;
-            if ( s != -1 ) {
-                inst->socket = -1;
-                
-                CVerb ( "ReleaseMediator: Closing socket" );
-                LimitLingerAndClose ( s );
-            }
-            
-            // Wait for the listening thread to be terminated
-#ifdef MEDIATORDAEMON
-            pthread_t thrd = inst->threadID;
-            if ( pthread_valid ( thrd ) ) {
-                pthread_reset ( inst->threadID );
-                
-                CVerb ( "ReleaseMediator: Waiting for mediator listener thread ..." );
-                
-                s = pthread_join ( thrd, NULL );
-                if ( pthread_wait_fail ( s ) ) {
-                    CErrArg ( "ReleaseMediator: Error waiting for mediator listener thread (pthread_join:%i)", s );
-                }
-                
-                pthread_close ( thrd );
-            }
-#else
-            inst->listener.Join ( "ReleaseMediator" );
-#endif
-            
-            for ( int i = 0; i < inst->spareSocketsCount; ++i )
-            {
-                int sock = inst->spareSockets [i];
-                if ( sock != -1 )
-                {
-                    LimitLingerAndClose ( sock );
-                }
-            }
-            inst->spareSocketsCount = 0;
-            
-#ifndef MEDIATORDAEMON
-            inst->spareSocketRegisteredTime = 0;
-#endif
-            
-            AESDisposeKeyContext ( &inst->aes );
-            
-            inst->encrypt = 0;
-            
-            MutexDisposeA ( med->connection.receiveLock );
-            
-            CondDisposeA ( med->connection.receiveEvent );
-            
-#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
-            MutexDisposeA ( med->connection.sendLock );
-#endif
-            
-#ifndef MEDIATORDAEMON
-            MutexDisposeA ( inst->spareSocketLock );
-            
-            med->connection.instance.listener.DisposeInstance ();
-#endif
-            free_m ( med->connection.buffer );
-        }
-        
 		if ( med != &mediator )
-			free ( med );
+            delete med;
+        else if ( med->ip )
+            med->Dispose ();
 	}
 
 
@@ -662,6 +1099,7 @@ namespace environs
 			inst = inst->next;
 
             toDelete->next = 0;
+            
 			ReleaseMediator ( toDelete );
 		}
         
@@ -931,6 +1369,8 @@ namespace environs
 			{
                 CErrArg ( "LoadNetworks: Failed calling WSAIoctl: error %i", WSAGetLastError () );
 				shutdown ( sock, 2 );
+
+				CSocketLogArg ( "LoadNetworks: Closing [ %i ] sock.", sock );
 				closesocket ( sock );
 				goto EndOfMethod;
 			}
@@ -973,6 +1413,7 @@ namespace environs
             }
 
 			shutdown ( sock, 2 );
+			CSocketLogArg ( "LoadNetworks: Closing [ %i ] sock.", sock );
 			closesocket ( sock );
 		}
 #endif
@@ -1005,6 +1446,7 @@ namespace environs
             CErr ( "LoadNetworks: ioctl SIOCGIFCONF failed!" );
             
 			shutdown ( sock, 2 );
+			CSocketLogArg ( "LoadNetworks: Closing [ %i ] sock.", sock );
 			closesocket ( sock );
 			goto EndOfMethod;
 		}
@@ -1074,6 +1516,7 @@ namespace environs
         }
         
 		shutdown ( sock, 2 );
+		CSocketLogArg ( "LoadNetworks: Closing [ %i ] sock.", sock );
 		closesocket ( sock );
 
 #else // LINUX or MAC or IOS
@@ -1224,7 +1667,7 @@ namespace environs
 
 		isRunning = true;
 
-        if ( !StartBroadcastThread () )
+        if ( !PrepareAndStartBroadcastThread () )
             return false;
 
 		OnStarted ();
@@ -1236,42 +1679,44 @@ namespace environs
 	}
     
     
-    bool Mediator::StartBroadcastThread ()
+    bool Mediator::PrepareAndStartBroadcastThread ( bool runThread )
     {
-        CVerb ( "StartBroadcastThread" );
+        CVerb ( "PrepareAndStartBroadcastThread" );
         
         // Create socket for broadcast thread
-        if ( broadcastSocketID == -1 ) {
+        if ( IsInvalidFD ( broadcastSocket ) ) 
+		{
             int sock = ( int ) socket ( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
-            if ( sock == -1 ) {
-                CErr ( "Start: Failed to create broadcast socket!" );
+            if ( IsInvalidFD ( sock ) ) 
+			{
+                CErr ( "PrepareAndStartBroadcastThread: Failed to create broadcast socket!" );
                 return false;
             }
             DisableSIGPIPE ( sock );
             
-            broadcastSocketID = sock;
+            broadcastSocket = sock;
             
             int value = 1;
             if ( setsockopt ( sock, SOL_SOCKET, SO_BROADCAST, ( const char * ) &value, sizeof ( value ) ) == -1 ) {
-                CErr ( "Start: Failed to set broadcast option on socket!" );
+                CErr ( "PrepareAndStartBroadcastThread: Failed to set broadcast option on socket!" );
                 return false;
             }
             
             value = 1;
             if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
-                CErr ( "Start: Failed to set reuseaddr option on socket!" );
+                CErr ( "PrepareAndStartBroadcastThread: Failed to set reuseaddr option on socket!" );
                 return false;
             }
             
 #ifdef SO_REUSEPORT
             value = 1;
             if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEPORT, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
-                CErr ( "Start: Failed to set reuseaddr option on socket!" );
+                CErr ( "PrepareAndStartBroadcastThread: Failed to set reuseaddr option on socket!" );
                 return false;
             }
 #endif
             /// Create broadcast thread
-            if ( !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) )
+            if ( runThread && !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) )
                 return false;
         }
         return true;
@@ -1283,11 +1728,11 @@ namespace environs
 	}
 
 
-	bool Mediator::SendBroadcast ( bool enforce, bool sendStatus )
+	bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny )
 	{
 		CVerbVerb ( "SendBroadcast" );
 
-		if ( broadcastSocketID == -1 || (!enforce && !broadcastRunning) )
+		if ( IsInvalidFD ( broadcastSocket ) || ( !enforce && !broadcastRunning ) )
 			return false;
 
 #ifndef MEDIATORDAEMON
@@ -1297,20 +1742,20 @@ namespace environs
 
 		bool success    = true;
 		int  sentBytes  = 0;
-        
-        char * msg;
-        int sendLen;
-        
-        if ( sendStatus ) {
-            msg		= udpStatusMessage;
-			sendLen = ( int ) udpStatusMessageLen;            
-        }
-        else {
-            msg		= broadcastMessage;
-            sendLen = ( int ) broadcastMessageLen;
-        }
 
-        CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+		char * msg;
+		int sendLen;
+
+		if ( sendStatus ) {
+			msg		= udpStatusMessage;
+			sendLen = ( int ) udpStatusMessageLen;
+		}
+		else {
+			msg		= broadcastMessage;
+			sendLen = ( int ) broadcastMessageLen;
+		}
+
+		CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
 
 		struct 	sockaddr_in		broadcastAddr;
 		Zero ( broadcastAddr );
@@ -1318,28 +1763,26 @@ namespace environs
 		broadcastAddr.sin_family = PF_INET;
 		broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
 
-#ifdef USE_BROADCAST_ADDR_ANY
-        broadcastAddr.sin_addr.s_addr = 0xFFFFFFFF;
-        //broadcastAddr.sin_addr.s_addr = inet_addr ( "255.255.255.255" );
+		if ( sendToAny ) {
+			broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
 
-		sentBytes = sendto ( broadcastSocketID, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-		if ( sentBytes != sendLen )
-        {
-			CErr ( "SendBroadcast: Broadcast failed!" );
-			return false;
+			sentBytes = ( int ) sendto ( broadcastSocket, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+			if ( sentBytes != sendLen )
+			{
+				CErr ( "SendBroadcast: Broadcast to any failed!" );
+			}
 		}
-#endif
 
 		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
 		NetPack * net = 0;
 
 #ifdef NDEBUG
-        if ( localNetsSize <= 1 )
+		if ( localNetsSize <= 1 )
 #else
-        if ( localNetsSize <= 0 )
+		if ( localNetsSize <= 0 )
 #endif
-            return true;
-        
+			return true;
+
 		if ( !MutexLockA ( localNetsLock, "SendBroadcast" ) ) {
 			return false;
 		}
@@ -1348,7 +1791,88 @@ namespace environs
 		while ( net ) {
 			broadcastAddr.sin_addr.s_addr = net->bcast;
 
-			sentBytes = ( int ) sendto ( broadcastSocketID, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+			sentBytes = ( int ) sendto ( broadcastSocket, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+			if ( sentBytes != sendLen ) {
+				CErr ( "SendBroadcast: Broadcast failed!" );
+				success = false;
+			}
+
+			net = net->next;
+		}
+
+		MutexUnlockVA ( localNetsLock, "SendBroadcast" );
+
+		return success;
+	}
+
+
+	bool Mediator::SendBroadcastWithSocket ( bool enforce, bool sendStatus, bool sendToAny, int sock )
+	{
+		CVerbVerb ( "SendBroadcastWithSocket" );
+
+		if ( IsInvalidFD ( sock ) )
+			sock = broadcastSocket;
+
+		if ( IsInvalidFD ( sock ) || ( !enforce && !broadcastRunning ) )
+			return false;
+
+#ifndef MEDIATORDAEMON
+		if ( native.networkStatus < NETWORK_CONNECTION_NO_INTERNET )
+			return false;
+#endif
+
+		bool success    = true;
+		int  sentBytes  = 0;
+
+		char * msg;
+		int sendLen;
+
+		if ( sendStatus ) {
+			msg		= udpStatusMessage;
+			sendLen = ( int ) udpStatusMessageLen;
+		}
+		else {
+			msg		= broadcastMessage;
+			sendLen = ( int ) broadcastMessageLen;
+		}
+
+		CVerbArg ( "SendBroadcastWithSocket: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+
+		struct 	sockaddr_in		broadcastAddr;
+		Zero ( broadcastAddr );
+
+		broadcastAddr.sin_family = PF_INET;
+		broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
+
+		if ( sendToAny ) {
+			broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
+
+			sentBytes = ( int ) sendto ( sock, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+			if ( sentBytes != sendLen )
+			{
+				CErr ( "SendBroadcastWithSocket: Broadcast to any failed!" );
+			}
+		}
+
+		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
+		NetPack * net = 0;
+
+#ifdef NDEBUG
+		if ( localNetsSize <= 1 )
+#else
+		if ( localNetsSize <= 0 )
+#endif
+			return true;
+
+		if ( !MutexLockA ( localNetsLock, "SendBroadcast" ) ) {
+			return false;
+		}
+
+		net = &localNets;
+		while ( net ) {
+			broadcastAddr.sin_addr.s_addr = net->bcast;
+
+			sentBytes = ( int ) sendto ( sock, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
 			if ( sentBytes != sendLen ) {
 				CErr ( "SendBroadcast: Broadcast failed!" );
 				success = false;
@@ -1440,6 +1964,8 @@ namespace environs
 		if ( !listRoot )
 			return;
 
+		bool isListening = IsServiceAvailable ();
+
 		if ( !MutexLock ( mutex, "VanishedDeviceWatcher" ) )
             return;
         
@@ -1449,7 +1975,11 @@ namespace environs
 		{
 			CVerbVerbArg ( "VanishedDeviceWatcher: Checking [ 0x%X ] Area [ %s ] App [ %s ]", device->info.deviceID, device->info.areaName, device->info.appName );
 
-			if ( device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST && ( lastGreetUpdate - device->info.updates ) > 90000 )
+			if ( device->info.broadcastFound == DEVICEINFO_DEVICE_BROADCAST_AND_MEDIATOR && !isListening ) {
+				device->info.broadcastFound = DEVICEINFO_DEVICE_BROADCAST;
+			}
+
+			if ( device->info.broadcastFound != DEVICEINFO_DEVICE_MEDIATOR && ( lastGreetUpdate - device->info.updates ) > 120000 )
 			{
 				// Device has vanished
 				DeviceInstanceNode	*	vanished = device;
@@ -2208,48 +2738,71 @@ namespace environs
 
 		Mediator * mediator = ( Mediator * ) arg;
 
-		// Execute thread
-        mediator->BroadcastThread ();
+	Retry:
+		mediator->broadcastThread.ResetSync ( "BroadcastThreadStarter" );
+
+		if ( mediator->isRunning && IsValidFD ( mediator->broadcastSocket ) )
+		{
+			// Execute thread
+			mediator->BroadcastThread ();
+		}
         
-        if ( mediator->isRunning && mediator->broadcastSocketID != -1 )
-        {
-            if ( mediator->broadcastThreadRestarts <= 3 )
-            {
-                // Let's restart the thread. Something has shut us down unexpectedly
-                // while all indicators expect us to be running for a working mediator layer
-                mediator->broadcastThreadRestarts++;
-                
-                // Prepare for restart of broadcast thread
-                mediator->broadcastThread.Detach ( "BroadcastThreadStarter" );
-                
-                // Close broadcast listener socket
-                int sock = mediator->broadcastSocketID;
-                if ( sock != -1 ) {
-                    CVerb ( "BroadcastThreadStarter: Closing broadcast socket." );
-                    
-                    mediator->broadcastSocketID = -1;
-                    LimitLingerAndClose ( sock );
-                }
-                
-                if ( mediator->StartBroadcastThread () )
-                {
-                    CWarn ( "BroadcastThreadStarter: Restarted thread." );
-                    return 0;
-                }
-            }
-            
-            // Restart has failed 3 times ... or restart has failed at all
-            // We're giving up here and shut down broadcast layer
-            
-            // Clear broadcast thread state
-            mediator->broadcastThread.Detach ( "BroadcastThreadStarter" );
-            
+        if ( mediator->isRunning && IsValidFD ( mediator->broadcastSocket )
 #ifndef MEDIATORDAEMON
-            mediator->ReleaseDevices ();
+            && mediator->env->environsState >= environs::Status::Starting
 #endif
-            
-            CErr ( "BroadcastThreadStarter: Failed to restart thread !!!" );
+			)
+        {
+			int waits = 0;
+
+			// Let's restart the thread. Something has shut us down unexpectedly
+			// while all indicators expect us to be running for a working mediator layer
+			if ( mediator->broadcastThreadRestarts > 15 ) {
+				CErr ( "BroadcastThreadStarter: Failed to restart thread." );
+				goto Finish;
+			}
+			
+			mediator->broadcastThreadRestarts++;
+
+            if ( mediator->broadcastThreadRestarts > 3 )
+            {
+				waits = mediator->broadcastThreadRestarts - 3;
+            }
+
+			if ( waits > 0 ) {
+				CWarnArg ( "BroadcastThreadStarter: Wait state before restart [ %i ] ...", waits );
+
+#ifndef MEDIATORDAEMON
+				mediator->ReleaseDevices ();
+#endif
+				// Let's wait a while and retry
+				Sleep ( waits * 10000 );
+			}
+
+			// Close broadcast listener socket
+			int sock = mediator->broadcastSocket;
+			if ( IsValidFD ( sock ) ) {
+				CVerb ( "BroadcastThreadStarter: Closing socket." );
+
+				mediator->broadcastSocket = INVALID_FD;
+				ShutdownCloseSocket ( sock, true );
+			}
+
+			if ( mediator->PrepareAndStartBroadcastThread ( false ) )
+			{
+				CWarn ( "BroadcastThreadStarter: Restarted thread." );
+				goto Retry;
+			}
+
+            // Restart has failed several times and we are not able to reinitiate resources.
+            // We're giving up this thread context here
+			CErr ( "BroadcastThreadStarter: Failed to restart thread." );                      
         }
+
+	Finish:
+		mediator->broadcastThread.Notify ( "BroadcastThreadStarter" );
+
+		mediator->broadcastThread.Detach ( "BroadcastThreadStarter" );
         return 0;
 	}
 
@@ -2268,66 +2821,28 @@ namespace environs
 			return true;
 		}
 
-		MediatorInstance * med = ( MediatorInstance * ) calloc ( 1, sizeof ( MediatorInstance ) );
+        MediatorInstance * med = new MediatorInstance ();
 		if ( !med ) {
-			CErr ( "AddMediator: Failed to allocate memory!" );
+			CErr ( "AddMediator: Failed to allocate instance!" );
 			return false;
-		}
-
+        }
+        
+        if ( !med->Init () )
+            goto Failed;
+        
 #ifndef MEDIATORDAEMON
         med->connection.env = env;
-        
-        if ( !med->connection.instance.listener.Init () )
-            goto Failed;
+		med->connection.instance.thread.autoreset = false;
 #endif
-
-		if ( !MutexInit ( &med->connection.receiveLock ) )
-			goto Failed;
-
-		Zero ( med->connection.receiveEvent );
-
-		if ( pthread_cond_manual_init ( &med->connection.receiveEvent, NULL ) ) {
-			CErr ( "AddMediator: Failed to init receiveEvent!" );
-			goto Failed;
-		}
-        
-#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
-		if ( !MutexInitA ( med->connection.sendLock ) )
-            goto Failed;
-#endif
-        
-#ifndef MEDIATORDAEMON
-        if ( !MutexInitA ( med->connection.instance.spareSocketLock ) )
-            goto Failed;
-#endif
-
-        med->enabled    = false;
-        med->listening  = false;
-        med->ip         = ip;
-        med->port       = port;
-		med->connection.instance.socket         = -1;
-        med->connection.instance.spareSocket    = -1;
-        
-#ifndef MEDIATORDAEMON
-        med->connection.instance.spareSocketRegisteredTime = 0;
-#endif
-
-		med->connection.buffer = ( char * ) malloc ( MEDIATOR_REC_BUFFER_SIZE_MAX );
-		if ( !med->connection.buffer ) {
-			CErr ( "AddMediator: Failed to allocate memory!" );
-			goto Failed;
-		}
-
+        med->ip             = ip;
+        med->port           = port;
+                
 		AddMediator ( med );
 
 		return true;
         
     Failed:
-        
-#ifndef MEDIATORDAEMON
-        med->connection.instance.listener.DisposeInstance ();
-#endif
-		free ( med );
+		delete med;
 		return false;
 	}
 
@@ -2367,16 +2882,13 @@ namespace environs
 			med = 0;
 		}
 		else {
-			memcpy ( &mediator, med, sizeof ( MediatorInstance ) );
-
-			med->connection.buffer = 0;
-            
 #ifndef MEDIATORDAEMON
-			Zero ( mediator.connection.instance.listener );
-			mediator.connection.instance.listener.Init ();
+            mediator.connection.env = med->connection.env;
 #endif
-
-			added = &mediator;
+            mediator.ip             = med->ip;
+            mediator.port           = med->port;
+            
+            added = &mediator;
 		}
 
     FinishUnlock:
@@ -2387,13 +2899,8 @@ namespace environs
     Failed:
 #endif
 		if ( med ) {
-			if ( med->connection.buffer )
-                free ( med->connection.buffer );
-            
-#ifndef MEDIATORDAEMON
-            med->connection.instance.listener.DisposeInstance ();
-#endif
-			free ( med );
+            delete med;
+//            ReleaseMediator ( med );
 		}
 		return added;
 	}
@@ -2448,7 +2955,137 @@ namespace environs
 #endif
 		return true;
 	}
+    
 
+	int Mediator::Connect ( int deviceID, int &sockArg, struct sockaddr * addr, int timeoutSeconds, const char * name )
+	{
+		int rc = INVALID_FD, sock = sockArg;
 
+		if ( IsInvalidFD ( sock ) ) {
+			CVerbsArgID ( 2, "[ %s ].Connect: Invalid socket!", name );
+			return -1;
+		}
+        
+        CVerbsArgID ( 6, "[ %s ].Connect: Set to non-blocking mode ...", name );
+        
+        if ( !SetNonBlockSocket ( sock, true, name ) )
+            goto EndWithStatus;
+        
+        CVerbsArgID ( 5, "[ %s ].Connect: Connect ...", name );
+        
+        rc = connect ( sock, addr, sizeof ( struct sockaddr ) );
+        if ( rc < 0 ) {
+            if ( SOCK_IN_PROGRESS )
+            {
+                do
+                {
+                    CVerbsArgID ( 5, "[ %s ].Connect: Waiting ...", name );
+                    
+                    fd_set fdw;
+                    //fd_set fde;
+                    struct timeval timeout;
+                    Zero ( timeout );
+                    
+                    FD_ZERO ( &fdw );
+                    FD_SET ( ( unsigned ) sock, &fdw );
+                    
+                    /*FD_ZERO ( &fde );
+                     FD_SET ( ( unsigned ) sock, &fde );*/
+                    
+                    timeout.tv_sec = timeoutSeconds ? timeoutSeconds : 4;
+                    //					timeout.tv_usec = WAIT_TIME_FOR_CONNECTIONS * 1000;
+                    
+                    rc = select ( sock + 1, NULL, &fdw, NULL, &timeout );
+                    //rc = select ( sock + 1, NULL, &fdw, &fde, &timeout );
+                    if ( rc > 0 ) {
+#if defined (_WIN32)
+                        if ( FD_ISSET ( sock, &fdw ) ) {
+                            rc = 0;
+                        }
+                        
+                        /*if ( FD_ISSET ( sock, &fde ) ) {
+                         rc = -1;
+                         
+                         CErrArgID ( "[%s].Connect: Failed!", name );
+                         LogSocketErrorF ( "MediatorClient.Connect" );
+                         }*/
+#else
+                        int sockErr;
+                        socklen_t len = sizeof sockErr;
+                        
+                        if ( getsockopt ( sock, SOL_SOCKET, SO_ERROR, ( char * ) &sockErr, &len ) != 0 )
+                        {
+                            CVerbsArgID ( 4, "[ %s ].Connect: Get socket opt failed.", name );
+                            rc = -1;
+                        }
+                        else if ( sockErr )
+                        {
+                            CErrArgID ( "[ %s ].Connect: Failed!", name );
+                            LogSocketErrorF ( "MediatorClient.Connect" );
+                            
+                            rc = -1;
+                        }
+                        else
+                            rc = 0;
+#endif
+                    }
+                    else {
+                        CVerbsArgID ( 5, "[ %s ].Connect: Select failed!", name );
+                        VerbLogSocketErrorF ( "MediatorClient.Connect" );
+                        rc = -1;
+                    }
+                    
+                    CVerbsArgID ( 4, "[ %s ].Connect: %s [ rc = %i ]", name, rc != 0 ? "Failed" : "Success", rc );
+                }
+                while ( false );
+            }
+            else {
+                CVerbsArgID ( 6, "[ %s ].Connect: Connect seems successful.", name );
+            }
+        }
+        else {
+            CVerbsArgID ( 4, "[ %s ].Connect: Connect failed.", name );
+        }
+        
+        CVerbsArgID ( 6, "[ %s ].Connect: Set to blocking mode ...", name );
+        
+        if ( rc == 0 )
+            SetNonBlockSocket ( sock, false, name );
+        
+    EndWithStatus:
+        return rc;
+    }
 
+    
+    void Mediator::UnConnectUDP ( int sock )
+    {
+        if ( IsInvalidFD ( sock ) )
+            return;
+        
+        struct 	sockaddr_in			addr;
+        Zero ( addr );
+        
+        addr.sin_family = AF_UNSPEC;
+        
+#ifndef NDEBUG
+        int rc =
+#endif
+        ::connect ( sock, ( struct sockaddr * ) &addr, sizeof ( addr ) );
+        
+#ifndef NDEBUG
+        if ( rc < 0 ) {
+            //LogSocketErrorF ( "UnConnectUDP" );
+        }
+#endif
+    }
+
+    
 } /* namepace environs */
+
+
+
+
+
+
+
+

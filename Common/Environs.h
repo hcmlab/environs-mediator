@@ -79,10 +79,10 @@
 
 namespace environs
 {
-#ifndef CLI_CPP
+#ifndef CLI_CPP    
     class EnvironsNative;
 #endif
-    
+        
     extern bool IsUIThread ();
     
 	namespace lib

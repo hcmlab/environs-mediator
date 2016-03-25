@@ -21,8 +21,8 @@
 #ifndef INCLUDE_HCM_ENVIRONS_INTEROP_TIMEVAL_H
 #define INCLUDE_HCM_ENVIRONS_INTEROP_TIMEVAL_H
 
-//#ifndef INCLINEFUNC
-//#	define INCLINEFUNC						inline 
+//#ifndef INLINEFUNC
+//#	define INLINEFUNC						inline 
 //#endif
 
 #if ( defined(_WIN32) )

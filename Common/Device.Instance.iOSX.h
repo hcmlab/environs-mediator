@@ -147,17 +147,17 @@
 /** Application defined context 0 for arbitrary use. */
 @property (nonatomic) int						appContext0;
 /** Application defined context 1 for arbitrary use. */
-@property (nonatomic) id						appContext1;
+@property (strong) id                           appContext1;
 /** Application defined context 2 for arbitrary use. */
-@property (nonatomic) id						appContext2;
+@property (strong) id                           appContext2;
 /** Application defined context 3 for arbitrary use. */
-@property (nonatomic) id						appContext3;
+@property (strong) id                           appContext3;
 
 /** An identifier that is unique for this object of this type. */
 @property (readonly, nonatomic) long			objID;
 
 /** A descriptive string with the most important details. */
-@property (readonly, nonatomic, copy) NSString * toString;
+@property (readonly) NSString *                 toString;
 
 /**
 * Add an observer (DeviceObserver) that notifies about device property changes.

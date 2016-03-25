@@ -36,6 +36,8 @@ namespace environs
 		extern "C"
 		{
 #endif
+			CLI_INC LIBEXPORT void CallConv		PreDisposeN ();
+
 			CLI_INC
 				LIBEXPORT EBOOL CallConv		SetPortalOverlayARGBN ( int hInst, int nativeID, int portalID, int layerID, int left, int top,
 					int width, int height, int stride, Addr_obj renderData, int alpha, bool positionDevice );

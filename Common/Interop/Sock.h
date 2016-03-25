@@ -22,11 +22,16 @@
 #define INCLUDE_HCM_ENVIRONS_INTEROP_SOCKETS_H
 #include "Interop.h"
 
+#define		INVALID_FD	-1
+#define		IsInvalidFD(s)	s == INVALID_FD
+#define		IsValidFD(s)	s != INVALID_FD
+
 #if defined(_WIN32)
 
 //#include <ws2ipdef.h>
 #	include <ws2tcpip.h>
 
+#	define LogSocketErrorF_Check(f,c)		CWarnArg    ( "[%s]: SocketError [ %d ]",f, c)
 #	define LogSocketErrorF(f)				CWarnArg    ( "[%s]: SocketError [ %d ]",f, WSAGetLastError())
 #	define LogSocketErrorFID(f)				CWarnArgID  ( "[%s]: SocketError [ %d ]",f, WSAGetLastError())
 #	define VerbLogSocketErrorF(f)			CVerbArg    ( "[%s]: SocketError [ %d ]",f, WSAGetLastError())
@@ -35,16 +40,26 @@
 #	define LogSocketError()					{ int err = WSAGetLastError(); CWarnArg    ( "SocketError: [ %d ]",        err); }
 #	define LogSocketErrorID()				{ int err = WSAGetLastError(); CWarnArgID  ( "SocketError: [ %d ]",        err); }
 #	define VerbLogSocketError()				{ int err = WSAGetLastError(); CVerbArg    ( "SocketError: [ %d ]",        err); }
+#	define VerbLogSocketError_Check(c)		CVerbArg    ( "SocketError: [ %d ]",        c)
 
+#	define SOCKETValCheck(aVal)				int aVal = WSAGetLastError()
+#	define SOCKETRETRYCheck(aVal)			( aVal == WSAEWOULDBLOCK || aVal == WSATRY_AGAIN )
 #	define SOCK_IN_PROGRESS					(WSAGetLastError() == WSAEWOULDBLOCK)
+#	define SOCK_IN_PROGRESS_Check(aVal)		(aVal == WSAEWOULDBLOCK)
 #	define SOCKETRETRY()					{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) continue; }
 #	define SOCKETRETRYGOTO(label)			{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) goto label; }
 #	define SOCKETRETRYCONDGOTO(exp,label)	{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) if (exp) goto label; }
 
 #	define DisableSIGPIPE(socki)
 
+#   define poll(pfd,nfd,timeout)            WSAPoll ( pfd, nfd, timeout )
+
 #	ifndef MSG_NOSIGNAL
 #		define	MSG_NOSIGNAL	0
+#	endif
+
+#	ifndef MSG_MORE
+#		define	MSG_MORE	0
 #	endif
 #else
 
@@ -58,6 +73,7 @@
 #	include <netinet/in.h>
 #	include <netinet/tcp.h>
 #	include <signal.h>
+#   include <poll.h>
 
 #	ifndef ANDROID
 #		include <ifaddrs.h>
@@ -67,6 +83,10 @@
 //                 -> OSX/iOS includes
 #	ifndef MSG_NOSIGNAL
 #		define	MSG_NOSIGNAL	0
+#	endif
+
+#	ifndef MSG_MORE
+#		define	MSG_MORE	0
 #	endif
 
 #		define DisableSIGPIPE(socki)        {int value = 1; setsockopt(socki, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));}
@@ -80,6 +100,7 @@
 #		endif
 #	endif
 
+#	define LogSocketErrorF_Check(f,c)		CWarnArg    ( "[%s]: SocketError [ %s ]",f, strerror(c))
 #	define LogSocketErrorF(f)				CWarnArg    ( "[%s]: SocketError [ %s ]",f, strerror(errno))
 #	define LogSocketErrorFID(f)				CWarnArgID  ( "[%s]: SocketError [ %s ]",f, strerror(errno))
 #	define VerbLogSocketErrorF(f)			CVerbArg    ( "[%s]: SocketError [ %s ]",f, strerror(errno))
@@ -88,11 +109,15 @@
 #	define VerbLogSocketError1()
 #	define LogSocketErrorID()				CWarnArgID  ( "SocketError: [ %s ]",        strerror(errno))
 #	define VerbLogSocketError()				CVerbArg    ( "SocketError: [ %s ]",        strerror(errno))
+#	define VerbLogSocketError_Check(c)		CVerbArg    ( "SocketError: [ %s ]",        strerror(c))
 
+#	define SOCK_IN_PROGRESS_Check(aVal)		(aVal == EINPROGRESS || aVal == EALREADY)
 #	define SOCK_IN_PROGRESS					(errno == EINPROGRESS || errno == EALREADY)
 #	define SOCK_CONNECTED					(errno == EISCONN)
 #	define SOCK_CON_REFUSED					(errno == ECONNREFUSED)
 
+#	define SOCKETValCheck(aVal)				int aVal = errno
+#	define SOCKETRETRYCheck(aVal)			( aVal == EWOULDBLOCK || aVal == EAGAIN )
 #	define SOCKETRETRY()					{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) continue; }
 #	define SOCKETRETRYGOTO(label)			{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) goto label; 
 #	define SOCKETRETRYCONDGOTO(exp,label)	{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) if (exp) goto label; }
@@ -121,7 +146,7 @@
 namespace environs
 {
 
-	extern void LimitLingerAndClose ( int &sock );
+	extern void ShutdownCloseSocket ( int sock, bool doClose );
 
 }
 #endif

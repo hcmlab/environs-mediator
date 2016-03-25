@@ -1475,25 +1475,26 @@ namespace environs
 		}
 #endif
 		return success;
-	}
+    }
+    
+    
+    void cryptReleaseCert ( int deviceID )
+    {
+    }
+    
     
 #ifdef ENABLE_DUMMY_CRYPT
     void dReleaseCert ( int deviceID )
     {
     }
-#endif
-
-    void cryptReleaseCert ( int deviceID )
-    {
-        
-    }
     
-#ifdef ENABLE_DUMMY_CRYPT
+    
     void dAESDisposeKeyContext ( AESContext * ctx )
     {
     }
 #endif
 	
+    
 	void cryptAESDisposeKeyContext ( AESContext * ctx )
 	{
 		CVerb ( "AESDisposeKeyContext" );
@@ -1528,6 +1529,7 @@ namespace environs
 		memset ( ctx, 0, sizeof(AESContext) );
 	}
     
+    
 #ifdef ENABLE_DUMMY_CRYPT
     bool dAESDeriveKeyContext ( char * key, unsigned int keyLen, AESContext * ctx )
     {
@@ -1535,6 +1537,7 @@ namespace environs
     }
 #endif
 
+    
 	bool cryptAESDeriveKeyContext ( char * key, unsigned int keyLen, AESContext * ctx )
 	{
 		CVerb ( "AESDeriveKeyContexts" );
@@ -1710,6 +1713,7 @@ namespace environs
         return false;
     }
 #endif
+    
     
     /*
      * Encrypt *len bytes of data
@@ -1934,6 +1938,7 @@ namespace environs
     }
 #endif
 
+    
 	bool cryptAESDecrypt ( AESContext * ctx, char * buffer, unsigned int *bufferLen, char ** decrypted )
 	{
 		CVerbVerb ( "AESDecrypt" );
@@ -2112,12 +2117,14 @@ namespace environs
 		return ret;
     }
     
+    
 #ifdef ENABLE_DUMMY_CRYPT
     bool dSHAHashCreate ( const char * msg, char ** hash, unsigned int * xchLen )
     {
         return false;
     }
 #endif
+    
 
 	/**
 	*	SHAHashCreate: Creates a SHA512 hash for a given message, i.e. used to hash user passwords.
@@ -2364,6 +2371,7 @@ namespace environs
         if ( key ) dRSA_free ( (RSA *)key );
     }
 #endif
+    
     
     void dDisposePublicKey ( void * key )
     {

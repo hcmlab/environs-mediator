@@ -52,11 +52,11 @@
 *	WAIT_TIME_FOR_RECEIVING_TCP_ACK
 *	The timeout in miliseconds for receiving a response after sending a tcp message
 */
-#define WAIT_TIME_FOR_RECEIVING_TCP_ACK		3500
+#define WAIT_TIME_FOR_RECEIVING_TCP_ACK		10000
 
 /*
  *	WAIT_TIME_FOR_RECEIVING_TCP_MAX
- *	The timeout in miliseconds for receiving a large amount of mediator data
+ *	The timeout in miliseconds for receiving large amounts of mediator data
  */
 #define WAIT_TIME_FOR_RECEIVING_TCP_MAX		180000
 
@@ -189,6 +189,8 @@ namespace environs
 
 #			define pthread_create(threadID,s0,startRoutine,arg) \
 				((*threadID = (HANDLE)_beginthread ( (void (__cdecl *) (void *))startRoutine, 64000, arg )) == 0)
+
+#			define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
 #		elif CLI_CPP
 			using namespace System::Threading;
 
@@ -202,9 +204,11 @@ namespace environs
 #		else
 #			define pthread_start_routine_t			LPTHREAD_START_ROUTINE
 #			define pthread_make_routine(r)			((LPTHREAD_START_ROUTINE) r)
-
+			
 #			define pthread_create(threadID,s0,startRoutine,arg) \
 				((*(threadID) = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, 0 )) == 0)
+
+#			define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
 #		endif
 
 #		define pthread_cond_mutex_init(e,d)			false
@@ -302,10 +306,10 @@ namespace environs
 #			ifdef WINDOWS_PHONE
 #				define pthread_mutex_init(m,d)		false
 #			else
-				extern INCLINEFUNC bool pthread_mutex_init ( CRITICAL_SECTION  * critSEc, void * arg );
+				extern INLINEFUNC bool pthread_mutex_init ( CRITICAL_SECTION  * critSEc, void * arg );
 #			endif
 
-			extern INCLINEFUNC bool pthread_mutex_destroy ( CRITICAL_SECTION  * critSEc );
+			extern INLINEFUNC bool pthread_mutex_destroy ( CRITICAL_SECTION  * critSEc );
 
 #			ifdef WINDOWS_PHONE
 #				define pthread_cond_wait(e,m)		LeaveCriticalSection(m); WaitForSingleObjectEx ( *e, INFINITE, TRUE ); EnterCriticalSection (m);
@@ -314,9 +318,9 @@ namespace environs
 #			endif
 
 #if _MSC_VER >= 1800
-			_When_(return == 0, _Acquires_lock_(*lock))
+			_When_(return == 0, _Acquires_lock_(lock))
 #endif
-			extern INCLINEFUNC int pthread_mutex_lock (		pthread_mutex_t OBJ_ptr lock );
+			extern INLINEFUNC int pthread_mutex_lock (		pthread_mutex_t OBJ_ptr lock );
 
 #	define	pthread_mutex_lock_n(m)			EnterCriticalSection (m);
 #	define	pthread_mutex_unlock_n(m)		LeaveCriticalSection (m);
@@ -324,12 +328,12 @@ namespace environs
 #if _MSC_VER >= 1800
 			_When_(return == 0, _Acquires_lock_(*lock))
 #endif
-			extern INCLINEFUNC int pthread_mutex_trylock (	pthread_mutex_t OBJ_ptr lock );
+			extern INLINEFUNC int pthread_mutex_trylock (	pthread_mutex_t OBJ_ptr lock );
 			
 #if _MSC_VER >= 1800
 			_When_(return == 0, _Releases_lock_(*lock))
 #endif
-			extern INCLINEFUNC int pthread_mutex_unlock (	pthread_mutex_t OBJ_ptr lock );
+			extern INLINEFUNC int pthread_mutex_unlock (	pthread_mutex_t OBJ_ptr lock );
 
 #		endif
 
@@ -354,9 +358,9 @@ namespace environs
 #	ifdef CLI_CPP
 
 #	else
-		extern INCLINEFUNC int pthread_cond_timedwait (		pthread_cond_t	* cond, pthread_mutex_t OBJ_ptr lock, unsigned int * timeout );
-		extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t	* cond, pthread_mutex_t OBJ_ptr lock, unsigned int timeout );
-		extern INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t OBJ_ptr lock, unsigned int timeout );
+		extern INLINEFUNC int pthread_cond_timedwait (		pthread_cond_t	* cond, pthread_mutex_t OBJ_ptr lock, unsigned int * timeout );
+		extern INLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t	* cond, pthread_mutex_t OBJ_ptr lock, unsigned int timeout );
+		extern INLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t OBJ_ptr lock, unsigned int timeout );
 #	endif
 
 #	define pthread_csec_t					CRITICAL_SECTION
@@ -369,15 +373,17 @@ namespace environs
 #	endif // USE_PTHREADS_FOR_WINDOWS
 
 #else 	 // _WIN32 - Section for __APPLE__, ANDROID, _GNUC_
-	extern INCLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
-	extern INCLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
+	extern INLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
+	extern INLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
 
 #	define pthread_t_id						pthread_t
 #	define pthread_mutex_t_ptr				pthread_mutex_t *
 
 #	define	pthread_mutex_lock_n(m)			pthread_mutex_lock (m);
 #	define	pthread_mutex_unlock_n(m)		pthread_mutex_unlock (m);
-
+    
+#   define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
+    
 	/*
 	* Android/iOS/MacOS/Linux specific definintions
      */
@@ -476,23 +482,21 @@ namespace environs
 #	define 	areWeTheThreadID(t)			(System::Threading::Thread::CurrentThread == t)
 
 #	else
-	extern INCLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t OBJ_ref lock );
-	extern INCLINEFUNC bool pthread_is_self_thread ( pthread_t thread );
-	extern INCLINEFUNC bool pthread_valid ( pthread_t thread );
+	extern INLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t OBJ_ref lock );
+	extern INLINEFUNC bool pthread_is_self_thread ( pthread_t thread );
+	extern INLINEFUNC bool pthread_valid ( pthread_t thread );
 
-	extern INCLINEFUNC pthread_t_id getSelfThreadID ();
-	extern INCLINEFUNC bool areWeTheThreadID ( pthread_t_id thread );
+	extern INLINEFUNC pthread_t_id getSelfThreadID ();
+	extern INLINEFUNC bool areWeTheThreadID ( pthread_t_id thread );
 
 	/*
 	* POSIX Semaphore extensions for Environs.
 	*/
 	extern bool env_sem_create ( sem_tp * sem, int iniVal, const char * name, unsigned int name1, int name2, int name3 );
-    
-    //extern void DisposeThread ( pthread_t &threadID, const char * threadName );
 
-    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName );
+    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, pthread_t_id handleID, const char * threadName );
     
-    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName, pthread_cond_t &threadEvent );
+    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, pthread_t_id handleID, const char * threadName, pthread_cond_t &threadEvent );
     
     extern void DetachThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName );
 #	endif
@@ -621,25 +625,60 @@ namespace environs
     
 #ifdef __cplusplus
 
-	PUBLIC_CLASS ThreadSync
+	PUBLIC_CLASS EnvThread
 	{
-		bool					allocated;
-		pthread_mutex_t			lock;
-		pthread_cond_manual_t	signal;
-        
 	public:
+		LONGSYNC                state;
+
+		Win32_Only ( DWORD		handleID; )
+
+		pthread_t               threadID;
+
+        EnvThread ();
+        ~EnvThread ();
+
+		//void ResetState ();
+
+		/*
+		* Run	Create a thread with the given thread routine
+		* @return	1	success, thread is running or was already runing. (if wait is requested, then wait was successful)
+		*			0	failed
+		*			-1	failed, thread was started and is probably running (soon). However, wait for thread start failed.
+		*/
+		int Run ( pthread_start_routine_t, pthread_param_t arg, CString_ptr func );
+
+		bool isRunning ();
+		bool areWeTheThread ();
+
+		void Join ( CString_ptr func );
+		void Detach ( CString_ptr func );
+	};
+
+    typedef EnvThread OBJ_ptr  EnvThreadPtr;
+    
+    
+    PUBLIC_CLASS EnvLock Cli_Only ( : public EnvThread )
+    {
+        bool					allocated;
+        pthread_mutex_t			lock;
+        pthread_cond_manual_t	signal;
+        
+#ifndef _WIN32
+        bool                    signalState;
+#endif
+        
+    public:
         bool                    autoreset;
-        LONGSYNC                state;
-        pthread_t               threadID;
         
 #if ( !defined(NDEBUG) && !defined(CLI_CPP) )
-        //#ifdef USE_THREADSYNC_OWNER_NAME
+//#	ifdef USE_THREADSYNC_OWNER_NAME
         //const char          *   owner;
+//#	endif
 #endif
-                
-		ThreadSync ();
-		~ThreadSync ();
-
+        
+        EnvLock ();
+        ~EnvLock ();
+        
         bool Init ();
         void DisposeInstance ();
         
@@ -674,13 +713,23 @@ namespace environs
         bool UnlockCond ( CString_ptr func );
         
         bool ResetSync ( CString_ptr func, bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
-		void ResetState ( );
-		void Reset ();
         
         int WaitLocked ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ) );
-		int WaitOne ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
+        int WaitOne ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
         
         bool Notify ( CString_ptr func, bool useLock C_Only ( = true ) );
+    };
+    
+    typedef EnvLock OBJ_ptr  EnvLockPtr;
+
+
+	PUBLIC_CLASS ThreadSync : public EnvLock
+#ifndef CLI_CPP
+		, public EnvThread
+#endif
+	{
+	public:
+        //void Reset ();
 
 		/*
 		* Run	Create a thread with the given thread routine
@@ -690,14 +739,9 @@ namespace environs
 		*/
 		int Run ( pthread_start_routine_t, pthread_param_t arg, CString_ptr func, bool waitForStart C_Only ( = false ) );
         
-		bool isRunning ();
-		bool areWeTheThread ();
-
-		void Join ( CString_ptr func );
-		void Detach ( CString_ptr func );
 	};
     
     typedef ThreadSync OBJ_ptr  ThreadSyncPtr;
 }
 #endif
-#endif // INCLUDE_HCM_ENVIRONS_INTEROP_H
+#endif // INCLUDE_HCM_ENVIRONS_INTEROP_THREADS_H

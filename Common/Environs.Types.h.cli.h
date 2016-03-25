@@ -606,10 +606,10 @@ namespace Notify {
 			literal int MainAck                 	=	NOTIFY_CONNECTION_MAIN_ACK;
 			literal int MainFailed              	=	NOTIFY_CONNECTION_MAIN_FAILED;
 			literal int MainClosed              	=	NOTIFY_CONNECTION_MAIN_CLOSED;
-			literal int BulkNew                 	=	NOTIFY_CONNECTION_BULK_NEW;
-			literal int BulkAck                 	=	NOTIFY_CONNECTION_BULK_ACK;
-			literal int BulkFailed              	=	NOTIFY_CONNECTION_BULK_FAILED;
-			literal int BulkClosed              	=	NOTIFY_CONNECTION_BULK_CLOSED;
+			literal int ComDatNew               	=	NOTIFY_CONNECTION_COMDAT_NEW;
+			literal int ComDatAck               	=	NOTIFY_CONNECTION_COMDAT_ACK;
+			literal int ComDatFailed            	=	NOTIFY_CONNECTION_COMDAT_FAILED;
+			literal int ComDatClosed            	=	NOTIFY_CONNECTION_COMDAT_CLOSED;
 			literal int DataAck                 	=	NOTIFY_CONNECTION_DATA_ACK;
 			literal int DataClosed              	=	NOTIFY_CONNECTION_DATA_CLOSED;
 			literal int Progress                	=	NOTIFY_CONNECTION_PROGRESS;
@@ -624,10 +624,10 @@ namespace Notify {
 			MainAck                 	=	NOTIFY_CONNECTION_MAIN_ACK,
 			MainFailed              	=	NOTIFY_CONNECTION_MAIN_FAILED,
 			MainClosed              	=	NOTIFY_CONNECTION_MAIN_CLOSED,
-			BulkNew                 	=	NOTIFY_CONNECTION_BULK_NEW,
-			BulkAck                 	=	NOTIFY_CONNECTION_BULK_ACK,
-			BulkFailed              	=	NOTIFY_CONNECTION_BULK_FAILED,
-			BulkClosed              	=	NOTIFY_CONNECTION_BULK_CLOSED,
+			ComDatNew               	=	NOTIFY_CONNECTION_COMDAT_NEW,
+			ComDatAck               	=	NOTIFY_CONNECTION_COMDAT_ACK,
+			ComDatFailed            	=	NOTIFY_CONNECTION_COMDAT_FAILED,
+			ComDatClosed            	=	NOTIFY_CONNECTION_COMDAT_CLOSED,
 			DataAck                 	=	NOTIFY_CONNECTION_DATA_ACK,
 			DataClosed              	=	NOTIFY_CONNECTION_DATA_CLOSED,
 			Progress                	=	NOTIFY_CONNECTION_PROGRESS,
@@ -1102,12 +1102,19 @@ namespace Notify {
 		 * Max supported instances of Environs objects that each application can run at the same time.
 		 * */
 
-#		ifdef ENVIRONS_MAX_ENVIRONS_INSTANCES                   
-#			undef ENVIRONS_MAX_ENVIRONS_INSTANCES                   
+#		ifdef ENVIRONS_MAX_ENVIRONS_INSTANCES_MOBILE            
+#			undef ENVIRONS_MAX_ENVIRONS_INSTANCES_MOBILE            
 #		endif
 
-		literal int ENVIRONS_MAX_ENVIRONS_INSTANCES                   =	(10);
-#		define	ENVIRONS_MAX_ENVIRONS_INSTANCES                   		(10)
+		literal int ENVIRONS_MAX_ENVIRONS_INSTANCES_MOBILE            =	(5);
+#		define	ENVIRONS_MAX_ENVIRONS_INSTANCES_MOBILE            		(5)
+
+#		ifdef ENVIRONS_MAX_ENVIRONS_INSTANCES_FULL              
+#			undef ENVIRONS_MAX_ENVIRONS_INSTANCES_FULL              
+#		endif
+
+		literal int ENVIRONS_MAX_ENVIRONS_INSTANCES_FULL              =	(10);
+#		define	ENVIRONS_MAX_ENVIRONS_INSTANCES_FULL              		(10)
 		
 		/**
 		 * A constant value that identifies an uninitialized display value.
@@ -1343,40 +1350,40 @@ namespace Notify {
 #		define	MSG_HANDSHAKE_MAIN_CLOSED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 4)
 		
 
-#		ifdef MSG_HANDSHAKE_BULK                                
-#			undef MSG_HANDSHAKE_BULK                                
+#		ifdef MSG_HANDSHAKE_COMDAT                              
+#			undef MSG_HANDSHAKE_COMDAT                              
 #		endif
 
-		literal int MSG_HANDSHAKE_BULK                                =	(MSG_HANDSHAKE | 0x20);
-#		define	MSG_HANDSHAKE_BULK                                		(MSG_HANDSHAKE | 0x20)
+		literal int MSG_HANDSHAKE_COMDAT                              =	(MSG_HANDSHAKE | 0x20);
+#		define	MSG_HANDSHAKE_COMDAT                              		(MSG_HANDSHAKE | 0x20)
 
-#		ifdef MSG_HANDSHAKE_BULK_REQ                            
-#			undef MSG_HANDSHAKE_BULK_REQ                            
+#		ifdef MSG_HANDSHAKE_COMDAT_REQ                          
+#			undef MSG_HANDSHAKE_COMDAT_REQ                          
 #		endif
 
-		literal int MSG_HANDSHAKE_BULK_REQ                            =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 1);
-#		define	MSG_HANDSHAKE_BULK_REQ                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 1)
+		literal int MSG_HANDSHAKE_COMDAT_REQ                          =	(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 1);
+#		define	MSG_HANDSHAKE_COMDAT_REQ                          		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 1)
 
-#		ifdef MSG_HANDSHAKE_BULK_ACK                            
-#			undef MSG_HANDSHAKE_BULK_ACK                            
+#		ifdef MSG_HANDSHAKE_COMDAT_ACK                          
+#			undef MSG_HANDSHAKE_COMDAT_ACK                          
 #		endif
 
-		literal int MSG_HANDSHAKE_BULK_ACK                            =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 2);
-#		define	MSG_HANDSHAKE_BULK_ACK                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 2)
+		literal int MSG_HANDSHAKE_COMDAT_ACK                          =	(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 2);
+#		define	MSG_HANDSHAKE_COMDAT_ACK                          		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 2)
 
-#		ifdef MSG_HANDSHAKE_BULK_FAILED                         
-#			undef MSG_HANDSHAKE_BULK_FAILED                         
+#		ifdef MSG_HANDSHAKE_COMDAT_FAILED                       
+#			undef MSG_HANDSHAKE_COMDAT_FAILED                       
 #		endif
 
-		literal int MSG_HANDSHAKE_BULK_FAILED                         =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 3);
-#		define	MSG_HANDSHAKE_BULK_FAILED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 3)
+		literal int MSG_HANDSHAKE_COMDAT_FAILED                       =	(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 3);
+#		define	MSG_HANDSHAKE_COMDAT_FAILED                       		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 3)
 
-#		ifdef MSG_HANDSHAKE_BULK_CLOSED                         
-#			undef MSG_HANDSHAKE_BULK_CLOSED                         
+#		ifdef MSG_HANDSHAKE_COMDAT_CLOSED                       
+#			undef MSG_HANDSHAKE_COMDAT_CLOSED                       
 #		endif
 
-		literal int MSG_HANDSHAKE_BULK_CLOSED                         =	(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 4);
-#		define	MSG_HANDSHAKE_BULK_CLOSED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 4)
+		literal int MSG_HANDSHAKE_COMDAT_CLOSED                       =	(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 4);
+#		define	MSG_HANDSHAKE_COMDAT_CLOSED                       		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 4)
 		
 
 #		ifdef MSG_HANDSHAKE_PROC                                
@@ -1525,33 +1532,33 @@ namespace Notify {
 		literal int NOTIFY_CONNECTION_MAIN_CLOSED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_CLOSED);
 #		define	NOTIFY_CONNECTION_MAIN_CLOSED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_CLOSED)
 
-#		ifdef NOTIFY_CONNECTION_BULK_NEW                        
-#			undef NOTIFY_CONNECTION_BULK_NEW                        
+#		ifdef NOTIFY_CONNECTION_COMDAT_NEW                      
+#			undef NOTIFY_CONNECTION_COMDAT_NEW                      
 #		endif
 
-		literal int NOTIFY_CONNECTION_BULK_NEW                        =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_REQ);
-#		define	NOTIFY_CONNECTION_BULK_NEW                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_REQ)
+		literal int NOTIFY_CONNECTION_COMDAT_NEW                      =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_REQ);
+#		define	NOTIFY_CONNECTION_COMDAT_NEW                      		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_REQ)
 
-#		ifdef NOTIFY_CONNECTION_BULK_ACK                        
-#			undef NOTIFY_CONNECTION_BULK_ACK                        
+#		ifdef NOTIFY_CONNECTION_COMDAT_ACK                      
+#			undef NOTIFY_CONNECTION_COMDAT_ACK                      
 #		endif
 
-		literal int NOTIFY_CONNECTION_BULK_ACK                        =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_ACK);
-#		define	NOTIFY_CONNECTION_BULK_ACK                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_ACK)
+		literal int NOTIFY_CONNECTION_COMDAT_ACK                      =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_ACK);
+#		define	NOTIFY_CONNECTION_COMDAT_ACK                      		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_ACK)
 
-#		ifdef NOTIFY_CONNECTION_BULK_FAILED                     
-#			undef NOTIFY_CONNECTION_BULK_FAILED                     
+#		ifdef NOTIFY_CONNECTION_COMDAT_FAILED                   
+#			undef NOTIFY_CONNECTION_COMDAT_FAILED                   
 #		endif
 
-		literal int NOTIFY_CONNECTION_BULK_FAILED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_FAILED);
-#		define	NOTIFY_CONNECTION_BULK_FAILED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_FAILED)
+		literal int NOTIFY_CONNECTION_COMDAT_FAILED                   =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_FAILED);
+#		define	NOTIFY_CONNECTION_COMDAT_FAILED                   		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_FAILED)
 
-#		ifdef NOTIFY_CONNECTION_BULK_CLOSED                     
-#			undef NOTIFY_CONNECTION_BULK_CLOSED                     
+#		ifdef NOTIFY_CONNECTION_COMDAT_CLOSED                   
+#			undef NOTIFY_CONNECTION_COMDAT_CLOSED                   
 #		endif
 
-		literal int NOTIFY_CONNECTION_BULK_CLOSED                     =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_CLOSED);
-#		define	NOTIFY_CONNECTION_BULK_CLOSED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_CLOSED)
+		literal int NOTIFY_CONNECTION_COMDAT_CLOSED                   =	(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_CLOSED);
+#		define	NOTIFY_CONNECTION_COMDAT_CLOSED                   		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_CLOSED)
 
 #		ifdef NOTIFY_CONNECTION_DATA_ACK                        
 #			undef NOTIFY_CONNECTION_DATA_ACK                        
@@ -4149,12 +4156,12 @@ namespace Notify {
 		literal int DEVICE_ACTIVITY_MAIN_CONNECTED                    =	(0x1);
 #		define	DEVICE_ACTIVITY_MAIN_CONNECTED                    		(0x1)
 
-#		ifdef DEVICE_ACTIVITY_BULK_CONNECTED                    
-#			undef DEVICE_ACTIVITY_BULK_CONNECTED                    
+#		ifdef DEVICE_ACTIVITY_COMDAT_CONNECTED                  
+#			undef DEVICE_ACTIVITY_COMDAT_CONNECTED                  
 #		endif
 
-		literal int DEVICE_ACTIVITY_BULK_CONNECTED                    =	(0x2);
-#		define	DEVICE_ACTIVITY_BULK_CONNECTED                    		(0x2)
+		literal int DEVICE_ACTIVITY_COMDAT_CONNECTED                  =	(0x2);
+#		define	DEVICE_ACTIVITY_COMDAT_CONNECTED                  		(0x2)
 
 #		ifdef DEVICE_ACTIVITY_UDP_CONNECTED                     
 #			undef DEVICE_ACTIVITY_UDP_CONNECTED                     
@@ -4197,7 +4204,37 @@ namespace Notify {
 
 		literal int DEVICE_ACTIVITY_PLATFORM_DISPOSED                 =	(0x1000);
 #		define	DEVICE_ACTIVITY_PLATFORM_DISPOSED                 		(0x1000)
-			
+
+#		ifdef DEVICE_ACTIVITY_ABORTED                           
+#			undef DEVICE_ACTIVITY_ABORTED                           
+#		endif
+
+		literal int DEVICE_ACTIVITY_ABORTED                           =	(0x4000);
+#		define	DEVICE_ACTIVITY_ABORTED                           		(0x4000)
+		
+
+#		ifdef DEVICE_ACTIVITY_MAIN_INIT                         
+#			undef DEVICE_ACTIVITY_MAIN_INIT                         
+#		endif
+
+		literal int DEVICE_ACTIVITY_MAIN_INIT                         =	(0x10000);
+#		define	DEVICE_ACTIVITY_MAIN_INIT                         		(0x10000)
+
+#		ifdef DEVICE_ACTIVITY_COMDAT_INIT                       
+#			undef DEVICE_ACTIVITY_COMDAT_INIT                       
+#		endif
+
+		literal int DEVICE_ACTIVITY_COMDAT_INIT                       =	(0x20000);
+#		define	DEVICE_ACTIVITY_COMDAT_INIT                       		(0x20000)
+
+#		ifdef DEVICE_ACTIVITY_UDP_INIT                          
+#			undef DEVICE_ACTIVITY_UDP_INIT                          
+#		endif
+
+		literal int DEVICE_ACTIVITY_UDP_INIT                          =	(0x40000);
+#		define	DEVICE_ACTIVITY_UDP_INIT                          		(0x40000)
+		
+		
 		/**
 		 * Environs common native declarations
 		 * Environs common native declarations
@@ -4212,12 +4249,19 @@ namespace Notify {
 		literal int MEDIATOR_BUFFER_SIZE_MAX                          =	(65535);
 #		define	MEDIATOR_BUFFER_SIZE_MAX                          		(65535)
 
-#		ifdef MEDIATOR_REC_BUFFER_SIZE_MAX                      
-#			undef MEDIATOR_REC_BUFFER_SIZE_MAX                      
+#		ifdef MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE               
+#			undef MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE               
 #		endif
 
-		literal int MEDIATOR_REC_BUFFER_SIZE_MAX                      =	((650 * 1024));
-#		define	MEDIATOR_REC_BUFFER_SIZE_MAX                      		((650 * 1024))
+		literal int MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE               =	((350 * 1024));
+#		define	MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE               		((350 * 1024))
+
+#		ifdef MEDIATOR_REC_BUFFER_SIZE_MAX_FULL                 
+#			undef MEDIATOR_REC_BUFFER_SIZE_MAX_FULL                 
+#		endif
+
+		literal int MEDIATOR_REC_BUFFER_SIZE_MAX_FULL                 =	((650 * 1024));
+#		define	MEDIATOR_REC_BUFFER_SIZE_MAX_FULL                 		((650 * 1024))
 
 #		ifdef ENVIRONS_SEND_SIZE_MAX                            
 #			undef ENVIRONS_SEND_SIZE_MAX                            

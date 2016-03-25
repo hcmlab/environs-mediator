@@ -94,6 +94,7 @@ namespace environs
     
     typedef void *		( *ENVIRONS_PP ( ENVIRONS_GetLogMethods1 ) )( void ** outLog, void ** outLogArg );
 
+	typedef void 		(*pPreDispose)();
 	/**
 	* Create an Environs object.
 	*

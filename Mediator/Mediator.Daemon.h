@@ -18,8 +18,8 @@
  * --------------------------------------------------------------------
  */
 #pragma once
-#ifndef ENVIRONS_MEDIATOR_H
-#define ENVIRONS_MEDIATOR_H
+#ifndef ENVIRONS_MEDIATOR_SERVER_H
+#define ENVIRONS_MEDIATOR_SERVER_H
 
 #include "Mediator.h"
 using namespace environs;
@@ -51,316 +51,343 @@ using namespace std;
 
 // Default configuration
 
-class ILock1
+namespace environs
 {
-	pthread_mutex_t lock1;
-	bool			init1;
+	class ILock1
+	{
+		pthread_mutex_t lock1;
+		bool			init1;
 
-public:
+	public:
 
-	bool Init1 ();
-	bool Lock1 ( const char * func );
-	bool Unlock1 ( const char * func );
-	ILock1 ();
-	~ILock1 ();
-};
-
-
-typedef struct _ValuePack
-{
-	string          value;
-	unsigned int    size;
-	std::time_t     timestamp;
-} ValuePack;
+		bool Init1 ();
+		bool Lock1 ( const char * func );
+		bool Unlock1 ( const char * func );
+		ILock1 ();
+		~ILock1 ();
+	};
 
 
-class ListValues : public ILock
-{
-public:
-	msp ( string, ValuePack )	values;
-};
+	typedef struct _ValuePack
+	{
+		string          value;
+		unsigned int    size;
+		std::time_t     timestamp;
+	} ValuePack;
 
 
-class AppsList : public ILock
-{
-public:
-	msp ( string, ListValues ) apps;
-};
+	class ListValues : public ILock
+	{
+	public:
+		msp ( string, ValuePack )	values;
+	};
 
 
-class AreaApps : public ILock, public ILock1
-{
-public:
-	unsigned int						id;
-    string                              name;
-	msp ( string, ApplicationDevices )	apps;
-	msp ( long long, ThreadInstance )   notifyTargets;
-};
+	class AppsList : public ILock
+	{
+	public:
+		msp ( string, ListValues ) apps;
+	};
 
 
-class AreasList : public ILock
-{
-public:
-	msp ( string, AreaApps ) list;
-};
+	class AreaApps : public ILock, public ILock1
+	{
+	public:
+		unsigned int						id;
+		string                              name;
+		msp ( string, ApplicationDevices )	apps;
+		msp ( long long, ThreadInstance )   notifyTargets;
+	};
 
 
-class AreasMap : public ILock
-{
-public:
-    msp ( string, AppsList ) list;
-};
+	class AreasList : public ILock
+	{
+	public:
+		msp ( string, AreaApps ) list;
+	};
 
 
-typedef struct _DeviceMapping
-{
-	unsigned int	deviceID;
-    int             authLevel;
-	char			authToken [ MAX_NAMEPROPERTY + 1 ];
-}
-DeviceMapping;
+	class AreasMap : public ILock
+	{
+	public:
+		msp ( string, AppsList ) list;
+	};
 
 
-class DeviceMappings : public ILock
-{
-public:
-    msp ( string, DeviceMapping ) list;
-};
+	typedef struct _DeviceMapping
+	{
+		int     deviceID;
+		int     authLevel;
+		char    authToken [ MAX_NAMEPROPERTY + 1 ];
+	}
+	DeviceMapping;
 
 
-class InstanceMap : public ILock
-{
-public:
-    msp ( long long, ThreadInstance ) list;
-};
+	class DeviceMappings : public ILock
+	{
+	public:
+		msp ( string, DeviceMapping ) list;
+	};
 
 
-class InstanceList : public ILock
-{
-public:
-    vsp ( ThreadInstance ) list;
-};
+	class InstanceMap : public ILock
+	{
+	public:
+		msp ( long long, ThreadInstance ) list;
+	};
 
 
-typedef struct _UserItem
-{
-    int             authLevel;
-    string			pass;
-}
-UserItem;
+	class InstanceList : public ILock
+	{
+	public:
+		vsp ( ThreadInstance ) list;
+	};
 
 
-class NotifyQueueContext
-{
-public:
-	int                         notify;
-    sp ( DeviceInstanceNode )   device;
-};
+	typedef struct _UserItem
+	{
+		int             authLevel;
+		string			pass;
+	}
+	UserItem;
 
 
-class MediatorDaemon : public environs::Mediator
-{
-public:
-	MediatorDaemon ( );
-	~MediatorDaemon ( );
-	
-	bool									InitMediator ( );
-	void									PrintSmallHelp ( );
-	void									PrintHelp ( );
-
-	bool									OpenLog ( );
-	bool									CloseLog ( );
-
-	void									InitDefaultConfig ( );
-	bool									LoadConfig ( );
-	bool									LoadProjectValues ( );
-	bool									LoadUserDBEnc ( );
-	bool									LoadUserDB ( );
-    bool                                    LoadUserDB ( istream& instream );
-	bool									LoadKeys ( );
-	void									ReleaseKeys ( );
-	bool									SaveConfig ( );
-	bool									SaveProjectValues ( );
-	bool									SaveUserDB ( );
-	bool									AddUser ( int authLevel, const char * userName, const char * pass );
-	
-	bool									LoadDeviceMappingsEnc ();
-	bool									LoadDeviceMappings ();
-    bool                                    LoadDeviceMappings ( istream& instream );
-	bool									SaveDeviceMappings ();
-
-	bool									CreateThreads ( );
-	bool									ReCreateAcceptor ();
-	void									Run ( );
-
-	void									Dispose ( );
-	bool									ReleaseThreads ( );
-	
-	void									ReleaseDevices ( );
-	void									ReleaseDeviceMappings ( );
-	void									ReleaseClient ( ThreadInstance * client );
-
-	void									BuildBroadcastMessage ( bool withStatus = true );
-	
-private:
-    bool									allocated;
-    bool									acceptEnabled;
-	pthread_mutex_t							thread_lock;
-	pthread_cond_t							thread_condition;
-
-	vector<unsigned short>					ports;
-	vsp ( MediatorThreadInstance )          listeners;
-	unsigned int							networkOK;
-	unsigned int							networkMask;
-	bool									usersDBDirty;
-    bool									configDirty;
-    bool									deviceMappingDirty;
-
-
-    InstanceList                            acceptClients;
-    bool                                    RemoveAcceptClient ( ThreadInstance * );
-
-	sp ( ApplicationDevices )				GetApplicationDevices ( const char * appName, const char * areaName );
-	void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
-	DeviceInstanceNode *					GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
-
-    sp ( ThreadInstance )                   GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName );
+	class NotifyQueueContext
+	{
+	public:
+		int                         notify;
+		sp ( DeviceInstanceNode )   device;
+    };
     
-	sp ( ThreadInstance ) 					GetSessionClient ( long long sessionID );
-
-    msp ( long long, ThreadInstance )       notifyTargets;
-    void                                    UpdateNotifyTargets ( const sp ( ThreadInstance ) &client, int filterMode );
-
-	unsigned int							CollectDevicesCount ( DeviceInstanceNode * sourceDevice, int filterMode );
-
-	AreasMap                                areasMap;
-
-	bool									reqAuth;
-	pthread_mutex_t							usersDBLock;
-	map<string, UserItem *>                 usersDB;
-
-	DeviceMappings                          deviceMappings;
     
-    bool									anonymousLogon;
-    char                                    anonymousUser [ MAX_NAMEPROPERTY + 1 ];
-    char                                    anonymousPassword [ ENVIRONS_USER_PASSWORD_LENGTH + 1 ];
-    
-	char									inputBuffer [MEDIATOR_CLIENT_MAX_BUFFER_SIZE];
-	char	*								input;
-		
-	unsigned int							sessionCounter;
-	InstanceMap                             sessions;
+    class SendContext
+    {
+    public:
+        bool                done;
+        char            *   sendBuffer;
+        unsigned int        sendSize;
+        unsigned int        sendAlready;
+        sp ( ThreadInstance ) client;
+        void            *   msg;
+        unsigned int        msgLen;
+        
+        SendContext ( const sp ( ThreadInstance ) &c, void * m, unsigned int len ) :
+        done ( false ), sendBuffer ( 0 ), sendSize ( 0 ), sendAlready ( 0 ), client ( c ), msg ( m ), msgLen ( len ) {}
+        
+        ~SendContext () {
+            if ( msg != sendBuffer )
+                free ( sendBuffer );
+        }
+    };
 
-	unsigned int                            spareID;
-	InstanceMap                             spareClients;
 
-	char								*	privKey;
-	unsigned int							privKeySize;
-    unsigned int                            encPadding;
-    AESContext                              aesCtx;
-    char                                    aesKey [ 32 ];
-	
-	sp ( ApplicationDevices )				GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex,
-													int ** pDevicesAvailable, DeviceInstanceNode ** &list );
-	
-	unsigned int							areasCounter;
-	map<unsigned int, string>				areaIDs;
+	class MediatorDaemon : public environs::Mediator
+	{
+	public:
+		MediatorDaemon ();
+		~MediatorDaemon ();
 
-	unsigned int							appsCounter;
-	map<unsigned int, string>				appIDs;
+		bool									InitMediator ();
+		void									PrintSmallHelp ();
+		void									PrintHelp ();
 
-	AreasList 								areas;
-	
-	void									RemoveDevice ( unsigned int ip, char * msg );
-	void									RemoveDevice ( DeviceInstanceNode * device, bool useLock = true );
-	void									RemoveDevice ( int deviceID, const char * areaName, const char * appName );
+		bool									OpenLog ();
+		bool									CloseLog ();
+
+		void									InitDefaultConfig ();
+		bool									LoadConfig ();
+		bool									LoadProjectValues ();
+		bool									LoadUserDBEnc ();
+		bool									LoadUserDB ();
+		bool                                    LoadUserDB ( istream& instream );
+		bool									LoadKeys ();
+		void									ReleaseKeys ();
+		bool									SaveConfig ();
+		bool									SaveProjectValues ();
+		bool									SaveUserDB ();
+		bool									AddUser ( int authLevel, const char * userName, const char * pass );
+
+		bool									LoadDeviceMappingsEnc ();
+		bool									LoadDeviceMappings ();
+		bool                                    LoadDeviceMappings ( istream& instream );
+		bool									SaveDeviceMappings ();
+
+		bool									CreateThreads ();
+		void									Run ();
+
+		void									Dispose ();
+		bool									ReleaseThreads ();
+
+		void									ReleaseDevices ();
+		void									ReleaseDeviceMappings ();
+		void									ReleaseClient ( ThreadInstance * client );
+
+		void									BuildBroadcastMessage ( bool withStatus = true );
+
+	private:
+		bool									allocated;
+		bool									acceptEnabled;
+		pthread_mutex_t							thread_lock;
+		pthread_cond_t							thread_condition;
+
+		vector<unsigned short>					ports;
+		vsp ( MediatorThreadInstance )          listeners;
+		unsigned int							networkOK;
+		unsigned int							networkMask;
+		bool									usersDBDirty;
+		bool									configDirty;
+		bool									deviceMappingDirty;
+
+
+		InstanceList                            acceptClients;
+		bool                                    RemoveAcceptClient ( ThreadInstance * );
+
+		sp ( ApplicationDevices )				GetApplicationDevices ( const char * appName, const char * areaName );
+		void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
+		DeviceInstanceNode *					GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
+
+		sp ( ThreadInstance )                   GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName );
+
+		sp ( ThreadInstance ) 					GetSessionClient ( long long sessionID );
+
+		msp ( long long, ThreadInstance )       notifyTargets;
+		void                                    UpdateNotifyTargets ( const sp ( ThreadInstance ) &client, int filterMode );
+
+		unsigned int							CollectDevicesCount ( DeviceInstanceNode * sourceDevice, int filterMode );
+
+		AreasMap                                areasMap;
+
+		bool									reqAuth;
+		pthread_mutex_t							usersDBLock;
+		map<string, UserItem *>                 usersDB;
+
+		DeviceMappings                          deviceMappings;
+
+		bool									anonymousLogon;
+		char                                    anonymousUser [ MAX_NAMEPROPERTY + 1 ];
+		char                                    anonymousPassword [ ENVIRONS_USER_PASSWORD_LENGTH + 1 ];
+
+		char									inputBuffer [ MEDIATOR_CLIENT_MAX_BUFFER_SIZE ];
+		char	*								input;
+
+		unsigned int							sessionCounter;
+		InstanceMap                             sessions;
+
+		unsigned int                            stuntID;
+		InstanceMap                             stuntClients;
+
+		char								*	privKey;
+		unsigned int							privKeySize;
+		unsigned int                            encPadding;
+		AESContext                              aesCtx;
+		char                                    aesKey [ 32 ];
+
+		sp ( ApplicationDevices )				GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** mutex,
+			int ** pDevicesAvailable, DeviceInstanceNode ** &list );
+
+		unsigned int							areasCounter;
+		map<unsigned int, string>				areaIDs;
+
+		unsigned int							appsCounter;
+		map<unsigned int, string>				appIDs;
+
+		AreasList 								areas;
+
+		void									RemoveDevice ( unsigned int ip, char * msg );
+		void									RemoveDevice ( DeviceInstanceNode * device, bool useLock = true );
+		void									RemoveDevice ( int deviceID, const char * areaName, const char * appName );
 
 #ifdef __cplusplus
-	void									UpdateDeviceInstance ( const sp ( DeviceInstanceNode ) & device, bool added, bool changed );
+		void									UpdateDeviceInstance ( const sp ( DeviceInstanceNode ) & device, bool added, bool changed );
 #endif
 
-    unsigned int                            bannAfterTries;
-	pthread_mutex_t							bannedIPsLock;
-    std::map<unsigned int, std::time_t>		bannedIPs;
-    std::map<unsigned int, unsigned int>	bannedIPConnects;
+		unsigned int                            bannAfterTries;
+		pthread_mutex_t							bannedIPsLock;
+		std::map<unsigned int, std::time_t>		bannedIPs;
+		std::map<unsigned int, unsigned int>	bannedIPConnects;
 
-    bool									IsIpBanned ( unsigned int ip );
-    void									BannIP ( unsigned int ip );
-	void									BannIPRemove ( unsigned int ip );
+		bool									IsIpBanned ( unsigned int ip );
+		void									BannIP ( unsigned int ip );
+		void									BannIPRemove ( unsigned int ip );
 
-	int										ScanForParameters ( char * buffer, unsigned int maxLen, const char * delim, char ** params, int maxParams );
+		int										ScanForParameters ( char * buffer, unsigned int maxLen, const char * delim, char ** params, int maxParams );
 
-	bool									addToArea ( sp ( ListValues ) &values, const char * key, const char * value, unsigned int valueSize );
-	bool									addToArea ( const char * project, const char * app, const char * key, const char * value );
-	bool									sendDatabase ( int sock, struct sockaddr * addr );
-    
-    int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen, bool useLock = true );
-    
-	bool									SendPushNotification ( map<string, ValuePack*> * values, int clientID, const char * value );
-	bool									HTTPPostRequest ( string domain, string path, string key, string jsonData );
+		bool									addToArea ( sp ( ListValues ) &values, const char * key, const char * value, unsigned int valueSize );
+		bool									addToArea ( const char * project, const char * app, const char * key, const char * value );
+		bool									sendDatabase ( int sock, struct sockaddr * addr );
 
-	void *									BroadcastThread ( );
+        int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen );
+        
+        int										SendBuffer ( SendContext * ctx );
 
-	static void *							AcceptorStarter ( void *arg );
-	void *									Acceptor ( void *arg );
+		bool									SendPushNotification ( map<string, ValuePack*> * values, int clientID, const char * value );
+		bool									HTTPPostRequest ( string domain, string path, string key, string jsonData );
 
-	static void *							MediatorUdpThreadStarter ( void *arg );
-	void *									MediatorUdpThread ( void *arg );
+		void *									BroadcastThread ();
 
-	static void *							ClientThreadStarter ( void *arg );
-	void *									ClientThread ( void *arg );
+		static void *							AcceptorStarter ( void *arg );
+		void *									Acceptor ( void *arg );
 
-	bool									HandleRequest ( char * buffer, ThreadInstance * client );
-	bool									UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, unsigned int ip, char * msg );
+		static void *							MediatorUdpThreadStarter ( void *arg );
+		void *									MediatorUdpThread ( void *arg );
 
-    int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
-    int										HandleRegistrationV4 ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+		static void *							ClientThreadStarter ( void *arg );
+		void *									ClientThread ( void *arg );
 
-    bool									HandleDeviceRegistration ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
-    bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
-	bool									SecureChannelAuth ( ThreadInstance * client );
-	void									HandleSpareSocketRegistration ( ThreadInstance * spareClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
-	bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
-	bool									HandleSTUNTRequestV4 ( ThreadInstance * client, STUNTReqPacketV4 * msg );
-	bool									NotifySTUNTRegRequest ( ThreadInstance * client );
-    int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
-    
-	void									HandleCLSGenHelp ( ThreadInstance * client );
-	void									HandleCertSign ( ThreadInstance * client, char * msg );
+		bool									HandleRequest ( char * buffer, ThreadInstance * client );
+		bool									UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, unsigned int ip, char * msg );
 
-	void									HandleDeviceFlagSet ( ThreadInstance * client, char * msg );
-	
-    bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
-    bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
-    bool									HandleSTUNRequestV4 ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+		int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+		int										HandleRegistrationV4 ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
 
-	bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
-	bool									HandleQueryDevicesV4 ( const sp ( ThreadInstance ) &client, char * msg );
-	bool									HandleShortMessage ( ThreadInstance * client, char * msg );
+		bool									HandleDeviceRegistration ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
+		bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
+		bool									SecureChannelAuth ( ThreadInstance * client );
+		void									HandleStuntSocketRegistration ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
+		bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
+		bool									HandleSTUNTRequestV4 ( ThreadInstance * client, STUNTReqPacketV4 * msg );
+		bool									NotifySTUNTRegRequest ( ThreadInstance * client );
+		int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
 
-    pthread_t								notifyThreadID;
-    pthread_cond_t							notifyEvent;
-    pthread_mutex_t							notifyLock;
-    pthread_mutex_t							notifyTargetsLock;
-    
+		void									HandleCLSGenHelp ( ThreadInstance * client );
+		void									HandleCertSign ( ThreadInstance * client, char * msg );
+
+		void									HandleDeviceFlagSet ( ThreadInstance * client, char * msg );
+
+		bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
+		bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+		bool									HandleSTUNRequestV4 ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+
+		bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
+		bool									HandleQueryDevicesV4 ( const sp ( ThreadInstance ) &client, char * msg );
+		bool									HandleShortMessage ( ThreadInstance * client, char * msg );
+
+		pthread_t								notifyThreadID;
+		pthread_cond_t							notifyEvent;
+		pthread_mutex_t							notifyLock;
+		pthread_mutex_t							notifyTargetsLock;
+
 #ifdef __cplusplus
-	void									NotifyClients ( unsigned int notify, const sp ( DeviceInstanceNode ) &device );
+		void									NotifyClients ( unsigned int notify, const sp ( DeviceInstanceNode ) &device );
 #endif
-	static void 						*	NotifyClientsStarter ( void * daemon );
-	void									NotifyClientsThread ();
-	void									NotifyClients ( NotifyQueueContext * ctx );
-	
-	pthread_cond_t							hWatchdogEvent;
+		static void 						*	NotifyClientsStarter ( void * daemon );
+		void									NotifyClientsThread ();
+		void									NotifyClients ( NotifyQueueContext * ctx );
 
-	INTEROPTIMEVAL							checkLast;
-	static void 						*	WatchdogThreadStarter ( void * daemon );
-	void									WatchdogThread ();
-    
-    void                                    CheckProjectValues ();
+	public:
+		pthread_cond_t							hWatchdogEvent;
 
-};
+	private:
+		INTEROPTIMEVAL							checkLast;
+		static void 						*	WatchdogThreadStarter ( void * arg );
+		void									WatchdogThread ( MediatorThreadInstance * listeners );
 
+		void                                    CheckProjectValues ();
 
-#endif	// ENVIRONS_MEDIATOR_H
+	};
+
+}
+
+#endif	// ENVIRONS_MEDIATOR_SERVER_H
 
 

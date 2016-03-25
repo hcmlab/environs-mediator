@@ -56,114 +56,8 @@
 #	endif
 #endif
 
-
 #ifndef INCLUDE_HCM_ENVIRONS_NATIVE_COMMON_H
 #define INCLUDE_HCM_ENVIRONS_NATIVE_COMMON_H
-
-
-#ifdef DISPLAYDEVICE
-#	define MAX_PORTAL_INSTANCES				40
-#else
-#	define MAX_PORTAL_INSTANCES				10
-#endif
-
-#define ENVIRONS_USER_PASSWORD_LENGTH		64
-#define ENVIRONS_MAX_KEYSIZE				4096
-
-#ifdef __APPLE__
-#	define ENVIRONS_PRIVATE_KEYNAME			"env.4321a.bin"
-#	define ENVIRONS_PUBLIC_CERTNAME			"env.1234a.bin"
-#else
-#	define ENVIRONS_PRIVATE_KEYNAME			"env.4321.bin"
-#	define ENVIRONS_PUBLIC_CERTNAME			"env.1234.bin"
-#endif
-
-#define ENVIRONS_MEDIATOR_MAX_TRYS          10
-
-#define ENVIRONS_TOUCH_RECOGNIZER_MAX       6
-#define ENVIRONS_INPUT_RECOGNIZER_MAX       10
-
-#define MAX_CONNECTED_DEVICES               120
-
-#define MAX_BULK_SEND_SIZE					2000000000
-
-//#define USE_MEDIATOR_OPT_KEY_MAPS_COMP
-
-//#define USE_THREAD_NAME_ASSIGN_INSTRUCTION
-
-#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
-#	define ENVIRONS_DEVICE_KEY_EXT +4
-#else
-#	define ENVIRONS_DEVICE_KEY_EXT
-#endif
-
-#if ( !defined(NDEBUG) && !defined(CLI_CPP) )
-//#   define USE_THREADSYNC_OWNER_NAME
-#endif
-
-#define ENABLE_DONT_LINGER_SOCKETS
-
-#define USE_LOCAL_MEDIATOR_CACHE_PARAMS
-
-//#define USE_ASYNC_WORKER_FOR_ALIVE_SENDS
-
-//#define USE_NSLOG
-//#define USE_PORTAL_THREADS_FOR_IOSX_CAM
-
-
-#define ENABLE_IOS_NATIVE_H264_ONLY
-//#define ENABLE_IOS_STATIC_TOUCH_LISTENER
-
-//#define USE_OLD_STYLE_SENSORS
-
-//#define ENABLE_WIND3D_CAPTURE
-
-#define DEBUG_PORTAL_HEXSTRING
-
-//#define ENABLE_PORTAL_STALL_MECHS
-
-//#define ENABLE_IMPROVED_PORTAL_GENERATOR
-
-//#define	ENVIRONS_ENABLE_RECOGNIZER_MANAGER	1
-
-
-#define USE_CALMED_BUFFER_ADAPT
-
-/// Removed. Needs to be verified for windows and android platforms
-#define USE_WORKER_THREADS
-#define ENABLE_ENCRYPTION
-
-#define USE_WORKER_THREADS_INITIAL_CONTEXT		1
-
-#define ENABLE_WORKER_STAGES_LOCKS
-//#define ENABLE_WORKER_STAGES_COMPARE
-
-//#define INCREASE_TCP_SOCKET_BUFFERS
-
-#define ENABLE_NATIVE_H264DECODER
-
-#ifdef _WIN32
-//#	define PERFORMANCE_MEASURE
-#endif
-
-// NAT behaviour compiler flags
-/// This is problematic for connections through the internet
-//#define ENABLE_TCL_NODELAY_FOR_NAT
-#define DISABLE_BUFFER_TUNING_FOR_NAT
-
-//#define	LIMIT_MAX_NATIVE_RESOLUTION
-
-/// Search ports dynamically starting with the base port up to 100 above
-#define ENVIRONS_DYNAMIC_PORTS_UPSTEPS				100
-
-/// Move recongizer source code into an recongizers object
-//#define ENABLE_RECOGNIZERS_OBJECT
-//#define ENABLE_RECOGNIZERS_OBJECT_USAGE
-
-
-#define PARTITION_MIN_BUFFER_REQUIREMENT	131072
-#define PARTITION_SEND_BUFFER_SIZE			64000
-#define PARTITION_CHUNK_SIZE				(PARTITION_SEND_BUFFER_SIZE - MSG_CHUNKED_HEADER_SIZE)
 
 
 /// Fake 42 test device entries for device information retrieval through the mediator
@@ -292,8 +186,11 @@ namespace environs {
 
 
 #   ifdef MEDIATORDAEMON
-        extern void MLog ( const char * msg );
-        extern void MLogArg ( const char * msg, ... );
+namespace environs
+{
+	extern void MLog ( const char * msg );
+	extern void MLogArg ( const char * msg, ... );
+}
 
 #       define ENVIRONS_LOG_RCMD(tag,expression)                    MLog ( expression )
 #       define ENVIRONS_LOGARG_RCMD(tag,expression,...)             MLogArg ( expression, __VA_ARGS__ )
@@ -659,6 +556,23 @@ namespace environs {
 #	define  CVerbLockPortalRecRes(msg)
 #	undef	CVerbUnLockPortalRecRes
 #	define  CVerbUnLockPortalRecRes(msg)
+#endif
+
+#if ( !defined(DEBUGSocketLog) || defined(NDEBUG) )
+#	undef	CSocketLog
+#	define  CSocketLog(msg)
+#	undef	CSocketLogArg
+#	define  CSocketLogArg(msg,...)
+#else
+#	define	CSocketLog(msg)							CLog ( msg )
+#	define  CSocketLogArg(msg,...)					CLogArg ( msg, __VA_ARGS__ )
+#endif
+
+#if ( !defined(DEBUGSocketCreateLog) || defined(NDEBUG) )
+#	undef	CSocketCreateLogArg
+#	define  CSocketCreateLogArg(msg,...)
+#else
+#	define  CSocketCreateLogArg(msg,...)			CLogArg ( msg, __VA_ARGS__ )
 #endif
 
 #if ( defined(NDEBUG) && defined(RELEASELIB) )

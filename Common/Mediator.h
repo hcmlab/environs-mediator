@@ -26,8 +26,7 @@
 #   define  DAEMONEXP(exp)                      exp
 #   define  CLIENTEXP(exp)
 
-#   define MAX_SPARE_SOCKETS_IN_QUEUE			20
-#   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     26
+#   define MAX_STUNT_SOCKETS_IN_QUEUE			20
 
 #	define USE_LOCKFREE_SOCKET_ACCESS
 
@@ -37,8 +36,7 @@
 #   define  DAEMONEXP(exp)
 #   define  CLIENTEXP(exp)                      exp
 
-#   define MAX_SPARE_SOCKETS_IN_QUEUE			50
-#   define MAX_SPARE_SOCKETS_IN_QUEUE_CHECK     60
+#   define MAX_STUNT_SOCKETS_IN_QUEUE			50
 
 //#   define ENABLE_MEDIATOR_LOCK
 //#   define ENABLE_MEDIATOR_SEND_LOCK
@@ -53,7 +51,6 @@
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_CLIENT
 //#define USE_NONBLOCK_CLIENT_SOCKET
-
 
 #include "Interop/Threads.h"
 #include "Interop/Sock.h"
@@ -81,7 +78,7 @@
 
 #define MEDIATOR_BROADCAST						"E.Mediator"
 #define MEDIATOR_BROADCAST_DEVICE				"E.D."
-#define MEDIATOR_SPARE_SOCKET_REQ				"E.DS"
+#define MEDIATOR_STUNT_SOCKET_REQ				"E.DS"
 #define MEDIATOR_BROADCAST_DEVICEINFO			"E.D.Client"
 #define MEDIATOR_BROADCAST_DEVICE_UPDATE		"E.D.DFlags"
 #define MEDIATOR_BROADCAST_GREET				"E.D.Helo"
@@ -105,7 +102,7 @@
 #define	MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE		'N'
 #define	MEDIATOR_CMD_SHORT_MESSAGE				'm'
 #define	MEDIATOR_CMD_MESSAGE_SUBSCRIBE          'M'
-#define	MEDIATOR_CMD_REQ_SPARE_ID				'r'
+#define	MEDIATOR_CMD_REQ_STUNT_ID				'r'
 #define	MEDIATOR_SRV_CMD_ALIVE_REQUEST			'A'
 #define	MEDIATOR_SRV_CMD_SESSION_RETRY			'R'
 #define	MEDIATOR_SRV_CMD_SESSION_LOCKED			'L'
@@ -152,7 +149,7 @@
 #define MEDIATOR_DEVICE_CHANGE_MEDIATOR			2
 
 
-const unsigned int		maxSpareSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
+const unsigned int		maxStuntSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
 
 
 namespace environs	/// Namespace: environs ->
@@ -160,7 +157,13 @@ namespace environs	/// Namespace: environs ->
 	extern unsigned int		primaryInterface;
 
 	extern bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext );
-
+	extern bool SetNonBlockSocket ( int sock, bool set, const char * name );
+    
+    extern bool SocketTimeout ( int sock, int recvSec, int sendSec );
+    
+    extern bool FakeConnect ( int sock, unsigned int port );
+    
+    
 	typedef struct NetPack
 	{
 		unsigned int		ip;
@@ -170,26 +173,43 @@ namespace environs	/// Namespace: environs ->
 		NetPack			*	next;
 	}
 	NetPack;
-
+    
+    
+    class ILock
+    {
+        bool init;
+        
+    public:
+        pthread_mutex_t		lock;
+        
+        bool Init ();
+        bool Lock ( const char * func );
+        bool Unlock ( const char * func );
+        ILock ();
+        ~ILock ();
+    };
+    
+    
 	struct DeviceInstanceNode;
 
-	typedef struct ThreadInstance
+    typedef struct ThreadInstance DAEMONEXP ( : public ILock )
 	{
 		void				*	daemon;
 
         int						deviceID;
         
-        DAEMONEXP ( pthread_t   threadID );
         
-        CLIENTEXP ( ThreadSync  listener; )
+        ThreadSync              thread;
         
-		pthread_mutex_t			lock;
 		unsigned int			version;
 		long long				sessionID;
 
 		INTEROPTIMEVAL			aliveLast;
         
         SOCKETSYNC				socket;
+        
+        DAEMONEXP ( SOCKETSYNC socketToClose; )
+        
 		unsigned short			port;
 		unsigned short			portUdp;
 
@@ -197,12 +217,12 @@ namespace environs	/// Namespace: environs ->
 
         INTEROPTIMEVAL			connectTime;
         
-        CLIENTEXP ( pthread_mutex_t spareSocketLock; )
-        CLIENTEXP ( INTEROPTIMEVAL spareSocketRegisteredTime; )
+        CLIENTEXP ( INTEROPTIMEVAL  stuntSocketRegisteredTime; )
 
-        SOCKETSYNC				spareSocket;
+        SOCKETSYNC				stuntSocket;
+        pthread_mutex_t         stuntSocketLock;
         
-		unsigned short			sparePort;
+		unsigned short			stuntPort;
 		short                   filterMode;
 		
 		int						encrypt;
@@ -214,21 +234,27 @@ namespace environs	/// Namespace: environs ->
         char					uid [ MAX_NAMEPROPERTY * 6 ];
         char                    ips [ 20 ];
 
-#ifdef __cplusplus        
-        DAEMONEXP ( bool init );
+		int						stuntSocketsFront;
+        int						stuntSocketsLast;
+        int						stuntSockets [ MAX_STUNT_SOCKETS_IN_QUEUE ];
+        INTEROPTIMEVAL          stuntSocketTime;
+        
         DAEMONEXP ( bool subscribedToNotifications );
         DAEMONEXP ( bool subscribedToMessages );
+        
+#ifdef USE_MEDIATOR_OVERLAPPED_IO_SOCKET
+        HANDLE						socketReceiveEvent;
+#endif
+        
+#ifdef __cplusplus
 
 		sp ( ThreadInstance )	  clientSP;
 		sp ( DeviceInstanceNode ) deviceSP;
 
-        DAEMONEXP ( ~ThreadInstance () );
-        
-		int							spareSocketsCount;
-        int							spareSockets [ MAX_SPARE_SOCKETS_IN_QUEUE_CHECK + 1 ];
-        INTEROPTIMEVAL              spareSocketTime;
-        
+
 #ifdef MEDIATORDAEMON
+        short                       sendFails;
+        
         volatile ThreadInstance  *	stuntTarget;
         
 #ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
@@ -236,34 +262,22 @@ namespace environs	/// Namespace: environs ->
         
         INTEROPTIMEVAL              stunLastSend;
 #endif
-        
-        pthread_mutex_t             spareSocketsLock;
-        
-		bool Init ();
-        bool Lock ( const char * func );
-        bool Unlock ( const char * func );
 #endif
         
+        bool                        allocated;
+        
+        ThreadInstance ();
+        ~ThreadInstance ();
+        
+        void                        Reset ();
+        bool                        Init ();
+        void                        Dispose ();
+        void                        CloseStuntSockets ();
 #endif
 	}
 	ThreadInstance;
 
-    extern void LimitSpareSocketsCount ( ThreadInstance * client );
-    extern int GetSpareSocket ( ThreadInstance * inst );
-
-	class ILock
-	{
-		bool init;
-
-	public:
-		pthread_mutex_t		lock;
-
-		bool Init ();
-		bool Lock ( const char * func );
-		bool Unlock ( const char * func );
-		ILock ();
-		~ILock ();
-	};
+    extern int GetStuntSocket ( ThreadInstance * inst );
 
 
 	class ApplicationDevices : public ILock
@@ -365,19 +379,31 @@ namespace environs	/// Namespace: environs ->
 	DeviceInfoNodeV4;
 
 
-	typedef struct _MediatorThreadInstance
-	{
+	typedef struct MediatorThreadInstance
+    {
+        bool                    allocated;
 		ThreadInstance			instance;
 		int						socketUdp;
-		pthread_t				threadIDUdp;
-		pthread_t				threadIDWatchdog;
+        
+        ThreadSync              udp;
+        ThreadSync              watchdog;
+        
+#ifdef __cplusplus
+        MediatorThreadInstance ();
+        ~MediatorThreadInstance ();
+        
+        bool                    Init ();
+        void                    Reset ();
+        void                    Dispose ();
+#endif
 	}
 	MediatorThreadInstance;
 
 
-	typedef struct _MediatorConnection
+	typedef struct MediatorConnection
 	{
 		ThreadInstance			instance;
+        bool                    allocated;
 
 		char				*	buffer;
 
@@ -393,6 +419,15 @@ namespace environs	/// Namespace: environs ->
         LONGSYNC                renewerQueue;
         
         Instance            *   env;
+        
+        MediatorConnection ();
+        ~MediatorConnection ();
+        
+#ifdef __cplusplus
+        bool                    Init ();
+        void                    Reset ();
+        void                    Dispose ();
+#endif
 	}
 	MediatorConnection;
 
@@ -407,6 +442,15 @@ namespace environs	/// Namespace: environs ->
 		MediatorConnection		connection;
         void                *   mediatorObject;
 		MediatorInstance	*	next;
+        
+        MediatorInstance ();
+        ~MediatorInstance ();
+        
+#ifdef __cplusplus
+        bool                    Init ();
+        void                    Reset ();
+        void                    Dispose ();
+#endif
 	}
 	MediatorInstance;
 
@@ -438,10 +482,11 @@ namespace environs	/// Namespace: environs ->
 		void					StopMediators ();
 
 		virtual void			BuildBroadcastMessage ( bool withStatus = true ) = 0;
-		bool					SendBroadcast ( bool enforce = false, bool sendStatus = false );
+		bool					SendBroadcast ( bool enforce = false, bool sendStatus = false, bool sendToAny = false );
+		bool					SendBroadcastWithSocket ( bool enforce = false, bool sendStatus = false, bool sendToAny = false, int sock = -1 );
 
 		bool					AddMediator ( unsigned int ip, unsigned short port );
-        void					BroadcastByeBye ();
+        void					BroadcastByeBye ( int sock = -1 );
 		void					BroadcastGenerateToken ();
         
         static bool				LoadNetworks ();
@@ -452,7 +497,12 @@ namespace environs	/// Namespace: environs ->
         static void				DisposeClass ();
         
         static bool             IsAnonymousUser ( const char * user );
-
+		virtual bool			IsServiceAvailable () { return true; };
+        
+        static int              Connect ( int deviceID, int &sock, struct sockaddr * addr, int timeoutSeconds = 0, const char * name = "NoName" );
+        
+        static void             UnConnectUDP ( int sock );
+        
 		static int              localNetsSize;
 
 	protected:
@@ -490,9 +540,10 @@ namespace environs	/// Namespace: environs ->
 		unsigned int            lastGreetUpdate;
 
         int                     broadcastThreadRestarts;
-		int						broadcastSocketID;
+		int						broadcastSocket;
         ThreadSync              broadcastThread;
-        bool                    StartBroadcastThread ();
+
+        bool                    PrepareAndStartBroadcastThread ( bool runThread = true );
 
 		bool					IsLocalIP ( unsigned int ip );
         static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
@@ -817,9 +868,9 @@ namespace environs	/// Namespace: environs ->
     
     
     /**
-     * Mediator spare socket registration message structure
+     * Mediator stunt socket registration message structure
      */
-	typedef struct _SpareSockRegPack
+	typedef struct StuntSockRegPack
 	{
 		unsigned int	alignPad;
 		unsigned int	sizeEncrypted;
@@ -830,13 +881,13 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	sizePayload;
 		char			payload;
 	}
-	SpareSockRegPack;
+	StuntSockRegPack;
 
     
     /**
-     * Mediator spare socket registration message structure
+     * Mediator stunt socket registration message structure
      */
-	typedef struct _SpareSockDecPack
+	typedef struct StuntSockDecPack
 	{
 		unsigned int	sizeReq;
 
@@ -845,7 +896,7 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	sizePayload;
 		char			payload;
 	}
-	SpareSockDecPack;
+	StuntSockDecPack;
     
     
     NET_PACK_PUSH1
@@ -994,8 +1045,8 @@ namespace environs	/// Namespace: environs ->
 	{
 		char			ident [4];
 
-		unsigned int	sourceID;
-		unsigned int	destID;
+		int             sourceID;
+		int             destID;
 
 		/** The area name of the application environment. */
 		char			areaName [MAX_NAMEPROPERTY + 1]; // 31
@@ -1019,8 +1070,8 @@ namespace environs	/// Namespace: environs ->
     {
         char			ident [4];
         
-        unsigned int	sourceID;
-        unsigned int	destID;
+        int             sourceID;
+        int             destID;
         
         unsigned char   pads [ 2 ];
         unsigned char   sizes [ 2 ];

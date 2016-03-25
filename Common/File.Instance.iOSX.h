@@ -49,7 +49,7 @@
 /**
  * A utf-8 descriptor that was attached to this FileInstance in SendFile/SendBuffer
  * */
-@property (readonly, nonatomic, copy) NSString * descriptor;
+@property (readonly) NSString * descriptor;
 
 /**
  * sent is true if this FileInstance is data that was sent or received (false).
@@ -70,7 +70,7 @@
 /**
  * The absolute path to the file if this FileInstance originates from a call to SendFile or received data.
  * */
-@property (readonly, nonatomic, copy) NSString * path;
+@property (readonly) NSString * path;
 
 /**
  * sendProgress is a value between 0-100 (percentage) that reflects the percentage of the
@@ -95,9 +95,9 @@
  * */
 @property (readonly, nonatomic) id device;
 
-@property (readonly, nonatomic, copy) NSString * toString;
+@property (readonly) NSString * toString;
 
-@property (readonly, nonatomic, copy) NSString * GetPath;
+@property (readonly) NSString * GetPath;
 
 @end
 

@@ -330,6 +330,28 @@ namespace environs
 			CErrN ( "LocateLoadEnvirons: Cannot find " ENVIRONS_TOSTRING ( ENVIRONS_CreateInstance1 ) " in Environs library." );
             return 0;
         }
+
+
+#ifdef _WIN32
+		void CommitPreDispose ( )
+		{
+			CVerbN("CommitPreDispose");
+
+			if (!g_EnvironsModuleHandle)
+				return;
+
+			pPreDispose PreDispose = 0;
+
+			PreDispose = (pPreDispose)
+				dlsym(g_EnvironsModuleHandle, "PreDispose");
+
+			if (PreDispose) {
+				CVerbN("CommitPreDispose: Pre disposing.");
+
+				PreDispose();
+			}
+		}
+#endif
         
 
 #ifdef USE_ENVIRONS_LOG_POINTERS
@@ -363,7 +385,11 @@ namespace environs
         {
             if ( !g_EnvironsModuleHandle )
                 return;
-            
+
+#ifdef _WIN32
+			CommitPreDispose();
+#endif
+
             dlclose ( g_EnvironsModuleHandle );
             
             g_EnvironsModuleHandle = 0;
@@ -379,7 +405,7 @@ namespace environs
 
 void ShowLibMissingDialog ( const char * libName )
 {
-    NSString * msg = [NSString stringWithFormat:@ENVLIBPREFIX "%s" LIBEXTENSION " is missing!", libName];
+    NSString * msg = [[NSString alloc ] initWithFormat:@ENVLIBPREFIX "%s" LIBEXTENSION " is missing!", libName];
     
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:@"OK"];

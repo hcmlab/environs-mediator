@@ -57,7 +57,7 @@
 /**
  * The text message.
  * */
-@property (readonly, nonatomic, copy) NSString * text;
+@property (readonly) NSString * text;
 
 /**
  * Determins the type of connection (channel type) used to exchange this message.
@@ -70,10 +70,10 @@
 /**
  * A reference to the DeviceInstance that is responsible for this FileInstance.
  * */
-@property (readonly, nonatomic) id device;
+@property (readonly) id device;
 
-@property (readonly, nonatomic, copy) NSString * toString;
-@property (readonly, nonatomic, copy) NSString * shortText;
+@property (readonly) NSString * toString;
+@property (readonly) NSString * shortText;
 
 @end
 

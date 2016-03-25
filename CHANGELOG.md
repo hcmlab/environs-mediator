@@ -1,9 +1,30 @@
+### v 0.9.8.2
+
+---------------------------
+
+*
+
+
+### v 0.9.8.1
+
+---------------------------
+
+* Fixed: Sync of broadcast update counter in mediator layer
+* Updated: Mediator server notify thread to check send ready before going into blocking call
+* Updated: VanishedDeviceWatcher in Mediator layer
+* Added: Logging of failed sends to derive alive status of clients in Mediator server
+* Added: Alivethread suspend phase before reconnect to mediator server
+* Reworked: Stunt queue in Mediator client and server
+* Updated: Mediator server thread usage
+* Added: handleID to Threads.cpp for Win32
+* Reworked: Restart of Broadcast thread (in error cases)
+
+
 ### v 0.9.8.0
 
 ---------------------------
 
 * Updated: Linger zero for socket closer
-
 
 
 ### v 0.9.7.1

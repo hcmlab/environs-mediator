@@ -110,7 +110,7 @@ namespace environs
 				return "STATUS_CONNECTED";
 		} /// -> switch
 		if ( constToResolve == ( 10 ) )
-			return "ENVIRONS_MAX_ENVIRONS_INSTANCES";
+			return "ENVIRONS_MAX_ENVIRONS_INSTANCES_FULL";
 		if ( constToResolve == ( -2 ) )
 			return "ENVIRONS_OBJECT_DISPOSED_PLATFORM";
 
@@ -139,15 +139,15 @@ namespace environs
 			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 4 ):
 				return "MSG_HANDSHAKE_MAIN_CLOSED";
 			case ( MSG_HANDSHAKE | 0x20 ):
-				return "MSG_HANDSHAKE_BULK";
-			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 1 ):
-				return "MSG_HANDSHAKE_BULK_REQ";
-			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 2 ):
-				return "MSG_HANDSHAKE_BULK_ACK";
-			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 3 ):
-				return "MSG_HANDSHAKE_BULK_FAILED";
-			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 4 ):
-				return "MSG_HANDSHAKE_BULK_CLOSED";
+				return "MSG_HANDSHAKE_COMDAT";
+			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 1 ):
+				return "MSG_HANDSHAKE_COMDAT_REQ";
+			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 2 ):
+				return "MSG_HANDSHAKE_COMDAT_ACK";
+			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 3 ):
+				return "MSG_HANDSHAKE_COMDAT_FAILED";
+			case ( MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 4 ):
+				return "MSG_HANDSHAKE_COMDAT_CLOSED";
 			case ( MSG_HANDSHAKE | 0x40 ):
 				return "MSG_HANDSHAKE_PROC";
 		// Former 'P'
@@ -193,14 +193,14 @@ namespace environs
 				return "NOTIFY_CONNECTION_MAIN_FAILED";
 			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_CLOSED ):
 				return "NOTIFY_CONNECTION_MAIN_CLOSED";
-			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_REQ ):
-				return "NOTIFY_CONNECTION_BULK_NEW";
-			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_ACK ):
-				return "NOTIFY_CONNECTION_BULK_ACK";
-			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_FAILED ):
-				return "NOTIFY_CONNECTION_BULK_FAILED";
-			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_CLOSED ):
-				return "NOTIFY_CONNECTION_BULK_CLOSED";
+			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_REQ ):
+				return "NOTIFY_CONNECTION_COMDAT_NEW";
+			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_ACK ):
+				return "NOTIFY_CONNECTION_COMDAT_ACK";
+			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_FAILED ):
+				return "NOTIFY_CONNECTION_COMDAT_FAILED";
+			case ( NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_CLOSED ):
+				return "NOTIFY_CONNECTION_COMDAT_CLOSED";
 			case ( NOTIFY_TYPE_CONNECTION | 0xA ):
 				return "NOTIFY_CONNECTION_DATA_ACK";
 			case ( NOTIFY_TYPE_CONNECTION | 0xC ):
@@ -718,15 +718,27 @@ namespace environs
 			case ( 'P' ):
 				return "DEVICE_TYPE_SMARTPHONE";
 		} /// -> switch
-		if ( constToResolve == ( 0x8000 ) )
-			return "DEVICE_ACTIVITY_LISTENER_CLOSED";
+
+
+		switch ( constToResolve ) {
+			case ( 0x8000 ):
+				return "DEVICE_ACTIVITY_LISTENER_CLOSED";
+			case ( 0x10000 ):
+				return "DEVICE_ACTIVITY_MAIN_INIT";
+			case ( 0x20000 ):
+				return "DEVICE_ACTIVITY_COMDAT_INIT";
+			case ( 0x40000 ):
+				return "DEVICE_ACTIVITY_UDP_INIT";
+		} /// -> switch
 
 
 		switch ( constToResolve ) {
 			case ( 65535 ):
 				return "MEDIATOR_BUFFER_SIZE_MAX";
+			case ( (350 * 1024) ):
+				return "MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE";
 			case ( (650 * 1024) ):
-				return "MEDIATOR_REC_BUFFER_SIZE_MAX";
+				return "MEDIATOR_REC_BUFFER_SIZE_MAX_FULL";
 		} /// -> switch
 		if ( constToResolve == ( (40 * 1024 * 1024) ) )
 			return "ENVIRONS_SEND_SIZE_MAX";
@@ -744,18 +756,8 @@ namespace environs
 		} /// -> switch
 		if ( constToResolve == ( -3 ) )
 			return "NETWORK_CONNECTION_TRIGGER_UPDATE";
-
-
-		switch ( constToResolve ) {
-			case ( 0x41 ):
-				return "DEVICE_INFO_ATTR_DEVICE_TYPE";
-			case ( 0x10000 ):
-				return "DEVICE_INFO_ATTR_PORTAL_CREATED";
-			case ( 0x20000 ):
-				return "DEVICE_INFO_ATTR_OBJID";
-			case ( 0x40000 ):
-				return "DEVICE_INFO_ATTR_FLAGS";
-		} /// -> switch
+		if ( constToResolve == ( 0x41 ) )
+			return "DEVICE_INFO_ATTR_DEVICE_TYPE";
 		if ( constToResolve == ( 0x80000 ) )
 			return "FILE_INFO_ATTR_RECEIVE_PROGRESS";
 		if ( constToResolve == ( 0x200000 ) )

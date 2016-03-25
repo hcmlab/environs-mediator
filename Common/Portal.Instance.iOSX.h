@@ -52,36 +52,36 @@
 
 #ifdef __cplusplus
 /** Perform the tasks asynchronously. If set to Environs.CALL_SYNC, the commands will block (if possible) until the task finishes. */
-@property (nonatomic) environs::Call_t					async;
+@property (nonatomic) environs::Call_t  async;
 
 @property (readonly, nonatomic) environs::PortalStatus_t  status;
 
 #endif
 
 /** An ID that identifies this portal across all available portals. */
-@property (readonly, nonatomic) int                     portalID;
+@property (readonly, nonatomic) int     portalID;
 
 /** true = Object is disposed and not updated anymore. */
-@property (readonly, nonatomic) bool                    disposed;
+@property (readonly, nonatomic) bool    disposed;
 
 /** A DeviceInstance object that this portal relates to. */
-@property (readonly, nonatomic) id                      device;
+@property (readonly) id                 device;
 
-@property (readonly, nonatomic) bool                    disposeOngoing;
+@property (readonly, nonatomic) bool    disposeOngoing;
 
-@property (nonatomic) bool								startIfPossible;
+@property (nonatomic) bool              startIfPossible;
 
 /** true = outgoing (Generator), false = incoming (Receiver). */
-@property (readonly, nonatomic) bool                    outgoing;
+@property (readonly, nonatomic) bool    outgoing;
 
-@property (readonly, nonatomic) bool                    isIncoming;
-@property (readonly, nonatomic) bool                    isOutgoing;
+@property (readonly, nonatomic) bool    isIncoming;
+@property (readonly, nonatomic) bool    isOutgoing;
 
 /** Application defined contexts for arbitrary use. */
-@property (nonatomic) id							appContext1;
-@property (nonatomic) id							appContext2;
-@property (nonatomic) id							appContext3;
-@property (nonatomic) id							appContext4;
+@property (nonatomic) id                appContext1;
+@property id                            appContext2;
+@property id                            appContext3;
+@property id                            appContext4;
 
 // Exclude cpp related code from objective c headers
 #ifdef __cplusplus

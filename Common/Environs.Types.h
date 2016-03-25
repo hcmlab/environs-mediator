@@ -113,7 +113,8 @@ namespace environs {
 /**
  * Max supported instances of Environs objects that each application can run at the same time.
  * */
-#define	ENVIRONS_MAX_ENVIRONS_INSTANCES                   		(10)
+#define	ENVIRONS_MAX_ENVIRONS_INSTANCES_MOBILE            		(5)
+#define	ENVIRONS_MAX_ENVIRONS_INSTANCES_FULL              		(10)
 
 /**
  * A constant value that identifies an uninitialized display value.
@@ -268,11 +269,11 @@ namespace environs {
 // Former 'D'
 #define	MSG_HANDSHAKE_MAIN_CLOSED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_MAIN | 4)
 
-#define	MSG_HANDSHAKE_BULK                                		(MSG_HANDSHAKE | 0x20)
-#define	MSG_HANDSHAKE_BULK_REQ                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 1)
-#define	MSG_HANDSHAKE_BULK_ACK                            		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 2)
-#define	MSG_HANDSHAKE_BULK_FAILED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 3)
-#define	MSG_HANDSHAKE_BULK_CLOSED                         		(MSG_HANDSHAKE | MSG_HANDSHAKE_BULK | 4)
+#define	MSG_HANDSHAKE_COMDAT                              		(MSG_HANDSHAKE | 0x20)
+#define	MSG_HANDSHAKE_COMDAT_REQ                          		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 1)
+#define	MSG_HANDSHAKE_COMDAT_ACK                          		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 2)
+#define	MSG_HANDSHAKE_COMDAT_FAILED                       		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 3)
+#define	MSG_HANDSHAKE_COMDAT_CLOSED                       		(MSG_HANDSHAKE | MSG_HANDSHAKE_COMDAT | 4)
 
 #define	MSG_HANDSHAKE_PROC                                		(MSG_HANDSHAKE | 0x40)
 // Former 'P'
@@ -300,10 +301,10 @@ namespace environs {
 #define	NOTIFY_CONNECTION_MAIN_ACK                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_ACK)
 #define	NOTIFY_CONNECTION_MAIN_FAILED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_FAIL)
 #define	NOTIFY_CONNECTION_MAIN_CLOSED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_MAIN_CLOSED)
-#define	NOTIFY_CONNECTION_BULK_NEW                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_REQ)
-#define	NOTIFY_CONNECTION_BULK_ACK                        		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_ACK)
-#define	NOTIFY_CONNECTION_BULK_FAILED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_FAILED)
-#define	NOTIFY_CONNECTION_BULK_CLOSED                     		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_BULK_CLOSED)
+#define	NOTIFY_CONNECTION_COMDAT_NEW                      		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_REQ)
+#define	NOTIFY_CONNECTION_COMDAT_ACK                      		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_ACK)
+#define	NOTIFY_CONNECTION_COMDAT_FAILED                   		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_FAILED)
+#define	NOTIFY_CONNECTION_COMDAT_CLOSED                   		(NOTIFY_TYPE_CONNECTION | MSG_HANDSHAKE_COMDAT_CLOSED)
 #define	NOTIFY_CONNECTION_DATA_ACK                        		(NOTIFY_TYPE_CONNECTION | 0xA)
 #define	NOTIFY_CONNECTION_DATA_CLOSED                     		(NOTIFY_TYPE_CONNECTION | 0xC)
 
@@ -1215,20 +1216,27 @@ namespace environs {
  * Type: int
  */
 #define	DEVICE_ACTIVITY_MAIN_CONNECTED                    		(0x1)
-#define	DEVICE_ACTIVITY_BULK_CONNECTED                    		(0x2)
+#define	DEVICE_ACTIVITY_COMDAT_CONNECTED                  		(0x2)
 #define	DEVICE_ACTIVITY_UDP_CONNECTED                     		(0x4)
 #define	DEVICE_ACTIVITY_CONNECTED                         		(0x10)
 #define	DEVICE_ACTIVITY_REQUESTOR                         		(0x100)
 #define	DEVICE_ACTIVITY_RESPONDER                         		(0x200)
 #define	DEVICE_ACTIVITY_LISTENER_CLOSED                   		(0x8000)
 #define	DEVICE_ACTIVITY_PLATFORM_DISPOSED                 		(0x1000)
-	
+#define	DEVICE_ACTIVITY_ABORTED                           		(0x4000)
+
+#define	DEVICE_ACTIVITY_MAIN_INIT                         		(0x10000)
+#define	DEVICE_ACTIVITY_COMDAT_INIT                       		(0x20000)
+#define	DEVICE_ACTIVITY_UDP_INIT                          		(0x40000)
+
+
 /**
  * Environs common native declarations
  *  
  */
 #define	MEDIATOR_BUFFER_SIZE_MAX                          		(65535)
-#define	MEDIATOR_REC_BUFFER_SIZE_MAX                      		((650 * 1024))
+#define	MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE               		((350 * 1024))
+#define	MEDIATOR_REC_BUFFER_SIZE_MAX_FULL                 		((650 * 1024))
 #define	ENVIRONS_SEND_SIZE_MAX                            		((40 * 1024 * 1024))
 
 
@@ -2180,10 +2188,10 @@ namespace Notify {
 			Connection_MainAck                 	=	NOTIFY_CONNECTION_MAIN_ACK,
 			Connection_MainFailed              	=	NOTIFY_CONNECTION_MAIN_FAILED,
 			Connection_MainClosed              	=	NOTIFY_CONNECTION_MAIN_CLOSED,
-			Connection_BulkNew                 	=	NOTIFY_CONNECTION_BULK_NEW,
-			Connection_BulkAck                 	=	NOTIFY_CONNECTION_BULK_ACK,
-			Connection_BulkFailed              	=	NOTIFY_CONNECTION_BULK_FAILED,
-			Connection_BulkClosed              	=	NOTIFY_CONNECTION_BULK_CLOSED,
+			Connection_ComDatNew               	=	NOTIFY_CONNECTION_COMDAT_NEW,
+			Connection_ComDatAck               	=	NOTIFY_CONNECTION_COMDAT_ACK,
+			Connection_ComDatFailed            	=	NOTIFY_CONNECTION_COMDAT_FAILED,
+			Connection_ComDatClosed            	=	NOTIFY_CONNECTION_COMDAT_CLOSED,
 			Connection_DataAck                 	=	NOTIFY_CONNECTION_DATA_ACK,
 			Connection_DataClosed              	=	NOTIFY_CONNECTION_DATA_CLOSED,
 			Connection_Progress                	=	NOTIFY_CONNECTION_PROGRESS,
@@ -2205,10 +2213,10 @@ namespace Notify {
 			const Connection_t MainAck                 	=	Connection_MainAck;
 			const Connection_t MainFailed              	=	Connection_MainFailed;
 			const Connection_t MainClosed              	=	Connection_MainClosed;
-			const Connection_t BulkNew                 	=	Connection_BulkNew;
-			const Connection_t BulkAck                 	=	Connection_BulkAck;
-			const Connection_t BulkFailed              	=	Connection_BulkFailed;
-			const Connection_t BulkClosed              	=	Connection_BulkClosed;
+			const Connection_t ComDatNew               	=	Connection_ComDatNew;
+			const Connection_t ComDatAck               	=	Connection_ComDatAck;
+			const Connection_t ComDatFailed            	=	Connection_ComDatFailed;
+			const Connection_t ComDatClosed            	=	Connection_ComDatClosed;
 			const Connection_t DataAck                 	=	Connection_DataAck;
 			const Connection_t DataClosed              	=	Connection_DataClosed;
 			const Connection_t Progress                	=	Connection_Progress;

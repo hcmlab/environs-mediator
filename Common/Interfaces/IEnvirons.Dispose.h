@@ -30,7 +30,10 @@ namespace environs
 {
 
 #ifndef CLI_CPP
+    
+    extern pthread_mutex_t objLock;
 
+    
 #define DERIVE_DISPOSABLE
 #define DERIVE_TYPES		
 
@@ -116,7 +119,7 @@ namespace environs
                                                 LONGSYNC				refCountSP; \
                                                 LONGSYNC                objID_;
 
-#define ENVIRONS_OUTPUT_ALLOC_INIT()			refCountSP = 0; platformRef = 0; objID_ = __sync_add_and_fetch ( &objectIdentifiers, 1 );
+#define ENVIRONS_OUTPUT_ALLOC_INIT()			refCountSP = 0; platformRef = 0; objID_ = __sync_add_and_fetch ( &objectIdentifiers, 1 )
 
 
 #define ENVIRONS_OUTPUT_ALLOC(type)				extern LONGSYNC objectIdentifiers; \
@@ -126,10 +129,12 @@ bool type::Retain () { \
 	LONGSYNC localRefCount = __sync_add_and_fetch ( &refCountSP, 1 ); \
 	\
     if ( localRefCount == 1 ) { \
+        pthread_mutex_lock ( &objLock ); \
         if ( myself ) { \
             CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
             myselfAtClients = myself; \
         } \
+        pthread_mutex_unlock ( &objLock ); \
     } \
 	CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, localRefCount );  \
 	\
@@ -144,6 +149,7 @@ bool type::Retain () { \
     LONGSYNC localRefCount = __sync_add_and_fetch ( &refCountSP, 1 ); \
     \
     if ( localRefCount == 1 ) { \
+        pthread_mutex_lock ( &objLock ); \
         if ( myself.use_count () > 0 ) { \
             CVerbVerbArg ( "Retain [%i]: -> Allocating SP", objID_ ); \
             myselfAtClients = myself.lock (); \
@@ -151,6 +157,7 @@ bool type::Retain () { \
                 localRefCount = __sync_sub_and_fetch ( &refCountSP, 1 ); \
             } \
         } \
+        pthread_mutex_unlock ( &objLock ); \
     } \
     CVerbVerbArg ( "Retain [%i]: -> [%i] ", objID_, localRefCount );  \
     \
@@ -174,7 +181,9 @@ bool type::Retain () { \
         CVerbVerbArg ( "Release  [%i]: -> [%i]", objID_, localRefCount ); \
         \
         CVerbVerbArg ( "Release  [%i]: -> Disposing SP", objID_ );  \
+        pthread_mutex_lock ( &objLock ); \
         myselfAtClients = 0; \
+        pthread_mutex_unlock ( &objLock ); \
     } 
 
 

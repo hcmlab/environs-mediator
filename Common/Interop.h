@@ -98,6 +98,11 @@
 #if (defined(_WIN32) && !defined(CLI_CPP))
 #	define	IWinRelease(IInst)				if (IInst) {IInst->Release(); IInst = 0;}
 
+#	define	CloseWSAHandle_n(h)				if (h != WSA_INVALID_EVENT) WSACloseEvent(h)
+#	define	CloseWSAHandle_m(h)				if (h != WSA_INVALID_EVENT) { WSACloseEvent(h); h = NULL; }
+#	define	CreateWSAHandle(h,r)			if (h == WSA_INVALID_EVENT) { h = WSACreateEvent(); if (h == WSA_INVALID_EVENT) return r; }
+#	define	CreateWSAHandle_n(h)			if (h == WSA_INVALID_EVENT) { h = WSACreateEvent(); }
+
 #	ifdef WINDOWS_PHONE
 #		include "minwindef.h"
 #		include "wtypes.h"
@@ -114,13 +119,13 @@
 #	define LONGSYNC           				unsigned long volatile
 #	define LONGSYNCNV          				unsigned long
 
-#   ifdef USE_LOCKFREE_SOCKET_ACCESS
-#       define SOCKETSYNC           		long volatile
-#       define SOCKETSYNCNV           		long
-#   else
-#       define SOCKETSYNC           		int
-#       define SOCKETSYNCNV           		int
-#   endif
+#	ifdef MEDIATORDAEMON
+#		define SOCKETSYNC           		long volatile
+#		define SOCKETSYNCNV           		long
+#	else
+#		define SOCKETSYNC           		int 
+#		define SOCKETSYNCNV           		int
+#	endif
 #	define LONGSYNCNV          				unsigned long
 
 /// Note: EBOOL represents platform specific boolean type. 
@@ -140,35 +145,37 @@
 #	define WARNING(msg) 					__pragma(message(__FILE__ "(" EXP_TO_STRING(__LINE__) ") : " #msg  ))
 
 #	ifdef WINDOWS_PHONE
-#		define INCLINEFUNC
+#		define INLINEFUNC
 #	else
-#		define INCLINEFUNC					inline 
+#		define INLINEFUNC					inline 
 #	endif
 
 #else
+
+#	define	CloseWSAHandle_n(h)		
+#	define	CloseWSAHandle_m(h)		
+
+#	define	CreateWSAHandle(h,r)
+#	define	CreateWSAHandle_n(h)			
 
 # ifdef CLI_CPP
 #	define LONGSYNCNV          				__int64 
 #	define LONGSYNC           				__int64
 
-#   ifdef USE_LOCKFREE_SOCKET_ACCESS
-#       define SOCKETSYNC           		__int64
-#   else
-#       define SOCKETSYNC           			int
-#   endif
+#   define SOCKETSYNC           			__int64
 
 #	define WNDHANDLE           				IntPtr
 #else
 #	define LONGSYNCNV          				long
 #	define LONGSYNC           				long
 
-#   ifdef USE_LOCKFREE_SOCKET_ACCESS
-#       define SOCKETSYNC           		long
-#       define SOCKETSYNCNV           		SOCKETSYNC
-#   else
-#       define SOCKETSYNC           		int
-#       define SOCKETSYNCNV           		SOCKETSYNC
-#   endif
+#	ifdef MEDIATORDAEMON
+#		define SOCKETSYNC           		long volatile
+#		define SOCKETSYNCNV           		long
+#	else
+#		define SOCKETSYNC           		int 
+#		define SOCKETSYNCNV           		int
+#	endif
 
 #	define WNDHANDLE           				void *
 #endif
@@ -189,7 +196,7 @@
 #	define WARNING(msg)
 #	endif
 
-#	define INCLINEFUNC
+#	define INLINEFUNC
 //#define	__forceinline					inline
 #	define	__forceinline
 
@@ -344,6 +351,7 @@
 #	define nill								nullptr
 #   define C_Only(v)                        
 #   define Cli_Only(v)                      v
+#   define Win32_Only(v)
 
 #	define ENVOBSERVER(t1,t2)				event t2 ^
 #	define CPP_CLI(t1,t2)					t2
@@ -430,6 +438,13 @@
 
 #   define C_Only(v)                        v
 #   define Cli_Only(v)                      
+
+#	ifdef _WIN32
+#   define Win32_Only(v)                    v
+#	define WIN32_NO_CLI
+#	else
+#   define Win32_Only(v)                    
+#	endif
 
 #	define ENVOBSERVER(t1,t2)				vct ( t1 * )
 #	define CPP_CLI(t1,t2)					t1

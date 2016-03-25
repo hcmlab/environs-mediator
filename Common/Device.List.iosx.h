@@ -43,7 +43,7 @@
 @property (readonly, nonatomic) bool disposed;
 
 /** An array with the devices in the list. */
-@property (readonly, nonatomic) NSArray *   devices;
+@property (readonly) NSArray *      devices;
 
 #ifdef __cplusplus
 

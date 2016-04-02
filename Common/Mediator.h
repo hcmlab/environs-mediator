@@ -84,7 +84,7 @@
 #define MEDIATOR_BROADCAST_GREET				"E.D.Helo"
 #define MEDIATOR_BROADCAST_BYEBYE				"E.D.Bye"
 #define MEDIATOR_PROTOCOL_VERSION_MIN			'2'
-#define MEDIATOR_PROTOCOL_VERSION				'5'
+#define MEDIATOR_PROTOCOL_VERSION				'6'
 
 #define	MEDIATOR_CMD_SET						's'
 #define	MEDIATOR_CMD_GET						'g'
@@ -92,7 +92,9 @@
 #define MEDIATOR_CMD_GET_DEVICES_LEN			16
 #define MEDIATOR_CMD_GET_DEVICES_RESP_LEN		8
 #define MEDIATOR_CMD_GET_DEVICES_COUNT_LEN		12
+#define MEDIATOR_CMD_GET_DEVICES_COUNT_LEN_V6	16
 #define MEDIATOR_CMD_GET_DEVICES_COUNT_RESP_LEN	12
+#define MEDIATOR_CMD_GET_DEVICES_COUNT_RESP_LENV6	16
 #define	MEDIATOR_CMD_HEARTBEAT					'h'
 #define	MEDIATOR_CMD_GETALL						'a'
 #define	MEDIATOR_CMD_SET_FILTERMODE				'f'
@@ -134,7 +136,9 @@
 #define MEDIATOR_STUNT_CHANNEL_PORTAL			','
 #define MEDIATOR_STUNT_RESP_SIZE				28
 #define MEDIATOR_STUNT_ACK_SIZE					12
+#define MEDIATOR_STUNT_ACK_SIZE_V6				16
 #define MEDIATOR_STUNT_ACK_EXT_SIZE				20
+#define MEDIATOR_STUNT_ACK_EXT_SIZE_V6			24
 #define MEDIATOR_STUN_REQ_SIZE					16
 #define MEDIATOR_STUN_RESP_SIZE					20
 
@@ -154,17 +158,41 @@ const unsigned int		maxStuntSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
 
 namespace environs	/// Namespace: environs ->
 {
-	extern unsigned int		primaryInterface;
-
 	extern bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext );
 	extern bool SetNonBlockSocket ( int sock, bool set, const char * name );
     
-    extern bool SocketTimeout ( int sock, int recvSec, int sendSec );
+    extern bool SocketTimeout ( int sock, int recvSec, int sendSec, bool isMS = false );
     
     extern bool FakeConnect ( int sock, unsigned int port );
     
+#ifdef DEBUG_TRACK_SOCKET
+    extern bool TraceSocketInit ( );
+	extern void TraceCheckStatus ( bool withKernel );
+    extern void TraceSocketDispose ( );
+    extern void TraceSocket ( int sock, const char * src );
+    extern void TraceSocketUpdate ( int sock, const char * src );
+    extern void TraceSocketRemove ( int sock, const char * src, const char * src1 );
     
-	typedef struct NetPack
+    extern LONGSYNC    debugKernelCount;
+    extern LONGSYNC    debugMediatorCount;
+    extern LONGSYNC    debugDeviceBaseCount;
+    extern LONGSYNC    debugDeviceInstanceNodeCount;
+    
+    extern void ShutdownCloseSocketI ( int sock, bool doClose, const char * msg );
+    
+#define ShutdownCloseSocket(s,c,m)      ShutdownCloseSocketI ( s, c, m )
+#else
+#   define TraceSocketInit()            true
+#   define TraceCheckStatus(a)
+#   define TraceSocketDispose()
+    
+    extern void ShutdownCloseSocketI ( int sock, bool doClose );
+    
+#define ShutdownCloseSocket(s,c,m)      ShutdownCloseSocketI ( s, c )
+#endif
+
+    
+    typedef struct NetPack
 	{
 		unsigned int		ip;
 		unsigned int		bcast;
@@ -589,7 +617,7 @@ namespace environs	/// Namespace: environs ->
 		void					Dispose ( );
 		void					ReleaseMediators ( );
 		void					ReleaseMediator ( MediatorInstance * med );
-        bool					ReleaseThreads ( );
+        bool					ReleaseThreads ( bool wait );
         
         static void				ReleaseNetworks ( );
 
@@ -723,16 +751,28 @@ namespace environs	/// Namespace: environs ->
     NET_PACK_ALIGN MediatorReqMsgV4;
 
 
-	typedef struct _MediatorGetPacket
+	typedef struct MediatorGetPacketV6
 	{
 		unsigned int	size;
-		char			version;
+        char			version;
 		char			cmd;
 		char			opt0;
-		char			opt1;
+        char			opt1;
+        unsigned int	seqNr;
 	}
-	NET_PACK_ALIGN MediatorGetPacket;
-
+    NET_PACK_ALIGN MediatorGetPacketV6;
+    
+    
+    typedef struct _MediatorGetPacket
+    {
+        unsigned int	size;
+        char			version;
+        char			cmd;
+        char			opt0;
+        char			opt1;
+    }
+    NET_PACK_ALIGN MediatorGetPacket;
+    
     
     /**
      * Mediator notification message structure
@@ -794,13 +834,14 @@ namespace environs	/// Namespace: environs ->
     /**
      * Mediator device list query message structure
      */
-	typedef struct _MediatorQueryHeader
+	typedef struct _MediatorQueryHeaderV6
 	{
 		unsigned int	size;
 		char			cmdVersion;
 		char			cmd1;
 		char			opt0;
-		char			opt1;
+        char			opt1;
+        unsigned int	seqNr;
 
 		unsigned int	msgID;
 		unsigned int	resultCount;
@@ -808,22 +849,53 @@ namespace environs	/// Namespace: environs ->
 
 		unsigned char   sizes [ 2 ];
     }
-	NET_PACK_ALIGN MediatorQueryHeader;
+	NET_PACK_ALIGN MediatorQueryHeaderV6;
     
     
     /**
      * Mediator device list query message structure
      * with appArea space
      */
-	typedef struct _MediatorQueryMsg
+	typedef struct MediatorQueryMsgV6
 	{
-		MediatorQueryHeader	header;
-		char				appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+		MediatorQueryHeaderV6	header;
+		char                    appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
     }
-	NET_PACK_ALIGN MediatorQueryMsg;
+    NET_PACK_ALIGN MediatorQueryMsgV6;
     
-	NET_PACK_POP
-
+    /**
+     * Mediator device list query message structure
+     */
+    typedef struct _MediatorQueryHeader
+    {
+        unsigned int	size;
+        char			cmdVersion;
+        char			cmd1;
+        char			opt0;
+        char			opt1;
+        
+        unsigned int	msgID;
+        unsigned int	resultCount;
+        int				deviceID;
+        
+        unsigned char   sizes [ 2 ];
+    }
+    NET_PACK_ALIGN MediatorQueryHeader;
+    
+    
+    /**
+     * Mediator device list query message structure
+     * with appArea space
+     */
+    typedef struct _MediatorQueryMsg
+    {
+        MediatorQueryHeader	header;
+        char				appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
+    NET_PACK_ALIGN MediatorQueryMsg;
+    
+    NET_PACK_POP
+    
     
     /**
      * Mediator device list query message structure
@@ -864,7 +936,25 @@ namespace environs	/// Namespace: environs ->
 
 		lib::DeviceHeader	deviceHead;
 	}
-	MediatorQueryResponse;
+    MediatorQueryResponse;
+    
+    
+    /**
+     * Mediator device list response message structure
+     * Header part
+     */
+    typedef struct MediatorQueryResponseV6
+    {
+        unsigned int	size;
+        char			cmd0;
+        char			cmd1;
+        char			opt0;
+        char			opt1;
+        unsigned int	seqNr;
+        
+        lib::DeviceHeader	deviceHead;
+    }
+    MediatorQueryResponseV6;
     
     
     /**
@@ -904,19 +994,48 @@ namespace environs	/// Namespace: environs ->
     /**
      * Mediator STUNT request message structure
      */
-	typedef struct _STUNTReqHeader
+	typedef struct STUNTReqHeaderV6
 	{
 		unsigned int	size;
-		char			version;
+        char			version;
 		char			ident [ 2 ];
-		char			channel;
+        char			channel;
+        unsigned int	seqNr;
 
 		int				deviceID;
 
 		unsigned char   sizes [ 2 ];
 	}
-	NET_PACK_ALIGN STUNTReqHeader;
-
+    NET_PACK_ALIGN STUNTReqHeaderV6;
+    
+    
+    /**
+     * Mediator STUNT request message structure
+     * with appArea space
+     */
+    typedef struct STUNTReqPacketV6
+    {
+        STUNTReqHeaderV6	header;
+        char                appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
+    NET_PACK_ALIGN STUNTReqPacketV6;
+    
+    /**
+     * Mediator STUNT request message structure
+     */
+    typedef struct _STUNTReqHeader
+    {
+        unsigned int	size;
+        char			version;
+        char			ident [ 2 ];
+        char			channel;
+        
+        int				deviceID;
+        
+        unsigned char   sizes [ 2 ];
+    }
+    NET_PACK_ALIGN STUNTReqHeader;
+    
     
     /**
      * Mediator STUNT request message structure
@@ -972,7 +1091,27 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	ip; // 12
 		unsigned int	ipe; // 16
 	}
-	STUNTRespPacket;
+    STUNTRespPacket;
+    
+    
+    
+    /**
+     * Mediator STUNT response message structure
+     */
+    typedef struct STUNTRespPacketV6
+    {
+        unsigned int	size;
+        char			respCode;
+        char			ident [2];
+        char			channel;
+        unsigned int	seqNr;
+        
+        unsigned short	porti;
+        unsigned short	porte;
+        unsigned int	ip; // 12
+        unsigned int	ipe; // 16
+    }
+    STUNTRespPacketV6;
     
     
     NET_PACK_PUSH1
@@ -980,12 +1119,12 @@ namespace environs	/// Namespace: environs ->
     /**
      * Mediator STUNT response/request message structure
      */
-	typedef struct _STUNTRespReqHeader
+	typedef struct STUNTRespReqHeaderV6
 	{
 		unsigned int	size;
-		//char			respCode;
 		char			ident [ 3 ];
-		char			channel;
+        char			channel;
+        unsigned int	seqNr;
 
 		int				deviceID;
 		unsigned int	ip;
@@ -995,18 +1134,50 @@ namespace environs	/// Namespace: environs ->
 
 		unsigned char   sizes [ 2 ];
 	}
-	NET_PACK_ALIGN STUNTRespReqHeader;
+	NET_PACK_ALIGN STUNTRespReqHeaderV6;
 
     
     /**
      * Mediator STUNT response/request message structure
      * with appArea space
      */
-	typedef struct _STUNTRespReqPacket
+	typedef struct STUNTRespReqPacketV6
 	{
-		STUNTRespReqHeader	header;
-		char				appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+		STUNTRespReqHeaderV6	header;
+		char                    appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
 	}
+    NET_PACK_ALIGN STUNTRespReqPacketV6;
+    
+    
+    /**
+     * Mediator STUNT response/request message structure
+     */
+    typedef struct _STUNTRespReqHeader
+    {
+        unsigned int	size;
+        char			ident [ 3 ];
+        char			channel;
+        
+        int				deviceID;
+        unsigned int	ip;
+        unsigned int	ipe;
+        unsigned short	porti;
+        unsigned short	porte;
+        
+        unsigned char   sizes [ 2 ];
+    }
+    NET_PACK_ALIGN STUNTRespReqHeader;
+    
+    
+    /**
+     * Mediator STUNT response/request message structure
+     * with appArea space
+     */
+    typedef struct _STUNTRespReqPacket
+    {
+        STUNTRespReqHeader	header;
+        char				appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
     NET_PACK_ALIGN STUNTRespReqPacket;
     
     

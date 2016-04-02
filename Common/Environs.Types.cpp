@@ -463,7 +463,7 @@ namespace environs
 			case ( NATIVE_FILE_TYPE | 1 ):
 				return "NATIVE_FILE_TYPE_EXT_DEFINED";
 			case ( NATIVE_FILE_TYPE | 6 ):
-				return "NATIVE_FILE_TYPE_CHUNKED";
+				return "NATIVE_FILE_TYPE_PARTS";
 			case ( NATIVE_FILE_TYPE | 0xF ):
 				return "NATIVE_FILE_TYPE_ACK";
 		} /// -> switch

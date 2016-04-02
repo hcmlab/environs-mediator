@@ -191,6 +191,14 @@ namespace environs
             
             
             /**
+             * Instructs the framework to perform a quick shutdown (with minimal wait times)
+             *
+             * @param enable      true / false
+             */
+            ENVIRONS_LIB_API void SetAppShutdown ( bool enable );
+            
+            
+            /**
              * Dispose the storage, that is remove all data and messages received in the data store.
              *
              */

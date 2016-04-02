@@ -37,7 +37,11 @@
 #	include <stdio.h>
 #endif
 
-#ifndef _WIN32
+#ifdef _WIN32
+#   ifdef USE_ENVIRONS_POSIX_THREADS
+#       pragma comment ( lib, "pthreadVC2.lib" )
+#   endif
+#else
 #   include <sys/time.h>
 #   include "./Sock.h"
 #endif
@@ -45,9 +49,14 @@
 #include "Environs.Native.h"
 #include "Threads.Int.h"
 
-#ifdef USE_PTHREADS_FOR_WINDOWS
-#   pragma comment ( lib, "pthreadVC2.lib" )
+#ifdef USE_THREADSYNC_OWNER_NAME
+#	define CThreadVerbArg(msg,...)		CVerbVerbArg ( msg, __VA_ARGS__ )
+#	define CThreadLogArg(msg,...)		CLogArg ( msg, __VA_ARGS__ )
+#else
+#	define CThreadVerbArg(msg,...)	
+#	define CThreadLogArg(msg,...)			
 #endif
+
 
 // The TAG for prepending to log messages
 #define CLASS_NAME	"Threads. . . . . . . . ."
@@ -110,7 +119,7 @@ namespace environs
 	}
 
 
-	bool MutexLockBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
+	bool LockAcquireBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
 	{
 		if ( mtx == nill ) {
 			//CErr ( "Lock: lock invalid " + className + "." + funcName + " " + mutexName );
@@ -122,7 +131,7 @@ namespace environs
 		return true;
 	}
 
-	bool MutexUnlockBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
+	bool LockReleaseBool ( pthread_mutex_t ^ mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName )
 	{
 		if ( mtx == nill ) {
 			//CErr ( "Unlock: lock invalid " + className + "." + funcName + " " + mutexName );
@@ -140,10 +149,7 @@ namespace environs
 
 	INLINEFUNC bool pthread_valid ( pthread_t thread )
 	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		if ( thread )
-			return true;
-#else
+#if defined(USE_ENVIRONS_POSIX_THREADS)
 #	ifdef _WIN32
 		if ( thread.p )
 			return true;
@@ -151,6 +157,9 @@ namespace environs
 		if ( thread )
 			return true;
 #	endif
+#else
+		if ( thread )
+			return true;
 #endif
 		return false;
 	}
@@ -175,83 +184,57 @@ namespace environs
 
 	INLINEFUNC pthread_t_id getSelfThreadID ()
 	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		return GetCurrentThreadId ();
-#else
+#if defined(USE_ENVIRONS_POSIX_THREADS)
 		return pthread_self ();
-#endif
-	}
-
-
-	INLINEFUNC bool areWeTheThreadID ( pthread_t_id thread )
-	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		if ( !thread )
-			return false;
-
-		DWORD id = thread;
-
-		DWORD our_id = GetCurrentThreadId ();
-
-		return ( our_id == id );
 #else
-		pthread_t our_id = pthread_self ();
-
-		return ( memcmp ( &our_id, &thread, sizeof ( pthread_t ) ) == 0 );
+		return GetCurrentThreadId ();
 #endif
-	}
+    }
+    
+    
+    INLINEFUNC bool areWeTheThread ( pthread_t thread )
+    {
+#if defined(USE_ENVIRONS_POSIX_THREADS)
+		pthread_t our_thread = pthread_self ();
 
-
-	INLINEFUNC bool pthread_is_self_thread ( pthread_t thread )
-	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		if ( !thread )
-			return false;
+		return pthread_equal ( our_thread, thread );
+#else
+        if ( !thread )
+            return false;
 #ifdef WINDOWS_PHONE
-		DWORD id = ( DWORD ) thread;
+        DWORD threadID = ( DWORD ) thread;
 #else
-		DWORD id = GetThreadId ( thread );
+        DWORD threadID = GetThreadId ( thread );
 #endif
-		if ( !id ) // Failed
-			return true;
-
-		DWORD our_id = GetCurrentThreadId ();
-
-		return ( our_id == id );
-#else
+        if ( !threadID ) // Failed
+            return true;
+        
+        return areWeTheThreadID ( threadID );
+#endif
+    }
+    
+    
+    INLINEFUNC bool areWeTheThreadID ( pthread_t_id threadID )
+    {
+#if defined(USE_ENVIRONS_POSIX_THREADS)
 		pthread_t our_id = pthread_self ();
 
-		return ( memcmp ( &our_id, &thread, sizeof ( pthread_t ) ) == 0 );
-#endif
-	}
-
-
-	INLINEFUNC bool pthread_is_self_thread_id ( pthread_t_id handleID )
-	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		if ( !handleID )
-			return false;
-
-		DWORD our_id = GetCurrentThreadId ();
-
-		return ( our_id == handleID );
+		return pthread_equal ( our_id, threadID );
+		//return ( memcmp ( &our_id, &threadID, sizeof ( pthread_t ) ) == 0 );
 #else
-		pthread_t our_id = pthread_self ();
-
-		return ( memcmp ( &our_id, &handleID, sizeof ( pthread_t_id ) ) == 0 );
+        if ( !threadID )
+            return false;
+        
+        DWORD our_id = GetCurrentThreadId ();
+        
+        return ( our_id == threadID );
 #endif
-	}
+    }
 
 
 	INLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t &lock )
 	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) 
-#ifdef WINDOWS_PHONE
-		return ( WaitForSingleObjectEx ( cond, INFINITE, TRUE ) == WAIT_OBJECT_0 );
-#else
-		return ( WaitForSingleObject ( cond, INFINITE ) == WAIT_OBJECT_0 );
-#endif
-#else
+#if defined(USE_ENVIRONS_POSIX_THREADS)
 		bool ret = false;
 
 		if ( pthread_mutex_lock ( &lock ) )
@@ -262,38 +245,47 @@ namespace environs
 
 		pthread_mutex_unlock ( &lock );
 		return ret;
+#else
+#ifdef WINDOWS_PHONE
+		return ( WaitForSingleObjectEx ( cond, INFINITE, TRUE ) == WAIT_OBJECT_0 );
+#else
+		return ( WaitForSingleObject ( cond, INFINITE ) == WAIT_OBJECT_0 );
 #endif
-	}
+#endif
+    }
 
 
 	INLINEFUNC int pthread_cond_timedwait_msec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout )
 	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		return pthread_cond_timedwait ( cond, lock, &timeout );
-#else
+#if defined(USE_ENVIRONS_POSIX_THREADS)
 		return pthread_cond_timedwait_sec ( cond, lock, timeout / 1000 );
+#else
+		return pthread_cond_timedwait ( cond, lock, &timeout );
 #endif
 	}
 
 
 	INLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout )
 	{
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-		unsigned int waitTime = timeout * 1000;
-#else
+#if defined(USE_ENVIRONS_POSIX_THREADS)
 		struct timeval	now;
 		struct timespec waitTime;
 
-		gettimeofday ( &now, NULL );
+		int rc = gettimeofday ( &now, NULL );
+		if ( rc ) {
+			CErrArg ( "pthread_cond_timedwait_sec: failed [ %i ]", rc );
+		}
 
 		waitTime.tv_sec = now.tv_sec + timeout;
 		waitTime.tv_nsec = now.tv_usec * 1000;
+#else
+		unsigned int waitTime = timeout * 1000;
 #endif
 		return pthread_cond_timedwait ( cond, lock, &waitTime );
 	}
 
 
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
+#if !defined(USE_ENVIRONS_POSIX_THREADS)
 
 #ifdef USE_CRIT_SEC_MUTEX
 
@@ -411,79 +403,28 @@ namespace environs
 
 
 	/**
-	*	Dispose a thread and reset the threadID variable afterwards.
-	*	Make sure that the thread has not bee detached before.
-	*	Reset the thread variable stored in threadID on success.
-	*
-	void DisposeThread ( pthread_t &threadID, const char * threadName )
-	{
-	CVerb ( "DisposeThread" );
-
-	pthread_t thrd = threadID;
-
-	pthread_reset ( threadID );
-
-
-	if ( !pthread_valid ( thrd ) ) {
-	CVerb ( "DisposeThread: Thread is already closed." );
-	return;
-	}
-
-	CLogArg ( "Waiting for %s ...", threadName );
-
-	#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
-
-	//DWORD dw = WaitForSingleObject ( thrd, WAIT_TIME_FOR_THREAD_CLOSING );
-	DWORD dw = WaitForSingleObject ( thrd, INFINITE );
-	if ( dw == WAIT_OBJECT_0 || dw != WAIT_TIMEOUT ) {
-	CloseHandle ( thrd );
-	}
-	else {
-	CErrArg ( "DisposeThread: Waiting for %s thread TIMED OUT!", threadName );
-	if ( TerminateThread ( thrd, 0 ) ) {
-	CWarnArg ( "DisposeThread: Terminated %s thread.", threadName );
-	}
-	else {
-	CErrArg ( "DisposeThread: Failed to terminate %s thread!", threadName );
-	}
-	}
-	#else
-	pthread_join ( thrd, NULL );
-	//pthread_kill ( thrd, SIGUSR1 );
-	//pthread_detach_handle ( thrd );
-	#endif
-	}
-	*/
-
-
-	/**
 	*	Detach a thread and reset the threadID variable afterwards.
 	*	Make sure that the thread has not bee detached before.
 	*	Reset the thread variable stored in threadID on success.
 	*
 	*/
-	void DetachThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName )
+	void DetachThread ( LONGSYNC * threadState, pthread_t thread, const char * threadName )
 	{
-		CVerb ( "DetachThread" );
+        CVerb ( "DetachThread" );
 
 		if ( threadState != nill && ( ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE ) )
 			return;
 
-		if ( !pthread_valid ( threadID ) ) {
+		if ( !pthread_valid ( thread ) ) {
 			CVerb ( "DetachThread: Thread is already detached." );
 			return;
-		}
-
-		/*pthread_t thread = threadID;
-
-		pthread_reset ( threadID );
-
+        }
+        
+        // We cannot reset the source as right now, a new (next) thread may have already been started
+        //pthread_reset ( thread );
+        
         pthread_detach_handle ( thread );
-         */        
         
-        pthread_detach_handle ( threadID );
-        
-        pthread_reset ( threadID );
 	}
 
 
@@ -493,11 +434,9 @@ namespace environs
 	*	Reset the thread variable stored in threadID on success.
 	*
 	*/
-	void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, pthread_t_id handleID, const char * threadName )
+	void DisposeThread ( LONGSYNC * threadState, pthread_t thread, pthread_t_id threadID, const char * threadName )
 	{
 		CVerb ( "DisposeThread" );
-
-		pthread_t thread = threadID;
 
 		if ( !pthread_valid ( thread ) ) {
 			if ( threadState && ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE ) {
@@ -510,23 +449,19 @@ namespace environs
 
 		bool threadMatchesCaller	= false;
 
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
+#if !defined(USE_ENVIRONS_POSIX_THREADS)
 
-		if ( handleID )
-			threadMatchesCaller	= pthread_is_self_thread_id ( handleID );
+		if ( threadID )
+			threadMatchesCaller	= areWeTheThreadID ( threadID );
 		else
-			threadMatchesCaller	= pthread_is_self_thread ( threadID );
 #else
-		pthread_t our_id = pthread_self ();
+		//pthread_t our_id = pthread_self ();        
+		//threadMatchesCaller		= ( memcmp ( &our_id, &thread, sizeof ( pthread_t ) ) == 0 );
+#endif
+			threadMatchesCaller		= areWeTheThread ( thread );
 
-		threadMatchesCaller		= ( memcmp ( &our_id, &thread, sizeof ( pthread_t ) ) == 0 );
-#endif
 		if ( threadMatchesCaller ) {
-#ifdef MEDIATORDAEMON
 			CVerbArg ( "DisposeThread: Skip waiting for [ %s ] ...", threadName );
-#else
-			CVerbArg ( "DisposeThread: Skip waiting for [ %s ] ...", threadName );
-#endif
 			return;
 		}
 
@@ -535,46 +470,30 @@ namespace environs
 			if ( ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE )
 				return;
 
-			if ( !pthread_valid ( threadID ) ) {
+			if ( !pthread_valid ( thread ) ) {
 				CVerb ( "DisposeThread: Thread is already closed." );
 				return;
 			}
 		}
-
-		pthread_reset ( threadID );
+        
+        // We cannot reset the source as at this point, a new thread may have been already started
+		//pthread_reset ( thread );
 
 		CLogsArg ( 2, "DisposeThread: Waiting for %s ...", threadName );
 
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS) && !defined(WINDOWS_PHONE)
-
+#if defined(USE_ENVIRONS_POSIX_THREADS)
+		pthread_join ( thread, NULL );
+#else
 		DWORD dw = WAIT_OBJECT_0;
 
 		if ( !GetExitCodeThread ( thread, &dw ) )
 			dw = WAIT_OBJECT_0;
 
 		if ( dw == STILL_ACTIVE )
-			dw = WaitForSingleObject ( thread, INFINITE );
+			WaitForSingleObject ( thread, INFINITE );
 
-		if ( dw == WAIT_OBJECT_0 ) {
-			CloseHandle ( thread );
-		}
-
-		/*if ( dw == WAIT_OBJECT_0 || dw != WAIT_TIMEOUT ) {
-			CloseHandle ( thread );
-		}
-		else {
-			CErrArg ( "DisposeThread: Waiting for %s thread TIMED OUT!", threadName );
-			if ( TerminateThread ( thread, 0 ) ) {
-				CWarnArg ( "DisposeThread: Terminated %s thread.", threadName );
-			}
-			else {
-				CErrArg ( "DisposeThread: Failed to terminate %s thread!", threadName );
-			}
-		}*/
-#else
-		pthread_join ( thread, NULL );
+		CloseHandle ( thread );
 #endif
-
 		CLogsArg ( 3, "DisposeThread: Waiting for %s done.", threadName );
 	}
 
@@ -585,9 +504,9 @@ namespace environs
 	*	Reset the thread variable stored in threadID on success.
 	*
 	*/
-	void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, pthread_t_id handleID, const char * threadName, pthread_cond_t &threadEvent )
+	void DisposeThread ( LONGSYNC * threadState, pthread_t thread, pthread_t_id threadID, const char * threadName, pthread_cond_t &threadEvent )
 	{
-		if ( !pthread_valid ( threadID ) ) {
+		if ( !pthread_valid ( thread ) ) {
 			CVerb ( "DisposeThread: Thread is already closed." );
 			return;
 		}
@@ -595,13 +514,13 @@ namespace environs
 		if ( pthread_cond_valid ( threadEvent ) ) {
 			CVerbArg ( "DisposeThread: Signaling %s thread...", threadName );
 
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-			SetEvent ( threadEvent );
-#else
+#if defined(USE_ENVIRONS_POSIX_THREADS)
 			pthread_cond_signal ( &threadEvent );
+#else
+			SetEvent ( threadEvent );
 #endif
 		}
-		DisposeThread ( threadState, threadID, handleID, threadName );
+		DisposeThread ( threadState, thread, threadID, threadName );
 	}
 
 
@@ -675,17 +594,17 @@ namespace environs
 	*	@return success
 	*/
 #ifdef USE_LOCK_LOG
-	bool MutexInitBool ( pthread_mutex_t * mtx, const char * name )
+	bool LockInitBool ( pthread_mutex_t * mtx, const char * name )
 	{
 #else
-	bool MutexInitBool ( pthread_mutex_t * mtx )
+	bool LockInitBool ( pthread_mutex_t * mtx )
 	{
 #endif
 		if ( !mtx ) {
 #ifdef USE_LOCK_LOG
-			CErrArg ( "MutexInit: Invalid mutex object for [ %s ]", name ? name : "Unknown" );
+			CErrArg ( "LockInit: Invalid mutex object for [ %s ]", name ? name : "Unknown" );
 #else
-			CErrN ( "MutexInit: Invalid mutex object" );
+			CErrN ( "LockInit: Invalid mutex object" );
 #endif
 			return false;
 		}
@@ -694,9 +613,9 @@ namespace environs
 
 		if ( pthread_mutex_init ( mtx, NULL ) ) {
 #ifdef USE_LOCK_LOG
-			CErrArg ( "MutexInit: Failed to init [ %s ]", name ? name : "Unknown" );
+			CErrArg ( "LockInit: Failed to init [ %s ]", name ? name : "Unknown" );
 #else
-			CErrN ( "MutexInit: Failed to init" );
+			CErrN ( "LockInit: Failed to init" );
 #endif
 			return false;
 		}
@@ -710,17 +629,17 @@ namespace environs
 	*	@return success
 	*/
 #ifdef USE_LOCK_LOG
-	bool MutexDisposeBool ( pthread_mutex_t * mtx, const char * name )
+	bool LockDisposeBool ( pthread_mutex_t * mtx, const char * name )
 	{
 #else
-	bool MutexDisposeBool ( pthread_mutex_t * mtx )
+	bool LockDisposeBool ( pthread_mutex_t * mtx )
 	{
 #endif
 		if ( !mtx || pthread_mutex_destroy ( mtx ) ) {
 #ifdef USE_LOCK_LOG
-			CErrArg ( "MutexDispose: Failed to destroy [ %s ]", name ? name : "Unknown" );
+			CErrArg ( "LockDispose: Failed to destroy [ %s ]", name ? name : "Unknown" );
 #else
-			CErrN ( "MutexDispose: Failed to destroy" );
+			CErrN ( "LockDispose: Failed to destroy" );
 #endif
 			return false;
 		}
@@ -753,11 +672,11 @@ namespace environs
 	*
 	*/
 #ifdef USE_LOCK_LOG
-	void MutexLockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
+	void LockAcquireVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
 	{
 		CVerbsLockArg ( 12, "        -------> Lock   [ %-30s ]    | %16llX | %s.%s", mutexName, ( long long ) GetCurrentThreadId (), className, funcName );
 #else
-	void MutexLockVoid ( pthread_mutex_t * mtx )
+	void LockAcquireVoid ( pthread_mutex_t * mtx )
 	{
 #endif
 		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
@@ -779,11 +698,11 @@ namespace environs
 	*
 	*/
 #ifdef USE_LOCK_LOG
-	void MutexUnlockVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
+	void LockReleaseVoid ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
 	{
 		CVerbsLockArg ( 12, "       <------   Unlock [ %-30s ]    | %16llX | %s.%s", mutexName, ( long long ) GetCurrentThreadId (), className, funcName );
 #else
-	void MutexUnlockVoid ( pthread_mutex_t * mtx )
+	void LockReleaseVoid ( pthread_mutex_t * mtx )
 	{
 #endif
 		if ( !mtx || pthread_mutex_unlock ( mtx ) ) {
@@ -802,11 +721,11 @@ namespace environs
 	*	@return success
 	*/
 #ifdef USE_LOCK_LOG
-	bool MutexLockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
+	bool LockAcquireBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
 	{
 		CVerbsLockArg ( 12, "        -------> Lock   [ %-30s ]    | %16llX | %s.%s", mutexName, ( long long ) GetCurrentThreadId (), className, funcName );
 #else
-	bool MutexLockBool ( pthread_mutex_t * mtx )
+	bool LockAcquireBool ( pthread_mutex_t * mtx )
 	{
 #endif
 		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
@@ -830,11 +749,11 @@ namespace environs
 	*	@return success
 	*/
 #ifdef USE_LOCK_LOG
-	bool MutexUnlockBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
+	bool LockReleaseBool ( pthread_mutex_t * mtx, const char * mutexName, const char * className, const char * funcName )
 	{
 		CVerbsLockArg ( 12, "       <------   Unlock [ %-30s ]    | %16llX | %s.%s", mutexName, ( long long ) GetCurrentThreadId (), className, funcName );
 #else
-	bool MutexUnlockBool ( pthread_mutex_t * mtx )
+	bool LockReleaseBool ( pthread_mutex_t * mtx )
 	{
 #endif
 		if ( !mtx || pthread_mutex_unlock ( mtx ) ) {
@@ -851,37 +770,25 @@ namespace environs
 #endif
 
 
-
-#undef CLASS_NAME
+#undef  CLASS_NAME
 #define CLASS_NAME	"EnvThread. . . . . . . ."
 
 	EnvThread::EnvThread ()
 	{
-#ifdef CLI_CPP
-		threadID = nill;
-#else
-		Zero ( threadID );
-#endif
-		Win32_Only ( handleID = 0; )
+		Zeros ( thread );
+
+		Win32_Only ( threadID = 0; )
 
 		state = ENVIRONS_THREAD_NO_THREAD;
     }
-        
+
     
     EnvThread::~EnvThread ()
     {
-#ifdef USE_THREADSYNC_OWNER_NAME
-        CVerbVerbArg ( "Destruct: [ %s ]", owner );
-#endif
+		CThreadVerbArg ( "Destruct: [ %s ]", owner );
+
         Detach ( "ThreadBase" );
     }
-
-/*
-	void EnvThread::ResetState ()
-	{
-		state = ENVIRONS_THREAD_NO_THREAD;
-	}
-        */
 
 
 	/*
@@ -894,22 +801,21 @@ namespace environs
 	{
 		if ( ___sync_val_compare_and_swap ( c_ref state, ENVIRONS_THREAD_NO_THREAD, ENVIRONS_THREAD_DETACHEABLE ) != ENVIRONS_THREAD_NO_THREAD )
 		{
-			CWarnsArg ( 6, "Run: [%s] Thread already running!", func );
+			CWarnsArg ( 6, "Run: [ %s ] Thread is already running!", func );
 			return 1;
-		}
+        }
 
-		int retCode = pthread_create_cli ( c_Addr_of ( threadID ), 0, startRoutine, arg );
+		Zeros ( thread );
+
+        int retCode = pthread_create_tid ( c_Addr_of ( thread ), 0, startRoutine, arg, threadID );
 		if ( retCode ) {
-			CErrArg ( "Run: [%s] Failed to create thread!", func );
+			CErrArg ( "Run: [ %s ] Failed to create thread!", func );
 		}
-		else {
-			// It is possible, that we may (continue here and) find an empty threadID at this point.
-			// We're just test the threadID and go on with an invalid handle if all goes wrong
-			Win32_Only ( HANDLE h = threadID; if ( h ) handleID = GetThreadId ( threadID ); )
+		else
 			return 1;
-		}
 
-		state = ENVIRONS_THREAD_NO_THREAD;
+		___sync_val_set ( c_ref state, ENVIRONS_THREAD_NO_THREAD );
+//		state = ENVIRONS_THREAD_NO_THREAD;
 		return 0;
 	}
 
@@ -924,26 +830,26 @@ namespace environs
 	{
 #ifndef CLI_CPP
 #	ifdef _WIN32
-		DisposeThread ( &state, threadID, handleID, func );
+		DisposeThread ( &state, thread, threadID, func );
 #	else
-		DisposeThread ( &state, threadID, threadID, func );
+		DisposeThread ( &state, thread, 0, func );
 #	endif
 #else
-		if ( threadID == nill )
+		if ( thread == nill )
 			return;
 
-		if ( Thread::CurrentThread == threadID )
+		if ( Thread::CurrentThread == thread )
 			return;
 
 		if ( ___sync_val_compare_and_swap ( state, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE ) {
 			return;
 		}
 
-		if ( threadID == nill )
+		if ( thread == nill )
 			return;
 
-		threadID->Join ();
-		threadID = nill;
+		thread->Join ();
+		thread = nill;
 #endif
 	}
 
@@ -951,9 +857,9 @@ namespace environs
 	void EnvThread::Detach ( CString_ptr func )
 	{
 #ifndef CLI_CPP
-		DetachThread ( &state, threadID, func );
+		DetachThread ( &state, thread, func );
 #else
-		threadID = nill;
+		thread = nill;
 		state = ENVIRONS_THREAD_NO_THREAD;
 #endif
 	}
@@ -961,25 +867,24 @@ namespace environs
 
 	bool EnvThread::areWeTheThread ()
 	{
-#ifndef CLI_CPP
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-
-		return pthread_is_self_thread ( threadID );
+#ifdef CLI_CPP
+		return ( Thread::CurrentThread == thread );
 #else
-		pthread_t our_id = pthread_self ();
+#if defined(USE_ENVIRONS_POSIX_THREADS)
+		return environs::areWeTheThread ( thread );
+		//pthread_t selfThread = pthread_self ();
 
-		return ( memcmp ( &our_id, &threadID, sizeof ( pthread_t ) ) == 0 );
+		//return pthread_equal ( selfThread, thread );
+		//return ( memcmp ( &selfThread, &thread, sizeof ( pthread_t ) ) == 0 );
+#else
+		return areWeTheThreadID ( threadID );
 #endif
-#else
-		return ( Thread::CurrentThread == threadID );
 #endif
 	}
 
 
-
-#undef CLASS_NAME
-#define CLASS_NAME	"EnvLock. . . . . . . . ."
-        
+#undef  CLASS_NAME
+#define CLASS_NAME	"EnvLock. . . . . . . . ."        
     
     EnvLock::EnvLock ()
     {
@@ -993,12 +898,7 @@ namespace environs
 #ifdef USE_THREADSYNC_OWNER_NAME
         owner       = "Unknown";
 #endif
-        
-#ifdef CLI_CPP
-        signal = nill;
-#else
-        Zero ( signal );
-#endif
+		Zeros ( signal );
     }
         
 
@@ -1007,7 +907,7 @@ namespace environs
 		if ( allocated )
 			return true;
 
-		if ( !MutexInitA ( lock ) )
+		if ( !LockInitA ( lock ) )
 			return false;
 
 		if ( pthread_cond_manual_init ( c_Addr_of ( signal ), NULL ) ) {
@@ -1022,39 +922,30 @@ namespace environs
 
 	EnvLock::~EnvLock ()
 	{
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CLogArg ( "Destruct: [ %s ]", owner );
-#endif
-		if ( allocated ) {
-			CondDisposeA ( signal );
+		CThreadLogArg ( "Destruct: [ %s ]", owner );
 
-			MutexDisposeA ( lock );
-
-			allocated = false;
-		}
+		DisposeInstance ();
 	}
 
 
 	void EnvLock::DisposeInstance ()
 	{
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CLogArg ( "ThreadSync.DisposeInstance: [ %s ]", owner );
-#endif
+		CThreadLogArg ( "DisposeInstance: [ %s ]", owner );
+
 		if ( allocated ) {
+			allocated = false;
+
 			CondDisposeA ( signal );
 
-			MutexDisposeA ( lock );
-
-			allocated = false;
+			LockDisposeA ( lock );
 		}
 	}
 
 
 	bool EnvLock::LockCond ( CString_ptr func )
 	{
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CVerbVerbArg ( "LockCond: [ %s ]", owner );
-#endif
+		CThreadVerbArg ( "LockCond: [ %s ]", owner );
+
 		if ( pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
 			CErrArg ( "LockCond: Failed [ %s ]", func );
 			return false;
@@ -1065,9 +956,8 @@ namespace environs
 
 	bool EnvLock::Lock ( CString_ptr func )
 	{
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CVerbVerbArg ( "Lock: [ %s ]", owner );
-#endif
+		CThreadVerbArg ( "Lock: [ %s ]", owner );
+
 		if ( pthread_mutex_lock ( Addr_of ( lock ) ) ) {
 			CErrArg ( "Lock: Failed [ %s ]", func );
 			return false;
@@ -1193,9 +1083,8 @@ namespace environs
 
 	bool EnvLock::Notify ( CString_ptr func, bool useLock )
 	{
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CVerbVerbArg ( "Notify.Lock: [ %s ]", owner );
-#endif
+		CThreadVerbArg ( "Notify.Lock: [ %s ]", owner );
+
         if ( useLock && pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
             CErrArg ( "Notify.Lock: Failed [ %s ]", func );
 			return false;
@@ -1210,9 +1099,8 @@ namespace environs
 		}
 		CVerb ( "Notify: Thread signaled." );
 
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CVerbVerbArg ( "Notify.Unlock: [ %s ]", owner );
-#endif
+		CThreadVerbArg ( "Notify.Unlock: [ %s ]", owner );
+
 		if ( useLock && pthread_cond_mutex_unlock ( c_Addr_of ( lock ) ) ) {
 			CErr ( "Notify: Failed to release mutex" );
 			return false;
@@ -1223,9 +1111,8 @@ namespace environs
 
 	bool EnvLock::UnlockCond ( CString_ptr func )
 	{
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CVerbVerbArg ( "UnlockCond: [ %s ]", owner );
-#endif
+		CThreadVerbArg ( "UnlockCond: [ %s ]", owner );
+
 		if ( pthread_cond_mutex_unlock ( &lock ) ) {
 			CErrArg ( "UnlockCond: Failed [%s]", func );
 			return false;
@@ -1236,9 +1123,8 @@ namespace environs
 
 	bool EnvLock::Unlock ( CString_ptr func )
 	{
-#ifdef USE_THREADSYNC_OWNER_NAME
-		CVerbVerbArg ( "Unlock: [ %s ]", owner );
-#endif
+		CThreadVerbArg ( "Unlock: [ %s ]", owner );
+
 		if ( pthread_mutex_unlock ( Addr_of ( lock ) ) ) {
 			CErrArg ( "Unlock: Failed [%s]", func );
 			return false;
@@ -1247,18 +1133,9 @@ namespace environs
     }
         
         
-        
-#undef CLASS_NAME
+#undef  CLASS_NAME
 #define CLASS_NAME	"ThreadSync . . . . . . ."
-            
-    /*
-    void ThreadSync::Reset ()
-    {
-        state = ENVIRONS_THREAD_NO_THREAD;
-        
-        pthread_reset ( threadID );
-    }*/
-
+          
 	/*
 	* Run	Create a thread with the given thread routine
 	* @return	1	success, thread is running or was already runing. (if wait is requested, then wait was successful)
@@ -1271,25 +1148,23 @@ namespace environs
 		{
 			CWarnsArg ( 6, "Run: [%s] Thread already running!", func );
 			return 1;
-		}
+        }
 
-		int success;
+		Zeros ( thread );
+
+        int retCode;
 
 		if ( waitForStart && !ResetSync ( func, true, true ) )
 			goto Failed;
 
-		success = pthread_create_cli ( c_Addr_of ( threadID ), 0, startRoutine, arg );
-		if ( success ) {
+		retCode = pthread_create_tid ( c_Addr_of ( thread ), 0, startRoutine, arg, threadID );
+		if ( retCode ) {
 			CErrArg ( "Run: [%s] Failed to create thread!", func );
 
 			if ( waitForStart )
 				UnlockCond ( func );
 		}
 		else {
-			// It is possible, that we may (continue here and) find an empty threadID at this point.
-			// We're just test the threadID and go on with an invalid handle if all goes wrong
-			Win32_Only ( HANDLE h = threadID; if ( h ) handleID = GetThreadId ( threadID ); )
-
 			if ( !waitForStart )
 				return 1;
 
@@ -1299,15 +1174,15 @@ namespace environs
 
 			if ( waitRes <= 0 ) {
 				CErrArg ( "Run: [%s] Failed to wait for thread start!", func );
-				//Detach ( "Run" );
 			}
 
 			if ( waitRes != 0 )
 				return waitRes;
 		}
 
-	Failed:
-		state = ENVIRONS_THREAD_NO_THREAD;
+    Failed:
+        ___sync_val_set ( c_ref state, ENVIRONS_THREAD_NO_THREAD );
+//		state = ENVIRONS_THREAD_NO_THREAD;
 		return 0;
 	}
 

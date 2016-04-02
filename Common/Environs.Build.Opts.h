@@ -28,7 +28,13 @@
 #	define NO_ML_TESTS
 #endif
 
-//#define DEBUGSocketLog
+#ifndef NDEBUG
+#ifndef MEDIATORDAEMON
+#	define DEBUGSocketLog
+#	define DEBUG_TRACK_SOCKET
+#endif
+#endif
+
 //#define DEBUGSocketCreateLog
 
 #define ENABLE_IOS_HEALTHKIT_SUPPORT
@@ -89,10 +95,6 @@
 #	define ENVIRONS_DEVICE_KEY_EXT +4
 #else
 #	define ENVIRONS_DEVICE_KEY_EXT
-#endif
-
-#if ( !defined(NDEBUG) && !defined(CLI_CPP) )
-//#   define USE_THREADSYNC_OWNER_NAME
 #endif
 
 #define ENABLE_DONT_LINGER_SOCKETS
@@ -157,8 +159,14 @@
 
 #define PARTITION_MIN_BUFFER_REQUIREMENT	131072
 #define PARTITION_SEND_BUFFER_SIZE			64000
-#define PARTITION_CHUNK_SIZE				(PARTITION_SEND_BUFFER_SIZE - MSG_CHUNKED_HEADER_SIZE)
+#define PARTITION_PART_SIZE					(PARTITION_SEND_BUFFER_SIZE - MSG_PARTITIONS_HEADER_SIZE)
 
+#ifdef NDEBUG
+#   define ENABLE_DEVICE_FIN_MESSAGES
+#else
+// For tests, we disable sending of abort signals (provoke errors and hangs during debug tests)
+#   define ENABLE_DEVICE_FIN_MESSAGES
+#endif
 
 #ifndef NDEBUG
 //#   define TEST_DIFFERENT_CRT	"v120"

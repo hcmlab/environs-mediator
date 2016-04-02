@@ -366,7 +366,15 @@ namespace environs
 			CLI_INC
 				LIBEXPORT int CallConv			StopN ( int hInst );
 			CLI_INC
-				LIBEXPORT void CallConv			StopNetLayerN ( int hInst );
+                LIBEXPORT void CallConv			StopNetLayerN ( int hInst );
+            
+            /**
+             * Instructs the framework to perform a quick shutdown (with minimal wait times)
+             *
+             * @param enable      true / false
+             */
+            CLI_INC
+                LIBEXPORT void CallConv			SetAppShutdownN ( int enable );
 
 			/**
 			* Dispose/Release a native Environs object with the given object handle.

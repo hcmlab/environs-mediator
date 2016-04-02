@@ -2642,12 +2642,12 @@ namespace Notify {
 		literal int NATIVE_FILE_TYPE_EXT_DEFINED                      =	(NATIVE_FILE_TYPE | 1);
 #		define	NATIVE_FILE_TYPE_EXT_DEFINED                      		(NATIVE_FILE_TYPE | 1)
 
-#		ifdef NATIVE_FILE_TYPE_CHUNKED                          
-#			undef NATIVE_FILE_TYPE_CHUNKED                          
+#		ifdef NATIVE_FILE_TYPE_PARTS                            
+#			undef NATIVE_FILE_TYPE_PARTS                            
 #		endif
 
-		literal int NATIVE_FILE_TYPE_CHUNKED                          =	(NATIVE_FILE_TYPE | 6);
-#		define	NATIVE_FILE_TYPE_CHUNKED                          		(NATIVE_FILE_TYPE | 6)
+		literal int NATIVE_FILE_TYPE_PARTS                            =	(NATIVE_FILE_TYPE | 6);
+#		define	NATIVE_FILE_TYPE_PARTS                            		(NATIVE_FILE_TYPE | 6)
 
 #		ifdef NATIVE_FILE_TYPE_ACK                              
 #			undef NATIVE_FILE_TYPE_ACK                              
@@ -4204,6 +4204,13 @@ namespace Notify {
 
 		literal int DEVICE_ACTIVITY_PLATFORM_DISPOSED                 =	(0x1000);
 #		define	DEVICE_ACTIVITY_PLATFORM_DISPOSED                 		(0x1000)
+
+#		ifdef DEVICE_ACTIVITY_PLATFORM_PREDISPOSED              
+#			undef DEVICE_ACTIVITY_PLATFORM_PREDISPOSED              
+#		endif
+
+		literal int DEVICE_ACTIVITY_PLATFORM_PREDISPOSED              =	(0x2000);
+#		define	DEVICE_ACTIVITY_PLATFORM_PREDISPOSED              		(0x2000)
 
 #		ifdef DEVICE_ACTIVITY_ABORTED                           
 #			undef DEVICE_ACTIVITY_ABORTED                           

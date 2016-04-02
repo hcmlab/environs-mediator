@@ -335,20 +335,20 @@ namespace environs
 #ifdef _WIN32
 		void CommitPreDispose ( )
 		{
-			CVerbN("CommitPreDispose");
+			CVerbN ( "CommitPreDispose" );
 
-			if (!g_EnvironsModuleHandle)
+			if ( !g_EnvironsModuleHandle )
 				return;
 
 			pPreDispose PreDispose = 0;
 
-			PreDispose = (pPreDispose)
-				dlsym(g_EnvironsModuleHandle, "PreDispose");
+			PreDispose = ( pPreDispose )
+				dlsym ( g_EnvironsModuleHandle, "PreDispose" );
 
-			if (PreDispose) {
-				CVerbN("CommitPreDispose: Pre disposing.");
+			if ( PreDispose ) {
+				CVerbN ( "CommitPreDispose: Pre disposing." );
 
-				PreDispose();
+				PreDispose ();
 			}
 		}
 #endif
@@ -387,7 +387,7 @@ namespace environs
                 return;
 
 #ifdef _WIN32
-			CommitPreDispose();
+			CommitPreDispose ();
 #endif
 
             dlclose ( g_EnvironsModuleHandle );

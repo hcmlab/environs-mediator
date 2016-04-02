@@ -344,7 +344,8 @@ namespace environs
 		bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
 		bool									SecureChannelAuth ( ThreadInstance * client );
 		void									HandleStuntSocketRegistration ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
-		bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacket * msg );
+        bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacketV6 * msg );
+        bool									HandleSTUNTRequestV5 ( ThreadInstance * client, STUNTReqPacket * msg );
 		bool									HandleSTUNTRequestV4 ( ThreadInstance * client, STUNTReqPacketV4 * msg );
 		bool									NotifySTUNTRegRequest ( ThreadInstance * client );
 		int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
@@ -358,7 +359,8 @@ namespace environs
 		bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 		bool									HandleSTUNRequestV4 ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 
-		bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
+        bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
+        bool									HandleQueryDevicesV5 ( const sp ( ThreadInstance ) &client, char * msg );
 		bool									HandleQueryDevicesV4 ( const sp ( ThreadInstance ) &client, char * msg );
 		bool									HandleShortMessage ( ThreadInstance * client, char * msg );
 

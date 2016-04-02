@@ -50,6 +50,14 @@ namespace environs
 
         virtual ~Environs () { };
         
+                
+        /**
+         * Instructs the framework to perform a quick shutdown (with minimal wait times)
+         *
+         * @param enable      true / false
+         */
+        virtual void SetAppShutdown ( bool enable ) = 0;
+        
         
         /**
          * Release memory allocated by Environs to be temporarily used by client code.

@@ -188,7 +188,7 @@ namespace environs
 		//#define MSG_HEADER_LEN	16
 #define MSG_HEADER_SIZE	(sizeof(environs::lib::ComMessageHeader) - sizeof(unsigned int))
 
-		typedef struct _MessageHeaderChunked
+		typedef struct _MessageHeaderPartitions
 		{
 			// Static data initialized at construction time
 			char 			preamble [ 4 ];	// 4 bytes
@@ -208,15 +208,15 @@ namespace environs
 
 			int				fileID;
 
-			unsigned int	chunks;
-			unsigned int	chunk;
+			unsigned int	parts;
+			unsigned int	part;
 
 			unsigned int	descriptorLength;
 			unsigned int    payload;
 		}
-		MessageHeaderChunked;
+		MessageHeaderPartitions;
 
-#define MSG_CHUNKED_HEADER_SIZE	(sizeof(environs::lib::MessageHeaderChunked) - sizeof(unsigned int))
+#define MSG_PARTITIONS_HEADER_SIZE	(sizeof(environs::lib::MessageHeaderPartitions) - sizeof(unsigned int))
 
 
 		typedef struct _UdpMessageHeader

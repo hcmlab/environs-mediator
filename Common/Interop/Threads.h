@@ -22,18 +22,12 @@
 #define INCLUDE_HCM_ENVIRONS_INTEROP_THREADS_H
 #include "Interop.h"
 
-/*
-*	USE_PTHREADS_FOR_WINDOWS
-*	Enable this flag to replace windows threads with posix threads
-*/
-//#define USE_PTHREADS_FOR_WINDOWS
-
-/*
-*	USE_PTHREADS_FOR_WINDOWS
-*	Enable this flag to replace mutex objects through critical sections on windows
-*/
 #ifdef _WIN32
 #define	USE_CRIT_SEC_MUTEX
+#endif
+
+#ifndef _WIN32
+#	define USE_ENVIRONS_POSIX_THREADS
 #endif
 
 /*
@@ -79,37 +73,37 @@
 *	//////// Declarations outside of namespace environs
 *	- Include files
 */
+#ifdef USE_ENVIRONS_POSIX_THREADS
+#	include <pthread.h>
+	/// Semaphores are part of the POSIX standard
+	/// Still, we do need to consider them differently for platforms
+	/// i.e. Android does not implement sem_open (named sems), while iOS does not support sem_init (unnamed sems)
+#	include <semaphore.h>
+#endif
+
 #ifdef _WIN32
 // Prevent windows.h to include winsock (winsock has to be included before windows.h)
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
+#	ifndef WIN32_LEAN_AND_MEAN
+#		define WIN32_LEAN_AND_MEAN
+#	endif
 
-#if (!defined(CLI_CPP) && !defined(WINDOWS_PHONE))
-#	include "windows.h"
-#endif
+#	ifdef WINDOWS_PHONE
+#		include "winbase.h"
 
-#ifdef WINDOWS_PHONE
-#	include "winbase.h"
+#		define _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
+#		include <process.h>
+#		undef _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
 
-#	define _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
-#	include <process.h>
-#	undef _CRT_USE_WINAPI_FAMILY_DESKTOP_APP
-#endif
+#	elif !defined(CLI_CPP)
 
-#ifdef USE_PTHREADS_FOR_WINDOWS
-#	include <pthread.h>
-#endif
+#		include "windows.h"
 
-#else	//---- NTDDI_WIN8
-/// Include pthread for platforms other than windows
-#include <pthread.h>
-/// Semaphores are part of the POSIX standard
-/// Still, we do need to consider them differently for platforms
-/// i.e. Android does not implement sem_open (named sems), while iOS does not support sem_init (unnamed sems)
-#include <semaphore.h>
+#	endif
 #endif	//---- NTDDI_WIN8
 
+#if ( !defined(NDEBUG) && !defined(CLI_CPP) )
+//#   define USE_THREADSYNC_OWNER_NAME
+#endif
 
 /**
 *	Declarations inside of namespace environs
@@ -122,20 +116,19 @@ namespace environs
 {
 #endif
 
-    
 	extern bool InitInteropThread ();
 	extern void DisposeInteropThread ();
-
+	
 #ifdef _WIN32  // _WIN32
 	/*
 	* Windows specific definintions
 	*/
-
-#	ifdef USE_PTHREADS_FOR_WINDOWS
-
+#	ifdef USE_ENVIRONS_POSIX_THREADS
+    
+#		define get_platform_thread_id()			GetCurrentThreadId()
+    
 #		define pthread_reset(thread)			memset(&thread,0,sizeof(pthread_t))
 #		define pthread_close(threadID)			
-//#		define pthread_mutex_valid(m)			true	
 #		define pthread_wait_fail(val)			(val != 0)
 
 #	else
@@ -191,6 +184,9 @@ namespace environs
 				((*threadID = (HANDLE)_beginthread ( (void (__cdecl *) (void *))startRoutine, 64000, arg )) == 0)
 
 #			define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
+    
+#			define pthread_create_tid(threadID,s0,startRoutine,arg,tid) \
+                ((*threadID = (HANDLE)_beginthread ( (void (__cdecl *) (void *))startRoutine, 64000, arg, 0, &tid )) == 0)
 #		elif CLI_CPP
 			using namespace System::Threading;
 
@@ -201,6 +197,9 @@ namespace environs
 
 #			define pthread_create(threadID,s0,startRoutine,arg) \
 				pthread_create_cli ( threadID, s0, gcnew ParameterizedThreadStart ( startRoutine ), arg )
+    
+#			define pthread_create_tid(threadID,s0,startRoutine,arg,tid) \
+                pthread_create_cli ( threadID, s0, startRoutine, arg )
 #		else
 #			define pthread_start_routine_t			LPTHREAD_START_ROUTINE
 #			define pthread_make_routine(r)			((LPTHREAD_START_ROUTINE) r)
@@ -209,6 +208,9 @@ namespace environs
 				((*(threadID) = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, 0 )) == 0)
 
 #			define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
+    
+#			define pthread_create_tid(threadID,s0,startRoutine,arg,tid) \
+                ((*(threadID) = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, &tid )) == 0)
 #		endif
 
 #		define pthread_cond_mutex_init(e,d)			false
@@ -370,7 +372,7 @@ namespace environs
 #	define pthread_csec_trylock(m)			TryEnterCriticalSection (m)
 #	define pthread_csec_unlock(m)			LeaveCriticalSection(m)
 		
-#	endif // USE_PTHREADS_FOR_WINDOWS
+#	endif // USE_ENVIRONS_POSIX_THREADS
 
 #else 	 // _WIN32 - Section for __APPLE__, ANDROID, _GNUC_
 	extern INLINEFUNC int pthread_cond_timedwait_sec ( pthread_cond_t * cond, pthread_mutex_t * lock, unsigned int timeout );
@@ -382,8 +384,10 @@ namespace environs
 #	define	pthread_mutex_lock_n(m)			pthread_mutex_lock (m);
 #	define	pthread_mutex_unlock_n(m)		pthread_mutex_unlock (m);
     
-#   define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
+#   define pthread_create_cli(threadID,s0,startRoutine,arg)         pthread_create(threadID,s0,startRoutine,arg)
     
+#   define pthread_create_tid(threadID,s0,startRoutine,arg,tid)     pthread_create(threadID,s0,startRoutine,arg)
+        
 	/*
 	* Android/iOS/MacOS/Linux specific definintions
      */
@@ -449,9 +453,6 @@ namespace environs
 	/*
 	* Semaphore
 	*/
-
-	//#define sem_fail(exp)					((exp) == -1)
-
 #ifdef __APPLE__
 #define sem_tp							sem_t *
 #define env_sem_post(sem)				(sem_post ( sem ) != -1)
@@ -470,6 +471,8 @@ namespace environs
 
 #endif	 // _WIN32
 
+
+
 #ifdef __cplusplus
 	/*
 	* pthread Extensions for Environs.
@@ -483,7 +486,6 @@ namespace environs
 
 #	else
 	extern INLINEFUNC bool pthread_wait_one ( pthread_cond_t &cond, pthread_mutex_t OBJ_ref lock );
-	extern INLINEFUNC bool pthread_is_self_thread ( pthread_t thread );
 	extern INLINEFUNC bool pthread_valid ( pthread_t thread );
 
 	extern INLINEFUNC pthread_t_id getSelfThreadID ();
@@ -494,11 +496,11 @@ namespace environs
 	*/
 	extern bool env_sem_create ( sem_tp * sem, int iniVal, const char * name, unsigned int name1, int name2, int name3 );
 
-    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, pthread_t_id handleID, const char * threadName );
+    extern void DisposeThread ( LONGSYNC * threadState, pthread_t threadID, pthread_t_id handleID, const char * threadName );
     
-    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &threadID, pthread_t_id handleID, const char * threadName, pthread_cond_t &threadEvent );
+    extern void DisposeThread ( LONGSYNC * threadState, pthread_t threadID, pthread_t_id handleID, const char * threadName, pthread_cond_t &threadEvent );
     
-    extern void DetachThread ( LONGSYNC * threadState, pthread_t &threadID, const char * threadName );
+    extern void DetachThread ( LONGSYNC * threadState, pthread_t threadID, const char * threadName );
 #	endif
 
 #endif
@@ -507,103 +509,103 @@ namespace environs
 
 	using namespace System::Threading;
 
-#	define MutexInitA(m)			true
-#	define MutexDisposeA(m)			true
+#	define LockInitA(m)				true
+#	define LockDisposeA(m)			true
 
-#	define pthread_mutex_lock(m)	!MutexLockBool(m, "", "", "")
-#	define MutexLockV(m,f)			Monitor::Enter(m)
-#	define MutexLockVA(m,f)			Monitor::Enter(%m)
+#	define pthread_mutex_lock(m)	!LockAcquireBool(m, "", "", "")
+#	define LockAcquireV(m,f)		Monitor::Enter(m)
+#	define LockAcquireVA(m,f)		Monitor::Enter(%m)
 
-#	define MutexLock(m,f)			MutexLockBool(m,#m,CLASS_NAME,f)
-#	define MutexLockA(m,f)			MutexLockBool(%m,#m,CLASS_NAME,f)
-	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName );
+#	define LockAcquire(m,f)			LockAcquireBool(m,#m,CLASS_NAME,f)
+#	define LockAcquireA(m,f)		LockAcquireBool(%m,#m,CLASS_NAME,f)
+	extern bool LockAcquireBool ( pthread_mutex_t OBJ_ptr mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName );
 
-#	define pthread_mutex_unlock(m)	!MutexUnlockBool(m, "", "", "")
-#	define MutexUnlockV(m,f)		Monitor::Exit(m)
-#	define MutexUnlockVA(m,f)		Monitor::Exit(%m)
+#	define pthread_mutex_unlock(m)	!LockReleaseBool(m, "", "", "")
+#	define LockReleaseV(m,f)		Monitor::Exit(m)
+#	define LockReleaseVA(m,f)		Monitor::Exit(%m)
 
-#	define MutexUnlock(m,f)			MutexUnlockBool(m,#m,CLASS_NAME,f)
-#	define MutexUnlockA(m,f)		MutexUnlockBool(%m,#m,CLASS_NAME,f)
-	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName );
+#	define LockRelease(m,f)			LockReleaseBool(m,#m,CLASS_NAME,f)
+#	define LockReleaseA(m,f)		LockReleaseBool(%m,#m,CLASS_NAME,f)
+	extern bool LockReleaseBool ( pthread_mutex_t OBJ_ptr mtx, CString_ptr mutexName, CString_ptr className, CString_ptr funcName );
 
 #	define CondInitA(m)				((m = gcnew System::Threading::AutoResetEvent(false)) != nill)
 #	define CondDisposeA(m)			(m = nill)
 #else
 
 #ifdef NDEBUG
-#	define MutexInit(m)			MutexInitBool(m)
-#	define MutexInitA(m)		MutexInitBool(&m)
-	extern bool MutexInitBool ( pthread_mutex_t OBJ_ptr mtx );
+#	define LockInit(m)				LockInitBool(m)
+#	define LockInitA(m)				LockInitBool(&m)
+	extern bool LockInitBool ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define MutexDispose(m)		MutexDisposeBool(m)
-#	define MutexDisposeA(m)		MutexDisposeBool(&m)
-	extern bool MutexDisposeBool ( pthread_mutex_t OBJ_ptr mtx );
+#	define LockDispose(m)			LockDisposeBool(m)
+#	define LockDisposeA(m)			LockDisposeBool(&m)
+	extern bool LockDisposeBool ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define MutexLockV(m,f)		MutexLockVoid(m)
-#	define MutexLockVA(m,f)		MutexLockVoid(&m)
-	extern void MutexLockVoid ( pthread_mutex_t OBJ_ptr mtx );
+#	define LockAcquireV(m,f)		LockAcquireVoid(m)
+#	define LockAcquireVA(m,f)		LockAcquireVoid(&m)
+	extern void LockAcquireVoid ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define MutexUnlockV(m,f)	MutexUnlockVoid(m)
-#	define MutexUnlockVA(m,f)	MutexUnlockVoid(&m)
-	extern void MutexUnlockVoid ( pthread_mutex_t OBJ_ptr mtx );
+#	define LockReleaseV(m,f)		LockReleaseVoid(m)
+#	define LockReleaseVA(m,f)		LockReleaseVoid(&m)
+	extern void LockReleaseVoid ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define MutexLock(m,f)		MutexLockBool(m)
-#	define MutexLockA(m,f)		MutexLockBool(&m)
-	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx );
+#	define LockAcquire(m,f)			LockAcquireBool(m)
+#	define LockAcquireA(m,f)		LockAcquireBool(&m)
+	extern bool LockAcquireBool ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define MutexUnlock(m,f)		MutexUnlockBool(m)
-#	define MutexUnlockA(m,f)	MutexUnlockBool(&m)
-	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx );
+#	define LockRelease(m,f)			LockReleaseBool(m)
+#	define LockReleaseA(m,f)		LockReleaseBool(&m)
+	extern bool LockReleaseBool ( pthread_mutex_t OBJ_ptr mtx );
 
 
-#	define CondInit(m)			CondInitBool(m)
-#	define CondInitA(m)			CondInitBool(&m)
+#	define CondInit(m)				CondInitBool(m)
+#	define CondInitA(m)				CondInitBool(&m)
 	extern bool CondInitBool ( pthread_cond_t * mtx );
 
-#	define CondDispose(m)		CondDisposeBool(m)
-#	define CondDisposeA(m)		CondDisposeBool(&m)
+#	define CondDispose(m)			CondDisposeBool(m)
+#	define CondDisposeA(m)			CondDisposeBool(&m)
 	extern bool CondDisposeBool ( pthread_cond_t * mtx );
 
 #	else
-#	define MutexInit(m)			MutexInitBool(m,#m)
-#	define MutexInitA(m)		MutexInitBool(&m,#m)
-	extern bool MutexInitBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
+#	define LockInit(m)				LockInitBool(m,#m)
+#	define LockInitA(m)				LockInitBool(&m,#m)
+	extern bool LockInitBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
 
-#	define MutexDispose(m)		MutexDisposeBool(m,#m)
-#	define MutexDisposeA(m)		MutexDisposeBool(&m,#m)
-	extern bool MutexDisposeBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
+#	define LockDispose(m)			LockDisposeBool(m,#m)
+#	define LockDisposeA(m)			LockDisposeBool(&m,#m)
+	extern bool LockDisposeBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
 
 #ifdef USE_TRACE_ALL_LOCK_CALLS
-#	define MutexLockV(m,f)		MutexLockVoid(m,#m,CLASS_NAME,f)
-#	define MutexLockVA(m,f)		MutexLockVoid(&m,#m,CLASS_NAME,f)
-	extern void MutexLockVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+#	define LockAcquireV(m,f)		LockAcquireVoid(m,#m,CLASS_NAME,f)
+#	define LockAcquireVA(m,f)		LockAcquireVoid(&m,#m,CLASS_NAME,f)
+	extern void LockAcquireVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
-#	define MutexUnlockV(m,f)	MutexUnlockVoid(m,#m,CLASS_NAME,f)
-#	define MutexUnlockVA(m,f)	MutexUnlockVoid(&m,#m,CLASS_NAME,f)
-	extern void MutexUnlockVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+#	define LockReleaseV(m,f)		LockReleaseVoid(m,#m,CLASS_NAME,f)
+#	define LockReleaseVA(m,f)		LockReleaseVoid(&m,#m,CLASS_NAME,f)
+	extern void LockReleaseVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 #else
-#	define MutexLockV(m,f)		pthread_mutex_lock_n(m)
-#	define MutexLockVA(m,f)		pthread_mutex_lock_n(&m)
+#	define LockAcquireV(m,f)		pthread_mutex_lock_n(m)
+#	define LockAcquireVA(m,f)		pthread_mutex_lock_n(&m)
 
-#	define MutexUnlockV(m,f)	pthread_mutex_unlock_n(m)
-#	define MutexUnlockVA(m,f)	pthread_mutex_unlock_n(&m)
+#	define LockReleaseV(m,f)		pthread_mutex_unlock_n(m)
+#	define LockReleaseVA(m,f)		pthread_mutex_unlock_n(&m)
 #endif
 
-#	define MutexLock(m,f)		MutexLockBool(m,#m,CLASS_NAME,f)
-#	define MutexLockA(m,f)		MutexLockBool(&m,#m,CLASS_NAME,f)
-	extern bool MutexLockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+#	define LockAcquire(m,f)			LockAcquireBool(m,#m,CLASS_NAME,f)
+#	define LockAcquireA(m,f)		LockAcquireBool(&m,#m,CLASS_NAME,f)
+	extern bool LockAcquireBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
-#	define MutexUnlock(m,f)		MutexUnlockBool(m,#m,CLASS_NAME,f)
-#	define MutexUnlockA(m,f)	MutexUnlockBool(&m,#m,CLASS_NAME,f)
-	extern bool MutexUnlockBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
+#	define LockRelease(m,f)			LockReleaseBool(m,#m,CLASS_NAME,f)
+#	define LockReleaseA(m,f)		LockReleaseBool(&m,#m,CLASS_NAME,f)
+	extern bool LockReleaseBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
 
-#	define CondInit(m)			CondInitBool(m,#m)
-#	define CondInitA(m)			CondInitBool(&m,#m)
+#	define CondInit(m)				CondInitBool(m,#m)
+#	define CondInitA(m)				CondInitBool(&m,#m)
 	extern bool CondInitBool ( pthread_cond_t * mtx, const char * name );
 
-#	define CondDispose(m)		CondDisposeBool(m,#m)
-#	define CondDisposeA(m)		CondDisposeBool(&m,#m)
+#	define CondDispose(m)			CondDisposeBool(m,#m)
+#	define CondDisposeA(m)			CondDisposeBool(&m,#m)
 	extern bool CondDisposeBool ( pthread_cond_t * mtx, const char * name );
 #	endif
 
@@ -630,9 +632,9 @@ namespace environs
 	public:
 		LONGSYNC                state;
 
-		Win32_Only ( DWORD		handleID; )
+		Win32_Only ( DWORD		threadID; )
 
-		pthread_t               threadID;
+		pthread_t               thread;
 
         EnvThread ();
         ~EnvThread ();
@@ -669,13 +671,10 @@ namespace environs
         
     public:
         bool                    autoreset;
-        
-#if ( !defined(NDEBUG) && !defined(CLI_CPP) )
-//#	ifdef USE_THREADSYNC_OWNER_NAME
-        //const char          *   owner;
-//#	endif
-#endif
-        
+
+#ifdef USE_THREADSYNC_OWNER_NAME
+		const char          *   owner;
+#endif        
         EnvLock ();
         ~EnvLock ();
         
@@ -713,7 +712,12 @@ namespace environs
         bool UnlockCond ( CString_ptr func );
         
         bool ResetSync ( CString_ptr func, bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
-        
+
+		/**
+		* Wait for a given amount of time (or infinite if not given).
+		*
+		* @return 1 - success, 0 - error, -1 - timeout
+		*/
         int WaitLocked ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ) );
         int WaitOne ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
         

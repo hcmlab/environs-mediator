@@ -653,7 +653,7 @@ namespace environs {
 #define	NATIVE_FILE_TYPE                                  		(0x400)
 #define	NATIVE_FILE_TYPE_APP_DEFINED                      		(NATIVE_FILE_TYPE)
 #define	NATIVE_FILE_TYPE_EXT_DEFINED                      		(NATIVE_FILE_TYPE | 1)
-#define	NATIVE_FILE_TYPE_CHUNKED                          		(NATIVE_FILE_TYPE | 6)
+#define	NATIVE_FILE_TYPE_PARTS                            		(NATIVE_FILE_TYPE | 6)
 #define	NATIVE_FILE_TYPE_ACK                              		(NATIVE_FILE_TYPE | 0xF)
 
 #define	MSG_TYPE_MESSAGE                                  		(4)
@@ -1223,6 +1223,7 @@ namespace environs {
 #define	DEVICE_ACTIVITY_RESPONDER                         		(0x200)
 #define	DEVICE_ACTIVITY_LISTENER_CLOSED                   		(0x8000)
 #define	DEVICE_ACTIVITY_PLATFORM_DISPOSED                 		(0x1000)
+#define	DEVICE_ACTIVITY_PLATFORM_PREDISPOSED              		(0x2000)
 #define	DEVICE_ACTIVITY_ABORTED                           		(0x4000)
 
 #define	DEVICE_ACTIVITY_MAIN_INIT                         		(0x10000)

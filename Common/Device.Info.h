@@ -171,6 +171,7 @@ namespace environs
 		NET_PACK_POP
 
 #define DEVICES_HEADER_SIZE				20
+#define DEVICES_HEADER_SIZE_V6			24
 #define DEVICE_PACKET_SIZE				sizeof(DeviceInfo)
 #define DEVICE_MEDIATOR_PACKET_SIZE		(sizeof(DeviceInfo) - sizeof(OBJIDType))
         

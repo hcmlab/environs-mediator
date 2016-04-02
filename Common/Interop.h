@@ -64,6 +64,8 @@
 
 #	define __sync_sub_and_fetch(dest,inc)	System::Threading::Interlocked::Decrement(dest)
 
+#   define ___sync_val_set(dest,val)        System::Threading::Interlocked::Exchange(dest, val)
+
 #elif (defined(_WIN32))
 #	define	___sync_val_compare_and_swap(dest,comp,valset) InterlockedCompareExchange(dest,valset,comp)
 
@@ -73,9 +75,13 @@
 
 #	define ___sync_test_and_set(dest,val)	InterlockedExchange(dest,val)
 
+#	define ___sync_val_set(dest,val)        InterlockedExchange(dest,val)
+
 #else
 #	define ___sync_test_and_set(dest,val) \
 								{ long ___ostas; do { ___ostas=*dest; } while (__sync_val_compare_and_swap(dest, ___ostas, val) != ___ostas); }
+
+#   define ___sync_val_set(dest,val)    __sync_lock_test_and_set ( dest, val ); __sync_lock_release ( dest )
 
 #	ifndef ANDROID
 #		define	___sync_val_compare_and_swap(dest,comp,valset) \

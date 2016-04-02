@@ -89,12 +89,12 @@
 #		define	MSG_MORE	0
 #	endif
 
-#		define DisableSIGPIPE(socki)        {int value = 1; setsockopt(socki, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));}
+#		define DisableSIGPIPE(socki)        {int sockValue = 1; setsockopt(socki, SOL_SOCKET, SO_NOSIGPIPE, &sockValue, sizeof(sockValue));}
 #	else
 //      -> Linux/Android includes
 #		ifdef SO_NOSIGPIPE
 #			define DisableSIGPIPE(socki)	signal(SIGPIPE, SIG_IGN); \
-                                            {int value = 1; setsockopt(socki, SOL_SOCKET, SO_NOSIGPIPE, &value, sizeof(value));}
+                                            {int sockValue = 1; setsockopt(socki, SOL_SOCKET, SO_NOSIGPIPE, &sockValue, sizeof(sockValue));}
 #		else
 #			define DisableSIGPIPE(socki)	signal(SIGPIPE, SIG_IGN);
 #		endif
@@ -142,14 +142,10 @@
 #endif
 
 
-#ifdef __cplusplus
-namespace environs
-{
-
-	extern void ShutdownCloseSocket ( int sock, bool doClose );
-
-}
-#endif
-
 
 #endif // INCLUDE_HCM_ENVIRONS_INTEROP_SOCKETS_H
+
+
+
+
+

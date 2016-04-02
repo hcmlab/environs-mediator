@@ -93,6 +93,15 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 #endif
 
+
+/**
+ * Instructs the framework to perform a quick shutdown (with minimal wait times)
+ *
+ * @param enable      true / false
+ */
+- (void) SetAppShutdown : (bool) enable;
+
+
 /**
  * Create an Environs object.
  *

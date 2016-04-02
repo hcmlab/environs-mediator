@@ -138,7 +138,7 @@ namespace environs
 		{
 			env_printf ( CLASS_NAME ".LogBuffer: Construct\n" );
 
-			if ( !MutexInit ( &environsLogMutex ) )
+			if ( !LockInit ( &environsLogMutex ) )
 				return;
 
 			alive = true; push = false;
@@ -170,7 +170,7 @@ namespace environs
 
 			alive = false;
 
-			MutexDispose ( &environsLogMutex );
+			LockDispose ( &environsLogMutex );
 
 			env_printf ( CLASS_NAME ".LogBuffer: Destruct done.\n" );
 		}

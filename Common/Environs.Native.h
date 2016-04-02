@@ -79,6 +79,13 @@ namespace environs {
 #define		OBJ_RELEASE(obj)					if(obj) { obj->Release(); obj = 0; }
 
 #define		Zero(mem)							memset(&mem,0,sizeof(mem))
+
+#ifdef CLI_CPP
+#	define	Zeros(mem)							mem = nill
+#else
+#	define	Zeros(mem)							Zero(mem)
+#endif
+
 #define		GetPortalIndex(p)					(p & 0xFF)
 #define		RemovePortalIndex(p)				(p & 0xFFFFFF00)
 #define		GetPortalDeviceID(p)				((p >> 24) & 0xFF)
@@ -108,12 +115,38 @@ namespace environs {
 #define		OBJECTSTATE_DELETED					0
 
 
+#ifdef NDEBUG
+#	define _EnvDebugBreak()
+#else
+#   if defined(_WIN32)
+
+#       define _EnvDebugBreak()         ::_CrtDbgBreak ()
+
+#   elif defined(__APPLE__)
+
+#       ifdef ENVIRONS_OSX
+#           define _EnvDebugBreak()     Debugger ()
+#       else
+#           define _EnvDebugBreak()     
+//__asm__("int $3\n" : : )
+#       endif
+
+#   else
+#       include <signal.h>
+
+#       define _EnvDebugBreak()         raise(SIGTRAP)
+#   endif
+#endif
+
+
 // Defines
 #define		TCP_RECV_CONNECT_BUFFER_SIZE_BEGIN	1024
 #define		MSG_BUFFER_SEND_SIZE				1024
 #define 	REC_BUF_SIZE						256000
 #define 	REC_BUF_SIZE_MAX					2000000
 #define		UDP_MAX_SIZE						66000
+#define		UDP_DEVICEBASE_MAX_SIZE				4096
+#define		TCP_DEVICEBASE_START_SIZE			4096
 #define		DATA_BUFFER_COUNT					5
 #define		DATA_BUFFER_SIZE					1000000
 #define		STREAM_BUFFER_SIZE_MIN				100000
@@ -561,11 +594,22 @@ namespace environs
 #if ( !defined(DEBUGSocketLog) || defined(NDEBUG) )
 #	undef	CSocketLog
 #	define  CSocketLog(msg)
-#	undef	CSocketLogArg
-#	define  CSocketLogArg(msg,...)
+#	undef	CSocketTraceAdd
+#	define  CSocketTraceAdd(s,msg)
+#	define  CSocketTraceUpdate(s,msg)
+#	define  CSocketTraceRemove(s,msg,src)
 #else
-#	define	CSocketLog(msg)							CLog ( msg )
-#	define  CSocketLogArg(msg,...)					CLogArg ( msg, __VA_ARGS__ )
+#	ifdef DEBUG_TRACK_SOCKET
+#		define	CSocketLog(msg)						
+#		define  CSocketTraceAdd(s,msg)              TraceSocket ( s, msg )
+#		define  CSocketTraceUpdate(s,msg)           TraceSocketUpdate ( s, msg )
+#		define  CSocketTraceRemove(s,msg,src)       TraceSocketRemove ( s, msg, src )
+#	else
+#		define	CSocketLog(msg)						CLog ( msg )
+#		define  CSocketTraceAdd(s,msg)
+#		define  CSocketTraceUpdate(s,msg)
+#		define  CSocketTraceRemove(s,msg,src)
+#	endif
 #endif
 
 #if ( !defined(DEBUGSocketCreateLog) || defined(NDEBUG) )

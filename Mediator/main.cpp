@@ -53,7 +53,10 @@ int main(int argc, char* argv[])
 	}
 
 	printf ( "Environs Mediator v. %s\n", ENVIRONS_VERSION_STRING );
-	printf ( "------------------------\n" );
+    printf ( "------------------------\n" );
+    
+    if ( !TraceSocketInit ( ) )
+        return false;
 
     if ( !Mediator::InitClass() ) {
         printf ( "ERROR: Failed to initialize class Mediator!\n" );
@@ -123,9 +126,12 @@ int main(int argc, char* argv[])
 
     Mediator::DisposeClass ();
     
+    TraceSocketDispose ();
+    
 #ifdef _WIN32
 	WSACancelBlockingCall ();
 #endif
+    
 	WSACleanup ( );
 
 	return 0;

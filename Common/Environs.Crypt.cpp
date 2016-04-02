@@ -213,7 +213,7 @@ namespace environs
             return 0;
         }
         
-        if ( !MutexInitA ( value->lock ) ) {
+        if ( !LockInitA ( value->lock ) ) {
             free ( value );
             return 0;
         }
@@ -228,7 +228,7 @@ namespace environs
         if ( !l )
             return;
         
-        MutexDisposeA ( l->lock );
+        LockDisposeA ( l->lock );
         
         free ( l );
     }
@@ -284,7 +284,7 @@ namespace environs
         
         for ( int i = 0; i < dCRYPTO_num_locks (); i++ )
         {
-            if ( !MutexInitA ( cryptLocks [ i ] ) )
+            if ( !LockInitA ( cryptLocks [ i ] ) )
                 return false;
         }
         
@@ -309,7 +309,7 @@ namespace environs
         
         for ( int i = 0; i < dCRYPTO_num_locks (); i++ )
         {
-            MutexDisposeA ( cryptLocks [ i ] );
+            LockDisposeA ( cryptLocks [ i ] );
         }
         
         free ( cryptLocks );
@@ -1503,8 +1503,8 @@ namespace environs
 			return;
         
 #ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
-        MutexDispose ( &ctx->encLock );
-        MutexDispose ( &ctx->decLock );
+        LockDispose ( &ctx->encLock );
+        LockDispose ( &ctx->decLock );
 #endif
 
 #ifdef USE_OPENSSL_AES
@@ -1549,10 +1549,10 @@ namespace environs
 		char		*	blob		= 0;
         
 #ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
-        if ( !MutexInit ( &ctx->encLock ) )
+        if ( !LockInit ( &ctx->encLock ) )
             return false;
         
-        if ( !MutexInit ( &ctx->decLock ) )
+        if ( !LockInit ( &ctx->decLock ) )
             return false;
 #endif
 
@@ -2614,12 +2614,13 @@ namespace environs
     {
         if ( allocated )
         {
+            allocated = false;
+            
 #ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
-            MutexDispose ( &privKeyMutex );
+            LockDispose ( &privKeyMutex );
             
             CryptLocksDispose ();
 #endif
-            allocated = false;
         }
         
         ReleaseLibOpenSSL();
@@ -2719,7 +2720,7 @@ namespace environs
         if ( !allocated )
         {
 #ifdef ENABLE_CRYPT_PRIVKEY_LOCKED_ACCESS
-            if ( !MutexInit ( &privKeyMutex ) )
+            if ( !LockInit ( &privKeyMutex ) )
                 return false;
 #endif
             

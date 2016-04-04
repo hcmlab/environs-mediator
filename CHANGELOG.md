@@ -2,7 +2,10 @@
 
 ---------------------------
 
-*
+* Updated: Shutdown of sockets (set non-block)
+* Updated: Mediator protocol version to V6 (using sequence number for response requests)
+* Updated: Usage of timeout in Mediator communication
+* Added: Socket trace logs
 
 
 ### v 0.9.8.1

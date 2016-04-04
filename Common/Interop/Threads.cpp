@@ -802,7 +802,7 @@ namespace environs
 		if ( ___sync_val_compare_and_swap ( c_ref state, ENVIRONS_THREAD_NO_THREAD, ENVIRONS_THREAD_DETACHEABLE ) != ENVIRONS_THREAD_NO_THREAD )
 		{
 			CWarnsArg ( 6, "Run: [ %s ] Thread is already running!", func );
-			return 1;
+			return 0;
         }
 
 		Zeros ( thread );
@@ -1147,7 +1147,7 @@ namespace environs
 		if ( ___sync_val_compare_and_swap ( c_ref state, ENVIRONS_THREAD_NO_THREAD, ENVIRONS_THREAD_DETACHEABLE ) != ENVIRONS_THREAD_NO_THREAD )
 		{
 			CWarnsArg ( 6, "Run: [%s] Thread already running!", func );
-			return 1;
+			return 0;
         }
 
 		Zeros ( thread );

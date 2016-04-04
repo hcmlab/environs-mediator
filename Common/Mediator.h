@@ -52,6 +52,10 @@
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_CLIENT
 //#define USE_NONBLOCK_CLIENT_SOCKET
 
+#ifndef MEDIATORDAEMON
+#   define MEDIATOR_DEVICELIST_KEEP_CONNECTED
+#endif
+
 #include "Interop/Threads.h"
 #include "Interop/Sock.h"
 #include "Device.Info.h"

@@ -33,6 +33,7 @@
 #if !defined(MEDIATORDAEMON)
 #   include "Environs.Obj.h"
 #   include "Environs.Lib.h"
+#   include "Device/Device.Controller.h"
 #else
 #   include <cstdio>
 
@@ -326,10 +327,13 @@ namespace environs
 			CVerbArg ( "ShutdownCloseSocket: Failed to set SO_LINGER on socket [ %i ]", sock );
 			VerbLogSocketError ();
 		}
-#endif        
+#endif
+        // Make subsequent calls to this socket return immediately
+        SetNonBlockSocket ( sock, true, "ShutdownCloseSocket" );
+
         if ( !doClose ) {
             // Make subsequent calls to this socket return immediately
-            SetNonBlockSocket ( sock, true, "ShutdownCloseSocket" );
+            //SetNonBlockSocket ( sock, true, "ShutdownCloseSocket" );
             
             //shutdown ( sock, 2 );  //SD_SEND
             
@@ -601,10 +605,17 @@ namespace environs
             CVerb ( "Dispose: Closing socket" );
             ShutdownCloseSocket ( sock, true, "ThreadInstance.Dispose" );
         }
-        
-        // Wait for the listening thread to get terminated
-        thread.Join ( "Dispose" );
-        thread.Detach ( "Dispose" );
+
+		if ( thread.isRunning () ) {
+			// Wait for the listening thread to get terminated
+			CLog ( "Dispose: Waiting for Mediator thread ..." );
+
+			thread.Join ( "Dispose" );
+		}
+		else {
+			// Make sure the thread resources are detached.
+			thread.Detach ( "Dispose" );		
+		}
         
         sock = ( int ) socket;
         
@@ -1073,8 +1084,15 @@ namespace environs
 			sock = INVALID_FD;
 		}
 
-		// Waiting for broadcast thread
-        broadcastThread.Join ( "Mediator.ReleaseThreads" );
+		if ( broadcastThread.isRunning () ) {
+			CLog ( "ReleaseThreads: Waiting for broadcast thread ..." );
+
+			// Waiting for broadcast thread
+			broadcastThread.Join ( "Mediator.ReleaseThreads" );
+		}
+		else {
+			broadcastThread.Detach ( "Mediator.ReleaseThreads" );
+		}
 
 		if ( IsValidFD ( sock ) )
 			ShutdownCloseSocket ( sock, true, "Mediator ReleaseThreads broadcastSocket" );
@@ -1784,7 +1802,8 @@ namespace environs
 #endif
             /// Create broadcast thread
             if ( runThread && !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) )
-                return false;
+                if ( !broadcastThread.isRunning () )
+                    return false;
         }
         return true;
     }
@@ -2051,6 +2070,15 @@ namespace environs
 				// Device has vanished
 				DeviceInstanceNode	*	vanished = device;
 
+#if defined(MEDIATOR_DEVICELIST_KEEP_CONNECTED)
+                // Is it connected?
+                sp ( DeviceController) deviceSP = device->deviceSP.lock ();
+                if ( deviceSP && deviceSP->deviceStatus == DeviceStatus::Connected )
+                {
+                    device = device->next;
+                    continue;
+                }
+#endif
 				//device = vanished->next;
 
 				//if ( !vanished->prev ) {
@@ -2870,6 +2898,10 @@ namespace environs
 		mediator->broadcastThread.Notify ( "BroadcastThreadStarter" );
 
 		mediator->broadcastThread.Detach ( "BroadcastThreadStarter" );
+
+#ifndef MEDIATORDAEMON
+		CVerbs ( 1, "BroadcastThreadStarter: bye bye ..." );
+#endif
         return 0;
 	}
 
@@ -3187,7 +3219,7 @@ namespace environs
 
 	void TraceCheckStatus ( bool withKernel )
 	{
-		if ( withKernel && socketsLog ->size () > 3 )
+		if ( withKernel || socketsLog ->size () > 3 )
 		{
 			std::map<int, std::string>::iterator iter = socketsLog->begin ();
 

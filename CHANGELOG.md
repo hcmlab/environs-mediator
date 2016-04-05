@@ -2,6 +2,7 @@
 
 ---------------------------
 
+* Updated: Handleshort message at Mediator server
 * Updated: Shutdown of sockets (set non-block)
 * Updated: Mediator protocol version to V6 (using sequence number for response requests)
 * Updated: Usage of timeout in Mediator communication

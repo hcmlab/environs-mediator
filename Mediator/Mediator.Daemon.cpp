@@ -4963,8 +4963,10 @@ namespace environs
 		CVerbArgID ( "HandleShortMessage [ %i ]", sourceClient->socket );
 
 		sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
-
-		DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ();
+        
+        //sp ( DeviceInstanceNode ) destDeviceSP;
+        //ApplicationDevices * destRoot           = 0;
+		DeviceInstanceNode * sourceDevice       = sourceDeviceSP.get ();
 
 		char * appName = 0;
 		char * areaName = 0;
@@ -4981,7 +4983,7 @@ namespace environs
 				return false;
 		}
 
-		// find the destination client
+		// Find the destination client
 		sp ( ThreadInstance ) destClient = GetThreadInstance ( sourceClient, destID, areaName, appName );
 
 		if ( !destClient || destClient->socket == -1 || !destClient->subscribedToMessages ) {
@@ -4989,6 +4991,12 @@ namespace environs
 			goto SendResponse;
 		}
 
+        //destDeviceSP = destClient->deviceSP;
+        //if ( destDeviceSP ) {
+        //    destRoot = destDeviceSP->rootSP.get ();
+        //    destDeviceSP = 0;
+        //}
+        
 		if ( destClient.get () == sourceClient ) {
 			CVerbArgID ( "HandleShortMessage [ %i ]: Destination and source are the same.", destID );
 			goto SendResponse;
@@ -4996,18 +5004,21 @@ namespace environs
 
 		shortMsg->deviceID = deviceID;
 
-		if ( sourceClient->version >= '5' ) {
+		if ( destClient->version >= '5' ) {
 			msgBuffer = ( ShortMsgPacketHeader * ) malloc ( shortMsg->size + ( MAX_NAMEPROPERTY * 2 ) );
 			if ( !msgBuffer )
 				return false;
 
-			size_t offsetOrg = sizeof ( ShortMsgPacketHeader ) + shortMsg->sizes [ 0 ] + shortMsg->sizes [ 1 ];
-
-			memcpy ( msgBuffer, shortMsg, offsetOrg );
+			memcpy ( msgBuffer, shortMsg, sizeof ( ShortMsgPacketHeader ) );
 
 			msgBuffer->deviceID = deviceID;
 
-			if ( sourceDevice && *sourceDevice->info.appName && *sourceDevice->info.areaName ) {
+			if ( sourceDevice &&
+                //sourceDevice->rootSP.get () != destRoot &&
+                (shortMsg->sizes [ 0 ] > 1 || shortMsg->sizes [ 1 ] > 1 ) &&
+                *sourceDevice->info.appName &&
+                *sourceDevice->info.areaName )
+            {
 				if ( !BuildAppAreaField ( msgBuffer->sizes, sourceDevice->info.appName, sourceDevice->info.areaName, false ) )
 					goto SendResponse;
 			}
@@ -5017,8 +5028,11 @@ namespace environs
 				( ( ShortMsgPacket * ) msgBuffer )->appArea [ 0 ] = 0;
 				( ( ShortMsgPacket * ) msgBuffer )->appArea [ 1 ] = 0;
 			}
+            
+            
+            size_t offsetOrg = sizeof ( ShortMsgPacketHeader ) + shortMsg->sizes [ 0 ] + shortMsg->sizes [ 1 ];
 
-			// copy the message
+            // copy the message
 			length = ( int ) ( shortMsg->size - offsetOrg );
 			if ( length <= 0 )
 				goto SendResponse;

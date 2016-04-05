@@ -317,6 +317,8 @@ namespace environs
 #define CLogN(msg)									ENVIRONS_LOG_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_LOG_PREFIX,	msg ) )
 #define CInfo(msg)									ENVIRONS_INFO_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_INFO_PREFIX,	msg ) )
 #define CWarn(msg)									ENVIRONS_WARN_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg ) )
+#define CWarns(level,msg)                           DLEVEL ( level ) { CWarn ( msg ); }
+
 #define CErr(msg)									ENVIRONS_ERR_CMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg ) )
 #define CErrN(msg)									ENVIRONS_ERR_NCMD	( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg ) )
 
@@ -400,6 +402,7 @@ namespace environs
 #define CWarnArg(msg,...)							ENVIRONS_WARNARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_WARN_PREFIX,	msg), __VA_ARGS__ )
 #define CWarnsArg(level,msg,...)					CWarnArg(msg, __VA_ARGS__)
 #define CErrArg(msg,...)							ENVIRONS_ERRARG_CMD  ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg), __VA_ARGS__ )
+#define CErrsArg(level,msg,...)                     DLEVEL ( level ) { CErrArg ( msg, __VA_ARGS__); }
 
 
 #ifdef CLI_CPP
@@ -424,12 +427,13 @@ namespace environs
 #define CVerbVerbID(msg)							ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), deviceID )
 #define CLogID(msg)									ENVIRONS_LOGARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_LOG_PREFIX,	msg ), deviceID )
 #define CInfoID(msg)								ENVIRONS_INFOARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_INFO_PREFIX,	msg ), deviceID )
+#define CInfosID(level,msg)                         DLEVEL ( level ) { CInfoID ( msg ); }
 
 #define CWarnID(msg)								ENVIRONS_WARNARG_CMD( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_WARN_PREFIX,	msg ), deviceID )
 #define CWarnsID(level,msg)							DLEVEL ( level ) { CWarnID( msg ); }
 
 #define CErrID(msg)									ENVIRONS_ERRARG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_ERR_PREFIX,	msg ), deviceID )
-
+#define CErrsID(level,msg)                          DLEVEL ( level ) { CErrID ( msg ); }
 
 #ifdef CLI_CPP
 #	define CVerbIDN(msg)							CVerb(msg)
@@ -597,17 +601,24 @@ namespace environs
 #	undef	CSocketTraceAdd
 #	define  CSocketTraceAdd(s,msg)
 #	define  CSocketTraceUpdate(s,msg)
+#	define  CSocketTraceVerbUpdate(s,msg)   
 #	define  CSocketTraceRemove(s,msg,src)
 #else
 #	ifdef DEBUG_TRACK_SOCKET
 #		define	CSocketLog(msg)						
 #		define  CSocketTraceAdd(s,msg)              TraceSocket ( s, msg )
 #		define  CSocketTraceUpdate(s,msg)           TraceSocketUpdate ( s, msg )
+#		ifdef DEBUGVERB
+#			define  CSocketTraceVerbUpdate(s,msg)   
+#		else
+#			define  CSocketTraceVerbUpdate(s,msg)   TraceSocketUpdate ( s, msg )
+#		endif
 #		define  CSocketTraceRemove(s,msg,src)       TraceSocketRemove ( s, msg, src )
 #	else
 #		define	CSocketLog(msg)						CLog ( msg )
 #		define  CSocketTraceAdd(s,msg)
 #		define  CSocketTraceUpdate(s,msg)
+#		define  CSocketTraceVerbUpdate(s,msg)   
 #		define  CSocketTraceRemove(s,msg,src)
 #	endif
 #endif

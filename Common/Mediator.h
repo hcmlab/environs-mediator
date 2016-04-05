@@ -195,6 +195,15 @@ namespace environs	/// Namespace: environs ->
 #define ShutdownCloseSocket(s,c,m)      ShutdownCloseSocketI ( s, c )
 #endif
 
+//#define TRACE_ALIVE_THREAD_LOCK
+    
+#ifdef TRACE_ALIVE_THREAD_LOCK
+    extern void TraceAliveLocker ( const char * src );
+    extern void TraceAliveUnlocker ( const char * src );
+#else
+#   define TraceAliveLocker(a)
+#   define TraceAliveUnlocker(a)
+#endif
     
     typedef struct NetPack
 	{

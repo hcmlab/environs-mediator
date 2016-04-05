@@ -126,7 +126,8 @@ function copyFiles
 function dlKhronos
 {
     if [[ ! -f "$tmpDir/CL/$1" ]]; then
-		curl -L -o "$tmpDir/CL/$1" "https://www.khronos.org/registry/cl/api/2.0/$1"
+		#curl -L -o "$tmpDir/CL/$1" "https://www.khronos.org/registry/cl/api/2.0/$1"
+		curl -L -o "$tmpDir/CL/$1" "https://raw.githubusercontent.com/KhronosGroup/OpenCL-Headers/opencl20/$1"
 		[[ $? != 0 ]] && echo "Error downloading $1" && exit 1
     fi
 

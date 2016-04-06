@@ -1,3 +1,11 @@
+### v 0.9.8.3
+
+---------------------------
+
+* Added: Experimental send thread (for scaleability)
+
+
+
 ### v 0.9.8.2
 
 ---------------------------

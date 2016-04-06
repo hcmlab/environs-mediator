@@ -287,9 +287,12 @@ namespace environs
 
 #ifdef CLI_CPP
 #	define ENVIRONS_VERB_SBL_CMD(expression)		{ StringBuilder ^ sbl = gcnew StringBuilder (); expression;	ENVIRONS_LOG_RCMD_SBL ( sbl->ToString() ); }
+
+#	define DLEVEL(level)                            if ( environs::Utils::logLevel >= level )
+#else
+#	define DLEVEL(level)                            if ( g_Debug >= level )
 #endif
 
-#define DLEVEL(level)                               if ( g_Debug >= level )
 
 #define ENVIRONS_VERB_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
 #define ENVIRONS_LOG_CMD(expression)				ENVIRONS_LOG_RCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )
@@ -419,6 +422,7 @@ namespace environs
 #	define CErrArg2(msg,name1,type1,arg1,name2,type2,arg2)		\
 		ENVIRONS_ERRARG_CMD ( ENVIRONS_MAKE_BODY	( ENVIRONS_ERR_PREFIX,	msg " " name1 ": [ %" type1 " ] " name2 ": [ %" type2 " ] " ), arg1, arg2 )
 #endif
+#define CErrsArg2(level,msg,name1,type1,arg1,name2,type2,arg2)  DLEVEL ( level ) { CErrArg2 ( msg, name1, type1, arg1, name2, type2, arg2 ); }
 
 
 #define CVerbID(msg)								ENVIRONS_VERBRG_CMD	( ENVIRONS_MAKE_BODY_ID	( ENVIRONS_VERB_PREFIX,	msg ), deviceID )

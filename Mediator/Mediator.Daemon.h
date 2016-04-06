@@ -48,6 +48,8 @@ using namespace std;
 #define LOGFILE							"mediator.log"
 #define USERSDBFILE						"users.db"
 
+//#define USE_MEDIATOR_SEND_THREAD
+#define MAX_SEND_THREADS    4
 
 // Default configuration
 
@@ -160,26 +162,30 @@ namespace environs
     };
     
     
+#ifdef USE_MEDIATOR_SEND_THREAD
     class SendContext
     {
     public:
-        bool                done;
-        char            *   sendBuffer;
-        unsigned int        sendSize;
-        unsigned int        sendAlready;
-        sp ( ThreadInstance ) client;
-        void            *   msg;
-        unsigned int        msgLen;
+        /*SendContext () {
+            prev = 0; next = 0;
+        }*/
         
-        SendContext ( const sp ( ThreadInstance ) &c, void * m, unsigned int len ) :
-        done ( false ), sendBuffer ( 0 ), sendSize ( 0 ), sendAlready ( 0 ), client ( c ), msg ( m ), msgLen ( len ) {}
-        
-        ~SendContext () {
-            if ( msg != sendBuffer )
-                free ( sendBuffer );
+        ~SendContext ()
+        {
+            if ( buffer )
+                free ( buffer );
         }
+        
+        sp ( ThreadInstance )   client;
+        char *                  buffer;
+        unsigned int            size;
+        
+        SendContext   *   next;
+        SendContext   *   prev;
     };
-
+    
+#endif
+    
 
 	class MediatorDaemon : public environs::Mediator
 	{
@@ -318,8 +324,6 @@ namespace environs
 
         int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen );
         
-        int										SendBuffer ( SendContext * ctx );
-
 		bool									SendPushNotification ( map<string, ValuePack*> * values, int clientID, const char * value );
 		bool									HTTPPostRequest ( string domain, string path, string key, string jsonData );
 
@@ -334,20 +338,20 @@ namespace environs
 		static void *							ClientThreadStarter ( void *arg );
 		void *									ClientThread ( void *arg );
 
-		bool									HandleRequest ( char * buffer, ThreadInstance * client );
+		bool									HandleRequest ( sp ( ThreadInstance ) &clientSP, char * buffer );
 		bool									UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, unsigned int ip, char * msg );
 
-		int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
-		int										HandleRegistrationV4 ( int &deviceID, const sp ( ThreadInstance ) &client, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+		int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &clientSP, unsigned int bytesLeft, char * msg, unsigned int msgLen );
+		int										HandleRegistrationV4 ( int &deviceID, const sp ( ThreadInstance ) &clientSP, unsigned int bytesLeft, char * msg, unsigned int msgLen );
 
-		bool									HandleDeviceRegistration ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
-		bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &client, unsigned int ip, char * msg );
+		bool									HandleDeviceRegistration ( const sp ( ThreadInstance ) &clientSP, unsigned int ip, char * msg );
+		bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &clientSP, unsigned int ip, char * msg );
 		bool									SecureChannelAuth ( ThreadInstance * client );
 		void									HandleStuntSocketRegistration ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
-        bool									HandleSTUNTRequest ( ThreadInstance * client, STUNTReqPacketV6 * msg );
-        bool									HandleSTUNTRequestV5 ( ThreadInstance * client, STUNTReqPacket * msg );
-		bool									HandleSTUNTRequestV4 ( ThreadInstance * client, STUNTReqPacketV4 * msg );
-		bool									NotifySTUNTRegRequest ( ThreadInstance * client );
+        bool									HandleSTUNTRequest ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV6 * msg );
+        bool									HandleSTUNTRequestV5 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacket * msg );
+		bool									HandleSTUNTRequestV4 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV4 * msg );
+		bool									NotifySTUNTRegRequest ( const sp ( ThreadInstance ) &clientSP );
 		int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
 
 		void									HandleCLSGenHelp ( ThreadInstance * client );
@@ -355,16 +359,36 @@ namespace environs
 
 		void									HandleDeviceFlagSet ( ThreadInstance * client, char * msg );
 
-		bool									HandleSTUNRequest ( ThreadInstance * client, char * msg );
-		bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
-		bool									HandleSTUNRequestV4 ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+		bool									HandleSTUNRequest ( const sp ( ThreadInstance ) &sourceClientSP, char * msg );
+		bool									HandleSTUNRequest ( const sp ( ThreadInstance ) &destClientSP, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+		bool									HandleSTUNRequestV4 ( const sp ( ThreadInstance ) &destClientSP, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 
         bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
         bool									HandleQueryDevicesV5 ( const sp ( ThreadInstance ) &client, char * msg );
 		bool									HandleQueryDevicesV4 ( const sp ( ThreadInstance ) &client, char * msg );
-		bool									HandleShortMessage ( ThreadInstance * client, char * msg );
 
-		pthread_t								notifyThreadID;
+		bool									HandleShortMessage ( const sp ( ThreadInstance ) &client, char * msg );
+        
+#ifdef USE_MEDIATOR_SEND_THREAD
+        pthread_mutex_t                         sendLock;
+        EnvLock                                 sendEvent;
+        EnvThread                               sendThreads [ MAX_SEND_THREADS ];
+        
+        bool                                    sendThreadsAlive;
+        bool                                    StartSendThreads ();
+        void                                    StopSendThreads ();
+        
+        static void                         *	SendThreadStarter ( void * arg );
+        
+        void                                    SendThread ( int threadNr );
+        bool                                    PushSend ( const sp ( ThreadInstance ) &client, void * buffer, unsigned int size, bool copy = true );
+        
+        SendContext                         *   sendContexts;
+        SendContext                         *   sendContextsLast;
+        void                                    DisposeSendContexts ();
+        
+#endif
+        pthread_t								notifyThreadID;
 		pthread_cond_t							notifyEvent;
 		pthread_mutex_t							notifyLock;
 		pthread_mutex_t							notifyTargetsLock;

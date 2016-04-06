@@ -103,8 +103,9 @@ int _getch ( )
 
 // Forward declarations
 
-bool				stdlog          = true;
-bool				logging;
+bool				stdLog          = true;
+bool				logToFile;
+bool				fileLog			= true;
 ofstream			logfile;
 pthread_mutex_t     logMutex;
 
@@ -429,7 +430,7 @@ namespace environs
 		sessionCounter			= 1;
 
 		reqAuth					= true;
-		logging					= false;
+		logToFile					= false;
         
 #ifdef USE_MEDIATOR_SEND_THREAD
         sendThreadsAlive        = false;
@@ -638,6 +639,22 @@ namespace environs
 					networkMask = GetBitMask ( networkOK );
 				}
 			}
+			else if ( str [ 0 ] == 'L' && str [ 1 ] == 'S' && str [ 2 ] == ':' ) {
+				if ( !( iss >> prefix >> value ) ) {
+					CLogArg ( "LoadConfig: Invalid config line: %s", str );
+				}
+				else {
+					stdLog = ( value != 0 );
+				}
+			}
+			else if ( str [ 0 ] == 'L' && str [ 1 ] == 'F' && str [ 2 ] == ':' ) {
+				if ( !( iss >> prefix >> value ) ) {
+					CLogArg ( "LoadConfig: Invalid config line: %s", str );
+				}
+				else {
+					fileLog = ( value != 0 );
+				}
+			}
 			else if ( str [ 0 ] == 'B' && str [ 1 ] == ':' ) {
 				std::time_t dateTime;
 
@@ -820,6 +837,11 @@ namespace environs
 
 		configs << "CV: " << bannAfterTries << endl;
 		configs << "AN: " << ( int ) anonymousLogon << endl;
+
+		if ( !stdLog )
+			configs << "LS: 0" << endl;
+		if ( !fileLog )
+			configs << "LF: 0" << endl;
 
 		if ( strncmp ( anonymousUser, MEDIATOR_ANONYMOUS_USER, MAX_NAMEPROPERTY ) ) {
 			configs << "AU: " << anonymousUser << endl;
@@ -1176,6 +1198,9 @@ namespace environs
 				deviceMappings.Unlock ( "LoadDeviceMappings" );
 			}
 		}
+
+		if ( !LockReleaseA ( usersDBLock, "LoadDeviceMappings" ) )
+			return false;
 
 		return true;
 	}
@@ -2838,10 +2863,16 @@ namespace environs
 					continue;
 				}
 				else if ( c == 'l' ) {
-					logging = !logging;
+					logToFile = !logToFile;
+					fileLog = logToFile;
+
+					CloseLog ();
+					OpenLog ();
+					usersDBDirty = true;
+
 					if ( printStdOut )
-						printf ( "Run: File logging is now [%s]\n", logging ? "enabled" : "disabled" );
-					CLogArg ( "Run: File logging is now [%s]", logging ? "enabled" : "disabled" );
+						printf ( "Run: File logging is now [%s]\n", logToFile ? "enabled" : "disabled" );
+					CLogArg ( "Run: File logging is now [%s]", logToFile ? "enabled" : "disabled" );
 					continue;
 				}
 				else if ( c == 'm' ) {
@@ -2893,10 +2924,12 @@ namespace environs
 					continue;
 				}
 				else if ( c == 'o' ) {
-					stdlog = !stdlog;
+					stdLog = !stdLog;
+					usersDBDirty = true;
+
 					if ( printStdOut )
-						printf ( "Run: Std output logging is now [%s]\n", stdlog ? "enabled" : "disabled" );
-					CLogArg ( "Run: Std output logging is now [%s]", stdlog ? "enabled" : "disabled" );
+						printf ( "Run: Std output logging is now [%s]\n", stdLog ? "enabled" : "disabled" );
+					CLogArg ( "Run: Std output logging is now [%s]", stdLog ? "enabled" : "disabled" );
 					continue;
 				}
 				else if ( c == 'p' ) {
@@ -10130,7 +10163,10 @@ namespace environs
 
 
 	void MLogArg ( const char * format, ... )
-	{
+    {
+        if ( !stdLog && !logToFile )
+            return;
+            
 		char timeString [ 256 ];
 		GetTimeString ( timeString, sizeof ( timeString ) );
 
@@ -10147,12 +10183,12 @@ namespace environs
 #endif
 		va_end ( argList );
 
-		if ( stdlog ) {
+		if ( stdLog ) {
 			OutputDebugStringA ( timeString );
 			OutputDebugStringA ( logBuffer );
 		}
 
-		if ( !logging )
+		if ( !logToFile )
 			return;
 
 		stringstream line;
@@ -10175,10 +10211,13 @@ namespace environs
 
 	void MLog ( const char * msg )
 	{
+        if ( !stdLog && !logToFile )
+            return;
+        
 		char timeString [ 256 ];
 		GetTimeString ( timeString, sizeof ( timeString ) );
 
-		if ( stdlog ) {
+		if ( stdLog ) {
 #ifdef WIN32
 			OutputDebugStringA ( timeString );
 			OutputDebugStringA ( msg );
@@ -10188,7 +10227,7 @@ namespace environs
 #endif
 		}
 
-		if ( !logging )
+		if ( !logToFile )
 			return;
 		stringstream line;
 
@@ -10216,6 +10255,9 @@ namespace environs
 	bool MediatorDaemon::OpenLog ()
 	{
 		CVerb ( "OpenLog" );
+
+		if ( !fileLog )
+			return false;
 
 		if ( pthread_mutex_lock ( &logMutex ) ) {
 			CErr ( "OpenLog: Failed to aquire mutex on logfile!" );
@@ -10275,7 +10317,7 @@ namespace environs
 		}
 
 		if ( logStatusBefore >= 0 )
-			logging = true;
+			logToFile = true;
 
 	Finish:
 		if ( pthread_mutex_unlock ( &logMutex ) ) {
@@ -10303,11 +10345,11 @@ namespace environs
 
 		OutputDebugStringA ( "CloseLog: Closing log file..." );
 
-		if ( logging == true )
+		if ( logToFile == true )
 			logStatusBefore = 1;
 		else
 			logStatusBefore = -1;
-		logging = false;
+		logToFile = false;
 
 		logfile.close ();
 

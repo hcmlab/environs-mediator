@@ -2,6 +2,7 @@
 
 ---------------------------
 
+* Fixed: Bug in Mediator server loading of device mappings
 * Added: Experimental send thread (for scaleability)
 
 

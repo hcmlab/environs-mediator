@@ -32,6 +32,9 @@
 #ifndef MEDIATORDAEMON
 #	define DEBUGSocketLog
 #	define DEBUG_TRACK_SOCKET
+#else
+//#	define DEBUGSocketLog
+//#	define DEBUG_TRACK_SOCKET
 #endif
 #endif
 

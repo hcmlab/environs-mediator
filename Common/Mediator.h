@@ -54,6 +54,17 @@
 
 #ifndef MEDIATORDAEMON
 #   define MEDIATOR_DEVICELIST_KEEP_CONNECTED
+#else
+#	include "Queue.Vector.h"
+
+#	define MAX_SEND_THREADS						2
+#	define USE_MEDIATOR_DAEMON_SEND_THREAD
+
+//#   define ENABLE_SINGLE_CLIENT_THREAD
+
+#	ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+#		define USE_NONBLOCK_CLIENT_SOCKET
+#	endif
 #endif
 
 #include "Interop/Threads.h"
@@ -88,7 +99,7 @@
 #define MEDIATOR_BROADCAST_GREET				"E.D.Helo"
 #define MEDIATOR_BROADCAST_BYEBYE				"E.D.Bye"
 #define MEDIATOR_PROTOCOL_VERSION_MIN			'2'
-#define MEDIATOR_PROTOCOL_VERSION				'6'
+#define MEDIATOR_PROTOCOL_VERSION				'7'
 
 #define	MEDIATOR_CMD_SET						's'
 #define	MEDIATOR_CMD_GET						'g'
@@ -231,6 +242,16 @@ namespace environs	/// Namespace: environs ->
     };
     
     
+#ifdef ENABLE_SINGLE_CLIENT_THREAD
+    typedef struct ClientProcContext
+    {
+        char *          msg;
+        char *          msgEnd;
+        unsigned int	remainingSize;
+    }
+    ClientProcContext;
+#endif
+    
 	struct DeviceInstanceNode;
 
     typedef struct ThreadInstance DAEMONEXP ( : public ILock )
@@ -274,7 +295,9 @@ namespace environs	/// Namespace: environs ->
 		bool					createAuthToken;
         char					uid [ MAX_NAMEPROPERTY * 6 ];
         char                    ips [ 20 ];
-
+        
+        unsigned int			seqNr;
+        
 		int						stuntSocketsFront;
         int						stuntSocketsLast;
         int						stuntSockets [ MAX_STUNT_SOCKETS_IN_QUEUE ];
@@ -297,14 +320,24 @@ namespace environs	/// Namespace: environs ->
         short                       sendFails;
         
         volatile ThreadInstance  *	stuntTarget;
+
+#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+		lib::QueueVector			sendQueue;
+        bool                        sendBusy;
+		pthread_mutex_t				sendQueueLock;
+#endif
+        
+#ifdef ENABLE_SINGLE_CLIENT_THREAD
+        up ( char [ ] )             bufferUP;
+        ClientProcContext           ctx;
+#endif
         
 #ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
         INTEROPTIMEVAL              stuntLastSend;
         
         INTEROPTIMEVAL              stunLastSend;
 #endif
-#endif
-        
+#endif        
         bool                        allocated;
         
         ThreadInstance ();
@@ -527,6 +560,7 @@ namespace environs	/// Namespace: environs ->
 		bool					SendBroadcastWithSocket ( bool enforce = false, bool sendStatus = false, bool sendToAny = false, int sock = -1 );
 
 		bool					AddMediator ( unsigned int ip, unsigned short port );
+        
         void					BroadcastByeBye ( int sock = -1 );
 		void					BroadcastGenerateToken ();
         

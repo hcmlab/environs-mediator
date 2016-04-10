@@ -2,6 +2,14 @@
 
 ---------------------------
 
+* Added: Mediator server clients thread pool (experimental stage 1)
+* Added: Mediator server send thread using packs of contexts (experimental)
+* Updated: Mediator protocol to V7
+* Added: Mediator server send thread usage (experimental stage 1)
+* Updated: Mediator server stunt lock usage
+* Updated: Mediator server RemoveDevice lock usage
+* Added: Mediator server send thread implementation
+* Moved: Queue.Vector to Common (for Mediator server)
 * Fixed: Bug in Mediator server loading of device mappings
 * Added: Experimental send thread (for scaleability)
 

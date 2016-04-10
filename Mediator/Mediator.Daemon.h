@@ -40,16 +40,14 @@ using namespace std;
 #include <netinet/in.h>
 #endif
 
-#define ENABLE_LIST_CLEANER	
-
 #define CONFFILE						"mediator.conf"
 #define DATAFILE						"mediator.data"
 #define DEVMAPFILE						"mediator.devmap"
 #define LOGFILE							"mediator.log"
 #define USERSDBFILE						"users.db"
 
-//#define USE_MEDIATOR_SEND_THREAD
-#define MAX_SEND_THREADS    4
+#define MEDIATOR_CONTEXT_BUFFER_SIZE_MAX	(MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE >> 1)
+
 
 // Default configuration
 
@@ -61,7 +59,6 @@ namespace environs
 		bool			init1;
 
 	public:
-
 		bool Init1 ();
 		bool Lock1 ( const char * func );
 		bool Unlock1 ( const char * func );
@@ -162,32 +159,78 @@ namespace environs
     };
     
     
-#ifdef USE_MEDIATOR_SEND_THREAD
-    class SendContext
+#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+    
+    class SendLoad
     {
     public:
-        /*SendContext () {
-            prev = 0; next = 0;
-        }*/
+        SendLoad () : buffer ( 0 ) {}
         
-        ~SendContext ()
-        {
+        ~SendLoad () {
             if ( buffer )
                 free ( buffer );
         }
         
-        sp ( ThreadInstance )   client;
+        void * buffer;
+    };
+    
+    
+    class SendContext
+    {
+    public:
+        SendContext () : seqNr ( 0 ), freeSendBuffer ( false ), sendBuffer ( 0 ), sendCurrent ( 0 ), sendSize ( 0 ) {}
+        
+        ~SendContext ()
+        {
+            if ( freeSendBuffer )
+                free ( sendBuffer );
+
+            if ( buffer )
+                free ( buffer );
+        }
+        
+        sp ( SendLoad )         dataSP;
         char *                  buffer;
         unsigned int            size;
+        unsigned int            seqNr;
         
-        SendContext   *   next;
-        SendContext   *   prev;
+		bool					freeSendBuffer;
+        char *                  sendBuffer;
+        unsigned int            sendCurrent;
+        unsigned int            sendSize;
     };
     
 #endif
     
-
-	class MediatorDaemon : public environs::Mediator
+#ifdef ENABLE_SINGLE_CLIENT_THREAD
+    
+    class ClientContext : public EnvLock
+    {
+    public:
+        ClientContext () : clientCount ( 0 ), desc ( 0 ), descCapacity ( 0 )  {}
+        
+        ~ClientContext ()
+        {
+            clients.clear();
+            
+            if ( desc )
+                free ( desc );
+        }
+        
+        bool Add ( const sp ( ThreadInstance ) &clientSP );
+        bool Remove ( const sp ( ThreadInstance ) &clientSP );
+        
+        vsp ( ThreadInstance ) clients;
+        size_t  clientCount;
+        
+        struct pollfd * desc;
+        size_t descCapacity;
+    };
+    
+#endif
+    
+    
+    class MediatorDaemon : public environs::Mediator
 	{
 	public:
 		MediatorDaemon ();
@@ -220,7 +263,8 @@ namespace environs
 
 		bool									CreateThreads ();
 		void									Run ();
-
+        
+        static void                             DisposeClass ();
 		void									Dispose ();
 		bool									ReleaseThreads ();
 
@@ -298,9 +342,11 @@ namespace environs
 		map<unsigned int, string>				appIDs;
 
 		AreasList 								areas;
-
+        queue<NotifyQueueContext *>             notifyQueue;
+        
 		void									RemoveDevice ( unsigned int ip, char * msg );
-		void									RemoveDevice ( DeviceInstanceNode * device, bool useLock = true );
+        void									RemoveDevice ( DeviceInstanceNode * device, bool useLock = true );
+        void									RemoveDeviceUnlock ( ApplicationDevices * appDevs, DeviceInstanceNode * device );
 		void									RemoveDevice ( int deviceID, const char * areaName, const char * appName );
 
 #ifdef __cplusplus
@@ -318,27 +364,43 @@ namespace environs
 
 		int										ScanForParameters ( char * buffer, unsigned int maxLen, const char * delim, char ** params, int maxParams );
 
-		bool									addToArea ( sp ( ListValues ) &values, const char * key, const char * value, unsigned int valueSize );
-		bool									addToArea ( const char * project, const char * app, const char * key, const char * value );
+		bool									AddToArea ( sp ( ListValues ) &values, const char * key, const char * value, unsigned int valueSize );
+		bool									AddToArea ( const char * project, const char * app, const char * key, const char * value );
 		bool									sendDatabase ( int sock, struct sockaddr * addr );
 
         int										SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen );
-        
+
 		bool									SendPushNotification ( map<string, ValuePack*> * values, int clientID, const char * value );
 		bool									HTTPPostRequest ( string domain, string path, string key, string jsonData );
 
 		void *									BroadcastThread ();
 
-		static void *							AcceptorStarter ( void *arg );
-		void *									Acceptor ( void *arg );
+		static void *							AcceptorStarter ( void * arg );
+		void *									Acceptor ( void * arg );
 
-		static void *							MediatorUdpThreadStarter ( void *arg );
-		void *									MediatorUdpThread ( void *arg );
+		static void *							MediatorUdpThreadStarter ( void * arg );
+		void *									MediatorUdpThread ( void * arg );
 
-		static void *							ClientThreadStarter ( void *arg );
-		void *									ClientThread ( void *arg );
+		static void *							ClientThreadStarter ( void * arg );
+		int                                     ClientThread ( const sp ( ThreadInstance ) &clientSP );
 
-		bool									HandleRequest ( sp ( ThreadInstance ) &clientSP, char * buffer );
+#ifdef ENABLE_SINGLE_CLIENT_THREAD
+        unsigned int							clientThreadCount;
+        EnvLock                                 clientEvent;
+        EnvThread							**	clientThreads;
+        ClientContext                       **  clientContexts;
+        
+        bool                                    clientThreadsAlive;
+        bool                                    StartClientThreads ();
+        void                                    StopClientThreads ();
+        
+        static void                         *	ClientThreadsStarter ( void * arg );
+        void                                    ClientThreads ( int threadNr );
+        
+        int                                     ClientProc ( const sp ( ThreadInstance ) &clientSP );
+        void                                    ClientRemove ( ThreadInstance * client );
+#endif
+		bool									HandleRequest ( ThreadInstance * client, char * buffer );
 		bool									UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, unsigned int ip, char * msg );
 
 		int										HandleRegistration ( int &deviceID, const sp ( ThreadInstance ) &clientSP, unsigned int bytesLeft, char * msg, unsigned int msgLen );
@@ -351,7 +413,7 @@ namespace environs
         bool									HandleSTUNTRequest ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV6 * msg );
         bool									HandleSTUNTRequestV5 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacket * msg );
 		bool									HandleSTUNTRequestV4 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV4 * msg );
-		bool									NotifySTUNTRegRequest ( const sp ( ThreadInstance ) &clientSP );
+		bool									NotifySTUNTRegRequest ( ThreadInstance * client );
 		int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
 
 		void									HandleCLSGenHelp ( ThreadInstance * client );
@@ -359,20 +421,21 @@ namespace environs
 
 		void									HandleDeviceFlagSet ( ThreadInstance * client, char * msg );
 
-		bool									HandleSTUNRequest ( const sp ( ThreadInstance ) &sourceClientSP, char * msg );
-		bool									HandleSTUNRequest ( const sp ( ThreadInstance ) &destClientSP, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
-		bool									HandleSTUNRequestV4 ( const sp ( ThreadInstance ) &destClientSP, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+		bool									HandleSTUNRequest ( ThreadInstance * sourceClient, char * msg );
+		bool									HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
+		bool									HandleSTUNRequestV4 ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IP, unsigned int Port );
 
         bool									HandleQueryDevices ( const sp ( ThreadInstance ) &client, char * msg );
         bool									HandleQueryDevicesV5 ( const sp ( ThreadInstance ) &client, char * msg );
 		bool									HandleQueryDevicesV4 ( const sp ( ThreadInstance ) &client, char * msg );
 
-		bool									HandleShortMessage ( const sp ( ThreadInstance ) &client, char * msg );
+		bool									HandleShortMessage ( ThreadInstance * client, char * msg );
         
-#ifdef USE_MEDIATOR_SEND_THREAD
-        pthread_mutex_t                         sendLock;
+#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+		unsigned int							sendThreadCount;
         EnvLock                                 sendEvent;
-        EnvThread                               sendThreads [ MAX_SEND_THREADS ];
+//        EnvThread                               sendThreads [ MAX_SEND_THREADS ];
+		EnvThread							**	sendThreads;
         
         bool                                    sendThreadsAlive;
         bool                                    StartSendThreads ();
@@ -381,12 +444,15 @@ namespace environs
         static void                         *	SendThreadStarter ( void * arg );
         
         void                                    SendThread ( int threadNr );
-        bool                                    PushSend ( const sp ( ThreadInstance ) &client, void * buffer, unsigned int size, bool copy = true );
-        
-        SendContext                         *   sendContexts;
-        SendContext                         *   sendContextsLast;
-        void                                    DisposeSendContexts ();
-        
+        bool                                    PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size );
+        bool                                    PushSend ( ThreadInstance * client, void * buffer, unsigned int size, bool copy = true, unsigned int seqNr = 0 );
+
+		bool                                    PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent );
+		bool                                    PushSend ( ThreadInstance * client, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent, bool copy, unsigned int seqNr = 0 );
+
+		bool									SendBufferOrEnqueue ( ThreadInstance * client, void * msg, unsigned int size, bool copy = true, unsigned int seqNr = 0 );
+		int										SendBufferOrEnqueue ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size );
+        int										SendBuffer ( ThreadInstance * client, SendContext * ctx );
 #endif
         pthread_t								notifyThreadID;
 		pthread_cond_t							notifyEvent;

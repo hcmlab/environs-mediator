@@ -132,7 +132,9 @@ int main(int argc, char* argv[])
 	WSACancelBlockingCall ();
 #endif
     
-	WSACleanup ( );
+    WSACleanup ( );
+    
+    MediatorDaemon::DisposeClass ();
 
 	return 0;
 }

@@ -84,7 +84,10 @@ namespace environs
 	pthread_mutex_t         Mediator::localNetsLock;
 
     CLIENTEXP ( OBJIDTypeV  deviceInstanceObjIDs    = 1; )
-    
+
+#ifdef MEDIATORDAEMON
+	void DisposeSendContexts ( ThreadInstance * client );
+#endif
     
     DeviceInstanceNode::DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
     {
@@ -441,6 +444,7 @@ namespace environs
         authenticated   = 0;
         authLevel       = 0;
         createAuthToken = false;
+        seqNr           = 1;
         
         *uid            = 0;
         *ips            = 0;
@@ -456,6 +460,10 @@ namespace environs
         sendFails           = 0;
         socketToClose       = INVALID_FD;
         stuntTarget         = 0;
+        
+#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+        sendBusy            = false;
+#endif
         
 #ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
         stuntLastSend       = 0;
@@ -475,11 +483,20 @@ namespace environs
     ThreadInstance::~ThreadInstance ()
     {
         Dispose ();
-        
+
+		if ( aes.encCtx ) {
+			CVerbVerb ( "Destruct: Disposing AES key context." );
+			AESDisposeKeyContext ( &aes );
+		}
+
         if ( allocated ) {
             allocated = false;
             
             LockDisposeA ( stuntSocketLock );
+
+#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+			LockDisposeA ( sendQueueLock );
+#endif
         }
     }
     
@@ -491,6 +508,11 @@ namespace environs
 #ifdef MEDIATORDAEMON
             if ( !ILock::Init () )
                 return false;
+
+#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+			if ( !LockInitA ( sendQueueLock ) )
+				return false;	
+#endif
 #endif
             if ( !LockInitA ( stuntSocketLock ) )
                 return false;
@@ -576,7 +598,10 @@ namespace environs
                 ShutdownCloseSocket ( sockC, true, "ThreadInstance.Dispose stuntSocket" );
             }
         }
-        
+
+#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+		DisposeSendContexts ( this );
+#endif
         // Wait for the listening thread to shut down
         thread.Join ( "Dispose" );
         thread.Detach ( "Dispose" );
@@ -614,7 +639,7 @@ namespace environs
 		}
 		else {
 			// Make sure the thread resources are detached.
-			thread.Detach ( "Dispose" );		
+			thread.Detach ( "Dispose" );
 		}
         
         sock = ( int ) socket;
@@ -647,10 +672,6 @@ namespace environs
             socketReceiveEvent = WSA_INVALID_EVENT;
         }
 #endif
-        if ( aes.encCtx ) {
-            CVerbVerb ( "ThreadInstance: Disposing AES key context." );
-            AESDisposeKeyContext ( &aes );
-        }
 
 #ifndef MEDIATORDAEMON
 //        thread.DisposeInstance ();
@@ -3256,9 +3277,7 @@ namespace environs
         
 		socketIDHistory = new std::vector<int> ();
 		if ( !socketIDHistory )
-			return false;
-        
-        
+			return false;        
         return true;
     }
     
@@ -3273,11 +3292,14 @@ namespace environs
 			{
 				CErrArg ( "\n~TraceSocketDispose: Socket [ %i ] leaked\n------------------------------------------------\n%s\n------------------------------------------------\n", iter->first, iter->second.c_str () );
 
-				//printf ( "~EnvironsNative: Socket [ %i ] leaked from\n%s\n\n", iter->first, iter->second.c_str () );
+#ifdef MEDIATORDAEMON
+				printf ( "\n~TraceSocketDispose: Socket [ %i ] leaked\n------------------------------------------------\n%s\n------------------------------------------------\n", iter->first, iter->second.c_str () );
+#endif
 				++iter;
 			}
 		}
 
+#ifndef MEDIATORDAEMON
 		if ( debugDeviceBaseCount > 0 ) {
             CErrArg ( "~TraceSocketDispose: DeviceBase objects still alive [ %i ] ", debugDeviceBaseCount );
             _EnvDebugBreak ();
@@ -3304,6 +3326,7 @@ namespace environs
 				CErrArg ( "~TraceSocketDispose: Kernel objects still alive [ %i ] ", debugKernelCount );
 			}
 		}
+#endif
 	}
 
     

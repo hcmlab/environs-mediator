@@ -26,6 +26,8 @@
 #define		IsInvalidFD(s)	s == INVALID_FD
 #define		IsValidFD(s)	s != INVALID_FD
 
+#define		POLLERRMASK	(POLLERR | POLLHUP | POLLNVAL)
+
 #if defined(_WIN32)
 
 //#include <ws2ipdef.h>
@@ -42,8 +44,8 @@
 #	define VerbLogSocketError()				{ int err = WSAGetLastError(); CVerbArg    ( "SocketError: [ %d ]",        err); }
 #	define VerbLogSocketError_Check(c)		CVerbArg    ( "SocketError: [ %d ]",        c)
 
-#	define SOCKETValCheck(aVal)				int aVal = WSAGetLastError()
-#	define SOCKETRETRYCheck(aVal)			( aVal == WSAEWOULDBLOCK || aVal == WSATRY_AGAIN )
+#	define SOCKET_Check_Val(aVal)			int aVal = WSAGetLastError()
+#	define SOCKET_Check_Retry(aVal)			( aVal == WSAEWOULDBLOCK || aVal == WSATRY_AGAIN )
 #	define SOCK_IN_PROGRESS					(WSAGetLastError() == WSAEWOULDBLOCK)
 #	define SOCK_IN_PROGRESS_Check(aVal)		(aVal == WSAEWOULDBLOCK)
 #	define SOCKETRETRY()					{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) continue; }
@@ -116,8 +118,8 @@
 #	define SOCK_CONNECTED					(errno == EISCONN)
 #	define SOCK_CON_REFUSED					(errno == ECONNREFUSED)
 
-#	define SOCKETValCheck(aVal)				int aVal = errno
-#	define SOCKETRETRYCheck(aVal)			( aVal == EWOULDBLOCK || aVal == EAGAIN )
+#	define SOCKET_Check_Val(aVal)			int aVal = errno
+#	define SOCKET_Check_Retry(aVal)			( aVal == EWOULDBLOCK || aVal == EAGAIN )
 #	define SOCKETRETRY()					{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) continue; }
 #	define SOCKETRETRYGOTO(label)			{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) goto label; 
 #	define SOCKETRETRYCONDGOTO(exp,label)	{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) if (exp) goto label; }

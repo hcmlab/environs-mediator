@@ -17,6 +17,7 @@
 		7E3A886218DDAEB60063BAED /* Threads.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A886018DDAEB50063BAED /* Threads.cpp */; };
 		7E3A886718DDAF290063BAED /* Environs.Types.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A886518DDAF290063BAED /* Environs.Types.cpp */; };
 		7E3A886918DDAF3B0063BAED /* libcurl.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E3A886818DDAF3B0063BAED /* libcurl.dylib */; };
+		7E6100541CB6DEC30000076B /* Queue.Vector.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E6100531CB6DEC30000076B /* Queue.Vector.cpp */; };
 		7ED0D37A1AFDAEAA00342B64 /* Mediator.Daemon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7ED0D3781AFDAEAA00342B64 /* Mediator.Daemon.cpp */; };
 /* End PBXBuildFile section */
 
@@ -57,6 +58,8 @@
 		7E3A886818DDAF3B0063BAED /* libcurl.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcurl.dylib; path = usr/lib/libcurl.dylib; sourceTree = SDKROOT; };
 		7E4846111AEC04AC00758163 /* Environs.Release.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Environs.Release.h; path = ../../Common/Environs.Release.h; sourceTree = "<group>"; };
 		7E4846121AEC04AC00758163 /* Environs.Revision.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Environs.Revision.h; path = ../../Common/Environs.Revision.h; sourceTree = "<group>"; };
+		7E6100531CB6DEC30000076B /* Queue.Vector.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Queue.Vector.cpp; path = ../../Common/Queue.Vector.cpp; sourceTree = "<group>"; };
+		7E6100551CB6F1600000076B /* Queue.Vector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Queue.Vector.h; path = ../../Common/Queue.Vector.h; sourceTree = "<group>"; };
 		7E68A0001C2B539E000C6916 /* CHANGELOG.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; name = CHANGELOG.md; path = ../../CHANGELOG.md; sourceTree = "<group>"; };
 		7ED0D3781AFDAEAA00342B64 /* Mediator.Daemon.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Mediator.Daemon.cpp; sourceTree = SOURCE_ROOT; };
 		7ED0D3791AFDAEAA00342B64 /* Mediator.Daemon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Mediator.Daemon.h; sourceTree = SOURCE_ROOT; };
@@ -117,6 +120,8 @@
 				7ED0D3781AFDAEAA00342B64 /* Mediator.Daemon.cpp */,
 				7ED0D3791AFDAEAA00342B64 /* Mediator.Daemon.h */,
 				7E3A885C18DDAB640063BAED /* Mediator.h */,
+				7E6100531CB6DEC30000076B /* Queue.Vector.cpp */,
+				7E6100551CB6F1600000076B /* Queue.Vector.h */,
 				7E3A884F18DDAB2D0063BAED /* stdafx.cpp */,
 				7E3A885018DDAB2D0063BAED /* stdafx.h */,
 				7E3A886018DDAEB50063BAED /* Threads.cpp */,
@@ -178,6 +183,7 @@
 			files = (
 				7E3A885F18DDAB640063BAED /* Mediator.cpp in Sources */,
 				7E3A885E18DDAB640063BAED /* Environs.Utils.cpp in Sources */,
+				7E6100541CB6DEC30000076B /* Queue.Vector.cpp in Sources */,
 				7ED0D37A1AFDAEAA00342B64 /* Mediator.Daemon.cpp in Sources */,
 				7E3A886718DDAF290063BAED /* Environs.Types.cpp in Sources */,
 				7E3A885318DDAB2D0063BAED /* stdafx.cpp in Sources */,

@@ -178,6 +178,7 @@
     <ClCompile Include="..\Common\Environs.Utils.cpp" />
     <ClCompile Include="..\Common\Interop\Threads.cpp" />
     <ClCompile Include="..\Common\Mediator.cpp" />
+    <ClCompile Include="..\Common\Queue.Vector.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mediator.Daemon.cpp" />
     <ClCompile Include="stdafx.cpp">

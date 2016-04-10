@@ -966,10 +966,46 @@ namespace environs
 	}
 
 
+	bool EnvLock::IsSetDoReset ()
+	{
+		bool isSet;
+        
+#ifndef _WIN32
+		if ( !LockCond ( "" ) )
+			return false;
+#endif
+
+#ifndef _WIN32
+		isSet = signalState;
+		signalState = false;
+#else
+#	ifdef CLI_CPP
+		isSet = signal->WaitOne ( 0 );
+		signal->Reset ();
+#	else
+		if ( WaitForSingleObject ( signal, 0 ) == WAIT_OBJECT_0 ) {
+			isSet = true;
+			ResetEvent ( signal );
+		}
+		else
+			isSet = false;
+#	endif
+#endif
+        
+#ifndef _WIN32
+		if ( !UnlockCond ( "" ) )
+			return false;
+#endif
+		return isSet;
+	}
+
+
 	bool EnvLock::ResetSync ( CString_ptr func, bool useLock, bool keepLocked )
 	{
+#ifndef _WIN32
 		if ( useLock && !LockCond ( func ) )
 			return false;
+#endif
         
 #ifndef _WIN32
         signalState = false;
@@ -982,28 +1018,35 @@ namespace environs
             return false;
         }
 #endif
+        
+#ifndef _WIN32
 		if ( useLock && !keepLocked && !UnlockCond ( func ) )
 			return false;
-
+#endif
 		return true;
 	}
 
 
 	int EnvLock::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
-	{
+        {
+#ifndef _WIN32
 		if ( useLock && !LockCond ( func ) )
 			return 0;
-
+#endif
 		int waitRes = WaitLocked ( func, ms );
 		if ( waitRes )
-		{
+        {
+#ifndef _WIN32
 			if ( !useLock || keepLocked || UnlockCond ( func ) )
+#endif
 				return waitRes;
-		}
+        }
+#ifndef _WIN32
 		else {
 			if ( !keepLocked )
 				UnlockCond ( func );
 		}
+#endif
 		return 0;
 	}
 
@@ -1084,13 +1127,13 @@ namespace environs
 	bool EnvLock::Notify ( CString_ptr func, bool useLock )
 	{
 		CThreadVerbArg ( "Notify.Lock: [ %s ]", owner );
-
+        
+#ifndef _WIN32
         if ( useLock && pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
             CErrArg ( "Notify.Lock: Failed [ %s ]", func );
 			return false;
 		}
         
-#ifndef _WIN32
         signalState = true;
 #endif
 		if ( pthread_cond_broadcast ( c_Addr_of ( signal ) ) ) {
@@ -1100,11 +1143,13 @@ namespace environs
 		CVerb ( "Notify: Thread signaled." );
 
 		CThreadVerbArg ( "Notify.Unlock: [ %s ]", owner );
-
+        
+#ifndef _WIN32
 		if ( useLock && pthread_cond_mutex_unlock ( c_Addr_of ( lock ) ) ) {
 			CErr ( "Notify: Failed to release mutex" );
 			return false;
-		}
+        }
+#endif
 		return true;
 	}
 
@@ -1160,18 +1205,21 @@ namespace environs
 		retCode = pthread_create_tid ( c_Addr_of ( thread ), 0, startRoutine, arg, threadID );
 		if ( retCode ) {
 			CErrArg ( "Run: [%s] Failed to create thread!", func );
-
+            
+#ifndef _WIN32
 			if ( waitForStart )
-				UnlockCond ( func );
+                UnlockCond ( func );
+#endif
 		}
 		else {
 			if ( !waitForStart )
 				return 1;
 
 			int waitRes = WaitOne ( func, 4000, false, false );
-
+            
+#ifndef _WIN32
 			UnlockCond ( func );
-
+#endif
 			if ( waitRes <= 0 ) {
 				CErrArg ( "Run: [%s] Failed to wait for thread start!", func );
 			}

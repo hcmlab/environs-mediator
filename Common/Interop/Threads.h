@@ -713,6 +713,8 @@ namespace environs
         
         bool ResetSync ( CString_ptr func, bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
 
+		bool IsSetDoReset ();
+
 		/**
 		* Wait for a given amount of time (or infinite if not given).
 		*

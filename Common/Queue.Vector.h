@@ -28,6 +28,7 @@ namespace environs
 {
 	class AsyncWorker;
 	class NotificationQueue;
+	class MediatorDaemon;
 
 	namespace lib
 	{
@@ -39,6 +40,7 @@ namespace environs
 		{
             friend class environs::AsyncWorker;
 			friend class environs::NotificationQueue;
+            friend class environs::MediatorDaemon;
 
 		public:
 			/** Constructor */
@@ -50,7 +52,7 @@ namespace environs
 			/**
 			* Append the item at the end of the queue.
 			*
-			* @param position
+			* @param obj    The object to push to the back of the queue.
 			*/
 			bool push ( void * obj );
 
@@ -58,19 +60,23 @@ namespace environs
 			/**
 			* Removes and returns the first object in the queue.
 			*
-			* @param position
-			*
-			* @ return The first object in the queue.
+			* @return The first object in the queue.
 			*/
-			void * pop ();
-
-
-			/**
+            void * pop ();
+            
+            
+            /**
+             * Returns the first object in the queue, but don't remove it
+             *
+             * @return The first object in the queue.
+             */
+            void * first ();
+            
+            
+            /**
 			* Query empty state of the queue.
 			*
-			* @param empty state
-			*
-			* @ return The first object in the queue.
+			* @return empty state.
 			*/
 			bool empty ();
 

@@ -2112,7 +2112,6 @@ namespace environs
 			ret = false;
 		}
 #endif
-
 		if ( decrypt ) free ( decrypt );
 		return ret;
     }

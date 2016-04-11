@@ -1063,6 +1063,8 @@ namespace environs
 		conffile << configs.str () << endl;
 
 		conffile.close ();
+
+		configs.clear ();
 		return true;
 	}
 
@@ -1842,7 +1844,6 @@ namespace environs
 
 			inst->port = ports [ pos ];
 
-
 #ifdef _WIN32__
 			int sock = ( int ) WSASocket ( AF_INET, SOCK_STREAM, IPPROTO_TCP, 0, 0, WSA_FLAG_OVERLAPPED );
 #else
@@ -1890,9 +1891,7 @@ namespace environs
 				return false;
 			}
 #endif
-
 #endif
-
 			/*value = 1;
 			ret = setsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&value, sizeof(value) );
 			if ( ret < 0 ) {
@@ -2065,10 +2064,12 @@ namespace environs
 		if ( !client )
 			return;
 		client->socket = -1;
-
+        
 		CloseThreadSocket ( &client->stuntSocket );
 
-		CloseThreadSocket ( &client->socketToClose );
+        CloseThreadSocket ( &client->socketToClose );
+        
+        DisposeSendContexts ( client );
 
 		if ( !isRunning )
 		{
@@ -3507,7 +3508,7 @@ namespace environs
 
 				if ( !destID ) {
 					CErr ( "Udp: Invalid target deviceID 0" );
-					continue;
+					goto Continue;
 				}
 
 				// Find source device and check validity of IP
@@ -3525,7 +3526,7 @@ namespace environs
 						sourceDeviceSP = client->deviceSP;
 						if ( !sourceDeviceSP ) {
 							CWarn ( "Udp: Source device does not exist." );
-							continue;
+							goto Continue;
 						}
 
 						if ( packet->sizes [ 0 ] > 1 && packet->sizes [ 1 ] > 1 && packet->sizes [ 0 ] < MAX_NAMEPROPERTY && packet->sizes [ 1 ] < MAX_NAMEPROPERTY )
@@ -3608,10 +3609,7 @@ namespace environs
 			}
 
 		Continue:
-			if ( decrypted ) {
-				free ( decrypted );
-				decrypted = 0;
-			}
+			free_m ( decrypted );
 		}
 
 		if ( decrypted ) free ( decrypted );
@@ -3704,25 +3702,25 @@ namespace environs
 
 			if ( acceptEnabled )
 			{
-				sp ( ThreadInstance ) client;
-
-				client = make_shared < ThreadInstance > ();
-				if ( !client ) {
+				sp ( ThreadInstance ) clientSP = make_shared < ThreadInstance > ();
+				if ( !clientSP ) {
 					CErr ( "Acceptor: Failed to allocate memory for client request!" );
 					goto NextClient;
 				}
+                
+                ThreadInstance * client = clientSP.get ();
 				//memset ( client.get (), 0, sizeof ( ThreadInstance ) - ( sizeof ( sp ( DeviceInstanceNode ) ) + sizeof ( sp ( ThreadInstance ) ) ) );
 
 				if ( !client->Init () )
 					goto NextClient;
                 
-                client->socketToClose = sock;
-				client->socket		= sock;
-				client->port		= port;
-				client->filterMode	= 2;
-				client->aliveLast	= checkLast;
-				client->daemon		= this;
-				client->connectTime = GetEnvironsTickCount ();
+                client->socketToClose   = sock;
+				client->socket          = sock;
+				client->port            = port;
+				client->filterMode      = 2;
+				client->aliveLast       = checkLast;
+				client->daemon          = this;
+				client->connectTime     = GetEnvironsTickCount ();
 
 				memcpy ( &client->addr, &addr, sizeof ( addr ) );
 
@@ -3731,14 +3729,14 @@ namespace environs
 				if ( !acceptClients.Lock ( "Acceptor" ) )
 					goto NextClient;
 
-				client->clientSP = client;
+				client->clientSP = clientSP;
 
 				// Create client thread
                 
                 client->thread.autoreset = false;
                 client->thread.ResetSync ( "Acceptor", false );
                 
-				if ( !client->thread.Run ( pthread_make_routine ( &MediatorDaemon::ClientThreadStarter ), ( void * ) client.get (), "Acceptor" ) )
+				if ( !client->thread.Run ( pthread_make_routine ( &MediatorDaemon::ClientThreadStarter ), ( void * ) client, "Acceptor" ) )
 				{
 					client->socket          = -1;
 					client->socketToClose   = -1;
@@ -3746,7 +3744,8 @@ namespace environs
 				}
 				else {
 					sock = -1;
-					acceptClients.list.push_back ( client->clientSP );
+                    acceptClients.list.push_back ( clientSP );
+//                    acceptClients.list.push_back ( client->clientSP );
 				}
 
 				acceptClients.Unlock ( "Acceptor" );
@@ -4894,7 +4893,6 @@ namespace environs
 		{
 			daemon->RemoveAcceptClient ( client );
 
-
 			CVerbArg ( "Client [ %s : %i ]:\tDisposing memory for client", client->ips, client->port );
 
 			sp ( DeviceInstanceNode ) deviceSP = client->deviceSP;
@@ -4914,6 +4912,8 @@ namespace environs
 			}
 
 			daemon->sessions.Unlock ( "Client" );
+
+			DisposeSendContexts ( client );
 
             client->thread.Notify ( "Client" );
             
@@ -5575,9 +5575,9 @@ namespace environs
 #ifdef USE_NONBLOCK_CLIENT_SOCKET
             
             desc.revents	= 0;
-			desc.fd = ( int ) client->socket,
+			desc.fd         = ( int ) client->socket,
             
-            rc = poll ( &desc, 1, -1 );
+            rc = poll ( &desc, 1, 6000 );
             if ( rc == -1 ) {
                 VerbLogSocketError (); VerbLogSocketError1 ();
                 CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; rc [ -1 ]!", client->ips, sock );
@@ -6232,10 +6232,8 @@ namespace environs
             }
 #endif
         }
-#endif
-        
+#endif        
         free_n ( msgBuffer );
-
 		return true;
 	}
 
@@ -6662,7 +6660,7 @@ namespace environs
         int                 deviceID			= header->msgID;
         int                 deviceIDReq			= 0;
         
-        bool				error				= true;
+        bool				success				= false;
         bool                search;
         int					filterMode			= sourceClient->filterMode;
         char				subCmd;
@@ -6727,7 +6725,7 @@ namespace environs
             header->msgID       = CollectDevicesCount ( sourceDevice, filterMode );
             
             CVerbArgID ( "HandleQueryDevices [ %i ]: Number of devices [ %u ]", sourceClient->socket, header->msgID );
-            error = false; goto SendResponse;
+			success = true; goto SendResponse;
         }
         
         if ( header->resultCount > maxDeviceCount )
@@ -6947,7 +6945,7 @@ namespace environs
         if ( !resultBuffer )
             goto SendResponse;
         
-        error       = false;
+		success		= true;
         response    = ( MediatorQueryResponseV6 * ) resultBuffer;
         sendBuffer  = ( char * ) response;
         
@@ -6962,7 +6960,7 @@ namespace environs
         response->size = length;
         
     SendResponse:
-        if ( error ) {
+        if ( !success ) {
             sendBuffer      = msg;
             header->cmd1    = MEDIATOR_CMD_DEVICE_LIST_QUERY;
             header->opt0    = MEDIATOR_CMD_DEVICE_LIST_QUERY_ERROR;
@@ -6981,16 +6979,17 @@ namespace environs
 #	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
 		if ( sendBuffer == resultBuffer ) {
 			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, false, seqNr ) ) {
-                CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+				CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
 #ifdef DEBUG_DEVICE_ID
-                if ( deviceID == debugID ) {
-                    GetTimeString ( timeString, sizeof ( timeString ) );
-                    printf ( "%sHandleQueryDevices [ %i ]: [ %i ] Failed to send devicelist response to IP [ %s ]\n", timeString, (int)sourceClient->socket, seqNr, inet_ntoa ( sourceClient->addr.sin_addr ) );
-                }
+				if ( deviceID == debugID ) {
+					GetTimeString ( timeString, sizeof ( timeString ) );
+					printf ( "%sHandleQueryDevices [ %i ]: [ %i ] Failed to send devicelist response to IP [ %s ]\n", timeString, ( int ) sourceClient->socket, seqNr, inet_ntoa ( sourceClient->addr.sin_addr ) );
+				}
 #endif
-				free_n ( resultBuffer );
-				return false;
+				success = false;
 			}
+			else
+				resultBuffer = 0;
 		}
 		else {
 			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, true, seqNr  ) ) {
@@ -7001,28 +7000,28 @@ namespace environs
                     printf ( "%sHandleQueryDevices [ %i ]: [ %i ] Failed to send devicelist response to IP [ %s ]\n", timeString, (int)sourceClient->socket, seqNr, inet_ntoa ( sourceClient->addr.sin_addr ) );
                 }
 #endif
-				free_n ( resultBuffer );
-				return false;
+				success = false;
 			}
-			free_n ( resultBuffer );
 		}
 #	else
         if ( sendBuffer == resultBuffer ) {
             if ( !PushSend ( sourceClient.get (), sendBuffer, length, false ) ) {
                 CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-                free_n ( resultBuffer );
-                return false;		
-            }
+				success = false;
+			}
+			else
+				resultBuffer = 0;
         }
         else {
             if ( !PushSend ( sourceClient.get (), sendBuffer, length ) ) {
                 CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-                free_n ( resultBuffer );
-                return false;		
-            }
-            free_n ( resultBuffer );
+				success = false;
+			}
         }
 #	endif
+
+		free_n ( resultBuffer );
+		return success;
 #else
         int sentBytes = SendBuffer ( sourceClient.get (), sendBuffer, length );
         
@@ -7033,8 +7032,8 @@ namespace environs
             LogSocketError ();
             return false;
         }
+		return true;
 #endif
-        return true;
     }
     
     
@@ -11934,6 +11933,10 @@ namespace environs
 
 								ctx = items [ cur ];
 
+                                if ( ctx->sendBuffer && ctx->freeSendBuffer ) {
+                                    free ( ctx->sendBuffer );
+                                    ctx->sendBuffer = 0; ctx->freeSendBuffer = false;
+                                }
 								if ( ctx->buffer )
 									free ( ctx->buffer );
 								else
@@ -12013,7 +12016,7 @@ namespace environs
     
     bool MediatorDaemon::PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size )
     {
-        bool success = true;
+        bool success = false;
         
         SendContext * ctx = new SendContext ();
         while ( ctx )
@@ -12024,8 +12027,9 @@ namespace environs
             
             if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
                 break;
-            
-            success = client->sendQueue.push ( ctx );            
+
+			if ( IsValidFD ( ( int ) client->socket ) )
+				success = client->sendQueue.push ( ctx );            
 #ifndef NDEBUG
             if ( client->sendQueue.size_ > maxQueueSize )
                 maxQueueSize = client->sendQueue.size_;
@@ -12047,7 +12051,7 @@ namespace environs
     
     bool MediatorDaemon::PushSend ( ThreadInstance * client, void * buffer, unsigned int size, bool copy, unsigned int seqNr )
     {
-		bool success = true;
+		bool success = false;
 
         SendContext * ctx = new SendContext ();
         while ( ctx )
@@ -12068,7 +12072,8 @@ namespace environs
             if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
                 break;
 
-            success = client->sendQueue.push ( ctx );            
+			if ( IsValidFD ( ( int ) client->socket ) )
+				success = client->sendQueue.push ( ctx );   
 #ifndef NDEBUG
             if ( client->sendQueue.size_ > maxQueueSize )
                 maxQueueSize = client->sendQueue.size_;
@@ -12094,7 +12099,7 @@ namespace environs
 
 	bool MediatorDaemon::PushSend ( ThreadInstance * client, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent, bool copy, unsigned int seqNr )
 	{
-		bool success = true;
+		bool success = false;
 
 		SendContext * ctx = new SendContext ();
 		while ( ctx )
@@ -12120,7 +12125,8 @@ namespace environs
 			if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
 				break;
 
-			success = client->sendQueue.push ( ctx );
+			if ( IsValidFD ( ( int ) client->socket ) )
+				success = client->sendQueue.push ( ctx );
 #ifndef NDEBUG
 			if ( client->sendQueue.size_ > maxQueueSize )
 				maxQueueSize = client->sendQueue.size_;
@@ -12143,7 +12149,7 @@ namespace environs
 
 	bool MediatorDaemon::PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent )
 	{
-		bool success = true;
+		bool success = false;
 
 		SendContext * ctx = new SendContext ();
 		while ( ctx )
@@ -12160,7 +12166,8 @@ namespace environs
 			if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
 				break;
 
-			success = client->sendQueue.push ( ctx );
+			if ( IsValidFD ( ( int ) client->socket ) )
+				success = client->sendQueue.push ( ctx );
 #ifndef NDEBUG
 			if ( client->sendQueue.size_ > maxQueueSize )
 				maxQueueSize = client->sendQueue.size_;
@@ -12337,7 +12344,7 @@ namespace environs
 		CVerbVerbArg ( "SendBufferOrEnqueue [ %i ]", client->socket );
 
 		if ( client->sendQueue.size_ > 0 ) {
-			return PushSend ( client, msg, size, copy );
+			return PushSend ( client, msg, size, copy, seqNr );
 		}
 
 		bool			success		= false;
@@ -12478,12 +12485,16 @@ namespace environs
     
     void DisposeSendContexts ( ThreadInstance * client )
     {
+		LockAcquireA ( client->sendQueueLock, "DisposeSendContexts" );
+
 		while ( client->sendQueue.size_ > 0 ) {
 			SendContext * ctx = ( SendContext * ) client->sendQueue.pop ();
 
 			if ( ctx )
 				delete ( ctx );
 		}
+
+		LockReleaseA ( client->sendQueueLock, "DisposeSendContexts" );
     }    
 #endif
     
@@ -13056,6 +13067,8 @@ namespace environs
 		if ( pthread_mutex_unlock ( &logMutex ) ) {
 			OutputDebugStringA ( "MLog: Failed to release mutex on logfile!" );
 		}
+
+		line.clear ();
 	}
 
 	void MLog ( const char * msg )

@@ -179,7 +179,7 @@ namespace environs	/// Namespace: environs ->
     extern bool SocketTimeout ( int sock, int recvSec, int sendSec, bool isMS = false );
     
     extern bool FakeConnect ( int sock, unsigned int port );
-    
+
 #ifdef DEBUG_TRACK_SOCKET
     extern bool TraceSocketInit ( );
 	extern void TraceCheckStatus ( bool withKernel );
@@ -353,6 +353,9 @@ namespace environs	/// Namespace: environs ->
 
     extern int GetStuntSocket ( ThreadInstance * inst );
 
+#ifdef MEDIATORDAEMON
+	void DisposeSendContexts ( ThreadInstance * client );
+#endif
 
 	class ApplicationDevices : public ILock
 	{
@@ -564,6 +567,8 @@ namespace environs	/// Namespace: environs ->
         void					BroadcastByeBye ( int sock = -1 );
 		void					BroadcastGenerateToken ();
         
+        void					ReleaseMediators ( );
+        
         static bool				LoadNetworks ();
         static unsigned int		GetLocalIP ();
         static unsigned int		GetLocalSN ();
@@ -662,7 +667,6 @@ namespace environs	/// Namespace: environs ->
 		virtual void *			BroadcastThread ( ) = 0;
 
 		void					Dispose ( );
-		void					ReleaseMediators ( );
 		void					ReleaseMediator ( MediatorInstance * med );
         bool					ReleaseThreads ( bool wait );
         

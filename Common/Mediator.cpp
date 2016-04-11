@@ -84,10 +84,6 @@ namespace environs
 	pthread_mutex_t         Mediator::localNetsLock;
 
     CLIENTEXP ( OBJIDTypeV  deviceInstanceObjIDs    = 1; )
-
-#ifdef MEDIATORDAEMON
-	void DisposeSendContexts ( ThreadInstance * client );
-#endif
     
     DeviceInstanceNode::DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
     {

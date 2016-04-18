@@ -159,62 +159,29 @@ namespace environs
     };
     
     
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-    
-    class SendLoad
-    {
-    public:
-        SendLoad () : buffer ( 0 ) {}
-        
-        ~SendLoad () {
-            if ( buffer )
-                free ( buffer );
-        }
-        
-        void * buffer;
-    };
-    
-    
-    class SendContext
-    {
-    public:
-        SendContext () : seqNr ( 0 ), freeSendBuffer ( false ), sendBuffer ( 0 ), sendCurrent ( 0 ), sendSize ( 0 ) {}
-        
-        ~SendContext ()
-        {
-            if ( freeSendBuffer )
-                free ( sendBuffer );
-
-            if ( buffer )
-                free ( buffer );
-        }
-        
-        sp ( SendLoad )         dataSP;
-        char *                  buffer;
-        unsigned int            size;
-        unsigned int            seqNr;
-        
-		bool					freeSendBuffer;
-        char *                  sendBuffer;
-        unsigned int            sendCurrent;
-        unsigned int            sendSize;
-    };
-    
-#endif
-    
 #ifdef ENABLE_SINGLE_CLIENT_THREAD
     
     class ClientContext : public EnvLock
     {
     public:
-        ClientContext () : clientCount ( 0 ), desc ( 0 ), descCapacity ( 0 )  {}
+        ClientContext () : clientCount ( 0 )
+#ifdef ENABLE_WINSOCK_CLIENT_THREADS
+			, revent ( 0 )
+#else
+			, desc ( 0 ), descCapacity ( 0 )
+#endif		
+		{}
         
         ~ClientContext ()
         {
-            clients.clear();
-            
-            if ( desc )
-                free ( desc );
+            clients.clear();            
+
+#ifdef ENABLE_WINSOCK_CLIENT_THREADS
+			CloseWSAHandle_n ( revent );
+#else
+			if ( desc )
+				free ( desc );
+#endif
         }
         
         bool Add ( const sp ( ThreadInstance ) &clientSP );
@@ -222,9 +189,13 @@ namespace environs
         
         vsp ( ThreadInstance ) clients;
         size_t  clientCount;
-        
-        struct pollfd * desc;
-        size_t descCapacity;
+
+#ifdef ENABLE_WINSOCK_CLIENT_THREADS
+		HANDLE	revent;
+#else
+		struct pollfd * desc;
+		size_t descCapacity;
+#endif
     };
     
 #endif
@@ -386,7 +357,7 @@ namespace environs
 
 #ifdef ENABLE_SINGLE_CLIENT_THREAD
         unsigned int							clientThreadCount;
-        EnvLock                                 clientEvent;
+        EnvSignal                               clientEvent;
         EnvThread							**	clientThreads;
         ClientContext                       **  clientContexts;
         
@@ -397,7 +368,6 @@ namespace environs
         static void                         *	ClientThreadsStarter ( void * arg );
         void                                    ClientThreads ( int threadNr );
         
-        int                                     ClientProc ( const sp ( ThreadInstance ) &clientSP );
         void                                    ClientRemove ( ThreadInstance * client );
 #endif
 		bool									HandleRequest ( ThreadInstance * client, char * buffer );
@@ -429,13 +399,17 @@ namespace environs
         bool									HandleQueryDevicesV5 ( const sp ( ThreadInstance ) &client, char * msg );
 		bool									HandleQueryDevicesV4 ( const sp ( ThreadInstance ) &client, char * msg );
 
-		bool									HandleShortMessage ( ThreadInstance * client, char * msg );
+		bool									HandleShortMessage ( ThreadInstance * client, char * msg, unsigned int size );
         
 #ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 		unsigned int							sendThreadCount;
-        EnvLock                                 sendEvent;
-//        EnvThread                               sendThreads [ MAX_SEND_THREADS ];
 		EnvThread							**	sendThreads;
+
+#ifdef ENABLE_WINSOCK_SEND_THREADS
+		HANDLE									sendEvents [2];
+#else
+		EnvSignal                               sendEvent;
+#endif
         
         bool                                    sendThreadsAlive;
         bool                                    StartSendThreads ();

@@ -57,12 +57,20 @@
 #	define CThreadLogArg(msg,...)			
 #endif
 
+#ifdef MEASURE_LOCK_ACQUIRE
+#	define MEASURE_LOCK_ACQUIRE_THRESHOLD	30
+#	include "Environs.Utils.h"
+#endif
 
 // The TAG for prepending to log messages
 #define CLASS_NAME	"Threads. . . . . . . . ."
 
 namespace environs
 {
+#ifdef MEDIATORDAEMON
+	extern size_t GetTimeString ( char * timeBuffer, unsigned int bufferSize );
+#endif
+
 #if ( !defined(ENVIRONS_CORE_LIB) || defined(ENVIRONS_NATIVE_MODULE) )
 	int g_Debug = 0;
 #endif
@@ -679,6 +687,10 @@ namespace environs
 	void LockAcquireVoid ( pthread_mutex_t * mtx )
 	{
 #endif
+
+#ifdef MEASURE_LOCK_ACQUIRE
+		unsigned int start = GetEnvironsTickCount32 ();
+#endif
 		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
 #ifdef USE_LOCK_LOG
 			MutexErrorLog ( "lock", className, funcName, mutexName );
@@ -687,6 +699,19 @@ namespace environs
 			MutexErrorLog ( "lock" );
 #endif
 		}
+
+#ifdef MEASURE_LOCK_ACQUIRE
+		unsigned int end = GetEnvironsTickCount32 ();
+
+		unsigned int diff = end - start;
+		if ( diff > MEASURE_LOCK_ACQUIRE_THRESHOLD ) {
+			char timeString [ 256 ];
+			GetTimeString ( timeString, sizeof ( timeString ) );
+
+			printf ( "%sLockAcquireVoid: [ %u ms ]\t[ %s : %s : %s ]\n", timeString, diff, className, funcName, mutexName );
+		}
+#endif
+
 #ifdef USE_LOCK_LOG
 		CVerbsLockArg ( 12, "        -------> Locked [ %-30s ]    | %16llX | %s.%s", mutexName, ( long long ) GetCurrentThreadId (), className, funcName );
 #endif
@@ -728,6 +753,10 @@ namespace environs
 	bool LockAcquireBool ( pthread_mutex_t * mtx )
 	{
 #endif
+
+#ifdef MEASURE_LOCK_ACQUIRE
+		unsigned int start = GetEnvironsTickCount32 ();
+#endif
 		if ( !mtx || pthread_mutex_lock ( mtx ) ) {
 #ifdef USE_LOCK_LOG
 			MutexErrorLog ( "lock", className, funcName, mutexName );
@@ -736,6 +765,19 @@ namespace environs
 #endif
 			return false;
 		}
+
+#ifdef MEASURE_LOCK_ACQUIRE
+		unsigned int end = GetEnvironsTickCount32 ();
+
+		unsigned int diff = end - start;
+		if ( diff > MEASURE_LOCK_ACQUIRE_THRESHOLD ) {
+			char timeString [ 256 ];
+			GetTimeString ( timeString, sizeof ( timeString ) );
+
+			printf ( "%sLockAcquireBool: [ %u ms ]\t[ %s : %s : %s ]\n", timeString, diff, className, funcName, mutexName );
+		}
+#endif
+
 #ifdef USE_LOCK_LOG
 		CVerbsLockArg ( 12, "        -------> Locked [ %-30s ]    | %16llX | %s.%s", mutexName, ( long long ) GetCurrentThreadId (), className, funcName );
 #endif
@@ -884,9 +926,106 @@ namespace environs
 
 
 #undef  CLASS_NAME
-#define CLASS_NAME	"EnvLock. . . . . . . . ."        
+#define CLASS_NAME	"EnvLock. . . . . . . . ."
     
     EnvLock::EnvLock ()
+    {
+        allocated = false;
+        
+#ifdef USE_THREADSYNC_OWNER_NAME
+        owner       = "Unknown";
+#endif
+    }
+    
+    
+    bool EnvLock::Init ()
+    {
+        if ( allocated )
+            return true;
+        
+        if ( !LockInitA ( lockObj ) )
+            return false;
+        
+        allocated = true;
+        return true;
+    }
+    
+    
+    EnvLock::~EnvLock ()
+    {
+        CThreadLogArg ( "Destruct: [ %s ]", owner );
+        
+        DisposeInstance ();
+    }
+    
+    
+    void EnvLock::DisposeInstance ()
+    {
+        CThreadLogArg ( "DisposeInstance: [ %s ]", owner );
+        
+        if ( allocated ) {
+            allocated = false;
+            
+            LockDisposeA ( lockObj );
+        }
+    }
+    
+    
+    bool EnvLock::Lock ( CString_ptr func )
+    {
+        CThreadVerbArg ( "Lock: [ %s ]", owner );
+
+#ifdef MEASURE_LOCK_ACQUIRE
+		unsigned int start = GetEnvironsTickCount32 ();
+#endif        
+        if ( pthread_mutex_lock ( Addr_of ( lockObj ) ) ) {
+            CErrArg ( "Lock: Failed [ %s ]", func );
+            return false;
+        }
+
+#ifdef MEASURE_LOCK_ACQUIRE
+		unsigned int end = GetEnvironsTickCount32 ();
+
+		unsigned int diff = end - start;
+		if ( diff > MEASURE_LOCK_ACQUIRE_THRESHOLD ) {
+			char timeString [ 256 ];
+			GetTimeString ( timeString, sizeof ( timeString ) );
+
+			printf ( "%sEnvLock::Lock: [ %u ms ]\t[ %s ]\n", timeString, diff, func );
+		}
+#endif
+        return true;
+    }
+    
+    
+    bool EnvLock::Unlock ( CString_ptr func )
+    {
+        CThreadVerbArg ( "Unlock: [ %s ]", owner );
+        
+        if ( pthread_mutex_unlock ( Addr_of ( lockObj ) ) ) {
+            CErrArg ( "Unlock: Failed [%s]", func );
+            return false;
+        }
+        return true;
+    }
+        
+#ifdef VS2010    
+    bool EnvLock::lock ()
+    {
+		return Lock ( "" );
+    }
+    
+    
+    bool EnvLock::unlock ()
+    {
+		return Unlock ( "" );
+    }
+#endif
+        
+#undef  CLASS_NAME
+#define CLASS_NAME	"EnvSignal. . . . . . . ."
+    
+    EnvSignal::EnvSignal ()
     {
         allocated = false;
         autoreset = true;
@@ -894,21 +1033,17 @@ namespace environs
 #ifndef _WIN32
         signalState = false;
 #endif
-        
-#ifdef USE_THREADSYNC_OWNER_NAME
-        owner       = "Unknown";
-#endif
 		Zeros ( signal );
     }
         
 
-	bool EnvLock::Init ()
-	{
-		if ( allocated )
-			return true;
+	bool EnvSignal::Init ()
+    {
+        if ( !EnvLock::Init () )
+            return false;
 
-		if ( !LockInitA ( lock ) )
-			return false;
+        if ( allocated )
+        return true;
 
 		if ( pthread_cond_manual_init ( c_Addr_of ( signal ), NULL ) ) {
 			CErr ( "Init: Failed to init signal!" );
@@ -920,7 +1055,7 @@ namespace environs
 	}
 
 
-	EnvLock::~EnvLock ()
+	EnvSignal::~EnvSignal ()
 	{
 		CThreadLogArg ( "Destruct: [ %s ]", owner );
 
@@ -928,25 +1063,25 @@ namespace environs
 	}
 
 
-	void EnvLock::DisposeInstance ()
+	void EnvSignal::DisposeInstance ()
 	{
 		CThreadLogArg ( "DisposeInstance: [ %s ]", owner );
-
+        
 		if ( allocated ) {
 			allocated = false;
 
 			CondDisposeA ( signal );
-
-			LockDisposeA ( lock );
-		}
+        }
+        
+        EnvLock::DisposeInstance ();
 	}
 
 
-	bool EnvLock::LockCond ( CString_ptr func )
+	bool EnvSignal::LockCond ( CString_ptr func )
 	{
 		CThreadVerbArg ( "LockCond: [ %s ]", owner );
 
-		if ( pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
+		if ( pthread_cond_mutex_lock ( c_Addr_of ( lockObj ) ) ) {
 			CErrArg ( "LockCond: Failed [ %s ]", func );
 			return false;
 		}
@@ -954,19 +1089,7 @@ namespace environs
 	}
 
 
-	bool EnvLock::Lock ( CString_ptr func )
-	{
-		CThreadVerbArg ( "Lock: [ %s ]", owner );
-
-		if ( pthread_mutex_lock ( Addr_of ( lock ) ) ) {
-			CErrArg ( "Lock: Failed [ %s ]", func );
-			return false;
-		}
-		return true;
-	}
-
-
-	bool EnvLock::IsSetDoReset ()
+	bool EnvSignal::IsSetDoReset ()
 	{
 		bool isSet;
         
@@ -1000,7 +1123,7 @@ namespace environs
 	}
 
 
-	bool EnvLock::ResetSync ( CString_ptr func, bool useLock, bool keepLocked )
+	bool EnvSignal::ResetSync ( CString_ptr func, bool useLock, bool keepLocked )
 	{
 #ifndef _WIN32
 		if ( useLock && !LockCond ( func ) )
@@ -1027,7 +1150,7 @@ namespace environs
 	}
 
 
-	int EnvLock::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
+	int EnvSignal::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
         {
 #ifndef _WIN32
 		if ( useLock && !LockCond ( func ) )
@@ -1051,7 +1174,7 @@ namespace environs
 	}
 
 
-	int EnvLock::WaitLocked ( CString_ptr func, int ms )
+	int EnvSignal::WaitLocked ( CString_ptr func, int ms )
 	{
 #ifdef _WIN32
 #	ifdef CLI_CPP
@@ -1083,9 +1206,9 @@ namespace environs
         if ( autoreset || !signalState )
         {
             if ( ms == ENV_INFINITE_MS )
-                waitRes = pthread_cond_wait ( &signal, &lock );
+                waitRes = pthread_cond_wait ( &signal, &lockObj );
             else
-                waitRes = pthread_cond_timedwait_msec ( &signal, &lock, ms );
+                waitRes = pthread_cond_timedwait_msec ( &signal, &lockObj, ms );
         }
         else
             waitRes = 0;
@@ -1124,12 +1247,12 @@ namespace environs
 	}
 
 
-	bool EnvLock::Notify ( CString_ptr func, bool useLock )
+	bool EnvSignal::Notify ( CString_ptr func, bool useLock )
 	{
 		CThreadVerbArg ( "Notify.Lock: [ %s ]", owner );
         
 #ifndef _WIN32
-        if ( useLock && pthread_cond_mutex_lock ( c_Addr_of ( lock ) ) ) {
+        if ( useLock && pthread_cond_mutex_lock ( c_Addr_of ( lockObj ) ) ) {
             CErrArg ( "Notify.Lock: Failed [ %s ]", func );
 			return false;
 		}
@@ -1145,7 +1268,7 @@ namespace environs
 		CThreadVerbArg ( "Notify.Unlock: [ %s ]", owner );
         
 #ifndef _WIN32
-		if ( useLock && pthread_cond_mutex_unlock ( c_Addr_of ( lock ) ) ) {
+		if ( useLock && pthread_cond_mutex_unlock ( c_Addr_of ( lockObj ) ) ) {
 			CErr ( "Notify: Failed to release mutex" );
 			return false;
         }
@@ -1154,28 +1277,16 @@ namespace environs
 	}
 
 
-	bool EnvLock::UnlockCond ( CString_ptr func )
+	bool EnvSignal::UnlockCond ( CString_ptr func )
 	{
 		CThreadVerbArg ( "UnlockCond: [ %s ]", owner );
 
-		if ( pthread_cond_mutex_unlock ( &lock ) ) {
+		if ( pthread_cond_mutex_unlock ( &lockObj ) ) {
 			CErrArg ( "UnlockCond: Failed [%s]", func );
 			return false;
 		}
 		return true;
 	}
-
-
-	bool EnvLock::Unlock ( CString_ptr func )
-	{
-		CThreadVerbArg ( "Unlock: [ %s ]", owner );
-
-		if ( pthread_mutex_unlock ( Addr_of ( lock ) ) ) {
-			CErrArg ( "Unlock: Failed [%s]", func );
-			return false;
-		}
-		return true;
-    }
         
         
 #undef  CLASS_NAME

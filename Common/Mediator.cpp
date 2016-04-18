@@ -408,10 +408,43 @@ namespace environs
 		dst [ len ] = 0;
 		return true;
     }
+	
+
+#ifdef TRACE_MEDIATOR_OBJECTS
+	extern pthread_mutex_t			sendContextsMapLock;
+	extern std::map<ThreadInstance *, ThreadInstance *> clientsMap;
+#endif
+    
+    
+#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
+    void DisposeSendContexts ( ThreadInstance * client )
+    {
+		if ( !client )
+			return;
+
+        LockAcquireA ( client->sendQueueLock, "DisposeSendContexts" );
+        
+        while ( client->sendQueue.size_ > 0 ) {
+            SendContext * ctx = ( SendContext * ) client->sendQueue.pop ();
+            
+            if ( ctx )
+                delete ( ctx );
+        }
+        
+        LockReleaseA ( client->sendQueueLock, "DisposeSendContexts" );
+    }
+#endif
     
     
     ThreadInstance::ThreadInstance ()
     {
+#	ifdef TRACE_MEDIATOR_OBJECTS
+		LockAcquireA ( sendContextsMapLock, "" );
+
+		clientsMap [ this ] = this;
+
+		LockReleaseA ( sendContextsMapLock, "" );
+#	endif
         allocated       = false;
         
         Reset ();
@@ -444,11 +477,7 @@ namespace environs
         
         *uid            = 0;
         *ips            = 0;
-        
-#ifdef USE_MEDIATOR_OVERLAPPED_IO_SOCKET
-        socketReceiveEvent  = 0;
-#endif
-        
+                
 #ifdef MEDIATORDAEMON
         subscribedToNotifications   = true;
         subscribedToMessages        = true;
@@ -470,6 +499,10 @@ namespace environs
 #else
 		stuntSocketRegisteredTime = 0;
 #endif
+
+#ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
+		receiveEvent		= 0;
+#endif
 		stuntSocketsLast	= 0;
 		stuntSocketsFront	= 0;
         stuntSocketTime		= 0;
@@ -489,11 +522,26 @@ namespace environs
             allocated = false;
             
             LockDisposeA ( stuntSocketLock );
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+            
+#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
 			LockDisposeA ( sendQueueLock );
 #endif
         }
+
+#ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
+		CloseWSAHandle_n ( receiveEvent );
+#endif
+
+#	ifdef TRACE_MEDIATOR_OBJECTS
+		LockAcquireA ( sendContextsMapLock, "" );
+
+		const std::map<ThreadInstance *, ThreadInstance *>::iterator it = clientsMap.find ( this );
+		if ( it != clientsMap.end () ) {
+			clientsMap.erase ( it );
+		}
+
+		LockReleaseA ( sendContextsMapLock, "" );
+#	endif
     }
     
     
@@ -504,11 +552,15 @@ namespace environs
 #ifdef MEDIATORDAEMON
             if ( !ILock::Init () )
                 return false;
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-			if ( !LockInitA ( sendQueueLock ) )
-				return false;	
 #endif
+            
+#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
+            if ( !LockInitA ( sendQueueLock ) )
+                return false;
+#endif
+
+#ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
+			CreateWSAHandle ( receiveEvent, false );
 #endif
             if ( !LockInitA ( stuntSocketLock ) )
                 return false;
@@ -613,16 +665,25 @@ namespace environs
         thread.Unlock ( "ThreadInstance.Dispose" );
         
     ShutdownThread:
+#ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
+		WSASetEvent ( receiveEvent );
+#endif  
         if ( IsValidFD ( sock )  )
         {
             CVerb ( "Dispose: Shutdown socket" );
             ShutdownCloseSocket ( sock, false, "ThreadInstance.Dispose" );
         }
-        
+
 		if ( thread.isRunning () )
 			thread.WaitOne ( "ThreadInstance.Dispose", 500 );
         
-        if ( IsValidFD ( sock ) ) {
+        if ( IsValidFD ( sock ) ) 
+		{
+#ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
+			if ( WSAEventSelect ( sock, NULL, 0 ) ) {
+				CErr ( "Dispose: Failed to deassoc event from socket." );
+			}
+#endif
             CVerb ( "Dispose: Closing socket" );
             ShutdownCloseSocket ( sock, true, "ThreadInstance.Dispose" );
         }
@@ -661,13 +722,6 @@ namespace environs
 #ifndef MEDIATORDAEMON
 		thread.Unlock ( "ThreadInstance.Dispose" );
 #endif
-                
-#ifdef USE_MEDIATOR_OVERLAPPED_IO_SOCKET
-        if ( socketReceiveEvent != WSA_INVALID_EVENT ) {
-            WSACloseEvent ( socketReceiveEvent );
-            socketReceiveEvent = WSA_INVALID_EVENT;
-        }
-#endif
 
 #ifndef MEDIATORDAEMON
 //        thread.DisposeInstance ();
@@ -688,7 +742,11 @@ namespace environs
     void MediatorConnection::Reset ()
     {
         
+#ifdef MEDIATOR_RESPONSE_MAP
+        responseBuffers.clear ();
+#else
         responseBuffer  = 0;
+#endif
         longReceive     = false;
         
         renewerAccess   = 0;
@@ -709,7 +767,9 @@ namespace environs
             CondDisposeA ( receiveEvent );
             
 #if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+#   ifdef USE_MEDIATOR_SEND_LOCK
             LockDisposeA ( sendLock );
+#   endif
 #endif
         }
         
@@ -734,10 +794,13 @@ namespace environs
             }
             
 #if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+            
+#   ifdef USE_MEDIATOR_SEND_LOCK
             Zero ( sendLock );
             
             if ( !LockInitA ( sendLock ) )
                 return false;
+#   endif
 #endif
             allocated = true;
         }

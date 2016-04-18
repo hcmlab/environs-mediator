@@ -42,11 +42,6 @@
 
 #define ENABLE_IOS_HEALTHKIT_SUPPORT
 
-#ifdef _WIN32
-//#	define USE_MEDIATOR_OVERLAPPED_IO_SOCKET
-#endif
-
-
 #define ENABLE_STATIC_DEVICE_BULK_THREAD
 
 //#define ENABLE_MESSAGE_EXT_DISPATCH
@@ -103,6 +98,17 @@
 #define ENABLE_DONT_LINGER_SOCKETS
 
 #define USE_LOCAL_MEDIATOR_CACHE_PARAMS
+
+#define USE_MEDIATOR_CLIENT_NON_BLOCK_SOCKETS
+#define USE_MEDIATOR_CLIENT_SEND_THREAD
+
+#ifdef _WIN32
+#   define USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
+#endif
+
+#ifndef USE_MEDIATOR_CLIENT_SEND_THREAD
+#   define USE_MEDIATOR_SEND_LOCK
+#endif
 
 //#define USE_ASYNC_WORKER_FOR_ALIVE_SENDS
 
@@ -170,6 +176,10 @@
 #else
 // For tests, we disable sending of abort signals (provoke errors and hangs during debug tests)
 #   define ENABLE_DEVICE_FIN_MESSAGES
+#endif
+
+#if defined(MEDIATORDAEMON) && !defined(NDEBUG)
+#	define MEASURE_LOCK_ACQUIRE
 #endif
 
 #ifndef NDEBUG

@@ -31,6 +31,10 @@
 * - function macros
 */
 #if defined(_WIN32)
+#	if _MSC_VER <= 1600
+#		define VS2010
+#	endif
+
 // dlload defines
 #	ifdef WINDOWS_PHONE
 #		define dlsym(mod,sym)				GetProcAddress(mod,sym)     

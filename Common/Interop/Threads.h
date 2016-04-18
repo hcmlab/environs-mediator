@@ -639,8 +639,6 @@ namespace environs
         EnvThread ();
         ~EnvThread ();
 
-		//void ResetState ();
-
 		/*
 		* Run	Create a thread with the given thread routine
 		* @return	1	success, thread is running or was already runing. (if wait is requested, then wait was successful)
@@ -662,19 +660,14 @@ namespace environs
     PUBLIC_CLASS EnvLock Cli_Only ( : public EnvThread )
     {
         bool					allocated;
-        pthread_mutex_t			lock;
-        pthread_cond_manual_t	signal;
         
-#ifndef _WIN32
-        bool                    signalState;
-#endif
+    protected:
+        pthread_mutex_t			lockObj;
         
     public:
-        bool                    autoreset;
-
 #ifdef USE_THREADSYNC_OWNER_NAME
-		const char          *   owner;
-#endif        
+        const char          *   owner;
+#endif
         EnvLock ();
         ~EnvLock ();
         
@@ -689,19 +682,46 @@ namespace environs
         bool Lock ( CString_ptr func );
         
         /**
+         * Unlock actually releases the lock on all platforms
+         *
+         * @param success
+         */
+        bool Unlock ( CString_ptr func );
+
+#ifdef VS2010
+        bool lock ();
+        bool unlock ();
+#endif
+    };
+    
+    typedef EnvLock OBJ_ptr  EnvLockPtr;
+    
+    
+    PUBLIC_CLASS EnvSignal : public EnvLock
+    {
+        bool					allocated;
+        pthread_cond_manual_t	signal;
+        
+#ifndef _WIN32
+        bool                    signalState;
+#endif
+        
+    public:
+        bool                    autoreset;
+      
+        EnvSignal ();
+        ~EnvSignal ();
+        
+        bool Init ();
+        void DisposeInstance ();
+        
+        /**
          * LockCond acquires the lock on all platforms but Windows
          * On Windows platforms, the underlying event will be a ManualReleaseEvent.
          *
          * @param success
          */
         bool LockCond ( CString_ptr func );
-        
-        /**
-         * Unlock actually releases the lock on all platforms
-         *
-         * @param success
-         */
-        bool Unlock ( CString_ptr func );
         
         /**
          * UnlockCond releases the lock on all platforms but Windows
@@ -726,10 +746,10 @@ namespace environs
         bool Notify ( CString_ptr func, bool useLock C_Only ( = true ) );
     };
     
-    typedef EnvLock OBJ_ptr  EnvLockPtr;
+    typedef EnvSignal OBJ_ptr  EnvSignalPtr;
 
 
-	PUBLIC_CLASS ThreadSync : public EnvLock
+	PUBLIC_CLASS ThreadSync : public EnvSignal
 #ifndef CLI_CPP
 		, public EnvThread
 #endif

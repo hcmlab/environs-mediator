@@ -442,15 +442,15 @@ namespace environs
 		if ( !keyStore )
 			return false;
 
-		if ( !CryptAcquireContext ( hCSP, keyStore, MS_ENHANCED_PROV, PROV_RSA_FULL, CRYPT_MACHINE_KEYSET | CRYPT_NEWKEYSET ) ) 
+		if ( !CryptAcquireContext ( hCSP, keyStore, MS_ENHANCED_PROV, PROV_RSA_FULL, CRYPT_MACHINE_KEYSET | CRYPT_NEWKEYSET ) )
 		{ //CRYPT_VERIFYCONTEXT  | CRYPT_NEWKEYSET CRYPT_MACHINE_KEYSET | 
 #ifndef NDEBUG
-			CErrArg ( "AcquireContext: CryptAcquireContext failed [ %d ].",  );
+			CErrArg ( "AcquireContext: CryptAcquireContext failed [ %d ].", );
 #endif
 			CVerb ( "AcquireContext: CryptAcquireContext failed. We're gonna remove the container and try again..." );
 			CryptAcquireContext ( hCSP, keyStore, MS_ENHANCED_PROV, PROV_RSA_FULL, CRYPT_MACHINE_KEYSET | CRYPT_DELETEKEYSET );
-				
-			if ( !CryptAcquireContext ( hCSP, keyStore, MS_ENHANCED_PROV, PROV_RSA_FULL, CRYPT_MACHINE_KEYSET | CRYPT_NEWKEYSET ) ) 
+
+			if ( !CryptAcquireContext ( hCSP, keyStore, MS_ENHANCED_PROV, PROV_RSA_FULL, CRYPT_MACHINE_KEYSET | CRYPT_NEWKEYSET ) )
 			{ //CRYPT_VERIFYCONTEXT  | CRYPT_NEWKEYSET
 #ifndef NDEBUG
 				CErrArg ( "AcquireContext: CryptAcquireContext failed [ %d ].", GetLastError () );
@@ -613,47 +613,46 @@ namespace environs
         unsigned int				certSize	= *((unsigned int *)pub) & 0xFFFF;
 
 		do
-		{            
+		{
 			DWORD certBufferSize = 0;
-			if ( !CryptStringToBinaryA ( (char *)certBin, certSize, CRYPT_STRING_ANY, 0, &certBufferSize, NULL, NULL ) || !certBufferSize ) {
+			if ( !CryptStringToBinaryA ( ( char * ) certBin, certSize, CRYPT_STRING_ANY, 0, &certBufferSize, NULL, NULL ) || !certBufferSize ) {
 				CErr ( "SignCertificate: CryptStringToBinaryA (retrieve size) failed." );
 			}
 			else {
-				BYTE * certBuffer = (BYTE *) malloc ( certBufferSize );
+				BYTE * certBuffer = ( BYTE * ) malloc ( certBufferSize );
 				if ( !certBuffer ) {
 					CErrArg ( "SignCertificate: Memory alloc for certBuffer failed [%u].", certSize ); break;
 				}
 
-				if ( !CryptStringToBinaryA ( (char *)certBin, certSize, CRYPT_STRING_ANY, certBuffer, &certBufferSize, NULL, NULL ) || !certBufferSize ) {
+				if ( !CryptStringToBinaryA ( ( char * ) certBin, certSize, CRYPT_STRING_ANY, certBuffer, &certBufferSize, NULL, NULL ) || !certBufferSize ) {
 					CErr ( "SignCertificate: CryptStringToBinaryA (convert) failed." ); break;
 				}
 				certBin = certBuffer;
-			}		
+			}
 
-			certInfoLen = sizeof(CERT_PUBLIC_KEY_INFO);
-			if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO, (BYTE *)certBin, certSize, CRYPT_ENCODE_ALLOC_FLAG, NULL, &certPubInfo, &certInfoLen ) ) {
+			certInfoLen = sizeof ( CERT_PUBLIC_KEY_INFO );
+			if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO, ( BYTE * ) certBin, certSize, CRYPT_ENCODE_ALLOC_FLAG, NULL, &certPubInfo, &certInfoLen ) ) {
 				imported = true;
 			}
 
 			if ( !imported ) {
-				certInfoLen = sizeof(CERT_INFO);
-				if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, (BYTE *)certBin, certSize, CRYPT_DECODE_ALLOC_FLAG, NULL, &certInfo, &certInfoLen ) ) {
+				certInfoLen = sizeof ( CERT_INFO );
+				if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, ( BYTE * ) certBin, certSize, CRYPT_DECODE_ALLOC_FLAG, NULL, &certInfo, &certInfoLen ) ) {
 					imported = true;
 				}
 			}
 
-			if ( !imported ) {
+			if ( !imported )
 				break;
-			}
 
 			if ( !AcquireContext ( &hCSP, 0, keyStore ) ) {
 				unsigned int trys = 3;
-				do 
+				do
 				{
 					if ( AcquireContext ( &hCSP, trys, keyStore ) )
 						break;
 					trys--;
-				} 
+				}
 				while ( trys > 0 );
 			}
 
@@ -663,7 +662,7 @@ namespace environs
 
 			/*if ( !CryptImportKey ( hCSP, (BYTE *) key, keySize, NULL, 0, &hKey ) )
 			{
-				CErr ( "SignCertificate: CryptImportKey failed." ); break;
+			CErr ( "SignCertificate: CryptImportKey failed." ); break;
 			}*/
 
 			if ( !CryptGenKey ( hCSP, AT_SIGNATURE, CRYPT_EXPORTABLE, &hKey ) ) {
@@ -674,7 +673,7 @@ namespace environs
 
 			certInfo.dwVersion = 2;
 
-			BYTE serial [] = "\x01\x02\x04\x08\x0F\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+			BYTE serial [ ] = "\x01\x02\x04\x08\x0F\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 			certInfo.SerialNumber.cbData = 16;
 			certInfo.SerialNumber.pbData = serial;
 
@@ -683,13 +682,13 @@ namespace environs
 
 			CERT_RDN_ATTR nameAttr =
 			{
-				szOID_COMMON_NAME, 
-				CERT_RDN_PRINTABLE_STRING, 
-				(DWORD) (sizeof(issuerStr) + 1), 
-				(BYTE *)issuerStr 
+				szOID_COMMON_NAME,
+				CERT_RDN_PRINTABLE_STRING,
+				( DWORD ) ( sizeof ( issuerStr ) + 1 ),
+				( BYTE * ) issuerStr
 			};
 
-			CERT_RDN rgRDN [] = { 1, &nameAttr };
+			CERT_RDN rgRDN [ ] = { 1, &nameAttr };
 
 			CERT_NAME_INFO CertName = {
 				1, rgRDN
@@ -705,7 +704,7 @@ namespace environs
 				CErrArg ( "SignCertificate: Memory alloc for nameIssuer failed [%u].", certSize ); break;
 			}
 
-			if ( !CryptEncodeObjectEx ( X509_ASN_ENCODING, X509_NAME, &CertName, 0, NULL, nameIssuer, &nameLen ) )	 {
+			if ( !CryptEncodeObjectEx ( X509_ASN_ENCODING, X509_NAME, &CertName, 0, NULL, nameIssuer, &nameLen ) ) {
 				CErr ( "SignCertificate: CryptEncodeObjectEx nameIssuer failed." ); break;
 			}
 
@@ -721,14 +720,14 @@ namespace environs
 
 			nameAttr.pszObjId		= szOID_COMMON_NAME;
 			nameAttr.dwValueType	= CERT_RDN_PRINTABLE_STRING;
-			nameAttr.Value.cbData	= (DWORD) (sizeof(subjStr) + 1);
-			nameAttr.Value.pbData	= (PBYTE) subjStr;
+			nameAttr.Value.cbData	= ( DWORD ) ( sizeof ( subjStr ) + 1 );
+			nameAttr.Value.pbData	= ( PBYTE ) subjStr;
 
 			if ( !CryptEncodeObjectEx ( X509_ASN_ENCODING, X509_NAME, &CertName, 0, NULL, NULL, &nameLen ) ) {
 				CErr ( "SignCertificate: CryptEncodeObjectEx nameSubject len failed." ); break;
 			}
 
-			nameSubject = (BYTE*) malloc ( nameLen );
+			nameSubject = ( BYTE* ) malloc ( nameLen );
 			if ( !nameSubject ) {
 				CErrArg ( "SignCertificate: Memory alloc for nameSubject failed [%u].", certSize ); break;
 			}
@@ -747,28 +746,28 @@ namespace environs
 			certInfo.IssuerUniqueId.cbData = 0 ;
 			certInfo.SubjectUniqueId.cbData = 0;
 
-			BYTE paraData [16];
-			paraData [0] = 0x05; paraData [1] = 0x00;
+			BYTE paraData [ 16 ];
+			paraData [ 0 ] = 0x05; paraData [ 1 ] = 0x00;
 
 			alg.pszObjId = szOID_RSA_SHA1RSA;
 			alg.Parameters.cbData = 2;
 			alg.Parameters.pbData = paraData;
 
-			if ( !CryptSignAndEncodeCertificate ( hCSP, AT_SIGNATURE, X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, (void*)&certInfo, &alg, NULL, NULL, (DWORD *) &certSize ) ) {
+			if ( !CryptSignAndEncodeCertificate ( hCSP, AT_SIGNATURE, X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, ( void* ) &certInfo, &alg, NULL, NULL, ( DWORD * ) &certSize ) ) {
 				CErr ( "SignCertificate: CryptSignAndEncodeCertificate length failed." ); break;
 			}
 
-			certData = (char *)malloc ( certSize + 4 );
+			certData = ( char * ) malloc ( certSize + 4 );
 			if ( !certData ) {
 				CErrArg ( "SignCertificate: Memory alloc for certData failed [%u].", certSize ); break;
 			}
 
-			if ( !CryptSignAndEncodeCertificate ( hCSP, AT_SIGNATURE, X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, (void*)&certInfo, &alg, NULL, (PBYTE)(certData + 4), (DWORD *) &certSize ) ) {
+			if ( !CryptSignAndEncodeCertificate ( hCSP, AT_SIGNATURE, X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, ( void* ) &certInfo, &alg, NULL, ( PBYTE ) ( certData + 4 ), ( DWORD * ) &certSize ) ) {
 				CErr ( "SignCertificate: CryptSignAndEncodeCertificate failed." ); break;
 			}
 
-			*((unsigned int *)certData) = ('d' << 16 | certSize | ENVIRONS_CERT_SIGNED_FLAG);
-			*cert = (char *)certData;
+			*( ( unsigned int * ) certData ) = ( 'd' << 16 | certSize | ENVIRONS_CERT_SIGNED_FLAG );
+			*cert = ( char * ) certData;
 			certData = 0;
 
 			ret = true;
@@ -1069,11 +1068,11 @@ namespace environs
 			return false;
 		}
 
-		unsigned int certProp = *((unsigned int *)cert);
+		unsigned int certProp = *( ( unsigned int * ) cert );
 		unsigned int certSize = certProp & 0xFFFF;
-        
-        /// Determine format of certificate
-		unsigned int format = (certProp >> 16) & 0xFF;
+
+		/// Determine format of certificate
+		unsigned int format = ( certProp >> 16 ) & 0xFF;
         
 		CVerbArgID ( "EncryptMessage: Encrypting buffer sized [%i]", *msgLen );
 
@@ -1181,7 +1180,7 @@ namespace environs
 		DWORD						certInfoLen;
 		//char					*	ciphers		= 0;
 		char					*	reverseBuffer = 0;
-		BYTE					*	certBin		= (BYTE *) (cert + 4);
+		BYTE					*	certBin		= ( BYTE * ) ( cert + 4 );
 		BYTE					*	certBuffer	= 0;
 
 		do
@@ -1189,28 +1188,28 @@ namespace environs
 			if ( !CryptAcquireContext ( &hCSP, NULL, MS_ENHANCED_PROV, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT ) ) {
 				CErrID ( "EncryptMessage: CryptAcquireContext failed." ); break;
 			}
-            
+
 			if ( format == 'p' ) {
 				DWORD certBufferSize = 0;
-				if ( !CryptStringToBinaryA ( (char *)certBin, certSize, CRYPT_STRING_ANY, 0, &certBufferSize, NULL, NULL ) || !certBufferSize )
+				if ( !CryptStringToBinaryA ( ( char * ) certBin, certSize, CRYPT_STRING_ANY, 0, &certBufferSize, NULL, NULL ) || !certBufferSize )
 				{
 					CErrID ( "EncryptMessage: CryptStringToBinaryA (retrieve size) failed." ); break;
 				}
 
-				certBuffer = (BYTE *) malloc ( certBufferSize );
+				certBuffer = ( BYTE * ) malloc ( certBufferSize );
 				if ( !certBuffer ) {
 					CErrArgID ( "EncryptMessage: Memory alloc failed [%u].", certBufferSize ); break;
 				}
 
-				if ( !CryptStringToBinaryA ( (char *)certBin, certSize, CRYPT_STRING_ANY, certBuffer, &certBufferSize, NULL, NULL ) || !certBufferSize )
+				if ( !CryptStringToBinaryA ( ( char * ) certBin, certSize, CRYPT_STRING_ANY, certBuffer, &certBufferSize, NULL, NULL ) || !certBufferSize )
 				{
 					CErrID ( "EncryptMessage: CryptStringToBinaryA (convert) failed." ); break;
 				}
 				certBin = certBuffer;
-			}			
+			}
 
-			certInfoLen = sizeof(CERT_PUBLIC_KEY_INFO);
-			if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO, (BYTE *)certBin, certSize, CRYPT_ENCODE_ALLOC_FLAG, NULL, &certPubInfo, &certInfoLen ) )
+			certInfoLen = sizeof ( CERT_PUBLIC_KEY_INFO );
+			if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_PUBLIC_KEY_INFO, ( BYTE * ) certBin, certSize, CRYPT_ENCODE_ALLOC_FLAG, NULL, &certPubInfo, &certInfoLen ) )
 			{
 				if ( !CryptImportPublicKeyInfo ( hCSP, X509_ASN_ENCODING, certPubInfo, &hKey ) ) {
 					CErrID ( "EncryptMessage: CryptImportPublicKeyInfo (1) failed." );
@@ -1219,8 +1218,8 @@ namespace environs
 			}
 
 			if ( !imported ) {
-				certInfoLen = sizeof(CERT_INFO);
-				if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, (BYTE *)certBin, certSize, CRYPT_DECODE_ALLOC_FLAG, NULL, &certInfo, &certInfoLen ) )
+				certInfoLen = sizeof ( CERT_INFO );
+				if ( CryptDecodeObjectEx ( X509_ASN_ENCODING, X509_CERT_TO_BE_SIGNED, ( BYTE * ) certBin, certSize, CRYPT_DECODE_ALLOC_FLAG, NULL, &certInfo, &certInfoLen ) )
 				{
 					if ( !CryptImportPublicKeyInfo ( hCSP, X509_ASN_ENCODING, &certInfo->SubjectPublicKeyInfo, &hKey ) ) {
 						CErrID ( "EncryptMessage: CryptImportPublicKeyInfo (2) failed." );
@@ -1230,19 +1229,19 @@ namespace environs
 			}
 
 			if ( !imported ) {
-				if ( !CryptImportKey ( hCSP, (BYTE *)certBin, certSize, NULL, 0, &hKey ) ) {
+				if ( !CryptImportKey ( hCSP, ( BYTE * ) certBin, certSize, NULL, 0, &hKey ) ) {
 					CErrID ( "EncryptMessage: CryptImportKey (3) failed." ); break;
 				}
 				else imported = true;
 			}
 
-            int pad = 0;
+			int pad = 0;
 			//if ( certProp & ENVIRONS_CRYPT_PAD_OAEP )
-                pad = CRYPT_OAEP;
-            //else
+			pad = CRYPT_OAEP;
+			//else
 			//	pad = 0;
 
-			DWORD ciphersLen = (DWORD)*msgLen;
+			DWORD ciphersLen = ( DWORD ) *msgLen;
 
 			DWORD reqSize = ciphersLen;
 			if ( !CryptEncrypt ( hKey, 0, TRUE, pad, 0, &reqSize, reqSize ) || !reqSize )
@@ -1250,22 +1249,22 @@ namespace environs
 				CErrID ( "EncryptMessage: CryptEncrypt retrieve cipher text size failed ." ); break;
 			}
 
-			reverseBuffer = (char *) malloc ( reqSize );
+			reverseBuffer = ( char * ) malloc ( reqSize );
 			if ( !reverseBuffer ) {
 				CErrID ( "EncryptMessage: Allocation of reverse buffer failed ." ); break;
 			}
 			memcpy ( reverseBuffer, msg, ciphersLen );
 
-			if ( !CryptEncrypt ( hKey, 0, TRUE, pad, (BYTE *) reverseBuffer, &ciphersLen, reqSize ) )
+			if ( !CryptEncrypt ( hKey, 0, TRUE, pad, ( BYTE * ) reverseBuffer, &ciphersLen, reqSize ) )
 			{
 				CErrID ( "EncryptMessage: CryptEncrypt failed ." ); break;
 			}
 
 			for ( unsigned int i = 0; i < ciphersLen; ++i )
-				msg [i] = reverseBuffer [ciphersLen - 1 - i];
-			
+				msg [ i ] = reverseBuffer [ ciphersLen - 1 - i ];
+
 			*msgLen = ciphersLen;
-			ret = true;	
+			ret = true;
 
 			CVerbArgID ( "EncryptMessage: Encrypted message size [%i]", ciphersLen );
 		} 
@@ -1313,74 +1312,74 @@ namespace environs
 #endif
 
 #ifdef USE_OPENSSL
-        RSA     * rsa       = (RSA *) key;
-        char    * decrypt   = 0;
-		unsigned int rsaSize = (unsigned int) dRSA_size(rsa);
+		RSA     * rsa       = ( RSA * ) key;
+		char    * decrypt   = 0;
+		unsigned int rsaSize = ( unsigned int ) dRSA_size ( rsa );
         
         do
         {
-            if ( msgLen != rsaSize ) {
+			if ( msgLen != rsaSize ) {
 				CErrArg ( "DecryptMessage: msgLen [ %u ] must be [ %u ].", msgLen, rsaSize ); break;
-            }
-            
-            decrypt = (char *) malloc ( rsaSize + 1 );
-            if ( !decrypt ) {
+			}
+
+			decrypt = ( char * ) malloc ( rsaSize + 1 );
+			if ( !decrypt ) {
 				CErr ( "DecryptMessage: Failed to allocate memory." ); break;
-            }
-            
+			}
+
 			CVerb ( "DecryptMessage: Decrypting..." );
-            
+
 			int decSize = -1;
-            
-            do
-            {                
-                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_OAEP_PADDING );
-                if ( decSize <= 0 ) {
-                    dERR_print_errors_fp ( stderr );
+
+			do
+			{
+				decSize = dRSA_private_decrypt ( rsaSize, ( unsigned char* ) msg, ( unsigned char* ) decrypt, rsa, RSA_PKCS1_OAEP_PADDING );
+				if ( decSize <= 0 ) {
+					dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_PKCS1_OAEP_PADDING Decrypted message size is [ %i ].", decSize );
-                }
-                else break;
+				}
+				else break;
 
-                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_PADDING );
-                if ( decSize <= 0 ) {
-                    dERR_print_errors_fp ( stderr );
+				decSize = dRSA_private_decrypt ( rsaSize, ( unsigned char* ) msg, ( unsigned char* ) decrypt, rsa, RSA_PKCS1_PADDING );
+				if ( decSize <= 0 ) {
+					dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_PKCS1_PADDING Decrypted message size is [ %i ].", decSize );
-                }
-                else break;
+				}
+				else break;
 
-                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_PKCS1_PSS_PADDING );
-                if ( decSize <= 0 ) {
-                    dERR_print_errors_fp ( stderr );
+				decSize = dRSA_private_decrypt ( rsaSize, ( unsigned char* ) msg, ( unsigned char* ) decrypt, rsa, RSA_PKCS1_PSS_PADDING );
+				if ( decSize <= 0 ) {
+					dERR_print_errors_fp ( stderr );
 					CWarnArg ( "DecryptMessage: RSA_PKCS1_PSS_PADDING Decrypted message size is [ %i ].", decSize );
-                }
-                /*
-                 else break;
-                decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_NO_PADDING );
-                if ( decSize <= 0 ) {
-                    dERR_print_errors_fp ( stderr );
-					CWarnArg ( "DecryptMessage: RSA_NO_PADDING Decrypted message size is [%i].", decSize );
-                }
-                */
-            }
-            while ( 0 );
+				}
+				/*
+				else break;
+				decSize = dRSA_private_decrypt ( rsaSize, (unsigned char*)msg, (unsigned char*)decrypt, rsa, RSA_NO_PADDING );
+				if ( decSize <= 0 ) {
+				dERR_print_errors_fp ( stderr );
+				CWarnArg ( "DecryptMessage: RSA_NO_PADDING Decrypted message size is [%i].", decSize );
+				}
+				*/
+			}
+			while ( 0 );
 
-            if ( decSize <= 0 ) {
-                dERR_print_errors_fp ( stderr );
+			if ( decSize <= 0 ) {
+				dERR_print_errors_fp ( stderr );
 				CErrArg ( "DecryptMessage: All padding types failed. Decrypted message size is [ %i ].", decSize ); break;
 			}
 
-			if ( decSize > (int)rsaSize ) {
-                dERR_print_errors_fp ( stderr );
+			if ( decSize > ( int ) rsaSize ) {
+				dERR_print_errors_fp ( stderr );
 				CErrArg ( "DecryptMessage: Decrypted message size [ %u ] is larger than RSA buffer.", decSize ); break;
 			}
 
-            decrypt [ decSize ] = 0;
+			decrypt [ decSize ] = 0;
 			//CVerbVerbArg ( "DecryptMessage: [%s]", decrypt );
-            
-            *decrypted = (char *)decrypt;
-            decrypt = 0;
-            *decryptedSize = (unsigned int)decSize;
-            success = true;
+
+			*decrypted = ( char * ) decrypt;
+			decrypt = 0;
+			*decryptedSize = ( unsigned int ) decSize;
+			success = true;
         }
         while (0);
 
@@ -1509,24 +1508,25 @@ namespace environs
 
 #ifdef USE_OPENSSL_AES
 		if ( ctx->encCtx ) {
-			EVP_CIPHER_CTX * ect = (EVP_CIPHER_CTX *) ctx->encCtx;
+			EVP_CIPHER_CTX * ect = ( EVP_CIPHER_CTX * ) ctx->encCtx;
 			dEVP_CIPHER_CTX_cleanup ( ect );
 			free ( ctx->encCtx );
 		}
 		if ( ctx->decCtx ) {
-			EVP_CIPHER_CTX * ect = (EVP_CIPHER_CTX *) ctx->decCtx;
+			EVP_CIPHER_CTX * ect = ( EVP_CIPHER_CTX * ) ctx->decCtx;
 			dEVP_CIPHER_CTX_cleanup ( ect );
-            free ( ctx->decCtx );
+			free ( ctx->decCtx );
 		}
 #else
 #   ifdef USE_CACHED_HKEY
-		if ( ctx->encCtx ) CryptDestroyKey ( (HCRYPTKEY) ctx->encCtx );
-		if ( ctx->keyCtx ) CryptReleaseContext ( (HCRYPTPROV) ctx->keyCtx, 0 );
+		if ( ctx->decCtx ) CryptDestroyKey ( ( HCRYPTKEY ) ctx->decCtx );
+		if ( ctx->encCtx ) CryptDestroyKey ( ( HCRYPTKEY ) ctx->encCtx );
+		if ( ctx->keyCtx ) CryptReleaseContext ( ( HCRYPTPROV ) ctx->keyCtx, 0 );
 #   else
 		if ( ctx->encCtx ) free ( ctx->encCtx );
 #   endif
 #endif
-		memset ( ctx, 0, sizeof(AESContext) );
+		memset ( ctx, 0, sizeof ( AESContext ) );
 	}
     
     
@@ -1555,7 +1555,6 @@ namespace environs
         if ( !LockInit ( &ctx->decLock ) )
             return false;
 #endif
-
 		bool ret = false;
 
 #ifdef USE_OPENSSL_AES
@@ -1617,13 +1616,14 @@ namespace environs
 
 #else
 		HCRYPTPROV		hCSP		= 0;
-		HCRYPTKEY		hKey		= 0;
+		HCRYPTKEY		hKeyEnc		= 0;
+		HCRYPTKEY		hKeyDec		= 0;
 		HCRYPTHASH		hHash       = 0;
 		DWORD			blobLen		= 0;
 
 		do
 		{
-			if ( !CryptAcquireContext ( &hCSP, NULL, MS_ENH_RSA_AES_PROV, PROV_RSA_AES, CRYPT_VERIFYCONTEXT ) ) 
+			if ( !CryptAcquireContext ( &hCSP, NULL, MS_ENH_RSA_AES_PROV, PROV_RSA_AES, CRYPT_VERIFYCONTEXT ) )
 			{
 				CErr ( "AESDeriveKeyContexts: CryptAcquireContext failed." ); break;
 			}
@@ -1633,47 +1633,74 @@ namespace environs
 				CErr ( "AESDeriveKeyContexts: CryptCreateHash failed." ); break;
 			}
 
-			if ( !CryptHashData ( hHash, (const BYTE *)key, AES_SHA256_KEY_LENGTH, 0 ) )
+			if ( !CryptHashData ( hHash, ( const BYTE * ) key, AES_SHA256_KEY_LENGTH, 0 ) )
 			{
 				CErr ( "AESDeriveKeyContexts: CryptHashData failed." ); break;
 			}
 
-			//if ( !CryptDeriveKey ( hCSP, CALG_AES_256, hHash, 0x00800000 /*128 bit*/, &hKey ) )
-			if ( !CryptDeriveKey ( hCSP, CALG_AES_256, hHash, 0x01000000 /*256 bit*/, &hKey ) )//CRYPT_EXPORTABLE | 
+			/* Encryption key */
+			//if ( !CryptDeriveKey ( hCSP, CALG_AES_256, hHash, 0x00800000 /*128 bit*/, &hKeyEnc ) )
+			if ( !CryptDeriveKey ( hCSP, CALG_AES_256, hHash, 0x01000000 /*256 bit*/, &hKeyEnc ) )//CRYPT_EXPORTABLE | 
 			{
 				CErr ( "AESDeriveKeyContexts: CryptDeriveKey failed." ); break;
 			}
 
 			/*DWORD cryptMode = CRYPT_MODE_CBC;
-			if ( !CryptSetKeyParam ( hKey, KP_MODE, (BYTE*) &cryptMode, 0 ) )
+			if ( !CryptSetKeyParam ( hKeyEnc, KP_MODE, (BYTE*) &cryptMode, 0 ) )
 			{
-				CErr ( "AESDeriveKeyContexts: CryptSetKeyParam failed." ); break;
+			CErr ( "AESDeriveKeyContexts: CryptSetKeyParam failed." ); break;
 			}*/
 
 			DWORD mode = CRYPT_MODE_CBC;
-			if ( !CryptSetKeyParam ( hKey, KP_MODE, (BYTE*) &mode, 0 ) )
+			if ( !CryptSetKeyParam ( hKeyEnc, KP_MODE, ( BYTE* ) &mode, 0 ) )
 			{
 				CErr ( "AESDeriveKeyContexts: CryptSetKeyParam failed." ); break;
 			}
 
 			mode = PKCS5_PADDING;
-			if ( !CryptSetKeyParam ( hKey, KP_PADDING, (BYTE*) &mode, 0 ) )
+			if ( !CryptSetKeyParam ( hKeyEnc, KP_PADDING, ( BYTE* ) &mode, 0 ) )
+			{
+				CErr ( "AESDeriveKeyContexts: CryptSetKeyParam failed." ); break;
+			}
+			/* Encryption key */
+
+			/* Decryption key */
+			if ( !CryptDeriveKey ( hCSP, CALG_AES_256, hHash, 0x01000000 /*256 bit*/, &hKeyDec ) )
+			{
+				CErr ( "AESDeriveKeyContexts: CryptDeriveKey failed." ); break;
+			}
+
+			/*DWORD cryptMode = CRYPT_MODE_CBC;
+			if ( !CryptSetKeyParam ( hKeyDec, KP_MODE, (BYTE*) &cryptMode, 0 ) )
+			{
+			CErr ( "AESDeriveKeyContexts: CryptSetKeyParam failed." ); break;
+			}*/
+
+			mode = CRYPT_MODE_CBC;
+			if ( !CryptSetKeyParam ( hKeyDec, KP_MODE, ( BYTE* ) &mode, 0 ) )
 			{
 				CErr ( "AESDeriveKeyContexts: CryptSetKeyParam failed." ); break;
 			}
 
-			DWORD blobLenLen = sizeof(DWORD);
-			if ( !CryptGetHashParam ( hHash, HP_HASHSIZE, (BYTE *) &blobLen, &blobLenLen, 0 ) )
+			mode = PKCS5_PADDING;
+			if ( !CryptSetKeyParam ( hKeyDec, KP_PADDING, ( BYTE* ) &mode, 0 ) )
+			{
+				CErr ( "AESDeriveKeyContexts: CryptSetKeyParam failed." ); break;
+			}
+			/* Decryption key */
+
+			DWORD blobLenLen = sizeof ( DWORD );
+			if ( !CryptGetHashParam ( hHash, HP_HASHSIZE, ( BYTE * ) &blobLen, &blobLenLen, 0 ) )
 			{
 				CErr ( "AESDeriveKeyContexts: CryptGetHashParam HP_HASHSIZE failed." ); break;
 			}
 
-			blob = (char *) malloc ( blobLen );
+			blob = ( char * ) malloc ( blobLen );
 			if ( !blob ) {
 				CErr ( "AESDeriveKeyContexts: Failed to allocate memory for hashed blob." ); break;
 			}
 
-			if ( !CryptGetHashParam ( hHash, HP_HASHVAL, (BYTE *) blob, &blobLen, 0 ) )
+			if ( !CryptGetHashParam ( hHash, HP_HASHVAL, ( BYTE * ) blob, &blobLen, 0 ) )
 			{
 				CErr ( "AESDeriveKeyContexts: CryptGetHashParam HP_HASHVAL failed." ); break;
 			}
@@ -1683,10 +1710,10 @@ namespace environs
 #ifdef USE_CACHED_HKEY
 			ctx->keyCtx = (char *) hCSP;
 			hCSP = 0;
-			ctx->encCtx = (char *) hKey;
-			ctx->decCtx = (char *) hKey;
+			ctx->encCtx = (char *) hKeyEnc;
+			ctx->decCtx = (char *) hKeyDec;
 			ctx->size = blobLen;
-			hKey = 0;	
+			hKeyEnc = 0; hKeyDec = 0;
 #else
 			ctx->encCtx = blob;
 			ctx->decCtx = blob;
@@ -1698,7 +1725,8 @@ namespace environs
 		while ( 0 );
 
 		if ( hHash )	CryptDestroyHash ( hHash );
-		if ( hKey )		CryptDestroyKey ( hKey );
+		if ( hKeyEnc )	CryptDestroyKey ( hKeyEnc );
+		if ( hKeyDec )	CryptDestroyKey ( hKeyDec );
 		if ( hCSP )		CryptReleaseContext ( hCSP, 0 );
 #endif
 		if ( blob )		free ( blob );
@@ -1813,7 +1841,7 @@ namespace environs
         //}
 #else
 #   ifdef USE_CACHED_HKEY
-		HCRYPTKEY		hKey		= (HCRYPTKEY) ctx->encCtx;
+		HCRYPTKEY		hKey		= ( HCRYPTKEY ) ctx->encCtx;
 #   else
 		HCRYPTPROV		hCSP		= 0;
 		HCRYPTKEY		hKey		= 0;
@@ -1826,7 +1854,11 @@ namespace environs
 #   endif
         
 #   ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
-		if ( pthread_mutex_lock ( &ctx->decLock ) ) {
+#		ifdef MEASURE_LOCK_ACQUIRE
+		if ( !LockAcquireA ( ctx->encLock, "AESEncrypt" ) ) {
+#		else
+		if ( pthread_mutex_lock ( &ctx->encLock ) ) {
+#		endif
 			CErrID ( "AESEncrypt: Failed to acquire mutex." );
 			return false;
 		}
@@ -1904,7 +1936,7 @@ namespace environs
 #   endif
         
 #   ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
-		if ( pthread_mutex_unlock ( &ctx->decLock ) ) {
+		if ( pthread_mutex_unlock ( &ctx->encLock ) ) {
 			CErrID ( "AESEncrypt: Failed to release mutex." );
 			success = false;
 		}
@@ -1948,7 +1980,11 @@ namespace environs
 		}
         
 #ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+#		ifdef MEASURE_LOCK_ACQUIRE
+		if ( !LockAcquireA ( ctx->decLock, "AESDecrypt" ) ) {
+#		else
 		if ( pthread_mutex_lock ( &ctx->decLock ) ) {
+#		endif
 			CErr ( "AESDecrypt: Failed to acquire mutex." );
 			return false;
 		}
@@ -2010,7 +2046,7 @@ namespace environs
 		
 		DWORD			decryptedSize	= 0;
 #ifdef USE_CACHED_HKEY
-		HCRYPTKEY		hKey			= (HCRYPTKEY)ctx->decCtx;
+		HCRYPTKEY		hKey			= ( HCRYPTKEY ) ctx->decCtx;
 #   else
 		HCRYPTKEY		hKey			= 0;
 		HCRYPTPROV		hCSP			= 0;

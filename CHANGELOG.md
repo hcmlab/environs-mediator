@@ -1,3 +1,13 @@
+### v 0.9.8.4
+
+---------------------------
+
+* Fixed: Mediator server client thread assignment
+* Changed: Win32 Crypt layer using separate AES enc/dec lock 
+* Updated: Threads.cpp for EnvLock and EnvSignal
+
+
+
 ### v 0.9.8.3
 
 ---------------------------

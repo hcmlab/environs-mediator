@@ -23,29 +23,34 @@
 #include "Environs.Native.h"
 
 #ifndef _WIN32
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
+#	include <sys/types.h>
+#	include <sys/stat.h>
+#	include <fcntl.h>
 
-#ifndef _XOPEN_SOURCE
-#define _XOPEN_SOURCE
+#	ifndef _XOPEN_SOURCE
+#		define _XOPEN_SOURCE
+#	endif
+
+#	include <execinfo.h>
+#	include <signal.h>
+#	include <stdio.h>
+#	include <stdlib.h>
+#	include <string.h>
+#	include <unistd.h>
+#	include <ucontext.h>
 #endif
 
-#include <execinfo.h>
-#include <signal.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <ucontext.h>
+#ifndef CLASS_NAME
+#	define CLASS_NAME	"Main . . . . . . . . . ."
 #endif
-
-
-#define CLASS_NAME	"Main . . . . . . . . . ."
 
 
 int main(int argc, char* argv[])
 {
+#ifdef TRACE_MEDIATOR_OBJECTS
+	LockInitA ( sendContextsMapLock );
+#endif
+
 	WSAData wsaData;
 	if ( WSAStartup ( MAKEWORD ( 2, 2 ), &wsaData ) ) {
 		printf ( "Init: Failed to initialize WinSock API!!!" );
@@ -122,6 +127,9 @@ int main(int argc, char* argv[])
 	// Release mediator keys
 	mediator->ReleaseKeys ();
     
+
+
+
 	delete mediator;
 
     Mediator::DisposeClass ();

@@ -32,6 +32,10 @@
 
 #   define ENABLE_MEDIATOR_LOCK
 //#   define ENABLE_MEDIATOR_SEND_LOCK
+
+#	ifndef NDEBUG
+#		define	TRACE_MEDIATOR_OBJECTS
+#	endif
 #else
 #   define  DAEMONEXP(exp)
 #   define  CLIENTEXP(exp)                      exp
@@ -54,17 +58,24 @@
 
 #ifndef MEDIATORDAEMON
 #   define MEDIATOR_DEVICELIST_KEEP_CONNECTED
+#   define MEDIATOR_RESPONSE_MAP
 #else
-#	include "Queue.Vector.h"
+#   define ENABLE_SINGLE_CLIENT_THREAD
+#	ifdef ENABLE_SINGLE_CLIENT_THREAD
+#       ifdef _WIN32
+#           define ENABLE_WINSOCK_CLIENT_THREADS
+#       endif
+#	endif
 
-#	define MAX_SEND_THREADS						2
 #	define USE_MEDIATOR_DAEMON_SEND_THREAD
-
-//#   define ENABLE_SINGLE_CLIENT_THREAD
-
 #	ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 #		define USE_NONBLOCK_CLIENT_SOCKET
+
+#       ifdef _WIN32
+#           define ENABLE_WINSOCK_SEND_THREADS
+#       endif
 #	endif
+
 #endif
 
 #include "Interop/Threads.h"
@@ -72,6 +83,7 @@
 #include "Device.Info.h"
 #include "Environs.Crypt.h"
 #include "Interop/Smart.Pointer.h"
+#include "Queue.Vector.h"
 
 #ifdef MEDIATORDAEMON
 #   include <string>
@@ -215,7 +227,7 @@ namespace environs	/// Namespace: environs ->
 #   define TraceAliveLocker(a)
 #   define TraceAliveUnlocker(a)
 #endif
-    
+
     typedef struct NetPack
 	{
 		unsigned int		ip;
@@ -242,6 +254,94 @@ namespace environs	/// Namespace: environs ->
     };
     
     
+    
+#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
+    
+#	if defined(TRACE_MEDIATOR_OBJECTS) && defined(MEDIATORDAEMON)
+#		ifndef CLASS_NAME
+#			define CLASS_NAME		"Daemon"
+#		endif
+    class SendContext;
+    
+    extern pthread_mutex_t			sendContextsMapLock;
+    extern std::map<SendContext *, SendContext *> sendContextsMap;
+#	endif
+    
+    class SendLoad
+    {
+    public:
+        SendLoad () : buffer ( 0 ) {}
+        
+        ~SendLoad () {
+            if ( buffer )
+                free ( buffer );
+        }
+        
+        void * buffer;
+    };
+    
+    
+    class SendContext
+    {
+    public:
+        SendContext () : buffer ( 0 ),
+        
+#   ifdef MEDIATORDAEMON
+        seqNr ( 0 ),
+#   endif
+        
+        freeSendBuffer ( false ), sendBuffer ( 0 ), sendCurrent ( 0 ), sendSize ( 0 )
+        {
+#	ifdef TRACE_MEDIATOR_OBJECTS
+            LockAcquireA ( sendContextsMapLock, "" );
+            sendContextsMap [ this ] = this;
+            LockReleaseA ( sendContextsMapLock, "" );
+#	endif
+        }
+        
+        ~SendContext ()
+        {
+            if ( freeSendBuffer )
+                free ( sendBuffer );
+            
+            if ( buffer )
+                free ( buffer );
+            
+#	ifdef TRACE_MEDIATOR_OBJECTS
+            LockAcquireA ( sendContextsMapLock, "" );
+            const std::map<SendContext *, SendContext *>::iterator it = sendContextsMap.find ( this );
+            if ( it != sendContextsMap.end () ) {
+                sendContextsMap.erase ( it );
+            }
+            LockReleaseA ( sendContextsMapLock, "" );
+#	endif
+        }
+        
+#   ifdef MEDIATORDAEMON
+        sp ( SendLoad )         dataSP;
+#   endif
+        
+        char *                  buffer;
+        unsigned int            size;
+        
+#   ifdef MEDIATORDAEMON
+        unsigned int            seqNr;
+#   endif
+        
+        bool					freeSendBuffer;
+        char *                  sendBuffer;
+        unsigned int            sendCurrent;
+        unsigned int            sendSize;
+    };
+    
+#	if defined(TRACE_MEDIATOR_OBJECTS) && defined(MEDIATORDAEMON)
+#		ifdef CLASS_NAME
+#			undef CLASS_NAME
+#		endif
+#	endif
+    
+#endif
+    
 #ifdef ENABLE_SINGLE_CLIENT_THREAD
     typedef struct ClientProcContext
     {
@@ -251,7 +351,7 @@ namespace environs	/// Namespace: environs ->
     }
     ClientProcContext;
 #endif
-    
+
 	struct DeviceInstanceNode;
 
     typedef struct ThreadInstance DAEMONEXP ( : public ILock )
@@ -306,26 +406,26 @@ namespace environs	/// Namespace: environs ->
         DAEMONEXP ( bool subscribedToNotifications );
         DAEMONEXP ( bool subscribedToMessages );
         
-#ifdef USE_MEDIATOR_OVERLAPPED_IO_SOCKET
-        HANDLE						socketReceiveEvent;
-#endif
-        
 #ifdef __cplusplus
 
 		sp ( ThreadInstance )	  clientSP;
 		sp ( DeviceInstanceNode ) deviceSP;
+        
+        
+#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
+        lib::QueueVector			sendQueue;
+        bool                        sendBusy;
+        pthread_mutex_t				sendQueueLock;
 
-
+#	ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
+		HANDLE						receiveEvent;
+#	endif
+#endif
+        
 #ifdef MEDIATORDAEMON
         short                       sendFails;
         
         volatile ThreadInstance  *	stuntTarget;
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-		lib::QueueVector			sendQueue;
-        bool                        sendBusy;
-		pthread_mutex_t				sendQueueLock;
-#endif
         
 #ifdef ENABLE_SINGLE_CLIENT_THREAD
         up ( char [ ] )             bufferUP;
@@ -352,10 +452,9 @@ namespace environs	/// Namespace: environs ->
 	ThreadInstance;
 
     extern int GetStuntSocket ( ThreadInstance * inst );
-
-#ifdef MEDIATORDAEMON
-	void DisposeSendContexts ( ThreadInstance * client );
-#endif
+    
+    void DisposeSendContexts ( ThreadInstance * client );
+    
 
 	class ApplicationDevices : public ILock
 	{
@@ -485,13 +584,19 @@ namespace environs	/// Namespace: environs ->
 		char				*	buffer;
 
 #if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
+#   ifdef USE_MEDIATOR_SEND_LOCK
 		pthread_mutex_t			sendLock;
+#   endif
 #endif
 		pthread_mutex_t			receiveLock;
 		pthread_cond_t			receiveEvent;
-		char				*	responseBuffer;
         bool                    longReceive;
-
+        
+#ifdef MEDIATOR_RESPONSE_MAP
+        std::map < int, char * > responseBuffers;
+#else
+        char				*	responseBuffer;
+#endif
         LONGSYNC                renewerAccess;
         LONGSYNC                renewerQueue;
         

@@ -37,7 +37,11 @@
 
 #define CLASS_NAME	"Queue.Vector . . . . . ."
 
-#define GROW_SIZE 50
+#ifdef MEDIATORDAEMON
+#   define GROW_SIZE 250
+#else
+#   define GROW_SIZE 50
+#endif
 
 namespace environs
 {

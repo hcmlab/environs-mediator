@@ -55,7 +55,9 @@
 #endif
 
 #ifndef OPENSSL1
-#   define ENABLE_CRYPT_AES_LOCKED_ACCESS
+//#	ifndef _WIN32
+#		define ENABLE_CRYPT_AES_LOCKED_ACCESS
+//#	endif
 #endif
 
 #ifdef ENVIRONS_IOS

@@ -1765,7 +1765,10 @@ namespace environs
 		//CVerbVerbArgID ( "AESEncrypt: [%s]", ConvertToHexSpaceString ( buffer, *bufferLen ) );
 
 #ifdef USE_OPENSSL_AES
-        
+        /*************************************
+         * OpenSSL Crypt
+         *
+         */
 #   ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
 		if ( pthread_mutex_lock ( &ctx->encLock ) ) {
 			CErrID ( "AESEncrypt: Failed to acquire mutex." );
@@ -1839,7 +1842,12 @@ namespace environs
         else
             if ( dERR_remove_state ) dERR_remove_state ( 0 );
         //}
+        
 #else
+        /*************************************
+         * Windows Crypt
+         *
+         */
 #   ifdef USE_CACHED_HKEY
 		HCRYPTKEY		hKey		= ( HCRYPTKEY ) ctx->encCtx;
 #   else
@@ -1872,7 +1880,7 @@ namespace environs
 				CErrID ( "AESEncrypt: CryptAcquireContext failed." ); break;
 			}
 
-			if ( !CryptImportKey ( hCSP, (BYTE *)&blob, sizeof(blob), NULL, 0, &hKey ) )
+			if ( !CryptImportKey ( hCSP, ( BYTE * ) &blob, sizeof ( blob ), NULL, 0, &hKey ) )
 			{
 				CErrID ( "AESEncrypt: CryptImportKey failed." ); break;
 			}
@@ -1902,25 +1910,25 @@ namespace environs
 			{
 				CErrID ( "AESEncrypt: CryptEncrypt retrieve cipher text size failed ." ); break;
 			}*/
-			DWORD reqSize = (DWORD) *bufferLen;
+			DWORD reqSize = ( DWORD ) *bufferLen;
 			reqSize += AES_256_BLOCK_SIZE;
 
-			ciphers = (char *) malloc ( reqSize + 21 );
+			ciphers = ( char * ) malloc ( reqSize + 21 );
 			if ( !ciphers ) {
 				CErrArgID ( "AESEncrypt: Memory allocation [%i bytes] failed.", reqSize ); break;
 			}
 
-            BUILD_IV_128 ( ciphers + 4 );
+			BUILD_IV_128 ( ciphers + 4 );
 
-			if ( !CryptSetKeyParam ( hKey, KP_IV, (BYTE*) (ciphers + 4), 0 ) ) {
+			if ( !CryptSetKeyParam ( hKey, KP_IV, ( BYTE* ) ( ciphers + 4 ), 0 ) ) {
 				CErrID ( "AESEncrypt: CryptSetKeyParam KP_IV failed." ); break;
 			}
-			
-			DWORD ciphersLen = (DWORD) *bufferLen;
+
+			DWORD ciphersLen = ( DWORD ) *bufferLen;
 			cipherStart = ciphers + 20;
 			memcpy ( cipherStart, buffer, ciphersLen );
 
-			if ( !CryptEncrypt ( hKey, NULL, TRUE, 0, (BYTE *)cipherStart, &ciphersLen, reqSize ) )
+			if ( !CryptEncrypt ( hKey, NULL, TRUE, 0, ( BYTE * ) cipherStart, &ciphersLen, reqSize ) )
 			{
 				CErrID ( "AESEncrypt: CryptEncrypt failed." ); break;
 			}
@@ -1947,8 +1955,8 @@ namespace environs
 			ciphersSize += 20;
 
 			/// Update enc header
-			*((unsigned int *) ciphers) = (0x40000000 | ciphersSize);
-		
+			*( ( unsigned int * ) ciphers ) = ( 0x40000000 | ciphersSize );
+
 			//CVerbVerbArgID ( "AESEncrypt: [%s]", ConvertToHexSpaceString ( ciphers, ciphersSize ) );
 
 			*cipher = ciphers;
@@ -2066,7 +2074,7 @@ namespace environs
 				CErrID ( "AESDecrypt: CryptAcquireContext failed." ); break;
 			}
 
-			if ( !CryptImportKey ( hCSP, (BYTE *)&blob, sizeof(blob), NULL, 0, &hKey ) )
+			if ( !CryptImportKey ( hCSP, ( BYTE * ) &blob, sizeof ( blob ), NULL, 0, &hKey ) )
 			{
 				CErrID ( "AESDecrypt: CryptImportKey failed." ); break;
 			}
@@ -2097,19 +2105,19 @@ namespace environs
 				CErrID ( "AESDecrypt: CryptSetKeyParam KP_PADDING failed." ); break;
 			}*/
 
-			decrypt	= (char *) malloc ( decryptedBufSize + 2 );
+			decrypt	= ( char * ) malloc ( decryptedBufSize + 2 );
 			if ( !decrypt ) {
 				CErrArgID ( "AESDecrypt: Memory allocation [ %i bytes ] failed.", decryptedBufSize ); break;
 			}
 
-			if ( !CryptSetKeyParam ( hKey, KP_IV, (BYTE *)IV, 0 ) ) {
+			if ( !CryptSetKeyParam ( hKey, KP_IV, ( BYTE * ) IV, 0 ) ) {
 				CErrID ( "AESDecrypt: CryptSetKeyParam KP_IV failed." ); break;
 			}
 
 			decryptedSize = *bufferLen - 20;
 			memcpy ( decrypt, buffer + 20, decryptedSize );
 
-			if ( !CryptDecrypt ( hKey, NULL, TRUE, 0, (BYTE *)decrypt, &decryptedSize ) ) {
+			if ( !CryptDecrypt ( hKey, NULL, TRUE, 0, ( BYTE * ) decrypt, &decryptedSize ) ) {
 				CErrID ( "AESDecrypt: CryptDecrypt failed." ); break;
 			}
 
@@ -2135,10 +2143,10 @@ namespace environs
 			else {
 				//CVerbVerbArgID ( "AESDecrypt: [%s]", ConvertToHexSpaceString ( decrypt, decryptedSize ) );
 
-				*decrypted = decrypt;
+				*decrypted	= decrypt;
 				decrypt [ decryptedSize ] = 0;
-				decrypt = 0;
-				*bufferLen = decryptedSize;
+				decrypt		= 0;
+				*bufferLen	= decryptedSize;
 			}
 		}
         

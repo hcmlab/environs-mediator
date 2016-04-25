@@ -58,7 +58,7 @@
 #endif
 
 #ifdef MEASURE_LOCK_ACQUIRE
-#	define MEASURE_LOCK_ACQUIRE_THRESHOLD	30
+extern unsigned int maxMeasureDiff;
 #	include "Environs.Utils.h"
 #endif
 
@@ -416,23 +416,32 @@ namespace environs
 	*	Reset the thread variable stored in threadID on success.
 	*
 	*/
-	void DetachThread ( LONGSYNC * threadState, pthread_t thread, const char * threadName )
+	void DetachThread ( pthread_mutex_t * lock, LONGSYNC * threadState, pthread_t &thread, const char * threadName )
 	{
         CVerb ( "DetachThread" );
 
 		if ( threadState != nill && ( ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE ) )
-			return;
+            return;
+        
+        if ( lock ) {
+            LockAcquire ( lock, "DetachThread" );
+        }
 
-		if ( !pthread_valid ( thread ) ) {
-			CVerb ( "DetachThread: Thread is already detached." );
-			return;
+        if ( pthread_valid ( thread ) ) {
+            // We cannot reset the source as right now, a new (next) thread may have already been started
+            //pthread_reset ( thread );
+            
+            pthread_detach_handle ( thread );
+
+			Zeroh ( thread );
+        }
+        else {
+            CVerb ( "DetachThread: Thread is already detached." );
         }
         
-        // We cannot reset the source as right now, a new (next) thread may have already been started
-        //pthread_reset ( thread );
-        
-        pthread_detach_handle ( thread );
-        
+        if ( lock ) {
+            LockRelease ( lock, "DetachThread" );
+        }
 	}
 
 
@@ -442,16 +451,16 @@ namespace environs
 	*	Reset the thread variable stored in threadID on success.
 	*
 	*/
-	void DisposeThread ( LONGSYNC * threadState, pthread_t thread, pthread_t_id threadID, const char * threadName )
+	void JoinThread ( pthread_mutex_t * lock, LONGSYNC * threadState, pthread_t &thread, pthread_t_id threadID, const char * threadName )
 	{
-		CVerb ( "DisposeThread" );
+		CVerb ( "JoinThread" );
 
 		if ( !pthread_valid ( thread ) ) {
 			if ( threadState && ___sync_val_compare_and_swap ( threadState, ENVIRONS_THREAD_DETACHEABLE, ENVIRONS_THREAD_NO_THREAD ) != ENVIRONS_THREAD_DETACHEABLE ) {
-				CVerbVerb ( "DisposeThread: Thread has not been started." );
+				CVerbVerb ( "JoinThread: Thread has not been started." );
 			}
 
-			CVerb ( "DisposeThread: Thread is already closed." );
+			CVerb ( "JoinThread: Thread is already closed." );
 			return;
 		}
 
@@ -469,7 +478,7 @@ namespace environs
 			threadMatchesCaller		= areWeTheThread ( thread );
 
 		if ( threadMatchesCaller ) {
-			CVerbArg ( "DisposeThread: Skip waiting for [ %s ] ...", threadName );
+			CVerbArg ( "JoinThread: Skip waiting for [ %s ] ...", threadName );
 			return;
 		}
 
@@ -479,7 +488,7 @@ namespace environs
 				return;
 
 			if ( !pthread_valid ( thread ) ) {
-				CVerb ( "DisposeThread: Thread is already closed." );
+				CVerb ( "JoinThread: Thread is already closed." );
 				return;
 			}
 		}
@@ -487,10 +496,15 @@ namespace environs
         // We cannot reset the source as at this point, a new thread may have been already started
 		//pthread_reset ( thread );
 
-		CLogsArg ( 2, "DisposeThread: Waiting for %s ...", threadName );
+		CLogsArg ( 2, "JoinThread: Waiting for %s ...", threadName );
 
+        if ( lock ) {
+            LockAcquire ( lock, "JoinThread" );
+        }
 #if defined(USE_ENVIRONS_POSIX_THREADS)
 		pthread_join ( thread, NULL );
+
+		Zeros ( thread );
 #else
 		DWORD dw = WAIT_OBJECT_0;
 
@@ -500,9 +514,14 @@ namespace environs
 		if ( dw == STILL_ACTIVE )
 			WaitForSingleObject ( thread, INFINITE );
 
-		CloseHandle ( thread );
+		CloseHandle ( thread );	 
 #endif
-		CLogsArg ( 3, "DisposeThread: Waiting for %s done.", threadName );
+		Zeroh ( thread );
+
+        if ( lock ) {
+            LockRelease ( lock, "JoinThread" );
+        }
+		CLogsArg ( 3, "JoinThread: Waiting for %s done.", threadName );
 	}
 
 
@@ -512,7 +531,7 @@ namespace environs
 	*	Reset the thread variable stored in threadID on success.
 	*
 	*/
-	void DisposeThread ( LONGSYNC * threadState, pthread_t thread, pthread_t_id threadID, const char * threadName, pthread_cond_t &threadEvent )
+	void DisposeThread ( LONGSYNC * threadState, pthread_t &thread, pthread_t_id threadID, const char * threadName, pthread_cond_t &threadEvent )
 	{
 		if ( !pthread_valid ( thread ) ) {
 			CVerb ( "DisposeThread: Thread is already closed." );
@@ -528,7 +547,8 @@ namespace environs
 			SetEvent ( threadEvent );
 #endif
 		}
-		DisposeThread ( threadState, thread, threadID, threadName );
+        
+		JoinThread ( nill, threadState, thread, threadID, threadName );
 	}
 
 
@@ -704,7 +724,7 @@ namespace environs
 		unsigned int end = GetEnvironsTickCount32 ();
 
 		unsigned int diff = end - start;
-		if ( diff > MEASURE_LOCK_ACQUIRE_THRESHOLD ) {
+		if ( diff > maxMeasureDiff ) {
 			char timeString [ 256 ];
 			GetTimeString ( timeString, sizeof ( timeString ) );
 
@@ -770,7 +790,7 @@ namespace environs
 		unsigned int end = GetEnvironsTickCount32 ();
 
 		unsigned int diff = end - start;
-		if ( diff > MEASURE_LOCK_ACQUIRE_THRESHOLD ) {
+		if ( diff > maxMeasureDiff ) {
 			char timeString [ 256 ];
 			GetTimeString ( timeString, sizeof ( timeString ) );
 
@@ -817,19 +837,41 @@ namespace environs
 
 	EnvThread::EnvThread ()
 	{
-		Zeros ( thread );
+		Zeroh ( thread );
 
 		Win32_Only ( threadID = 0; )
 
-		state = ENVIRONS_THREAD_NO_THREAD;
+        allocated   = false;
+		state       = ENVIRONS_THREAD_NO_THREAD;
     }
+        
+    
+    bool EnvThread::Init ()
+    {
+#ifndef CLI_CPP
+        if ( !allocated )
+        {
+            if ( !LockInitA ( threadLock ) )
+                return false;
 
+            allocated = true;
+        }
+#endif            
+        return true;
+    }
+    
     
     EnvThread::~EnvThread ()
     {
 		CThreadVerbArg ( "Destruct: [ %s ]", owner );
 
         Detach ( "ThreadBase" );
+
+#ifndef CLI_CPP
+        if ( allocated ) {
+            LockDisposeA ( threadLock );
+        }
+#endif
     }
 
 
@@ -847,9 +889,19 @@ namespace environs
 			return 0;
         }
 
-		Zeros ( thread );
+#ifndef CLI_CPP
+		if ( pthread_mutex_trylock ( Addr_of ( threadLock ) ) ) {
+			CErrArg ( "Run: [%s] Failed to lock thread for start!", func );
+			return 0;
+		}
+#endif        
+		//Zeros ( thread );
 
         int retCode = pthread_create_tid ( c_Addr_of ( thread ), 0, startRoutine, arg, threadID );
+
+#ifndef CLI_CPP
+        LockRelease ( Addr_of ( threadLock ), "Run" );
+#endif
 		if ( retCode ) {
 			CErrArg ( "Run: [ %s ] Failed to create thread!", func );
 		}
@@ -872,9 +924,9 @@ namespace environs
 	{
 #ifndef CLI_CPP
 #	ifdef _WIN32
-		DisposeThread ( &state, thread, threadID, func );
+		JoinThread ( &threadLock, &state, thread, threadID, func );
 #	else
-		DisposeThread ( &state, thread, 0, func );
+		JoinThread ( &threadLock, &state, thread, 0, func );
 #	endif
 #else
 		if ( thread == nill )
@@ -899,7 +951,7 @@ namespace environs
 	void EnvThread::Detach ( CString_ptr func )
 	{
 #ifndef CLI_CPP
-		DetachThread ( &state, thread, func );
+		DetachThread ( &threadLock, &state, thread, func );
 #else
 		thread = nill;
 		state = ENVIRONS_THREAD_NO_THREAD;
@@ -987,7 +1039,7 @@ namespace environs
 		unsigned int end = GetEnvironsTickCount32 ();
 
 		unsigned int diff = end - start;
-		if ( diff > MEASURE_LOCK_ACQUIRE_THRESHOLD ) {
+		if ( diff > maxMeasureDiff ) {
 			char timeString [ 256 ];
 			GetTimeString ( timeString, sizeof ( timeString ) );
 
@@ -1028,7 +1080,7 @@ namespace environs
     EnvSignal::EnvSignal ()
     {
         allocated = false;
-        autoreset = true;
+        autoreset = false;
         
 #ifndef _WIN32
         signalState = false;
@@ -1043,7 +1095,7 @@ namespace environs
             return false;
 
         if ( allocated )
-        return true;
+            return true;
 
 		if ( pthread_cond_manual_init ( c_Addr_of ( signal ), NULL ) ) {
 			CErr ( "Init: Failed to init signal!" );
@@ -1259,21 +1311,25 @@ namespace environs
         
         signalState = true;
 #endif
+        bool success = true;
+        
 		if ( pthread_cond_broadcast ( c_Addr_of ( signal ) ) ) {
 			CErr ( "Notify: Failed to signal thread_signal!" );
-			return false;
+			success = false;
 		}
-		CVerb ( "Notify: Thread signaled." );
+        else {
+            CVerb ( "Notify: Thread signaled." );
+        }
 
 		CThreadVerbArg ( "Notify.Unlock: [ %s ]", owner );
         
 #ifndef _WIN32
 		if ( useLock && pthread_cond_mutex_unlock ( c_Addr_of ( lockObj ) ) ) {
 			CErr ( "Notify: Failed to release mutex" );
-			return false;
+			success = false;
         }
 #endif
-		return true;
+		return success;
 	}
 
 
@@ -1291,9 +1347,21 @@ namespace environs
         
 #undef  CLASS_NAME
 #define CLASS_NAME	"ThreadSync . . . . . . ."
-          
-	/*
-	* Run	Create a thread with the given thread routine
+        
+    
+    bool ThreadSync::Init ()
+    {
+        if ( !EnvSignal::Init () )
+            return false;
+        
+        if ( !EnvThread::Init () )
+            return false;
+        return true;
+    }
+        
+        
+    /*
+     * Run	Create a thread with the given thread routine
 	* @return	1	success, thread is running or was already runing. (if wait is requested, then wait was successful)
 	*			0	failed
 	*			-1	failed, thread was started and is probably running (soon). However, wait for thread start failed.
@@ -1306,14 +1374,24 @@ namespace environs
 			return 0;
         }
 
-		Zeros ( thread );
+		//Zeros ( thread );
 
         int retCode;
 
 		if ( waitForStart && !ResetSync ( func, true, true ) )
 			goto Failed;
 
+#ifndef CLI_CPP
+		if ( pthread_mutex_trylock ( Addr_of ( threadLock ) ) ) {
+			CErrArg ( "Run: [%s] Failed to lock thread for start!", func );
+			goto Failed;
+		}
+#endif        
 		retCode = pthread_create_tid ( c_Addr_of ( thread ), 0, startRoutine, arg, threadID );
+
+#ifndef CLI_CPP
+        LockRelease ( Addr_of ( threadLock ), "Run" );
+#endif
 		if ( retCode ) {
 			CErrArg ( "Run: [%s] Failed to create thread!", func );
             

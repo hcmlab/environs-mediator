@@ -496,11 +496,11 @@ namespace environs
 	*/
 	extern bool env_sem_create ( sem_tp * sem, int iniVal, const char * name, unsigned int name1, int name2, int name3 );
 
-    extern void DisposeThread ( LONGSYNC * threadState, pthread_t threadID, pthread_t_id handleID, const char * threadName );
+    extern void JoinThread ( pthread_mutex_t * lock, LONGSYNC * threadState, pthread_t &thread, pthread_t_id handleID, const char * threadName );
     
-    extern void DisposeThread ( LONGSYNC * threadState, pthread_t threadID, pthread_t_id handleID, const char * threadName, pthread_cond_t &threadEvent );
+    extern void DisposeThread ( LONGSYNC * threadState, pthread_t &thread, pthread_t_id threadID, const char * threadName, pthread_cond_t &threadEvent );
     
-    extern void DetachThread ( LONGSYNC * threadState, pthread_t threadID, const char * threadName );
+    extern void DetachThread ( pthread_mutex_t * lock, LONGSYNC * threadState, pthread_t &thread, const char * threadName );
 #	endif
 
 #endif
@@ -628,7 +628,14 @@ namespace environs
 #ifdef __cplusplus
 
 	PUBLIC_CLASS EnvThread
-	{
+    {
+        bool					allocated;
+
+#ifndef CLI_CPP
+    protected:
+        pthread_mutex_t         threadLock;
+#endif
+
 	public:
 		LONGSYNC                state;
 
@@ -638,6 +645,8 @@ namespace environs
 
         EnvThread ();
         ~EnvThread ();
+        
+        bool Init ();
 
 		/*
 		* Run	Create a thread with the given thread routine
@@ -754,8 +763,8 @@ namespace environs
 		, public EnvThread
 #endif
 	{
-	public:
-        //void Reset ();
+    public:
+        bool Init ();
 
 		/*
 		* Run	Create a thread with the given thread routine

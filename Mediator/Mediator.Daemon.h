@@ -48,6 +48,8 @@ using namespace std;
 
 #define MEDIATOR_CONTEXT_BUFFER_SIZE_MAX	(MEDIATOR_REC_BUFFER_SIZE_MAX_MOBILE >> 1)
 
+#define USE_NOTIFY_TMP_VECTORS
+
 
 // Default configuration
 
@@ -136,6 +138,42 @@ namespace environs
 	};
 
 
+	class InstanceMapCached : public ILock, public ILock1
+	{
+	public:
+		msp ( long long, ThreadInstance ) list;
+		vsp ( ThreadInstance ) cache;
+
+		bool Init ()
+		{
+			if ( !ILock::Init () )
+				return false;
+
+			if ( !ILock1::Init1 () )
+				return false;
+
+			return true;
+		}
+
+		void BuildCache ()
+		{
+			Lock1 ( "BuildCache" );
+
+			cache.clear ();
+
+			msp ( long long, ThreadInstance )::iterator it = list.begin ();
+
+			while ( it != list.end () )
+			{
+				cache.push_back ( it->second );
+				++it;
+			}
+
+			Unlock1 ( "BuildCache" );
+		}
+	};
+
+
 	class InstanceList : public ILock
 	{
 	public:
@@ -200,6 +238,7 @@ namespace environs
     
 #endif
     
+    INLINEFUNC DeviceInstanceNode * GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
     
     class MediatorDaemon : public environs::Mediator
 	{
@@ -265,7 +304,7 @@ namespace environs
 
 		sp ( ApplicationDevices )				GetApplicationDevices ( const char * appName, const char * areaName );
 		void									UnlockApplicationDevices ( ApplicationDevices * appDevices );
-		DeviceInstanceNode *					GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
+		//DeviceInstanceNode *					GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
 
 		sp ( ThreadInstance )                   GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName );
 
@@ -292,7 +331,7 @@ namespace environs
 		char	*								input;
 
 		unsigned int							sessionCounter;
-		InstanceMap                             sessions;
+		InstanceMapCached                       sessions;
 
 		unsigned int                            stuntID;
 		InstanceMap                             stuntClients;
@@ -323,7 +362,6 @@ namespace environs
 #ifdef __cplusplus
 		void									UpdateDeviceInstance ( const sp ( DeviceInstanceNode ) & device, bool added, bool changed );
 #endif
-
 		unsigned int                            bannAfterTries;
 		pthread_mutex_t							bannedIPsLock;
 		std::map<unsigned int, std::time_t>		bannedIPs;
@@ -416,9 +454,14 @@ namespace environs
         void                                    StopSendThreads ();
         
         static void                         *	SendThreadStarter ( void * arg );
-        
+
+		void									SendContextsCompress ( ThreadInstance * client );
+
         void                                    SendThread ( int threadNr );
         bool                                    PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size );
+#ifdef USE_NOTIFY_TMP_VECTORS
+        bool                                    PushSendTry ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size );
+#endif
         bool                                    PushSend ( ThreadInstance * client, void * buffer, unsigned int size, bool copy = true, unsigned int seqNr = 0 );
 
 		bool                                    PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent );

@@ -52,7 +52,7 @@ using namespace environs;
 
 int debugID = 0x12;
 //#define DEBUG_DEVICE_ID
-#define DEBUG_CHECK_CLIENT_CALL_MS
+#define ENABLE_SEND_THREAD_TRYLOCK
 
 #include <fstream>
 #include <sstream>
@@ -114,6 +114,30 @@ int _getch ( )
 #endif
 
 #define USE_VERIFYSOCKETS
+
+#ifndef NDEBUG
+#   define DEBUG_CHECK_CLIENT_CALL_MS
+#endif
+
+#ifdef DEBUG_CHECK_CLIENT_CALL_MS
+unsigned int maxMeasureDiff = 20;
+
+#   define DEBUG_CHECK_START()          unsigned int start_ms_32 = GetEnvironsTickCount32 ()
+#   define DEBUG_CHECK_START_1()        start_ms_32 = GetEnvironsTickCount32 ()
+#   define DEBUG_CHECK_MEASURE(f)       unsigned int end_ms_32 = GetEnvironsTickCount32 (); unsigned int diff_ms_32 = end_ms_32 - start_ms_32; \
+                                        if ( diff_ms_32 > maxMeasureDiff ) { char timeString [ 256 ]; \
+                                            GetTimeString ( timeString, sizeof ( timeString ) ); \
+                                            printf ( "%s" f ": [ %u ms ]\n", timeString, diff_ms_32 ); }
+#   define DEBUG_CHECK_MEASURE_1(f)     end_ms_32 = GetEnvironsTickCount32 (); diff_ms_32 = end_ms_32 - start_ms_32; \
+                                        if ( diff_ms_32 > maxMeasureDiff ) { char timeString [ 256 ]; \
+                                            GetTimeString ( timeString, sizeof ( timeString ) ); \
+                                            printf ( "%s" f ": [ %u ms ]\n", timeString, diff_ms_32 ); }
+#else
+#   define DEBUG_CHECK_START()
+#   define DEBUG_CHECK_START_1()
+#   define DEBUG_CHECK_MEASURE(f)
+#   define DEBUG_CHECK_MEASURE_1(f)
+#endif
 
 
 namespace environs
@@ -373,10 +397,12 @@ namespace environs
 				return false;
 
 			if ( !udp.Init () )
-				return false;
+                return false;
+            udp.autoreset = true;
 
 			if ( !watchdog.Init () )
 				return false;
+            watchdog.autoreset = true;
 
 			allocated = true;
 		}
@@ -1242,7 +1268,9 @@ namespace environs
 		ofstream conffile;
 		conffile.open ( DATAFILE );
 		if ( !conffile.good () )
-			return false;
+            return false;
+        
+        DEBUG_CHECK_START ();
 
 		if ( !areasMap.Lock ( "SaveProjectValues" ) ) {
 			success = false;
@@ -1341,8 +1369,10 @@ namespace environs
 					listValues->Unlock ( "SaveProjectValues" );
 				}
 			}
-		}
-
+        }
+        
+        DEBUG_CHECK_MEASURE ( "SaveProjectValues" );
+        
 		conffile.close ();
 		return success;
 	}
@@ -1445,8 +1475,10 @@ namespace environs
 
 		CVerb ( "SaveDeviceMappings" );
 
-		stringstream plainstream;
-
+        stringstream plainstream;
+        
+        DEBUG_CHECK_START ();
+        
 		if ( !deviceMappings.Lock ( "SaveDeviceMappings" ) ) {
 			ret = false;
 		}
@@ -1463,8 +1495,10 @@ namespace environs
 			if ( !deviceMappings.Unlock ( "SaveDeviceMappings" ) ) {
 				ret = false;
 			}
-		}
-
+        }
+        
+        DEBUG_CHECK_MEASURE ( "SaveDeviceMappings" );
+        
 		if ( ret ) {
 			/// Encrypt plaintext
 			string text = plainstream.str ();
@@ -1654,8 +1688,10 @@ namespace environs
 
 		CLog ( "SaveUserDB" );
 
-		stringstream plainstream;
-
+        stringstream plainstream;
+        
+        DEBUG_CHECK_START ();
+        
 		if ( !LockAcquireA ( usersDBLock, "SaveUserDB" ) )
 			ret = false;
 		else {
@@ -1678,8 +1714,10 @@ namespace environs
 			}
 
 			if ( !LockReleaseA ( usersDBLock, "SaveUserDB" ) )
-				ret = false;
-		}
+                ret = false;
+            
+            DEBUG_CHECK_MEASURE ( "SaveUserDB" );
+        }
 
 		if ( ret ) {
 			/// Encrypt plaintext
@@ -1989,25 +2027,20 @@ namespace environs
 		isRunning = false;
 
 		// Wait for each thread to terminate
-		ReleaseThreads ();
+        ReleaseThreads ();        
 
 		// There should be no active sessions here.
 		// However, in failure cases (e.g. query/lock errors), this may happen.
 		// So, we check that and release lingering client sessions
 		sessions.Lock ( "Dispose" );
+		sessions.Lock1 ( "Dispose" );
 
-		msp ( long long, ThreadInstance )::iterator sessionIt = sessions.list.begin ();
-
-		vsp ( ThreadInstance ) tmpClients;
-
-		while ( sessionIt != sessions.list.end () )
-		{
-			tmpClients.push_back ( sessionIt->second );
-			++sessionIt;
-		}
-
+		vsp ( ThreadInstance ) tmpClients ( sessions.cache );
+		
 		sessions.list.clear ();
+		sessions.cache.clear ();
 
+		sessions.Unlock1 ( "Dispose" );
 		sessions.Unlock ( "Dispose" );
 
 		vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
@@ -2908,6 +2941,9 @@ namespace environs
 		printf ( "s - toggle output to stdout\n" );
 		printf ( "t - toggle authentication\n" );
 		printf ( "z - clear bann list\n" );
+#ifdef DEBUG_CHECK_CLIENT_CALL_MS
+		printf ( "n - measure ms (%i) set\n", maxMeasureDiff );
+#endif
 		printf ( "-------------------------------------------------------\n" );
 	}
 
@@ -2980,6 +3016,21 @@ namespace environs
 					userName = "a";
 					continue;
 				}
+#ifdef DEBUG_CHECK_CLIENT_CALL_MS
+				else if ( c == 'n' ) {
+					CLog ( "Change ms for measure:" );
+					CLog ( "----------------------------------------------------------------" );
+					if ( printStdOut ) {
+						printf ( "Change ms for measure:\n" );
+						printf ( "----------------------------------------------------------------\n" );
+					}
+					CLogArg ( "Please enter a value (1...). Current [%u]:", maxMeasureDiff );
+					if ( printStdOut )
+						printf ( "Please enter a value (1...). Current [%u]: ", maxMeasureDiff );
+					command = 'n';
+					continue;
+				}
+#endif
 				else if ( c == 'b' ) {
 					SendBroadcast ();
 					continue;
@@ -3372,7 +3423,15 @@ namespace environs
 						printf ( "----------------------------------------------------------------\n" );
 					}
 				}
-
+#ifdef DEBUG_CHECK_CLIENT_CALL_MS
+				else if ( command == 'n' ) {
+					unsigned int ms = 30;
+					if ( sscanf_s ( inputBuffer, "%u", &ms ) > 0 && ms > 0 )
+						maxMeasureDiff = ms;
+					command = 0;
+					*input = 0;
+				}
+#endif
 				CLog ( "" );
 				if ( printStdOut )
 					printf ( "\n" );
@@ -4168,9 +4227,8 @@ namespace environs
 
 		sessions.Lock ( "GetSessionClient" );
 
-		//sid |= ((long long)((client->device->root->id << 16) | client->device->root->areaId)) << 32;
-
 		const msp ( long long, ThreadInstance )::iterator sessionIt = sessions.list.find ( sessionID );
+        
 		if ( sessionIt != sessions.list.end () )
 		{
 			client = sessionIt->second;
@@ -4195,7 +4253,9 @@ namespace environs
 
 		appDevices = GetDeviceList ( areaName, appName, 0, 0, deviceList );
 		if ( appDevices )
-		{
+        {
+            DEBUG_CHECK_START ();
+            
 			if ( appDevices->Lock ( "GetNextDeviceID" ) )
 			{
 				/// Find the next free deviceID
@@ -4223,7 +4283,9 @@ namespace environs
 				appDevices->Unlock ( "GetNextDeviceID" );
 			}
 
-			UnlockApplicationDevices ( appDevices.get () );
+            UnlockApplicationDevices ( appDevices.get () );
+            
+            DEBUG_CHECK_MEASURE ( "GetNextDeviceID" );
 		}
 
 		if ( !nextID ) {
@@ -4826,9 +4888,12 @@ namespace environs
             sessions.Lock ( "ClientRemove" );
             
             const msp ( long long, ThreadInstance )::iterator sessionIt = sessions.list.find ( client->sessionID );
+            
             if ( sessionIt != sessions.list.end () ) {
                 sessions.list.erase ( sessionIt );
             }
+
+			sessions.BuildCache ();
             
             sessions.Unlock ( "ClientRemove" );
             
@@ -4967,6 +5032,8 @@ namespace environs
 				daemon->sessions.list.erase ( sessionIt );
 			}
 
+			daemon->sessions.BuildCache ();
+
 			daemon->sessions.Unlock ( "Client" );
 
 			DisposeSendContexts ( client );
@@ -5104,13 +5171,20 @@ namespace environs
 			msg = buffer;
             
             unsigned int msgLength;
-			char command;
             
+#ifdef DEBUG_CHECK_CLIENT_CALL_MS
+            char command = 'u';
+#else
+			char command;
+#endif
             int bytesLeft = ( int ) ( bytesReceived + ( msgEnd - msg ) );
             while ( bytesLeft >= 8 )
             {
+                int             unitLengthRemain;
+                unsigned int    unitLength;
+                
 #ifdef DEBUG_CHECK_CLIENT_CALL_MS
-				unsigned int start = GetEnvironsTickCount32 ();
+				unsigned int    start = GetEnvironsTickCount32 ();
 #endif
                 msgLength = *( ( unsigned int * ) msg );
                 unsigned flags = 0xF0000000 & msgLength;
@@ -5215,185 +5289,224 @@ namespace environs
                 }
                 
                 client->aliveLast	= checkLast;
-				command				= msgDec [ 5 ];
+                
+                unitLengthRemain    = ( int ) msgDecLength;
+                
+                while ( unitLengthRemain > 0 )
+                {
+                    unitLength      = * ( reinterpret_cast<unsigned int *> ( msgDec ) );
+                    if ( unitLength > ( unsigned ) unitLengthRemain )
+                        unitLength = ( unsigned ) unitLengthRemain;
+                    
+					if ( unitLength <= 0 ) {
+						char * c = msgDec;
+						while ( unitLengthRemain > 0 ) {
+							if ( *c == '7' ) {
+								// Found possible new packet
+								msgDec = c - 4;
+								unitLengthRemain += 4;
+								unitLength = 0;
+								goto Continue;
+							}
+							c++;
+							unitLengthRemain--;
+						}
+						break;
+					}
+					else if ( unitLength <= 8 )
+							goto Continue;
 
+                    command         = msgDec [ 5 ];
+                    
 #ifdef DEBUG_DEVICE_ID1
-				if ( deviceID == debugID ) {
-					char timeString [ 256 ];
-					GetTimeString ( timeString, sizeof ( timeString ) );
-					printf ( "%s . [ %s %c %c ]\n", timeString, GetCommandString ( command ), msgDec [ 6 ], msgDec [ 7 ] );
-				}
+                    if ( deviceID == debugID ) {
+                        char timeString [ 256 ];
+                        GetTimeString ( timeString, sizeof ( timeString ) );
+                        printf ( "%s . [ %s %c %c ]\n", timeString, GetCommandString ( command ), msgDec [ 6 ], msgDec [ 7 ] );
+                    }
 #endif
-				if ( command == MEDIATOR_CMD_NATSTAT )
-				{
-					bool behindNAT = ( *( ( unsigned int * ) ( msgDec + 8 ) ) != ( unsigned int ) client->addr.sin_addr.s_addr );
-
-					*( ( unsigned int * ) msgDec ) = MEDIATOR_NAT_REQ_SIZE;
-					msgDec [ 4 ] = behindNAT ? 1 : 0;
-
-					int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
-
-					if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response NAT value [ %d ]", client->ips, sock, behindNAT );
-					}
-				}
-				// COMMAND: Return port of destination and request STUNT for client with deviceID (IP, IPe, Port)
-				else if ( command == MEDIATOR_CMD_STUNT )
-				{
-					HandleSTUNTRequest ( clientSP, ( STUNTReqPacketV6 * ) msgDec );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_STUN )
-				{
-					HandleSTUNRequest ( client, msgDec );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_GET_DEVICES )
-				{
-					HandleQueryDevices ( clientSP, msgDec );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_SHORT_MESSAGE )
-				{
-					HandleShortMessage ( client, msgDec, msgDecLength );
-				}
-				// COMMAND: // This is probably DEPRECATED
-				else if ( command == MEDIATOR_CMD_REQ_STUNT_ID )
-				{
-					stuntClients.Lock ( "Client: spare ID" );
-
-					unsigned int sid = ++stuntID;
-
-					CVerbArgID ( "Client [ %s : %i ]:\tAssigned spare ID [ %u ]", client->ips, sock, sid );
-
-					stuntClients.list [ ( unsigned int ) sid ] = clientSP;
-
-					stuntClients.Unlock ( "Client: spare ID" );
-
-					*( ( unsigned int * ) msgDec ) = MEDIATOR_NAT_REQ_SIZE;
-					*( ( unsigned int * ) ( msgDec + 4 ) ) = ( unsigned int ) sid;
-
-					int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
-
-					if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response spare client ID [ %u ]", client->ips, sock, sid );
-					}
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_HELP_TLS_GEN )
-				{
-					if ( msgDec [ 6 ] == 's' )
-						HandleCertSign ( client, msgDec );
-					else
-						HandleCLSGenHelp ( client );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_SET_FILTERMODE )
-				{
-					if ( client->authLevel >= 3 ) {
-						MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
-						UpdateNotifyTargets ( clientSP, medMsg->ids.id2.msgID );
-					}
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_HEARTBEAT )
-				{
-					goto Continue;
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_GET_VERSION )
-				{
-					// 0x00 relCount, 0x000 minor, 0x000 major; 0x00000000 revision
-					unsigned int version = BUILD_MAJOR_VERSION;
-					version |= BUILD_MINOR_VERSION << 12;
-					version |= BUILD_RELEASE_COUNTER << 24;
-
-					int sendSize;
-					unsigned int versionBuffer [ 5 ];
-
-					if ( client->version < '6' ) {
-						versionBuffer [ 0 ] = MEDIATOR_MSG_VERSION_SIZE;
-						versionBuffer [ 1 ] = version;
-						versionBuffer [ 2 ] = BUILD_REVISION;
-						sendSize = MEDIATOR_MSG_VERSION_SIZE;
-					}
-					else {
-						versionBuffer [ 0 ] = MEDIATOR_MSG_VERSION_SIZE;
-						versionBuffer [ 1 ] = version;
-						versionBuffer [ 2 ] = *( ( unsigned int * ) ( msgDec + 8 ) );
-						versionBuffer [ 3 ] = BUILD_REVISION;
-
-						sendSize = MEDIATOR_MSG_VERSION_SIZE;
-					}
-
+                    if ( command == MEDIATOR_CMD_NATSTAT )
+                    {
+                        bool behindNAT = ( *( ( unsigned int * ) ( msgDec + 8 ) ) != ( unsigned int ) client->addr.sin_addr.s_addr );
+                        
+                        *( ( unsigned int * ) msgDec ) = MEDIATOR_NAT_REQ_SIZE;
+                        msgDec [ 4 ] = behindNAT ? 1 : 0;
+                        
+                        int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
+                        
+                        if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
+                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response NAT value [ %d ]", client->ips, sock, behindNAT );
+                        }
+                    }
+                    // COMMAND: Return port of destination and request STUNT for client with deviceID (IP, IPe, Port)
+                    else if ( command == MEDIATOR_CMD_STUNT )
+                    {
+                        HandleSTUNTRequest ( clientSP, ( STUNTReqPacketV6 * ) msgDec );
+                    }
+                    // COMMAND:
+                    /*else if ( command == MEDIATOR_CMD_STUN )
+                    {
+                        HandleSTUNRequest ( client, msgDec );
+                    }
+                    */
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_GET_DEVICES )
+                    {
+                        HandleQueryDevices ( clientSP, msgDec );
+                    }
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_SHORT_MESSAGE )
+                    {
+                        HandleShortMessage ( client, msgDec, unitLength );
+                    }
+                    // COMMAND: // This is probably DEPRECATED
+                    /*else if ( command == MEDIATOR_CMD_REQ_STUNT_ID )
+                    {
+                        stuntClients.Lock ( "Client: spare ID" );
+                        
+                        unsigned int sid = ++stuntID;
+                        
+                        CVerbArgID ( "Client [ %s : %i ]:\tAssigned spare ID [ %u ]", client->ips, sock, sid );
+                        
+                        stuntClients.list [ ( unsigned int ) sid ] = clientSP;
+                        
+                        stuntClients.Unlock ( "Client: spare ID" );
+                        
+                        *( ( unsigned int * ) msgDec ) = MEDIATOR_NAT_REQ_SIZE;
+                        *( ( unsigned int * ) ( msgDec + 4 ) ) = ( unsigned int ) sid;
+                        
+                        int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
+                        
+                        if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
+                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response spare client ID [ %u ]", client->ips, sock, sid );
+                        }
+                    }
+                    */
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_HELP_TLS_GEN )
+                    {
+                        if ( msgDec [ 6 ] == 's' )
+                            HandleCertSign ( client, msgDec );
+                        else
+                            HandleCLSGenHelp ( client );
+                    }
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_SET_FILTERMODE )
+                    {
+                        if ( client->authLevel >= 3 ) {
+                            MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
+                            UpdateNotifyTargets ( clientSP, medMsg->ids.id2.msgID );
+                        }
+                    }
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_HEARTBEAT )
+                    {
+                        goto Continue;
+                    }
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_GET_VERSION )
+                    {
+                        // 0x00 relCount, 0x000 minor, 0x000 major; 0x00000000 revision
+                        unsigned int version = BUILD_MAJOR_VERSION;
+                        version |= BUILD_MINOR_VERSION << 12;
+                        version |= BUILD_RELEASE_COUNTER << 24;
+                        
+                        int sendSize;
+                        unsigned int versionBuffer [ 5 ];
+                        
+                        if ( client->version < '6' ) {
+                            versionBuffer [ 0 ] = MEDIATOR_MSG_VERSION_SIZE;
+                            versionBuffer [ 1 ] = version;
+                            versionBuffer [ 2 ] = BUILD_REVISION;
+                            sendSize = MEDIATOR_MSG_VERSION_SIZE;
+                        }
+                        else {
+                            versionBuffer [ 0 ] = MEDIATOR_MSG_VERSION_SIZE;
+                            versionBuffer [ 1 ] = version;
+                            versionBuffer [ 2 ] = *( ( unsigned int * ) ( msgDec + 8 ) );
+                            versionBuffer [ 3 ] = BUILD_REVISION;
+                            
+                            sendSize = MEDIATOR_MSG_VERSION_SIZE;
+                        }
+                        
 #ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 #	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-					if ( !SendBufferOrEnqueue ( client, versionBuffer, sendSize ) ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-					}
+                        if ( !SendBufferOrEnqueue ( client, versionBuffer, sendSize ) ) {
+                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
+                        }
 #else
-					if ( !PushSend ( client, versionBuffer, sendSize ) ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-					}
+                        if ( !PushSend ( client, versionBuffer, sendSize ) ) {
+                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
+                        }
 #endif
 #else
-					int sentBytes = SendBuffer ( client, versionBuffer, sendSize );
-
-					if ( sentBytes != sendSize ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-					}
+                        int sentBytes = SendBuffer ( client, versionBuffer, sendSize );
+                        
+                        if ( sentBytes != sendSize ) {
+                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
+                        }
 #endif
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE )
-				{
-					MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
-
-					client->subscribedToNotifications = ( medMsg->ids.id2.msgID == 1 ? true : false );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_MESSAGE_SUBSCRIBE )
-				{
-					MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
-
-					client->subscribedToMessages = ( medMsg->ids.id2.msgID == 1 ? true : false );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_DEVICE_FLAGS )
-				{
-					HandleDeviceFlagSet ( client, msgDec );
-				}
+                    }
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE )
+                    {
+                        MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
+                        
+                        client->subscribedToNotifications = ( medMsg->ids.id2.msgID == 1 ? true : false );
+                    }
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_MESSAGE_SUBSCRIBE )
+                    {
+                        MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
+                        
+                        client->subscribedToMessages = ( medMsg->ids.id2.msgID == 1 ? true : false );
+                    }
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_DEVICE_FLAGS )
+                    {
+                        HandleDeviceFlagSet ( client, msgDec );
+                    }
 #ifdef MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
-				/*else if ( command == MEDIATOR_CMD_SET_SOCKET_BUFFERS )
-				{
-				ApplySocketBufferSizes ( client, msgDec + 8 );
-				}
-				*/
+                    /*else if ( command == MEDIATOR_CMD_SET_SOCKET_BUFFERS )
+                     {
+                     ApplySocketBufferSizes ( client, msgDec + 8 );
+                     }
+                     */
 #endif
-				else {
-					msgDec [ msgDecLength - 1 ] = 0;
-
-					HandleRequest ( client, msgDec );
-				}
-                
-            Continue:
+                    // COMMAND:
+                    else if ( command == MEDIATOR_CMD_QUIT )
+                    {
+                        client->SendTcpFin ();
+                        break;
+                    }
+                    else {
+                        msgDec [ unitLength - 1 ] = 0;
+                        
+                        HandleRequest ( client, msgDec );
+                    }
+                    
+                Continue:
 #ifdef DEBUG_CHECK_CLIENT_CALL_MS
-				if ( deviceID ) {
-					unsigned int end = GetEnvironsTickCount32 ();
-
-					unsigned int diff = end - start;
-					if ( diff > 60 ) {
-						char timeString [ 256 ];
-						GetTimeString ( timeString, sizeof ( timeString ) );
-
-						printf ( "%sClient: [ %u ms ]\t[ %c %s %i bytes ] [ %c %c ]\n", timeString, diff, command, GetCommandString ( command ), msgDecLength, msgDec [ 6 ], msgDec [ 7 ] );
-					}
-				}
+                    if ( deviceID ) {
+                        unsigned int end = GetEnvironsTickCount32 ();
+                        
+                        unsigned int diff = end - start;
+                        if ( diff > maxMeasureDiff ) {
+                            char timeString [ 256 ];
+                            GetTimeString ( timeString, sizeof ( timeString ) );
+                            
+                            printf ( "%sClient: [ %u ms ]\t[ %c %c %s %i bytes ] [ %c %c ]\n", timeString, diff, client->version, command, GetCommandString ( command ), unitLength, msgDec [ 6 ], msgDec [ 7 ] );
+                        }
+                    }
 #endif
+                    unitLengthRemain    -= unitLength;
+                    msgDec              += unitLength;
+                }
+                
                 bytesLeft -= msgLength;
                 msg += msgLength;
                 
-				free_m ( decrypted );
+                free_m ( decrypted );
             }
 
 			remainingSize = MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
@@ -5884,7 +5997,7 @@ namespace environs
 #endif
 
 
-	DeviceInstanceNode * MediatorDaemon::GetDeviceInstance ( int deviceID, DeviceInstanceNode * device )
+	INLINEFUNC DeviceInstanceNode * GetDeviceInstance ( int deviceID, DeviceInstanceNode * device )
 	{
 		while ( device ) {
 			if ( device->info.deviceID == deviceID ) {
@@ -5897,7 +6010,9 @@ namespace environs
 
 
 	sp ( ThreadInstance ) MediatorDaemon::GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName )
-	{
+    {
+        DEBUG_CHECK_START ();
+        
 		sp ( ApplicationDevices )   appDevices  = 0;
 		pthread_mutex_t     *       destLock    = 0;
 		DeviceInstanceNode  *       destList    = 0;
@@ -5952,7 +6067,9 @@ namespace environs
 		if ( device )
 			destClient = device->clientSP;
 
-		LockReleaseV ( destLock, "GetThreadInstance" );
+        LockReleaseV ( destLock, "GetThreadInstance" );
+        
+        DEBUG_CHECK_MEASURE ( "GetThreadInstance" );
 
 		return destClient;
 	}
@@ -6082,14 +6199,14 @@ namespace environs
 #ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 #	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
 		if ( sendBuffer == ( char * ) msgBuffer ) {
-			if ( SendBufferOrEnqueue ( destClient, sendBuffer, length, false ) ) {
+			if ( PushSend ( destClient, sendBuffer, length, false ) ) {
 				CLogArgID ( "HandleShortMessage [ %i ]: Successfully sent message.", sourceClient->socket );
 
 				msgBuffer = 0;
 			}
 		}
 		else {
-			if ( SendBufferOrEnqueue ( destClient, sendBuffer, length ) ) {
+			if ( PushSend ( destClient, sendBuffer, length ) ) {
 				CLogArgID ( "HandleShortMessage [ %i ]: Successfully sent message.", sourceClient->socket );
 			}
 		}
@@ -7629,7 +7746,17 @@ namespace environs
 				appName  = srcDevice->info.appName;
 				areaName = srcDevice->info.areaName;
 			}
-			appDevices   = GetApplicationDevices ( appName, areaName );
+            
+            DeviceInstanceNode * src = srcDevice.get ();
+            
+            if ( !strncmp ( areaName, src->info.areaName, sizeof ( src->info.areaName ) )
+                && !strncmp ( appName, src->info.appName, sizeof ( src->info.appName ) ) )
+            {
+                ext = false;
+                appDevices = srcDevice->rootSP;
+            }
+            else
+                appDevices   = GetApplicationDevices ( appName, areaName );
 		}
 		else {
 			appDevices = srcDevice->rootSP;
@@ -8116,7 +8243,7 @@ namespace environs
         DeviceInstanceNode *	destDevice		= 0;
         sp ( DeviceInstanceNode ) destDeviceSP	= 0;
         
-        // find the destination client
+        // Look for the destination client
         sp ( ThreadInstance )	destClient		= 0;
         sp ( ApplicationDevices ) appDevices	= 0;
         
@@ -9627,22 +9754,22 @@ namespace environs
 
 		if ( *msg < '4' )
 			UpdateDeviceRegistry ( deviceSP, ip, msg );
-
-		long long sid;
-
+        
+        /// Assign a session id
+        long long sid = __sync_add_and_fetch ( &sessionCounter, 1 );
+        sid |= ( ( long long ) ( ( device->rootSP->id << 16 ) | device->rootSP->areaId ) ) << 32;
+        
 		if ( !sessions.Lock ( "HandleDeviceRegistration" ) )
 			return false;
 
-		/// Assign a session id
-		sid = sessionCounter++;
-		sid |= ( ( long long ) ( ( device->rootSP->id << 16 ) | device->rootSP->areaId ) ) << 32;
-
 		sessions.list [ sid ] = clientSP;
 
-		CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tAssinged session id [%i]", client->ips, sid );
+		sessions.BuildCache ();
 
 		if ( !sessions.Unlock ( "HandleDeviceRegistration" ) )
-			return false;
+            return false;
+        
+        CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tAssinged session id [%i]", client->ips, sid );
 
 		client->sessionID = sid;
 
@@ -9884,17 +10011,17 @@ namespace environs
 
 		if ( *msg < '4' )
 			UpdateDeviceRegistry ( deviceSP, ip, msg );
-
-		long long sid;
+        
+        /// Assign a session id
+        long long sid = __sync_add_and_fetch ( &sessionCounter, 1 );
+        sid |= ( ( long long ) ( ( device->rootSP->id << 16 ) | device->rootSP->areaId ) ) << 32;
 
 		if ( !sessions.Lock ( "HandleDeviceRegistration" ) )
 			return false;
 
-		/// Assign a session id
-		sid = sessionCounter++;
-		sid |= ( ( long long ) ( ( device->rootSP->id << 16 ) | device->rootSP->areaId ) ) << 32;
-
 		sessions.list [ sid ] = clientSP;
+
+		sessions.BuildCache ();
 
 		CVerbArgID ( "HandleDeviceRegistrationV4 [ %s ]:\tAssinged session id [%i]", client->ips, sid );
 
@@ -10591,11 +10718,16 @@ namespace environs
 
 			LockReleaseVA ( notifyLock, "NotifyClientsThread" );
 
-			if ( ctx ) {
+            if ( ctx )
+            {
+                DEBUG_CHECK_START ();
+                
 				NotifyClients ( ctx );
-				delete ctx;
-			}
-
+                delete ctx;
+                
+                DEBUG_CHECK_MEASURE ( "NotifyClientsThread" );
+            }
+            
 			CVerbArg ( "NotifyClientsThread: next [%i]", notifyQueue.size () );
 		}
 
@@ -10616,7 +10748,9 @@ namespace environs
 		sp ( ApplicationDevices )	appDevices	= 0;
 
 		string appsName ( appName );
-		string pareaName ( areaName );
+        string pareaName ( areaName );
+        
+        DEBUG_CHECK_START ();
 
 		if ( !areas.Lock ( "GetApplicationDevices" ) )
 			return 0;
@@ -10655,7 +10789,8 @@ namespace environs
 
 		__sync_add_and_fetch ( &appDevices->access, 1 );
 
-	Finish:
+    Finish:
+        DEBUG_CHECK_MEASURE ( "GetApplicationDevices" );
 		return appDevices;
 	}
 
@@ -10709,6 +10844,8 @@ namespace environs
         
         CLogArg ( "NotifyClients: broadcasting notify [%s]", environs::resolveName ( nctx->notify ) );
         
+        DEBUG_CHECK_START ();
+        
         if ( !LockAcquireA ( notifyTargetsLock, "NotifyClients" ) )
             return;
         
@@ -10721,20 +10858,24 @@ namespace environs
             {
                 ThreadInstance * inst = clientIt->second.get ();
                 
-                if ( inst->subscribedToNotifications && inst->socket != -1 && inst->aliveLast ) {
+                if ( inst->subscribedToNotifications && IsValidFD ( inst->socket ) && inst->aliveLast ) {
                     dests.push_back ( clientIt->second );
                 }
-                clientIt++;
+                ++clientIt;
             }
         }
         while ( 0 );
         
         LockReleaseVA ( notifyTargetsLock, "NotifyClients" );
         
+        DEBUG_CHECK_MEASURE ( "NotifyClients 1" );
+        
         /// Get the AreaApps
         do
         {
-            sp ( AreaApps ) areaApps = 0;
+            sp ( AreaApps ) areaApps;
+            
+            DEBUG_CHECK_START_1 ();
             
             if ( !areas.Lock ( "NotifyClients" ) )
                 return;
@@ -10757,19 +10898,23 @@ namespace environs
             {
                 ThreadInstance * inst = clientIt->second.get ();
                 
-                if ( inst->subscribedToNotifications && inst->socket != -1 && inst->aliveLast ) {
+                if ( inst->subscribedToNotifications && IsValidFD ( inst->socket ) && inst->aliveLast ) {
                     dests.push_back ( clientIt->second );
                 }
-                clientIt++;
+                ++clientIt;
             }
             
             areaApps->Unlock1 ( "NotifyClients" );
+            
+            DEBUG_CHECK_MEASURE_1 ( "NotifyClients 2" );
         }
         while ( 0 );
         
         appDevices	= GetApplicationDevices ( appName, areaName );
         if ( appDevices )
         {
+            DEBUG_CHECK_START_1 ();
+            
             if ( appDevices->Lock ( "NotifyClients" ) )
             {
                 device = appDevices->devices;
@@ -10780,7 +10925,7 @@ namespace environs
                     ThreadInstance * inst = clientSP.get ();
                     if ( inst )
                     {
-                        if ( inst->filterMode == MEDIATOR_FILTER_AREA_AND_APP && inst->socket != -1 && inst->subscribedToNotifications && inst->aliveLast )
+                        if ( inst->filterMode == MEDIATOR_FILTER_AREA_AND_APP && IsValidFD ( inst->socket ) && inst->subscribedToNotifications && inst->aliveLast )
                         {
                             destsAppArea.push_back ( clientSP );
                         }
@@ -10791,6 +10936,8 @@ namespace environs
                 
                 CVerbVerb ( "NotifyClients: unlock." );
                 appDevices->Unlock ( "NotifyClients" );
+                
+                DEBUG_CHECK_MEASURE_1 ( "NotifyClients 3" );
             }
             
             UnlockApplicationDevices ( appDevices.get () );
@@ -10799,6 +10946,8 @@ namespace environs
         size = dests.size ();
         if ( size > 0 )
         {
+            DEBUG_CHECK_START_1 ();
+            
             sp ( SendLoad ) dataSP = std::make_shared < SendLoad > ();
             if ( dataSP )
             {
@@ -10843,11 +10992,13 @@ namespace environs
 #else
                             CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
 #endif
-							SendBufferOrEnqueue ( dest, dataSP, sendSize );
-                            //PushSend ( dest, dataSP, sendSize );
+							//SendBufferOrEnqueue ( dest, dataSP, sendSize );
+                            PushSend ( dest, dataSP, sendSize );
                         }
                     }
                 }
+                
+                DEBUG_CHECK_MEASURE_1 ( "NotifyClients 4" );
             }
             dests.clear ();
         }
@@ -10855,6 +11006,76 @@ namespace environs
         size = destsAppArea.size ();
         if ( size > 0 )
         {
+            DEBUG_CHECK_START_1 ();
+            
+#ifdef USE_NOTIFY_TMP_VECTORS
+            int                         repeats     = 0;
+            vsp ( ThreadInstance )      tmp;
+            vsp ( ThreadInstance )   *  destsCur    = &destsAppArea;
+            vsp ( ThreadInstance )   *  destsTmp    = &tmp;
+            
+            sp ( SendLoad ) dataSP = std::make_shared < SendLoad > ();
+            if ( dataSP )
+            {
+                MediatorNotify * msg = ( MediatorNotify * ) calloc ( 1, sizeof ( MediatorNotify ) );
+                if ( msg )
+                {
+                    msg->header.cmd0 = MEDIATOR_PROTOCOL_VERSION;
+                    
+                    msg->header.cmd1 = MEDIATOR_CMD_MEDIATOR_NOTIFY;
+                    msg->header.opt0 = MEDIATOR_OPT_NULL;
+                    msg->header.opt1 = MEDIATOR_OPT_NULL;
+                    msg->header.msgID = nctx->notify;
+                    msg->header.notifyDeviceID = deviceID;
+                    
+                    msg->header.sizes [ 0 ] = 1;
+                    msg->header.sizes [ 1 ] = 1;
+                    msg->header.size = sizeof ( MediatorQueryHeader ) + 2;
+                    
+                    dataSP->buffer = msg;
+                    
+                    sendSize = msg->header.size;
+                    
+                RetryDests:
+                    destsTmp->clear ();
+                    size = destsCur->size ();
+                    
+                    for ( size_t i = 0; i < size; i++ )
+                    {
+                        ThreadInstance * dest = (*destsCur) [ i ].get ();
+                        
+                        //CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
+                        
+                        if ( !dest->deviceID || !dest->subscribedToNotifications ) {
+                            continue;
+                        }
+#ifdef DEBUGVerb
+                        SOCKETSYNC sock = dest->socket;
+#endif
+                        if ( dest->aliveLast && dest->socket != -1 ) {
+#ifndef NDEBUG
+                            CVerbArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, sock );
+#else
+                            CVerbArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
+#endif
+                            //SendBufferOrEnqueue ( dest, dataSP, sendSize );
+                            if ( size <= 1 || repeats > 4 ) {
+                                PushSend ( dest, dataSP, sendSize );
+                            }
+                            else if ( !PushSendTry ( dest, dataSP, sendSize ) )
+                                destsTmp->push_back ( (*destsCur) [ i ] );
+                        }
+                    }
+                    
+                    if ( destsTmp->size () > 0 )
+                    {
+                        vsp ( ThreadInstance )   *  t = destsTmp;
+                        destsTmp = destsCur; destsCur = t; repeats++;
+                        goto RetryDests;
+                    }
+                }
+            }
+#else
             sp ( SendLoad ) dataSP = std::make_shared < SendLoad > ();
             if ( dataSP )
             {
@@ -10895,12 +11116,14 @@ namespace environs
 #else
                             CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
 #endif
-							SendBufferOrEnqueue ( dest, dataSP, sendSize );
-                            //PushSend ( dest, dataSP, sendSize );
+							//SendBufferOrEnqueue ( dest, dataSP, sendSize );
+                            PushSend ( dest, dataSP, sendSize );
                         }
                     }
                 }
             }
+#endif
+            DEBUG_CHECK_MEASURE_1 ( "NotifyClients 5" );
             
             destsAppArea.clear ();
         }
@@ -11351,7 +11574,8 @@ namespace environs
             for ( unsigned int i = 0; i < clientThreadCount; i++ )
             {
                 clientThreads [ i ] = new EnvThread ();
-                if ( !clientThreads [ i ] )
+                
+                if ( !clientThreads [ i ] || !clientThreads [ i ]->Init () )
                     return false;
             }
         }
@@ -11641,7 +11865,8 @@ namespace environs
 			for ( unsigned int i = 0; i < sendThreadCount; i++ )
 			{
 				sendThreads [ i ] = new EnvThread ();
-				if ( !sendThreads [ i ] )
+                
+				if ( !sendThreads [ i ] || !sendThreads [ i ]->Init () )
 					return false;
 			}
 		}
@@ -11693,27 +11918,330 @@ namespace environs
 				sendThreads [ i ]->Join ( "StopSendThreads" );
         }
     }
-    
-    
-    void * MediatorDaemon::SendThreadStarter ( void * arg )
-    {
-        StartThreadInstance * ctx = (StartThreadInstance *) arg;
-        if ( !ctx ) {
-            CErr ( "SendThreadStarter: called with (NULL) argument!" );
-            return 0;
-        }
-        
-        MediatorDaemon * mediator = ctx->mediator;
-        
-        mediator->SendThread ( ctx->threadNr );
-        
+
+
+	void * MediatorDaemon::SendThreadStarter ( void * arg )
+	{
+		StartThreadInstance * ctx = ( StartThreadInstance * ) arg;
+		if ( !ctx ) {
+			CErr ( "SendThreadStarter: called with (NULL) argument!" );
+			return 0;
+		}
+
+		MediatorDaemon * mediator = ctx->mediator;
+
+		mediator->SendThread ( ctx->threadNr );
+
 		if ( mediator->sendThreads [ ctx->threadNr ] )
 			mediator->sendThreads [ ctx->threadNr ]->Detach ( "SendThreadStarter" );
+
+		delete ctx;
+		return 0;
+	}
+
+
+#ifdef USE_INTERLOCK_SEND_BUSY_STATE
+
+	void MediatorDaemon::SendContextsCompress ( ThreadInstance * client )
+	{
+		lib::QueueVector    *   queue = &client->sendQueue;
+
+		// Look how many contexts we can pack into one send to encrypt
+		// Max size is half of client buffer of mobile listeners
+		int				contexts = 0;
+		int				remainSize = MEDIATOR_CONTEXT_BUFFER_SIZE_MAX;
+
+		SendContext **	items       = ( SendContext ** ) queue->items;
+		int				cur         = ( int ) queue->next;
+        int				capacity    = ( int ) queue->capacity;
+        unsigned int	lastSize	= 0;
+
+		SendContext *	ctx;
+
+		while ( contexts < ( int ) queue->size_ )
+		{
+			SendContext * item = items [ cur ];
+
+			if ( item->sendBuffer ) {
+				cur--;
+				break;
+			}
+
+            if ( !item->seqNr || item->seqNr >= client->seqNr ) {
+                lastSize = item->size;
+                remainSize -= lastSize;
+            }
+			contexts++;
+
+			if ( remainSize <= 1024 )
+				break;
+
+			cur++;
+			if ( cur >= capacity )
+				cur = 0;
+		}
+
+		if ( remainSize < 0 ) {
+			contexts--;
+			remainSize -= lastSize;
+        }
         
-        delete ctx;
-        return 0;
-    }
-    
+        if ( contexts <= 1 )
+            return;
+
+		int requiredSize = ( MEDIATOR_CONTEXT_BUFFER_SIZE_MAX - remainSize ) + 128;
+
+		char * tmp = ( char * ) malloc ( requiredSize );
+		if ( !tmp )
+			return;
+
+		// Merge previous contexts to current context
+		char *			curPtr  = tmp;
+        unsigned int	curSize = 0;
+        unsigned int    seqNr   = client->seqNr;
+
+        contexts--;
+        
+		for ( int i = 0; i < contexts; ++i )
+        {
+            // Removed previous contexts
+            ctx = ( SendContext * ) queue->pop ();
+            if ( !ctx )
+                continue;
+            
+            if ( !ctx->seqNr || ctx->seqNr >= seqNr )
+            {
+                unsigned int itemSize = ctx->size;
+                
+                if ( ctx->buffer )
+                    memcpy ( curPtr, ctx->buffer, itemSize );
+                else
+                    memcpy ( curPtr, ctx->dataSP->buffer, itemSize );
+                
+                curSize += itemSize;
+                curPtr += itemSize;
+#ifdef DEBUG_DEVICE_ID
+                if ( ctx->seqNr && client->deviceID == debugID ) {
+                    char timeString [ 256 ];
+                    GetTimeString ( timeString, sizeof ( timeString ) );
+                    printf ( "%sSendThread: Prepared response [ %i ].\n", timeString, ctx->seqNr );
+                }
+#endif
+            }
+            
+            delete ctx;
+        }
+        
+        ctx = ( SendContext * ) queue->first ();
+
+		if ( ctx->sendBuffer && ctx->freeSendBuffer ) {
+			free ( ctx->sendBuffer );
+			ctx->sendBuffer = 0; ctx->freeSendBuffer = false;
+		}
+		if ( ctx->buffer )
+			free ( ctx->buffer );
+		else
+			ctx->dataSP = 0;
+
+		ctx->buffer = tmp;
+		ctx->size   = curSize;
+	}
+
+
+	void MediatorDaemon::SendThread ( int threadNr )
+	{
+		CLogArg ( "SendThread [ %i ]: started ...", threadNr );
+
+		pthread_setname_current_envthread ( "MediatorDaemon::SendThread" );
+
+		if ( !isRunning )
+			return;
+
+		int rc, clientCount = 0, clientsToRetry = 0, remainSendContexts;		
+
+		pthread_mutex_t     *   lock;
+		lib::QueueVector    *   queue;
+		int						emptyRound;
+		int						timeout = 100;
+
+		while ( sendThreadsAlive )
+		{
+			emptyRound = 0;
+
+#ifdef ENABLE_WINSOCK_SEND_THREADS
+			if ( ( rc = WSAWaitForMultipleEvents ( 2, sendEvents, FALSE, timeout, FALSE ) ) == WSA_WAIT_TIMEOUT ) {
+				if ( timeout < 1000 )
+					timeout += 200;
+			}
+			else {
+				WSAResetEvent ( sendEvents [ 0 ] );
+				WSAResetEvent ( sendEvents [ 1 ] );
+				timeout = 100;
+			}
+#else
+			//int waitTime = ( clientCount && (clientsSkipped == clientCount) ) ? 1000 : 10000;
+			//int waitTime = ( clientCount && ( clientsToRetry == clientCount ) ) ? 1000 : 10000;
+
+			rc = sendEvent.WaitOne ( "SendThread", timeout, true, true );
+			if ( rc < 0 ) {
+				if ( timeout < 1000 )
+					timeout += 200;
+			}
+			else
+				timeout = 100;
+
+			sendEvent.ResetSync ( "SendThread", false );
+
+			sendEvent.UnlockCond ( "SendThread" );
+#endif
+		DoWork:
+			clientsToRetry = 0; clientCount = 0; remainSendContexts = 0;
+
+			// Look for an appropriate context to send
+			// and put them into the temporary vector     
+			if ( !sessions.Lock1 ( "SendThread sessions" ) )
+				break;
+
+			vsp ( ThreadInstance )  tmpClients ( sessions.cache );
+
+			if ( !sessions.Unlock1 ( "SendThread sessions" ) )
+				break;
+
+			if ( tmpClients.size () == 0 )
+				continue;
+
+			vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
+
+			while ( isRunning && sessionItv != tmpClients.end () )
+			{
+				ThreadInstance * client = sessionItv->get ();
+
+                int state = 1;
+                
+				if ( client && IsValidFD ( client->socket ) && client->aliveLast )
+				{
+                    state = (int) ___sync_val_compare_and_swap ( &client->sendBusy1, 0, 1 );
+                    if ( state == 1 )
+                        goto DoNextClient;
+                    
+					CVerbArg ( "SendThread: Checking deviceID [ 0x%X : %s ] socket [ %i ]", client->deviceID, client->ips, client->socket );
+
+                    lock  = &client->sendQueueLock;
+
+#ifdef ENABLE_SEND_THREAD_TRYLOCK
+					if ( pthread_mutex_trylock ( lock ) )
+						goto DoNextClient;
+#else
+					if ( !LockAcquire ( lock, "SendThread" ) )
+                        goto DoNextClient;
+#endif
+                    queue = &client->sendQueue;
+
+					if ( client->sendFails > 20 || queue->size_ <= 0 )
+					{
+						LockRelease ( lock, "SendThread" );
+						goto DoNextClient;
+                    }
+                    
+                    // Delete all contexts that have been sent
+                    while ( queue->size_ > 0 )
+                    {
+                        SendContext * ctx = ( SendContext * ) queue->first ();
+                        if ( !ctx || !ctx->done )
+                            break;
+                        
+                        queue->pop ();
+                        delete ctx;
+                    }
+
+					clientCount++;
+
+					while ( queue->size_ > 0 )
+					{
+						// Handle the first queue element
+						SendContext * ctx = ( SendContext * ) queue->first ();
+
+#ifdef USE_SEND_THREAD_MULTIPLE_CONTEXTS
+						if ( client->version < '7' || queue->size_ <= 1 || ctx->sendBuffer ) {
+							LockRelease ( lock, "SendThread" );
+
+							if ( !ctx->seqNr || ctx->seqNr >= client->seqNr )
+								rc = SendBuffer ( client, ctx );
+							else
+								rc = 1;
+						}
+						else {
+							SendContextsCompress ( client );
+
+							ctx = ( SendContext * ) queue->first ();
+
+							LockRelease ( lock, "SendThread" );
+
+							if ( ctx )
+								rc = SendBuffer ( client, ctx );
+							else
+								goto DoNextClient;
+						}
+#else
+						LockRelease ( lock, "SendThread" );
+
+						rc = SendBuffer ( client, ctx );
+#endif
+						if ( rc <= 0 ) {
+							// -1 - Error.
+							//  0 - Only partly send 
+							clientsToRetry++;
+							goto DoNextClient;
+						}
+                        
+#ifdef ENABLE_SEND_THREAD_TRYLOCK
+                        if ( pthread_mutex_trylock ( lock ) )
+                            goto DoNextClient;
+#else
+                        if ( !LockAcquire ( lock, "SendThread" ) )
+                            goto DoNextClient;
+#endif
+
+						queue->pop ();
+
+						delete ctx;
+					}
+
+					LockRelease ( lock, "SendThread" );
+				}
+
+			DoNextClient:
+                if ( state == 0 )
+                    ___sync_val_compare_and_swap ( &client->sendBusy1, 1, 0 );
+
+				remainSendContexts += ( int ) client->sendQueue.size_;
+
+				++sessionItv;
+			}
+
+			tmpClients.clear ();
+
+			if ( remainSendContexts > 0 || clientsToRetry != clientCount
+#ifndef ENABLE_WINSOCK_SEND_THREADS
+				|| sendEvent.IsSetDoReset ()
+#endif    
+				)
+			{
+				emptyRound = 0; timeout = 100;
+				goto DoWork;
+			}
+
+			emptyRound++;
+			if ( emptyRound <= 2 ) {
+				timeout = 10;
+				goto DoWork;
+			}
+		}
+
+		CLogArg ( "SendThread [ %i ]: bye bye ...", threadNr );
+	}
+
+#else    
     
     void  MediatorDaemon::SendThread ( int threadNr )
     {
@@ -11767,7 +12295,7 @@ namespace environs
 
             // Look for an appropriate context to send
             // and put them into the temporary vector     
-            if ( !sessions.Lock ( "SendThread" ) )
+            if ( !sessions.Lock ( "SendThread S." ) )
                 break;
 
 			msp ( long long, ThreadInstance )::iterator sessionIt = sessions.list.begin ();
@@ -11784,7 +12312,7 @@ namespace environs
                 ++sessionIt;
             }
             
-            if ( !sessions.Unlock ( "SendThread" ) )
+            if ( !sessions.Unlock ( "SendThread S." ) )
                 break;
 
 			if ( tmpClients.size () == 0 )
@@ -11802,7 +12330,7 @@ namespace environs
                     
                     lock = &client->sendQueueLock;
                     
-                    if ( !LockAcquire ( lock, "SendThread" ) )
+                    if ( !LockAcquire ( lock, "SendThread 1." ) )
                         goto DoNextClient;
                     
                     if ( client->sendBusy || client->sendFails > 20 )
@@ -11968,7 +12496,7 @@ namespace environs
                             goto DoNextClient;
                         }
                         
-                        if ( !LockAcquire ( lock, "SendThread" ) )
+                        if ( !LockAcquire ( lock, "SendThread 2." ) )
                             goto DoNextClient;
                         
                         queue->pop ();
@@ -11982,7 +12510,8 @@ namespace environs
                 }
                 
 			DoNextClient:
-				remainSendContexts += ( int ) client->sendQueue.size_;
+                if ( client )
+                    remainSendContexts += ( int ) client->sendQueue.size_;
 
                 ++sessionItv;
             }
@@ -12007,8 +12536,10 @@ namespace environs
         }        
         
         CLogArg ( "SendThread [ %i ]: bye bye ...", threadNr );
-    }
-    
+    }    
+#endif
+
+
 #ifndef NDEBUG
     size_t maxQueueSize = 0;
 #endif
@@ -12024,6 +12555,8 @@ namespace environs
             ctx->dataSP = dataSP;
             ctx->size	= size;
             
+            DEBUG_CHECK_START ();
+            
             if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
                 break;
 
@@ -12034,6 +12567,8 @@ namespace environs
                 maxQueueSize = client->sendQueue.size_;
 #endif            
             LockReleaseA ( client->sendQueueLock, "PushSend" );
+            
+            DEBUG_CHECK_MEASURE ( "PushSend" );
             
             if ( !success )
                 break;
@@ -12071,6 +12606,8 @@ namespace environs
 
             ctx->size   = size;
             ctx->seqNr  = seqNr;
+            
+            DEBUG_CHECK_START ();
 
             if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
                 break;
@@ -12082,6 +12619,8 @@ namespace environs
                 maxQueueSize = client->sendQueue.size_;
 #endif
             LockReleaseA ( client->sendQueueLock, "PushSend" );
+            
+            DEBUG_CHECK_MEASURE ( "PushSend" );
             
 			if ( !success )
 				break;
@@ -12110,24 +12649,28 @@ namespace environs
 
 		SendContext * ctx = new SendContext ();
 		while ( ctx )
-		{
+        {
+#ifdef XCODE_ANALYZER_BUG
+            ctx->freeSendBuffer	= false;
+#endif
 			if ( copy ) {
 				ctx->buffer = ( char * ) malloc ( toSendSize );
 				if ( !ctx->buffer )
 					break;
 
-				memcpy ( ctx->buffer, toSend, toSendSize );
+                memcpy ( ctx->buffer, toSend, toSendSize );
 			}
 			else {
 				ctx->buffer			= 0;
-				ctx->size			= 0;
+                ctx->size			= 0;
 			}
 
             ctx->seqNr          = seqNr;
 			ctx->sendBuffer		= toSend;
 			ctx->sendSize		= toSendSize;
-			ctx->sendCurrent	= toSendCurrent;
-			ctx->freeSendBuffer	= true;
+            ctx->sendCurrent	= toSendCurrent;
+            
+            DEBUG_CHECK_START ();
 
 			if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
 				break;
@@ -12138,11 +12681,16 @@ namespace environs
 			if ( client->sendQueue.size_ > maxQueueSize )
 				maxQueueSize = client->sendQueue.size_;
 #endif
-			LockReleaseA ( client->sendQueueLock, "PushSend" );
+            LockReleaseA ( client->sendQueueLock, "PushSend" );
+            
+            DEBUG_CHECK_MEASURE ( "PushSend" );
 
 			if ( !success )
-				break;
-
+                break;
+            
+            if ( !copy )
+                ctx->freeSendBuffer	= true;
+            
 #ifdef ENABLE_WINSOCK_SEND_THREADS
 			WSASetEvent ( sendEvents [ 1 ] );
 #else
@@ -12172,7 +12720,9 @@ namespace environs
 			ctx->sendBuffer		= toSend;
 			ctx->sendSize		= toSendSize;
 			ctx->sendCurrent	= toSendCurrent;
-			ctx->freeSendBuffer	= ( dataSP->buffer != toSend );
+            ctx->freeSendBuffer	= ( dataSP->buffer != toSend );
+            
+            DEBUG_CHECK_START ();
 
 			if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
 				break;
@@ -12183,7 +12733,9 @@ namespace environs
 			if ( client->sendQueue.size_ > maxQueueSize )
 				maxQueueSize = client->sendQueue.size_;
 #endif
-			LockReleaseA ( client->sendQueueLock, "PushSend" );
+            LockReleaseA ( client->sendQueueLock, "PushSend" );
+            
+            DEBUG_CHECK_MEASURE ( "PushSend" );
 
 			if ( !success )
 				break;
@@ -12203,8 +12755,46 @@ namespace environs
 			delete ctx;
 		}
 		return false;
-	}
-
+    }
+    
+#ifdef USE_NOTIFY_TMP_VECTORS
+    bool MediatorDaemon::PushSendTry ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size )
+    {
+        bool success = false;
+        
+        if ( pthread_mutex_trylock ( &client->sendQueueLock ) )
+            return false;
+        
+        SendContext * ctx = new SendContext ();
+        if ( ctx )
+        {
+            ctx->buffer = 0;
+            ctx->dataSP = dataSP;
+            ctx->size	= size;
+            
+            if ( IsValidFD ( ( int ) client->socket ) )
+                success = client->sendQueue.push ( ctx );
+            
+            LockReleaseA ( client->sendQueueLock, "PushSendTry" );
+            
+            if ( !success ) {
+                delete ctx;
+                return false;
+            }
+            
+#ifdef ENABLE_WINSOCK_SEND_THREADS
+            WSASetEvent ( sendEvents [ 1 ] );
+#else
+            sendEvent.Notify ( "PushSendTry" );
+#endif
+            return true;
+        }
+        
+        LockReleaseA ( client->sendQueueLock, "PushSendTry" );
+        
+        return false;
+    }
+#endif
 
     int MediatorDaemon::SendBuffer ( ThreadInstance * client, SendContext * ctx )
     {
@@ -12239,12 +12829,16 @@ namespace environs
                 char * cipher = 0;
                 toSendLen = ctx->size;
                 
+                DEBUG_CHECK_START ();
+                
                 if ( !AESEncrypt ( &client->aes, sendLoad, &toSendLen, &cipher ) || !cipher ) {
                     CErrArgID ( "SendBuffer [ %i ]: Failed to encrypt AES message.", client->socket );
                     
                     // Failed to encrypt. For now, we just skip this send context and go on to the next one
                     return 1;
                 }
+                
+                DEBUG_CHECK_MEASURE ( "SendBuffer AESEncrypt" );
                 
 				ctx->freeSendBuffer = true;
                 ctx->sendBuffer		= cipher;
@@ -12279,6 +12873,8 @@ namespace environs
                 if ( ctx->sendCurrent == toSendLen ) {
                     client->sendFails = 0;
                     rc = 1;
+                    ctx->done = true;
+                    
 #ifdef DEBUG_DEVICE_ID
                     if ( deviceID == debugID && ctx->seqNr ) {
                         char timeString [ 256 ];
@@ -12315,11 +12911,15 @@ namespace environs
 		if ( IsInvalidFD ( ( int ) client->socket ) )
 			return -1;
 
-		if ( client->encrypt ) {
+        if ( client->encrypt ) {
+            DEBUG_CHECK_START ();
+            
 			if ( !AESEncrypt ( &client->aes, ( char * ) msg, &toSendLen, &cipher ) || !cipher ) {
 				CErrArgID ( "SendBuffer [ %i ]: Failed to encrypt AES message.", client->socket );
 				return rc;
-			}
+            }
+            
+            DEBUG_CHECK_MEASURE ( "SendBuffer AESEncrypt" );
 			msg = cipher;
 		}
 
@@ -12376,10 +12976,14 @@ namespace environs
 			return false;
 
 		if ( client->encrypt ) {
+            DEBUG_CHECK_START ();
+            
 			if ( !AESEncrypt ( &client->aes, ( char * ) msg, &toSendLen, &cipher ) || !cipher ) {
 				CErrArgID ( "SendBufferOrEnqueue [ %i ]: Failed to encrypt AES message.", client->socket );
 				return false;
 			}
+            
+            DEBUG_CHECK_MEASURE ( "SendBufferOrEnqueue AESEncrypt" );
 			toSend = cipher;
 		}
 
@@ -12451,11 +13055,15 @@ namespace environs
 		if ( IsInvalidFD ( ( int ) client->socket ) )
 			return -1;
 
-		if ( client->encrypt ) {
+        if ( client->encrypt ) {
+            DEBUG_CHECK_START ();
+            
 			if ( !AESEncrypt ( &client->aes, ( char * ) msg, &toSendLen, &cipher ) || !cipher ) {
 				CErrArgID ( "SendBufferOrEnqueue [ %i ]: Failed to encrypt AES message.", client->socket );
 				return rc;
-			}
+            }
+            
+            DEBUG_CHECK_MEASURE ( "SendBufferOrEnqueue AESEncrypt" );
 			msg = cipher;
 		}
 
@@ -12504,10 +13112,12 @@ namespace environs
         std::time_t now = std::time ( 0 );
         
         const unsigned long long maxAliveSecs = 60 * 60 * 1;
-
+        
+        DEBUG_CHECK_START ();
+        
 		if ( !areasMap.Lock ( "CheckProjectValues" ) )
-			return;
-
+            return;
+        
 		// Collect areas
 		msp ( string, AppsList ) tmpAreas;
 		for ( msp ( string, AppsList )::iterator it = areasMap.list.begin (); it != areasMap.list.end (); ++it )
@@ -12520,15 +13130,19 @@ namespace environs
 		}
 
 		if ( !areasMap.Unlock ( "CheckProjectValues" ) )
-			return;
-
+            return;
+        
+        DEBUG_CHECK_MEASURE ( "CheckProjectValues 1" );
+        
 		// Save areas
 		for ( msp ( string, AppsList )::iterator it = tmpAreas.begin (); it != tmpAreas.end (); ++it )
 		{
 			sp ( AppsList ) appsList = it->second;
 			if ( !appsList )
-				continue;
-
+                continue;
+            
+			DEBUG_CHECK_START_1 ();
+            
 			if ( !appsList->Lock ( "CheckProjectValues" ) )
 				continue;
 
@@ -12543,16 +13157,18 @@ namespace environs
 				tmpListValues [ ita->first ] = listValues;
 			}
 
-			appsList->Unlock ( "CheckProjectValues" );
-
-
+            appsList->Unlock ( "CheckProjectValues" );
+            
+            DEBUG_CHECK_MEASURE_1 ( "CheckProjectValues 2" );
+            
 			for ( msp ( string, ListValues )::iterator ita = tmpListValues.begin (); ita != tmpListValues.end (); ita++ )
 			{
-				sp ( ListValues ) listValues = ita->second;
-
+                sp ( ListValues ) listValues = ita->second;
+                
+				DEBUG_CHECK_START_1 ();
+                
 				if ( !listValues || !listValues->Lock ( "CheckProjectValues" ) )
 					continue;
-
 
 				for ( msp ( string, ValuePack )::iterator itv = listValues->values.begin (); itv != listValues->values.end (); )
 				{
@@ -12569,7 +13185,9 @@ namespace environs
 						itv++;
 				}
 
-				listValues->Unlock ( "CheckProjectValues" );
+                listValues->Unlock ( "CheckProjectValues" );
+                
+                DEBUG_CHECK_MEASURE_1 ( "CheckProjectValues 3" );
 			}
 		}
 	}
@@ -12617,35 +13235,26 @@ namespace environs
 		{
 			CVerbVerb ( "Watchdog: checking..." );
 
-			bool reDo = false;
+            bool reDo = false;
 
-			if ( !sessions.Lock ( "Watchdog" ) ) break;
+			if ( !sessions.Lock1 ( "Watchdog" ) ) break;
 
-			INTEROPTIMEVAL lastCheckTime = checkLast;
+			vsp ( ThreadInstance ) tmpClients ( sessions.cache );
 
-			checkLast = GetEnvironsTickCount ();
-
-			INTEROPTIMEVAL compensate = ( checkLast - lastCheckTime );
-
-			if ( compensate > checkDuration )
-				compensate -= checkDuration;
-			else
-				compensate = 0;
-
-			msp ( long long, ThreadInstance )::iterator sessionIt = sessions.list.begin ();
-
-			vsp ( ThreadInstance ) tmpClients;
-
-			while ( sessionIt != sessions.list.end () )
-			{
-				tmpClients.push_back ( sessionIt->second );
-				++sessionIt;
-			}
-
-			if ( !sessions.Unlock ( "Watchdog" ) ) break;
-
-
-			vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
+            if ( !sessions.Unlock1 ( "Watchdog" ) ) break;
+            
+            INTEROPTIMEVAL lastCheckTime = checkLast;
+            
+            checkLast = GetEnvironsTickCount ();
+            
+            INTEROPTIMEVAL compensate = ( checkLast - lastCheckTime );
+            
+            if ( compensate > checkDuration )
+                compensate -= checkDuration;
+            else
+                compensate = 0;
+            
+            vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
 
 			while ( sessionItv != tmpClients.end () )
 			{

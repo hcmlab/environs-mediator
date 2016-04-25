@@ -29,6 +29,7 @@ namespace environs
 	class AsyncWorker;
 	class NotificationQueue;
 	class MediatorDaemon;
+    class MediatorClient;
 
 	namespace lib
 	{
@@ -41,6 +42,7 @@ namespace environs
             friend class environs::AsyncWorker;
 			friend class environs::NotificationQueue;
             friend class environs::MediatorDaemon;
+            friend class environs::MediatorClient;
 
 		public:
 			/** Constructor */

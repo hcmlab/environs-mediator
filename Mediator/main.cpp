@@ -127,9 +127,6 @@ int main(int argc, char* argv[])
 	// Release mediator keys
 	mediator->ReleaseKeys ();
     
-
-
-
 	delete mediator;
 
     Mediator::DisposeClass ();

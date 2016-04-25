@@ -79,6 +79,11 @@ namespace environs {
 #define		OBJ_RELEASE(obj)					if(obj) { obj->Release(); obj = 0; }
 
 #define		Zero(mem)							memset(&mem,0,sizeof(mem))
+#ifdef _WIN32
+#	define	Zeroh(mem)							mem = nill
+#else
+#	define	Zeroh(mem)							Zero(mem)
+#endif
 
 #ifdef CLI_CPP
 #	define	Zeros(mem)							mem = nill

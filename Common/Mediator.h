@@ -30,11 +30,13 @@
 
 #	define USE_LOCKFREE_SOCKET_ACCESS
 
+#	define USE_INTERLOCK_SEND_BUSY_STATE
+
 #   define ENABLE_MEDIATOR_LOCK
 //#   define ENABLE_MEDIATOR_SEND_LOCK
 
 #	ifndef NDEBUG
-#		define	TRACE_MEDIATOR_OBJECTS
+//#		define	TRACE_MEDIATOR_OBJECTS
 #	endif
 #else
 #   define  DAEMONEXP(exp)
@@ -185,7 +187,8 @@ const unsigned int		maxStuntSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
 
 namespace environs	/// Namespace: environs ->
 {
-	extern bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext );
+    extern bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext );
+    extern bool BuildAppAreaID ( char * sizesDst, int deviceID, char idType, const char * app, const char * area );
 	extern bool SetNonBlockSocket ( int sock, bool set, const char * name );
     
     extern bool SocketTimeout ( int sock, int recvSec, int sendSec, bool isMS = false );
@@ -285,11 +288,9 @@ namespace environs	/// Namespace: environs ->
     {
     public:
         SendContext () : buffer ( 0 ),
-        
 #   ifdef MEDIATORDAEMON
-        seqNr ( 0 ),
+        done ( false ), seqNr ( 0 ),
 #   endif
-        
         freeSendBuffer ( false ), sendBuffer ( 0 ), sendCurrent ( 0 ), sendSize ( 0 )
         {
 #	ifdef TRACE_MEDIATOR_OBJECTS
@@ -301,7 +302,7 @@ namespace environs	/// Namespace: environs ->
         
         ~SendContext ()
         {
-            if ( freeSendBuffer )
+            if ( freeSendBuffer && sendBuffer )
                 free ( sendBuffer );
             
             if ( buffer )
@@ -325,6 +326,7 @@ namespace environs	/// Namespace: environs ->
         unsigned int            size;
         
 #   ifdef MEDIATORDAEMON
+        bool                    done;
         unsigned int            seqNr;
 #   endif
         
@@ -332,6 +334,11 @@ namespace environs	/// Namespace: environs ->
         char *                  sendBuffer;
         unsigned int            sendCurrent;
         unsigned int            sendSize;
+        
+#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST
+        struct 	sockaddr_in		addr;
+        int                     sock;
+#endif
     };
     
 #	if defined(TRACE_MEDIATOR_OBJECTS) && defined(MEDIATORDAEMON)
@@ -381,7 +388,11 @@ namespace environs	/// Namespace: environs ->
         
         CLIENTEXP ( INTEROPTIMEVAL  stuntSocketRegisteredTime; )
 
+#ifdef ENABLE_CONCURRENT_STUNT
+        std::map < std::string, unsigned int > stuntSocketsLog;
+#else
         SOCKETSYNC				stuntSocket;
+#endif
         pthread_mutex_t         stuntSocketLock;
         
 		unsigned short			stuntPort;
@@ -407,14 +418,21 @@ namespace environs	/// Namespace: environs ->
         DAEMONEXP ( bool subscribedToMessages );
         
 #ifdef __cplusplus
-
-		sp ( ThreadInstance )	  clientSP;
-		sp ( DeviceInstanceNode ) deviceSP;
+                
+        void                        SendTcpFin ();
+        
+		sp ( ThreadInstance )       clientSP;
+		sp ( DeviceInstanceNode )   deviceSP;
         
         
 #if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
         lib::QueueVector			sendQueue;
-        bool                        sendBusy;
+
+#	ifdef USE_INTERLOCK_SEND_BUSY_STATE
+		LONGSYNC                    sendBusy1;
+#	else
+		bool						sendBusy;
+#	endif
         pthread_mutex_t				sendQueueLock;
 
 #	ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
@@ -452,6 +470,7 @@ namespace environs	/// Namespace: environs ->
 	ThreadInstance;
 
     extern int GetStuntSocket ( ThreadInstance * inst );
+    extern void AddStuntSocket ( ThreadInstance * inst, int sock );
     
     void DisposeSendContexts ( ThreadInstance * client );
     
@@ -573,7 +592,16 @@ namespace environs	/// Namespace: environs ->
         void                    Dispose ();
 #endif
 	}
-	MediatorThreadInstance;
+    MediatorThreadInstance;
+    
+    
+    typedef struct MediatorResponseBuffer
+    {
+        int         size;
+        char    *   buffer;
+        bool        success;
+    }
+    MediatorResponseBuffer;
 
 
 	typedef struct MediatorConnection
@@ -593,7 +621,7 @@ namespace environs	/// Namespace: environs ->
         bool                    longReceive;
         
 #ifdef MEDIATOR_RESPONSE_MAP
-        std::map < int, char * > responseBuffers;
+        std::map < int, MediatorResponseBuffer * > responseBuffers;
 #else
         char				*	responseBuffer;
 #endif
@@ -696,8 +724,7 @@ namespace environs	/// Namespace: environs ->
 
 #if (!defined(MEDIATORDAEMON) && defined(__cplusplus))
 		Instance			*	env;
-#endif
-        
+#endif        
 		bool					isRunning;
 		bool					broadcastRunning;
 		bool					aliveRunning;
@@ -728,8 +755,16 @@ namespace environs	/// Namespace: environs ->
 		int						broadcastSocket;
         ThreadSync              broadcastThread;
 
-        bool                    PrepareAndStartBroadcastThread ( bool runThread = true );
+#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST_WINSOCK
+		HANDLE					broadcastEvent;
+#endif
 
+        bool                    PrepareAndStartBroadcastThread ( bool runThread = true );
+        
+#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST
+        virtual bool            PushSendBC ( bool copy, void * buffer, unsigned int size, unsigned int ip, unsigned short port ) { return false; };
+        virtual bool            SendBufferOrEnqueueBC ( bool copy, void * buffer, unsigned int size, unsigned int ip, unsigned short port ) { return false; };        
+#endif
 		bool					IsLocalIP ( unsigned int ip );
         static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
         
@@ -745,7 +780,7 @@ namespace environs	/// Namespace: environs ->
 		virtual void			RemoveDevice ( DeviceInstanceNode * device, bool useLock = true ) = 0;
 
 		int                     randBroadcastToken;
-
+        
 #ifdef __cplusplus
         
 #	ifdef MEDIATORDAEMON
@@ -1127,7 +1162,7 @@ namespace environs	/// Namespace: environs ->
 		unsigned int	sizePayload;
 		char			payload;
 	}
-	StuntSockRegPack;
+    StuntSockRegPack;
 
     
     /**
@@ -1146,6 +1181,24 @@ namespace environs	/// Namespace: environs ->
     
     
     NET_PACK_PUSH1
+
+		typedef struct AppAreaBuffer
+	{
+		char            appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+	}
+	NET_PACK_ALIGN AppAreaBuffer;
+
+
+	/**
+	* Mediator stunt socket registration message structure
+	*/
+	typedef struct StuntSockRegTarget
+	{
+		unsigned int	size;
+		char        *   key;
+	}
+	NET_PACK_ALIGN StuntSockRegTarget;
+
     
     /**
      * Mediator STUNT request message structure

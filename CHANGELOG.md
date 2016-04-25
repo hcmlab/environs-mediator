@@ -1,3 +1,17 @@
+### v 0.9.8.6
+
+---------------------------
+
+* Added: Code for concurrent stunt in mediator layer
+* Updated: Mediator server layer send thread contexts compress algorithm
+* Updated: Mediator server push to send queue with trylock
+* Added: Mediator server onion listener
+* Added: Lock guard for thread creation
+* Added: Mediator server send thread interlock usage
+* Changed: ThreadSync.autoreset default to false
+* Added: Send quit message in mediator layer communication
+
+
 ### v 0.9.8.4
 
 ---------------------------

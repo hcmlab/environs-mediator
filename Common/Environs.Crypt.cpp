@@ -42,7 +42,6 @@
 #   endif
 
 #   if (defined(_WIN32) && !defined(USE_OPENSSL))
-#       include <Wincrypt.h>
 #       include <Strsafe.h>
 
 #       pragma comment ( lib, "Crypt32.lib" )
@@ -97,6 +96,9 @@ namespace environs
     pDisposePublicKey       DisposePublicKey        = 0;
     pDisposePrivateKey      DisposePrivateKey       = 0;
 
+#ifdef _WIN32  
+	pDecryptMessageWithKeyHandles         DecryptMessageWithKeyHandles = 0;
+#endif
 	
 	const char * ConvertToHexString ( const char * src, unsigned int length )
 	{
@@ -1039,7 +1041,7 @@ namespace environs
 		
 		if ( !ret ) {
 			DWORD err = GetLastError ( );
-			CErrArg ( "GenerateCertificate: Last error [0x%08x] / [%u]", err, err );
+			CErrArg ( "GenerateCertificate: Last error [ 0x%08x ] / [ %u ]", err, err );
 		}
 
 		if ( certSubj )	free ( certSubj );
@@ -1074,7 +1076,7 @@ namespace environs
 		/// Determine format of certificate
 		unsigned int format = ( certProp >> 16 ) & 0xFF;
         
-		CVerbArgID ( "EncryptMessage: Encrypting buffer sized [%i]", *msgLen );
+		CVerbArgID ( "EncryptMessage: Encrypting buffer sized [ %i ]", *msgLen );
 
 //		CVerbArgID ( "EncryptMessage: Cert size [%u] [%s]", certSize, ConvertToHexSpaceString ( cert + 4, certSize ) );
 //
@@ -1198,7 +1200,7 @@ namespace environs
 
 				certBuffer = ( BYTE * ) malloc ( certBufferSize );
 				if ( !certBuffer ) {
-					CErrArgID ( "EncryptMessage: Memory alloc failed [%u].", certBufferSize ); break;
+					CErrArgID ( "EncryptMessage: Memory alloc failed [ %u ].", certBufferSize ); break;
 				}
 
 				if ( !CryptStringToBinaryA ( ( char * ) certBin, certSize, CRYPT_STRING_ANY, certBuffer, &certBufferSize, NULL, NULL ) || !certBufferSize )
@@ -1266,12 +1268,12 @@ namespace environs
 			*msgLen = ciphersLen;
 			ret = true;
 
-			CVerbArgID ( "EncryptMessage: Encrypted message size [%i]", ciphersLen );
+			CVerbArgID ( "EncryptMessage: Encrypted message size [ %i ]", ciphersLen );
 		} 
 		while ( 0 );
 
 		if ( !ret ) {
-			CErrArgID ( "EncryptMessage: Last error [0x%08x]", GetLastError ( ) );
+			CErrArgID ( "EncryptMessage: Last error [ 0x%08x ]", GetLastError ( ) );
 		}
 
 		free_n ( certBuffer );
@@ -1448,7 +1450,7 @@ namespace environs
 			if ( success ) {
 				*decryptedSize = plainSize;
 				plainText [plainSize] = 0;
-				CVerbVerbArg ( "DecryptMessage: size [%u] ", plainSize );
+				CVerbVerbArg ( "DecryptMessage: size [ %u ] ", plainSize );
 
 				*decrypted = plainText;
 				plainText = 0;
@@ -1457,7 +1459,7 @@ namespace environs
 		while ( 0 );
 
 		if ( !success ) {
-			CErrArg ( "DecryptMessage: Last error [0x%08x]", GetLastError ( ) );
+			CErrArg ( "DecryptMessage: Last error [ 0x%08x ]", GetLastError ( ) );
 		}
 
 		if ( plainText )	free ( plainText );
@@ -1475,7 +1477,88 @@ namespace environs
 #endif
 		return success;
     }
-    
+
+
+#ifdef _WIN32
+	bool cryptDecryptMessageWithKeyHandles ( HCRYPTPROV hCSP, HCRYPTKEY hKey, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize )
+	{
+		if ( !hCSP || !hKey || !msg || !msgLen || !decrypted || !decryptedSize ) {
+			CErr ( "cryptDecryptMessageWithKeyHandles: Called with at least one null argument." );
+			return false;
+		}
+		CVerbArg ( "cryptDecryptMessageWithKeyHandles: Decrypting msg of size [ %i ]", msgLen );
+
+		bool success = false;
+
+#ifdef ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
+		if ( pthread_mutex_lock ( &privKeyMutex ) ) {
+			CErr ( "cryptDecryptMessageWithKeyHandles: Failed to acquire lock." );
+			return false;
+		}
+#endif
+		char		*	plainText = 0;
+		DWORD			plainSize = 0;
+
+		do
+		{
+			plainText = ( char * ) malloc ( msgLen + 2 );
+			if ( !plainText ) {
+				CErrArg ( "cryptDecryptMessageWithKeyHandles: Memory allocation [ %i bytes ] failed.", msgLen ); break;
+			}
+
+			for ( unsigned int i = 0; i < msgLen; i++ )
+				plainText [ i ] = msg [ msgLen - 1 - i ];
+
+			plainSize = msgLen;
+			if ( CryptDecrypt ( hKey, NULL, TRUE, CRYPT_OAEP, ( BYTE * ) plainText, &plainSize ) && plainSize )
+				success = true;
+			else
+			{
+				CVerb ( "cryptDecryptMessageWithKeyHandles: CryptDecrypt failed with OAEP padding." );
+
+				plainSize = msgLen;
+				if ( CryptDecrypt ( hKey, NULL, TRUE, 0, ( BYTE * ) plainText, &plainSize ) && plainSize )
+					success = true;
+				else
+				{
+					CVerb ( "cryptDecryptMessageWithKeyHandles: CryptDecrypt failed without specific padding flags." );
+
+					plainSize = msgLen;
+					if ( CryptDecrypt ( hKey, NULL, TRUE, CRYPT_DECRYPT_RSA_NO_PADDING_CHECK, ( BYTE * ) plainText, &plainSize ) && plainSize )
+						success = true;
+					else {
+						CErr ( "cryptDecryptMessageWithKeyHandles: CryptDecrypt failed with no padding check." ); break;
+					}
+				}
+			}
+
+			if ( success ) {
+				*decryptedSize = plainSize;
+				plainText [ plainSize ] = 0;
+				CVerbVerbArg ( "cryptDecryptMessageWithKeyHandles: size [%u] ", plainSize );
+
+				*decrypted = plainText;
+				plainText = 0;
+			}
+		}
+		while ( 0 );
+
+		if ( !success ) {
+			CErrArg ( "cryptDecryptMessageWithKeyHandles: Last error [ 0x%08x ]", GetLastError () );
+		}
+
+		if ( plainText )	free ( plainText );
+
+#ifdef ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
+		if ( pthread_mutex_unlock ( &privKeyMutex ) ) {
+			CErr ( "cryptDecryptMessageWithKeyHandles: Failed to release lock." );
+			success = false;
+		}
+#endif
+		return success;
+	}
+#endif
+
     
     void cryptReleaseCert ( int deviceID )
     {
@@ -1543,7 +1626,7 @@ namespace environs
 		CVerb ( "AESDeriveKeyContexts" );
 
 		if ( !key || keyLen < AES_SHA256_KEY_LENGTH || !ctx ) {
-			CErrArg ( "AESDeriveKeyContexts: Called with at least one NULL argument or keyLen [%u] < [%u].", keyLen, AES_SHA256_KEY_LENGTH ); return false;
+			CErrArg ( "AESDeriveKeyContexts: Called with at least one NULL argument or keyLen [ %u ] < [ %u ].", keyLen, AES_SHA256_KEY_LENGTH ); return false;
 		}
 
 		char		*	blob		= 0;
@@ -1601,7 +1684,7 @@ namespace environs
                 CWarn ( "AESDeriveKeyContexts: Failed to decrypt." );
             }
     
-			CVerbVerbArg ( "AESDeriveKeyContexts: AES key [%s]", ConvertToHexSpaceString ( blob, AES_SHA256_KEY_LENGTH ) );
+			CVerbVerbArg ( "AESDeriveKeyContexts: AES key [ %s ]", ConvertToHexSpaceString ( blob, AES_SHA256_KEY_LENGTH ) );
 
 			ctx->size = AES_SHA256_KEY_LENGTH;
 			ret = true;
@@ -1705,7 +1788,7 @@ namespace environs
 				CErr ( "AESDeriveKeyContexts: CryptGetHashParam HP_HASHVAL failed." ); break;
 			}
 
-			CVerbVerbArg ( "AESDeriveKeyContexts: AES key [%s]", ConvertToHexSpaceString ( blob, AES_SHA256_KEY_LENGTH ) );
+			CVerbVerbArg ( "AESDeriveKeyContexts: AES key [ %s ]", ConvertToHexSpaceString ( blob, AES_SHA256_KEY_LENGTH ) );
 
 #ifdef USE_CACHED_HKEY
 			ctx->keyCtx = (char *) hCSP;
@@ -1783,7 +1866,7 @@ namespace environs
 			/* max ciphertext len for a n bytes of plaintext is n + AES_BLOCK_SIZE -1 bytes */
 			ciphersSize = *bufferLen + AES_SHA256_KEY_LENGTH;
             
-            CVerbVerbArg ( "AESEncrypt: ciphersSize [%i]", ciphersSize );
+            CVerbVerbArg ( "AESEncrypt: ciphersSize [ %i ]", ciphersSize );
             
 			int finalSize = 0;
 #   ifdef NDEBUG
@@ -1792,7 +1875,7 @@ namespace environs
             ciphers = (char *) calloc ( 1, ciphersSize + 21 );
 #   endif
 			if ( !ciphers ) {
-				CErrArgID ( "AESEncrypt: Memory allocation [%i bytes] failed.", ciphersSize ); break;
+				CErrArgID ( "AESEncrypt: Memory allocation [ %i bytes ] failed.", ciphersSize ); break;
 			}
         
             BUILD_IV_128 ( ciphers + 4 );
@@ -1823,7 +1906,7 @@ namespace environs
 				CErrID ( "AESEncrypt: EVP_EncryptFinal_ex failed." ); break;
             }
             
-            CVerbVerbArg ( "AESEncrypt: finalSize [%i]", finalSize );
+            CVerbVerbArg ( "AESEncrypt: finalSize [ %i ]", finalSize );
        
 			ciphersSize += finalSize;
 			success = true;
@@ -1915,7 +1998,7 @@ namespace environs
 
 			ciphers = ( char * ) malloc ( reqSize + 21 );
 			if ( !ciphers ) {
-				CErrArgID ( "AESEncrypt: Memory allocation [%i bytes] failed.", reqSize ); break;
+				CErrArgID ( "AESEncrypt: Memory allocation [ %i bytes ] failed.", reqSize ); break;
 			}
 
 			BUILD_IV_128 ( ciphers + 4 );
@@ -2022,7 +2105,7 @@ namespace environs
             decrypt = (char *) calloc ( 1, decryptedBufSize + 2 );
 #endif
 			if ( !decrypt ) {
-				CErrArg ( "AESDecrypt: Memory allocation [%i bytes] failed.", decryptedBufSize ); break;
+				CErrArg ( "AESDecrypt: Memory allocation [ %i bytes ] failed.", decryptedBufSize ); break;
 			}
             
             if ( dEVP_DecryptInit_ex ( e, NULL, NULL, NULL, (unsigned char *) IV ) != 1 ) {
@@ -2445,7 +2528,7 @@ namespace environs
         
         do
         {
-            CLogArg ( "LoadPublicCertificate: [%s]", pathFile );
+            CLogArg ( "LoadPublicCertificate: [ %s ]", pathFile );
             
             if ( !fp ) {
                 CErr ( "LoadPublicCertificate: 404." ); break;
@@ -2459,12 +2542,12 @@ namespace environs
 
             certDataSize = di2d_X509 ( cert509, 0 );
             if ( certDataSize <= 0 ) {
-                CErrArg ( "LoadPublicCertificate: i2d_X509 returned size [%i].", certDataSize ); break;
+                CErrArg ( "LoadPublicCertificate: i2d_X509 returned size [ %i ].", certDataSize ); break;
             }
             
             certData = (unsigned char *) malloc ( certDataSize + 4 );
             if ( !certData ) {
-                CErrArg ( "LoadPublicCertificate: Memory allocation failed. size [%i].", certDataSize ); break;
+                CErrArg ( "LoadPublicCertificate: Memory allocation failed. size [ %i ].", certDataSize ); break;
             }
             
             unsigned char * certDataStore = certData + 4;
@@ -2493,12 +2576,12 @@ namespace environs
 		int certSize = 0;
 		char * certBin = LoadBinary ( pathFile, &certSize );
 		if ( !certBin ) {
-			CErrArg ( "LoadPublicCertificate: Failed to load [%s]", pathFile );
+			CErrArg ( "LoadPublicCertificate: Failed to load [ %s ]", pathFile );
 			return false;
 		}
         
 		if ( !certSize ) {
-			CErrArg ( "LoadPublicCertificate: Invalid (Zero) sized file loaded [%s]", pathFile );
+			CErrArg ( "LoadPublicCertificate: Invalid (Zero) sized file loaded [ %s ]", pathFile );
 			free ( certBin );
 			return false;
 		}
@@ -2532,7 +2615,7 @@ namespace environs
 		while ( 0 );
 		
 		if ( !ret ) {
-			CErrArg ( "LoadPublicCertificated: Last error [0x%08x]", GetLastError ( ) );
+			CErrArg ( "LoadPublicCertificated: Last error [ 0x%08x ]", GetLastError ( ) );
 		}
 
 		if ( certBuffer )     free ( certBuffer );
@@ -2639,7 +2722,7 @@ namespace environs
 	Finish:
 
 		if ( !ret ) {
-			CErrArg ( "LoadPrivateKey: Last error [0x%08x]", GetLastError ( ) );
+			CErrArg ( "LoadPrivateKey: Last error [ 0x%08x ]", GetLastError ( ) );
 		}
 
 		if ( keyData )	free ( keyData );
@@ -2743,7 +2826,8 @@ namespace environs
 		AESDisposeKeyContext = cryptAESDisposeKeyContext;
 		PreparePrivateKey   = dPreparePrivateKey;
 		DisposePublicKey    = dDisposePublicKey;
-		DisposePrivateKey   = dDisposePrivateKey;
+		DisposePrivateKey   = dDisposePrivateKey; 
+		DecryptMessageWithKeyHandles = cryptDecryptMessageWithKeyHandles;
 #   else
         EncryptMessage      = dEncryptMessage;
         DecryptMessage      = dDecryptMessage;

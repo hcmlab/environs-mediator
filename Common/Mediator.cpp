@@ -87,6 +87,12 @@ namespace environs
     
     DeviceInstanceNode::DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
     {
+#	ifdef TRACE_MEDIATOR_OBJECTS
+		LockAcquireA ( deviceInstancesMapLock, "SendContext" );
+		deviceInstancesMap [ this ] = this;
+		LockReleaseA ( deviceInstancesMapLock, "SendContext" );
+#	endif
+
         Zero ( info );
         
 #ifdef DEBUG_TRACK_SOCKET
@@ -129,61 +135,6 @@ namespace environs
         
 		if ( init )
 			LockDisposeA ( lock );
-    }
-    
-    
-    int GetStuntSocket ( ThreadInstance * inst )
-    {
-#ifndef ENABLE_CONCURRENT_STUNT
-        if ( IsInvalidFD ( inst->stuntSocket ) )
-            return INVALID_FD;
-
-		if ( !LockAcquireA ( inst->stuntSocketLock, "GetStuntSocket" ) )
-			return INVALID_FD;
-
-		int sockToClose = INVALID_FD;
-
-		int sock = ( int ) inst->stuntSocket;
-        if ( IsValidFD ( sock ) )
-        {
-            inst->stuntSocket = INVALID_FD;
-            
-            CVerbArg ( "GetStuntSocket: Adding socket [ %i ] to keepalive stuntSockets", sock );
-
-			int front   = inst->stuntSocketsFront;
-			int end     = inst->stuntSocketsLast;
-
-			front++;
-
-			if ( front >= MAX_STUNT_SOCKETS_IN_QUEUE )
-				front = 0;
-
-			if ( front == end ) {
-				sockToClose = inst->stuntSockets [ end ];
-
-				end++;
-				if ( end >= MAX_STUNT_SOCKETS_IN_QUEUE )
-					end = 0;
-			}
-
-			inst->stuntSockets [ front ]    = sock;
-
-			inst->stuntSocketsFront         = front;
-			inst->stuntSocketsLast          = end;
-        }
-        
-#ifndef MEDIATORDAEMON
-        inst->stuntSocketRegisteredTime = 0;
-#endif
-        LockReleaseA ( inst->stuntSocketLock, "GetStuntSocket" );
-
-		if ( IsValidFD ( sockToClose ) )
-			ShutdownCloseSocket ( sockToClose, true, "GetStuntSocket" );
-
-        return sock;
-#else
-        return INVALID_FD;
-#endif
     }
     
     
@@ -232,7 +183,7 @@ namespace environs
     }
     
     
-    bool SetNonBlockSocket ( int sock, bool set, const char * name )
+    bool SetNonBlockSocket ( int &sock, bool set, const char * name )
 	{
 #ifdef _WIN32
 		u_long flags;
@@ -280,9 +231,9 @@ namespace environs
     }
     
     
-    bool SocketTimeout ( int sock, int recvSec, int sendSec, bool isMS )
+    bool SocketTimeout ( int &sock, int recvSec, int sendSec, bool isMS )
     {
-        if ( sock < 0 )
+        if ( IsInvalidFD ( sock ) )
             return false;
         
         int rc = INVALID_FD;
@@ -302,15 +253,15 @@ namespace environs
                 tv = recvSec * 1000;
 #else
             if ( isMS ) {
-                tv.tv_sec	= recvSec / 1000;
-                tv.tv_usec	= (recvSec % 1000) * 1000;
+				tv.tv_sec	= recvSec / 1000;
+				tv.tv_usec	= ( recvSec % 1000 ) * 1000;
             }
             else {
                 tv.tv_sec	= recvSec;
                 tv.tv_usec	= 0;
             }
 #endif
-            rc = setsockopt ( sock, SOL_SOCKET, SO_RCVTIMEO, (const char *) &tv, sizeof ( tv ) );
+			rc = setsockopt ( sock, SOL_SOCKET, SO_RCVTIMEO, ( const char * ) &tv, sizeof ( tv ) );
             if ( rc < 0 ) {
 #ifdef MEDIATORDAEMON
 				CVerb ( "SocketTimeout: Failed to set SO_RCVTIMEO." ); VerbLogSocketError ();
@@ -330,15 +281,15 @@ namespace environs
                 tv = sendSec * 1000;
 #else
             if ( isMS ) {
-                tv.tv_sec	= sendSec / 1000;
-                tv.tv_usec	= (sendSec % 1000) * 1000;
+				tv.tv_sec	= sendSec / 1000;
+				tv.tv_usec	= ( sendSec % 1000 ) * 1000;
             }
             else {
                 tv.tv_sec	= sendSec;
                 tv.tv_usec	= 0;
             }
 #endif
-            rc = setsockopt ( sock, SOL_SOCKET, SO_SNDTIMEO, (const char *) &tv, sizeof ( tv ) );
+			rc = setsockopt ( sock, SOL_SOCKET, SO_SNDTIMEO, ( const char * ) &tv, sizeof ( tv ) );
             if ( rc < 0 ) {
 #ifdef MEDIATORDAEMON
 				CVerb ( "SocketTimeout: Failed to set SO_SNDTIMEO." ); VerbLogSocketError ();
@@ -454,28 +405,46 @@ namespace environs
     }
     
     
-    bool BuildAppAreaID ( char * sizesDst, int deviceID, char idType, const char * app, const char * area )
+    bool BuildAppAreaID ( char * sizesDst, int deviceID, const char * app, const char * area, char channel, unsigned int token )
     {
         if ( !sizesDst )
             return false;
         
 		int size = -1;
+        
+        char * dst = sizesDst + 4;
 
-		if ( app ) {
-			if ( area )
-				size = snprintf ( sizesDst + 4, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%i %c %s %s", deviceID, idType, app, area );
-		}
-		else {
-			if ( area )
-				size = snprintf ( sizesDst + 4, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%i %c %s", deviceID, idType, area );
-			else
-				size = snprintf ( sizesDst + 4, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%i %c", deviceID, idType );
-		}
+        if ( channel == MEDIATOR_STUNT_CHANNEL_VERSATILE )
+        {
+            if ( app ) {
+                if ( area )
+                    size = snprintf ( dst, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%X %X %s %s", deviceID, token, app, area );
+            }
+            else {
+                if ( area )
+                    size = snprintf ( dst, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%X %X %s", deviceID, token, area );
+                else
+                    size = snprintf ( dst, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%X %X", deviceID, token );
+            }
+        }
+        else {
+            if ( app ) {
+                if ( area )
+                    size = snprintf ( dst, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%X %s %s", deviceID, app, area );
+            }
+            else {
+                if ( area )
+                    size = snprintf ( dst, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%X %s", deviceID, area );
+                else
+                    size = snprintf ( dst, MAX_DEVICE_INSTANCE_KEY_LENGTH, "%X", deviceID );
+            }
+        }
 
         if ( size <= 0 )
             return false;
 
-        * ( ( unsigned int * ) sizesDst ) = size;
+        dst [ size ] = 0;
+        * ( ( unsigned int * ) sizesDst ) = size + 1;
         return true;
     }
     
@@ -486,7 +455,6 @@ namespace environs
 #endif
     
     
-#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
     void DisposeSendContexts ( ThreadInstance * client )
     {
 		if ( !client )
@@ -501,22 +469,32 @@ namespace environs
                 delete ( ctx );
         }
         
+        while ( client->sendQueuePrior.size_ > 0 ) {
+            SendContext * ctx = ( SendContext * ) client->sendQueuePrior.pop ();
+            
+            if ( ctx )
+                delete ( ctx );
+        }
+        
         LockReleaseA ( client->sendQueueLock, "DisposeSendContexts" );
     }
-#endif
     
     
     ThreadInstance::ThreadInstance ()
     {
 #	ifdef TRACE_MEDIATOR_OBJECTS
-		LockAcquireA ( sendContextsMapLock, "" );
+		LockAcquireA ( clientsMapLock, "ThreadInstance" );
 
 		clientsMap [ this ] = this;
 
-		LockReleaseA ( sendContextsMapLock, "" );
+		LockReleaseA ( clientsMapLock, "ThreadInstance" );
 #	endif
         allocated       = false;
 
+#ifdef MEDIATORDAEMON
+        inAcceptorList  = false;
+#endif
+        
 #ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
 		receiveEvent	= 0;
 #endif        
@@ -532,11 +510,7 @@ namespace environs
         version         = 0;
         sessionID       = 0;
         aliveLast       = 0;
-        
         socket          = INVALID_FD;
-#ifndef ENABLE_CONCURRENT_STUNT
-		stuntSocket     = INVALID_FD;
-#endif
         port            = 0;
         portUdp         = 0;
         connectTime     = 0;
@@ -560,18 +534,7 @@ namespace environs
         socketToClose       = INVALID_FD;
         stuntTarget         = 0;
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
         sendBusy1            = 0;
-#endif
-        
-#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-        stuntLastSend       = 0;
-        
-        stunLastSend        = 0;
-#endif
-        
-#else
-		stuntSocketRegisteredTime = 0;
 #endif
 		stuntSocketsLast	= 0;
 		stuntSocketsFront	= 0;
@@ -593,9 +556,7 @@ namespace environs
             
             LockDisposeA ( stuntSocketLock );
             
-#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
 			LockDisposeA ( sendQueueLock );
-#endif
         }
 
 #ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
@@ -603,14 +564,14 @@ namespace environs
 #endif
 
 #	ifdef TRACE_MEDIATOR_OBJECTS
-		LockAcquireA ( sendContextsMapLock, "" );
+		LockAcquireA ( clientsMapLock, "" );
 
 		const std::map<ThreadInstance *, ThreadInstance *>::iterator it = clientsMap.find ( this );
 		if ( it != clientsMap.end () ) {
 			clientsMap.erase ( it );
 		}
 
-		LockReleaseA ( sendContextsMapLock, "" );
+		LockReleaseA ( clientsMapLock, "" );
 #	endif
     }
     
@@ -623,11 +584,8 @@ namespace environs
             if ( !ILock::Init () )
                 return false;
 #endif
-            
-#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
             if ( !LockInitA ( sendQueueLock ) )
                 return false;
-#endif
 
 #ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
 			CreateWSAHandle ( receiveEvent, false );
@@ -748,16 +706,15 @@ namespace environs
 
         if ( IsValidFD ( sockC ) )
         {
-            if ( sockC != sock && sockC != stuntSocket )
+            if ( sockC != sock )
             {                
                 CVerb ( "Dispose: Shutdown socketToClose" );
                 ShutdownCloseSocket ( sockC, true, "ThreadInstance.Dispose stuntSocket" );
             }
         }
 
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 		DisposeSendContexts ( this );
-#endif
+        
         // Wait for the listening thread to shut down
         thread.Join ( "Dispose" );
         thread.Detach ( "Dispose" );
@@ -829,23 +786,17 @@ namespace environs
         CloseStuntSockets ();
 
 #ifndef MEDIATORDAEMON
-		thread.Lock ( "ThreadInstance.Dispose" );
+        LockAcquireA ( stuntSocketLock, "Dispose" );
+        
+		//thread.Lock ( "ThreadInstance.Dispose" );
 #endif
         
-#ifdef ENABLE_CONCURRENT_STUNT
         stuntSocketsLog.clear ();
-#else
-		sock = ( int ) stuntSocket;
-		if ( IsValidFD ( sock ) ) {
-			stuntSocket = INVALID_FD;
-
-			CVerb ( "Dispose: Closing stuntSocket" );
-			ShutdownCloseSocket ( sock, true, "ThreadInstance.Dispose stuntSocket" );
-		}
-#endif
         
 #ifndef MEDIATORDAEMON
-		thread.Unlock ( "ThreadInstance.Dispose" );
+        LockReleaseA ( stuntSocketLock, "Dispose" );
+        
+        //thread.Unlock ( "ThreadInstance.Dispose" );
 #endif
         Reset ();
     }
@@ -856,18 +807,14 @@ namespace environs
         allocated       = false;
         buffer          = 0;
         
+        responseBuffers.clear ();
+        
         Reset ();
     }
     
     
     void MediatorConnection::Reset ()
     {
-        
-#ifdef MEDIATOR_RESPONSE_MAP
-        responseBuffers.clear ();
-#else
-        responseBuffer  = 0;
-#endif
         longReceive     = false;
         
         renewerAccess   = 0;
@@ -883,15 +830,16 @@ namespace environs
         if ( allocated ) {
             allocated = false;
             
+            if ( LockAcquireA ( receiveLock, "Reset" ) )
+            {
+                responseBuffers.clear ();
+                
+                LockReleaseA ( receiveLock, "Reset" );
+            }
+            
             LockDisposeA ( receiveLock );
             
-            CondDisposeA ( receiveEvent );
-            
-#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
-#   ifdef USE_MEDIATOR_SEND_LOCK
-            LockDisposeA ( sendLock );
-#   endif
-#endif
+            CondDisposeA ( receiveEvent );         
         }
         
         free_m ( buffer );
@@ -914,15 +862,6 @@ namespace environs
                 return false;
             }
             
-#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
-            
-#   ifdef USE_MEDIATOR_SEND_LOCK
-            Zero ( sendLock );
-            
-            if ( !LockInitA ( sendLock ) )
-                return false;
-#   endif
-#endif
             allocated = true;
         }
         
@@ -1191,7 +1130,7 @@ namespace environs
 		}
 
 		int value;
-		socklen_t size = sizeof ( socklen_t );
+		socklen_t size = sizeof ( value );
 
 		int ret = getsockopt ( ( int ) sock, SOL_SOCKET, SO_REUSEADDR, ( char * ) &value, &size );
 		if ( ret < 0 ) {
@@ -1972,8 +1911,8 @@ namespace environs
 
 		isRunning = true;
 
-        if ( !PrepareAndStartBroadcastThread () )
-            return false;
+		// Continue even if broadcast fails
+		PrepareAndStartBroadcastThread ();
 
 		OnStarted ();
 
@@ -1991,10 +1930,14 @@ namespace environs
         // Create socket for broadcast thread
         if ( IsInvalidFD ( broadcastSocket ) ) 
 		{
+			CVerb ( "PrepareAndStartBroadcastThread: Creating socket." );
+
             int sock = ( int ) socket ( PF_INET, SOCK_DGRAM, IPPROTO_UDP );
             if ( IsInvalidFD ( sock ) ) 
 			{
                 CErr ( "PrepareAndStartBroadcastThread: Failed to create broadcast socket!" );
+
+				LogSocketErrorF ( "Mediator.PrepareAndStartBroadcastThread" );
                 return false;
             }
 			CSocketTraceAdd ( sock, "Mediator PrepareAndStartBroadcastThread broadcastSocket" );
@@ -2003,28 +1946,46 @@ namespace environs
             broadcastSocket = sock;
             
             int value = 1;
-            if ( setsockopt ( sock, SOL_SOCKET, SO_BROADCAST, ( const char * ) &value, sizeof ( value ) ) == -1 ) {
+            if ( setsockopt ( broadcastSocket, SOL_SOCKET, SO_BROADCAST, ( const char * ) &value, sizeof ( value ) ) == -1 ) {
                 CErr ( "PrepareAndStartBroadcastThread: Failed to set broadcast option on socket!" );
+
+				if ( IsValidFD ( broadcastSocket ) ) { LogSocketErrorF ( "Mediator.PrepareAndStartBroadcastThread" ); }
                 return false;
             }
             
             value = 1;
-            if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
+            if ( setsockopt ( broadcastSocket, SOL_SOCKET, SO_REUSEADDR, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
                 CErr ( "PrepareAndStartBroadcastThread: Failed to set reuseaddr option on socket!" );
-                return false;
+
+				if ( IsValidFD ( broadcastSocket ) ) { LogSocketErrorF ( "Mediator.PrepareAndStartBroadcastThread" ); }
+                //return false;
             }
             
 #ifdef SO_REUSEPORT
             value = 1;
-            if ( setsockopt ( sock, SOL_SOCKET, SO_REUSEPORT, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
+            if ( setsockopt ( broadcastSocket, SOL_SOCKET, SO_REUSEPORT, ( const char * ) &value, sizeof ( value ) ) != 0 ) {
                 CErr ( "PrepareAndStartBroadcastThread: Failed to set reuseaddr option on socket!" );
-                return false;
+
+				if ( IsValidFD ( broadcastSocket ) ) { LogSocketErrorF ( "Mediator.PrepareAndStartBroadcastThread" ); }
+                //return false;
             }
 #endif
             /// Create broadcast thread
-            if ( runThread && !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) )
-                if ( !broadcastThread.isRunning () )
-                    return false;
+			if ( runThread ) {
+				CVerb ( "PrepareAndStartBroadcastThread: Creating thread." );
+
+				broadcastThread.ResetSync ( "BroadcastThreadStarter" );
+
+				if ( !broadcastThread.Run ( pthread_make_routine ( BroadcastThreadStarter ), ( void * )this, "Mediator.Start", true ) ) 
+				{
+					CErr ( "PrepareAndStartBroadcastThread: Failed to create/wait for thread start!" );
+
+					if ( !broadcastThread.isRunning () ) {
+						CErr ( "PrepareAndStartBroadcastThread: Failed to create thread!" );
+						return false;
+					}
+				}		
+			}
         }
         return true;
     }
@@ -2034,95 +1995,220 @@ namespace environs
 	{
 	}
 
-
-	bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny )
-	{
-		CVerbVerb ( "SendBroadcast" );
-
-		if ( IsInvalidFD ( broadcastSocket ) || ( !enforce && !broadcastRunning ) )
-			return false;
-
-#ifndef MEDIATORDAEMON
-		if ( native.networkStatus < NETWORK_CONNECTION_NO_INTERNET )
-			return false;
-#endif
-
+    
+#ifdef MEDIATORDAEMON
+    bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny )
+    {
+        CVerbVerb ( "SendBroadcast" );
+        
+        if ( IsInvalidFD ( broadcastSocket ) || ( !enforce && !broadcastRunning ) )
+            return false;
+        
         bool success    = true;
+        int  sentBytes  = 0;
+        char * msg;
+        int sendLen;
         
-#ifndef USE_MEDIATOR_NON_BLOCK_BROADCAST
-		int  sentBytes  = 0;
-#endif
-		char * msg;
-		int sendLen;
-
-		if ( sendStatus ) {
-			msg		= udpStatusMessage;
-			sendLen = ( int ) udpStatusMessageLen;
-		}
-		else {
-			msg		= broadcastMessage;
-			sendLen = ( int ) broadcastMessageLen;
-		}
-
-		CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        if ( sendStatus ) {
+            msg		= udpStatusMessage;
+            sendLen = ( int ) udpStatusMessageLen;
+        }
+        else {
+            msg		= broadcastMessage;
+            sendLen = ( int ) broadcastMessageLen;
+        }
         
-#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST
-        SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, DEFAULT_BROADCAST_PORT );
-#else
-		struct 	sockaddr_in		broadcastAddr;
-		Zero ( broadcastAddr );
-
-		broadcastAddr.sin_family = PF_INET;
-		broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
-
-		if ( sendToAny ) {
-			broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
-
-			sentBytes = ( int ) sendto ( broadcastSocket, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-			if ( sentBytes != sendLen )
-			{
-				CErr ( "SendBroadcast: Broadcast to any failed!" );
-			}
-		}
-#endif
-
-		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
-		NetPack * net = 0;
-
+        CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        
+        struct 	sockaddr_in		broadcastAddr;
+        Zero ( broadcastAddr );
+        
+        broadcastAddr.sin_family = PF_INET;
+        broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
+        
+        if ( sendToAny ) {
+            broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
+            
+            sentBytes = ( int ) sendto ( broadcastSocket, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+            if ( sentBytes != sendLen )
+            {
+                CErr ( "SendBroadcast: Broadcast to any failed!" );
+            }
+        }
+        
+        /// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
+        NetPack * net = 0;
+        
 #ifdef NDEBUG
-		if ( localNetsSize <= 1 )
+        if ( localNetsSize <= 1 )
 #else
-		if ( localNetsSize <= 0 )
+            if ( localNetsSize <= 0 )
 #endif
-			return true;
-
-		if ( !LockAcquireA ( localNetsLock, "SendBroadcast" ) ) {
-			return false;
-		}
-
-		net = &localNets;
+                return true;
+        
+        if ( !LockAcquireA ( localNetsLock, "SendBroadcast" ) ) {
+            return false;
+        }
+        
+        net = &localNets;
         while ( net ) {
-#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST
-            SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, DEFAULT_BROADCAST_PORT );
-#else
-			broadcastAddr.sin_addr.s_addr = htonl ( net->bcast );
-
-			sentBytes = ( int ) sendto ( broadcastSocket, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-			if ( sentBytes != sendLen ) {
-				CErr ( "SendBroadcast: Broadcast failed!" );
-				success = false;
-			}
+            broadcastAddr.sin_addr.s_addr = htonl ( net->bcast );
+            
+            sentBytes = ( int ) sendto ( broadcastSocket, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+            if ( sentBytes != sendLen ) {
+                CErr ( "SendBroadcast: Broadcast failed!" );
+                success = false;
+            }
+            net = net->next;
+        }
+        
+        LockReleaseVA ( localNetsLock, "SendBroadcast" );
+        
+        return success;
+    }
+    
+    bool Mediator::SendBroadcastWithSocket ( bool enforce, bool sendStatus, bool sendToAny, int sock )
+    {
+        CVerbVerb ( "SendBroadcastWithSocket" );
+        
+        if ( IsInvalidFD ( sock ) )
+            sock = broadcastSocket;
+        
+        if ( IsInvalidFD ( sock ) || ( !enforce && !broadcastRunning ) )
+            return false;
+        
+#ifndef MEDIATORDAEMON
+        if ( native.networkStatus < NETWORK_CONNECTION_NO_INTERNET )
+            return false;
 #endif
-			net = net->next;
-		}
-
-		LockReleaseVA ( localNetsLock, "SendBroadcast" );
-
-		return success;
+        
+        bool success    = true;
+        int  sentBytes  = 0;
+        
+        char * msg;
+        int sendLen;
+        
+        if ( sendStatus ) {
+            msg		= udpStatusMessage;
+            sendLen = ( int ) udpStatusMessageLen;
+        }
+        else {
+            msg		= broadcastMessage;
+            sendLen = ( int ) broadcastMessageLen;
+        }
+        
+        CVerbArg ( "SendBroadcastWithSocket: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        
+        struct 	sockaddr_in		broadcastAddr;
+        Zero ( broadcastAddr );
+        
+        broadcastAddr.sin_family = PF_INET;
+        broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
+        
+        if ( sendToAny ) {
+            broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
+            
+            sentBytes = ( int ) sendto ( sock, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+            if ( sentBytes != sendLen )
+            {
+#ifndef MEDIATORDAEMON
+                if ( env->environsState >= environs::Status::Starting )
+#endif
+                    CErr ( "SendBroadcastWithSocket: Broadcast to any failed!" );
+            }
+        }
+        
+        /// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
+        NetPack * net = 0;
+        
+#ifdef NDEBUG
+        if ( localNetsSize <= 1 )
+#else
+            if ( localNetsSize <= 0 )
+#endif
+                return true;
+        
+        if ( !LockAcquireA ( localNetsLock, "SendBroadcast" ) ) {
+            return false;
+        }
+        
+        net = &localNets;
+        while ( net ) {
+            broadcastAddr.sin_addr.s_addr = net->bcast;
+            
+            sentBytes = ( int ) sendto ( sock, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
+            if ( sentBytes != sendLen ) {
+#ifndef MEDIATORDAEMON
+                if ( env->environsState >= environs::Status::Starting )
+#endif
+                    CErr ( "SendBroadcast: Broadcast failed!" );
+                success = false;
+            }
+            
+            net = net->next;
+        }
+        
+        LockReleaseVA ( localNetsLock, "SendBroadcast" );
+        
+        return success;
+    }
+    
+#else
+    bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny )
+    {
+        CVerbVerb ( "SendBroadcast" );
+        
+        if ( IsInvalidFD ( broadcastSocket ) || ( !enforce && !broadcastRunning ) )
+            return false;
+        
+#ifndef MEDIATORDAEMON
+        if ( native.networkStatus < NETWORK_CONNECTION_NO_INTERNET )
+            return false;
+#endif
+        
+        bool success    = true;
+        char * msg;
+        int sendLen;
+        
+        if ( sendStatus ) {
+            msg		= udpStatusMessage;
+            sendLen = ( int ) udpStatusMessageLen;
+        }
+        else {
+            msg		= broadcastMessage;
+            sendLen = ( int ) broadcastMessageLen;
+        }
+        
+        CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        
+        SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, DEFAULT_BROADCAST_PORT );
+        
+        /// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
+        NetPack * net = 0;
+        
+#ifdef NDEBUG
+        if ( localNetsSize <= 1 )
+#else
+            if ( localNetsSize <= 0 )
+#endif
+                return true;
+        
+        if ( !LockAcquireA ( localNetsLock, "SendBroadcast" ) ) {
+            return false;
+        }
+        
+        net = &localNets;
+        while ( net ) {
+            SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, DEFAULT_BROADCAST_PORT );
+            net = net->next;
+        }
+        
+        LockReleaseVA ( localNetsLock, "SendBroadcast" );
+        
+        return success;
     }
     
     
-#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST
     bool Mediator::SendBroadcastWithSocket ( bool enforce, bool sendStatus, bool sendToAny, int sock )
     {
         CVerbVerb ( "SendBroadcastWithSocket" );
@@ -2185,9 +2271,9 @@ namespace environs
 #ifdef NDEBUG
         if ( localNetsSize <= 1 )
 #else
-        if ( localNetsSize <= 0 )
+            if ( localNetsSize <= 0 )
 #endif
-            return true;
+                return true;
         
         if ( !LockAcquireA ( localNetsLock, "SendBroadcast" ) ) {
             return false;
@@ -2218,94 +2304,8 @@ namespace environs
         return success;
     }
     
-#else
+#endif
     
-    bool Mediator::SendBroadcastWithSocket ( bool enforce, bool sendStatus, bool sendToAny, int sock )
-	{
-		CVerbVerb ( "SendBroadcastWithSocket" );
-
-		if ( IsInvalidFD ( sock ) )
-			sock = broadcastSocket;
-
-		if ( IsInvalidFD ( sock ) || ( !enforce && !broadcastRunning ) )
-			return false;
-
-#ifndef MEDIATORDAEMON
-		if ( native.networkStatus < NETWORK_CONNECTION_NO_INTERNET )
-			return false;
-#endif
-
-		bool success    = true;
-		int  sentBytes  = 0;
-
-		char * msg;
-		int sendLen;
-
-		if ( sendStatus ) {
-			msg		= udpStatusMessage;
-			sendLen = ( int ) udpStatusMessageLen;
-		}
-		else {
-			msg		= broadcastMessage;
-			sendLen = ( int ) broadcastMessageLen;
-		}
-
-		CVerbArg ( "SendBroadcastWithSocket: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
-
-		struct 	sockaddr_in		broadcastAddr;
-		Zero ( broadcastAddr );
-
-		broadcastAddr.sin_family = PF_INET;
-		broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
-
-		if ( sendToAny ) {
-			broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
-
-			sentBytes = ( int ) sendto ( sock, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-			if ( sentBytes != sendLen )
-			{
-#ifndef MEDIATORDAEMON
-				if ( env->environsState >= environs::Status::Starting )
-#endif
-					CErr ( "SendBroadcastWithSocket: Broadcast to any failed!" );
-			}
-		}
-
-		/// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
-		NetPack * net = 0;
-
-#ifdef NDEBUG
-		if ( localNetsSize <= 1 )
-#else
-		if ( localNetsSize <= 0 )
-#endif
-			return true;
-
-		if ( !LockAcquireA ( localNetsLock, "SendBroadcast" ) ) {
-			return false;
-		}
-
-		net = &localNets;
-		while ( net ) {
-			broadcastAddr.sin_addr.s_addr = net->bcast;
-
-			sentBytes = ( int ) sendto ( sock, msg, sendLen, 0, ( struct sockaddr * ) &broadcastAddr, sizeof ( struct sockaddr ) );
-			if ( sentBytes != sendLen ) {
-#ifndef MEDIATORDAEMON
-				if ( env->environsState >= environs::Status::Starting )
-#endif
-					CErr ( "SendBroadcast: Broadcast failed!" );
-				success = false;
-			}
-
-			net = net->next;
-		}
-
-		LockReleaseVA ( localNetsLock, "SendBroadcast" );
-
-		return success;
-	}
-#endif
 
 	bool Mediator::IsLocalIP ( unsigned int ip )
 	{
@@ -2404,7 +2404,7 @@ namespace environs
 				// Device has vanished
 				DeviceInstanceNode	*	vanished = device;
 
-#if defined(MEDIATOR_DEVICELIST_KEEP_CONNECTED)
+#ifndef MEDIATORDAEMON
                 // Is it connected?
                 sp ( DeviceController) deviceSP = device->deviceSP.lock ();
                 if ( deviceSP && deviceSP->deviceStatus == DeviceStatus::Connected )
@@ -2616,7 +2616,7 @@ namespace environs
 
 			int copied = snprintf ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
 #else
-			int copied = snprintf ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
+			int copied = snprintf ( dev->key, sizeof ( dev->key ), MEDIATOR_APP_AREA_KEY_FORMAT, value, areaName, appName );
 #endif
 			if ( copied <= 0 ) {
 				CErr ( "UpdateDevicesV4: Failed to build the key for new device!" );
@@ -2940,7 +2940,7 @@ namespace environs
 
 			int copied = snprintf ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
 #else
-			int copied = snprintf ( dev->key, sizeof ( dev->key ), "%011i %s %s", value, areaName, appName );
+            int copied = snprintf ( dev->key, sizeof ( dev->key ), MEDIATOR_APP_AREA_KEY_FORMAT, value, areaName, appName );
 #endif
 			if ( copied <= 0 ) {
 				CErr ( "UpdateDevices: Failed to build the key for new device!" );
@@ -3167,9 +3167,9 @@ namespace environs
 
 		Mediator * mediator = ( Mediator * ) arg;
 
-	Retry:
-		mediator->broadcastThread.ResetSync ( "BroadcastThreadStarter" );
-
+    Retry:
+        mediator->broadcastThread.ResetSync ( "BroadcastThreadStarter" );
+        
 		if ( mediator->isRunning && IsValidFD ( mediator->broadcastSocket ) )
 		{
 			// Execute thread
@@ -3242,15 +3242,15 @@ namespace environs
 
 	bool Mediator::AddMediator ( unsigned int ip, unsigned short port )
 	{
-		CVerbArg ( "AddMediator: IP [%s] Port [%d]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), port );
+		CVerbArg ( "AddMediator: IP [ %s : %d ]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), port );
 
 		if ( !port ) {
-			CWarn ( "AddMediator: port [0] is invalid." );
+			CWarn ( "AddMediator: port [ 0 ] is invalid." );
 			return false;
 		}
 
 		if ( IsKnownMediator ( ip, port ) ) {
-			CVerbArg ( "AddMediator: mediator (%s) already available.", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+			CVerbArg ( "AddMediator: Mediator [ %s ] already available.", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 			return true;
 		}
 
@@ -3304,7 +3304,7 @@ namespace environs
 			while ( t->next ) {
 				t = t->next;
 				if ( t->ip == med->ip && t->port == med->port ) {
-					CVerbArg ( "AddMediator: Mediator [%s] Port [%d] is already in our list.", inet_ntoa ( *((struct in_addr *) &t->ip) ), t->port );
+					CVerbArg ( "AddMediator: Mediator [ %s : %d ] is already in our list.", inet_ntoa ( *((struct in_addr *) &t->ip) ), t->port );
 					added = 0;
 					goto FinishUnlock;
 				}
@@ -3389,14 +3389,106 @@ namespace environs
 		return true;
 	}
     
+    
+#define USE_CONNECT_WITH_POLL
+    
+#ifdef USE_CONNECT_WITH_POLL
+    int Mediator::Connect ( int deviceID, int &sock, struct sockaddr * addr, int timeoutSeconds, const char * name )
+    {
+        int rc = INVALID_FD;
+        
+        if ( IsInvalidFD ( sock ) ) {
+            CVerbsArgID ( 2, "[ %s ].Connect: Invalid socket!", name );
+            return INVALID_FD;
+        }
+        
+        CVerbsArgID ( 6, "[ %s ].Connect: Set to non-blocking mode ...", name );
+        
+        if ( !SetNonBlockSocket ( sock, true, name ) )
+            goto EndWithStatus;
+        
+        CVerbsArgID ( 5, "[ %s ].Connect: Connect ...", name );
+        
+        rc = ::connect ( sock, addr, sizeof ( struct sockaddr ) );
+        if ( rc < 0 ) {
+            if ( SOCK_IN_PROGRESS )
+            {
+                struct pollfd desc;
+                
+                int timeout = timeoutSeconds ? timeoutSeconds : 4;
+                timeout *= 1000;
+                
+                do
+                {
+                    CVerbsArgID ( 5, "[ %s ].Connect: Waiting ...", name );
+                    
+                    int s = sock;
+                    if ( IsInvalidFD ( s ) )
+                        break;
 
-	int Mediator::Connect ( int deviceID, int &sock, struct sockaddr * addr, int timeoutSeconds, const char * name )
+					desc.events		= POLLOUT;
+                    desc.fd         = sock;
+                    desc.revents    = 0;
+                    
+                    rc = poll ( &desc, 1, timeout );
+                    if ( rc > 0 )
+                    {
+#if !defined (_WIN32)
+                        int check;
+						socklen_t len = sizeof ( check );
+                        
+                        if ( getsockopt ( sock, SOL_SOCKET, SO_ERROR, ( char * ) &check, &len ) != 0 )
+                        {
+                            CVerbsArgID ( 4, "[ %s ].Connect: Get socket opt failed.", name );
+                            rc = -1;
+                        }
+                        else if ( check )
+                        {
+                            CErrArgID ( "[ %s ].Connect: Failed!", name );
+                            
+                            if ( IsValidFD ( sock ) ) { LogSocketErrorF ( "MediatorClient.Connect" ); }
+                            
+                            rc = -1;
+                        }
+                        else
+#endif
+                            rc = 0;
+                    }
+                    else {
+                        CVerbsArgID ( 5, "[ %s ].Connect: %s!", name, rc == 0 ? "Timeout" : "Failed" );
+                        LogSocketErrorF ( "MediatorClient.Connect" );
+                        rc = -1;
+                    }
+                    
+                    CVerbsArgID ( 4, "[ %s ].Connect: %s [ rc = %i ]", name, rc > 0 ? "Failed" : "Success", rc );
+                }
+                while ( false );
+            }
+            else {
+                CVerbsArgID ( 6, "[ %s ].Connect: Connect seems successful.", name );
+            }
+        }
+        else {
+            CVerbsArgID ( 4, "[ %s ].Connect: Connect failed.", name );
+        }
+        
+        if ( rc == 0 ) {
+            CVerbsArgID ( 6, "[ %s ].Connect: Set to blocking mode ...", name );
+            
+            SetNonBlockSocket ( sock, false, name );
+        }
+        
+    EndWithStatus:
+        return rc;
+    }
+#else
+    int Mediator::Connect ( int deviceID, int &sock, struct sockaddr * addr, int timeoutSeconds, const char * name )
 	{
 		int rc = INVALID_FD;
 
 		if ( IsInvalidFD ( sock ) ) {
 			CVerbsArgID ( 2, "[ %s ].Connect: Invalid socket!", name );
-			return -1;
+			return INVALID_FD;
 		}
         
         CVerbsArgID ( 6, "[ %s ].Connect: Set to non-blocking mode ...", name );
@@ -3459,7 +3551,8 @@ namespace environs
                         else if ( sockErr )
                         {
                             CErrArgID ( "[ %s ].Connect: Failed!", name );
-                            LogSocketErrorF ( "MediatorClient.Connect" );
+                            
+                            if ( IsValidFD ( sock ) ) { LogSocketErrorF ( "MediatorClient.Connect" ); }
                             
                             rc = -1;
                         }
@@ -3493,7 +3586,7 @@ namespace environs
     EndWithStatus:
         return rc;
     }
-
+#endif
     
     void Mediator::UnConnectUDP ( int sock )
     {
@@ -3505,16 +3598,7 @@ namespace environs
         
         addr.sin_family = AF_UNSPEC;
         
-#ifndef NDEBUG
-        int rc =
-#endif
         ::connect ( sock, ( struct sockaddr * ) &addr, sizeof ( addr ) );
-        
-#ifndef NDEBUG
-        if ( rc < 0 ) {
-            //LogSocketErrorF ( "UnConnectUDP" );
-        }
-#endif
     }
 
     

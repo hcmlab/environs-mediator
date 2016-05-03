@@ -22,7 +22,7 @@
 #define INCLUDE_HCM_ENVIRONS_INTEROP_SOCKETS_H
 #include "Interop.h"
 
-#define		INVALID_FD	-1
+#define		INVALID_FD      -1
 #define		IsInvalidFD(s)	s == INVALID_FD
 #define		IsValidFD(s)	s != INVALID_FD
 
@@ -51,6 +51,8 @@
 #	define SOCKETRETRY()					{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) continue; }
 #	define SOCKETRETRYGOTO(label)			{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) goto label; }
 #	define SOCKETRETRYCONDGOTO(exp,label)	{ int err1 = WSAGetLastError (); if ( err1 == WSAEWOULDBLOCK || err1 == WSATRY_AGAIN ) if (exp) goto label; }
+
+#	define LogSocketErrorNOK()				if ( !SOCK_IN_PROGRESS ) { CWarnArg    ( "SocketError: [ %d ]",        WSAGetLastError()); }
 
 #	define DisableSIGPIPE(socki)
 
@@ -123,6 +125,8 @@
 #	define SOCKETRETRY()					{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) continue; }
 #	define SOCKETRETRYGOTO(label)			{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) goto label; 
 #	define SOCKETRETRYCONDGOTO(exp,label)	{ int err1 = errno; if ( err1 == EWOULDBLOCK || err1 == EAGAIN ) if (exp) goto label; }
+
+#	define LogSocketErrorNOK()				if ( !SOCK_IN_PROGRESS && !SOCK_CONNECTED ) { CWarnArg    ( "SocketError: [ %s ]",        strerror(errno)); }
 
 #	define closesocket(s) 					close(s)
 #	define WSACleanup()

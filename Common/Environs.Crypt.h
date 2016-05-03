@@ -24,6 +24,10 @@
 #include "Environs.Native.h"
 #include "Interop/Threads.h"
 
+#if (defined(_WIN32) && !defined(USE_OPENSSL))
+#   include <Wincrypt.h>
+#endif
+
 #define ENVIRONS_MAX_KEYBUFFER_SIZE		(ENVIRONS_MAX_KEYSIZE + 1024)
 #define AES_SHA256_KEY_LENGTH           32
 #define AES_256_BLOCK_SIZE				16
@@ -143,6 +147,13 @@ namespace environs
     extern pDecryptMessage DecryptMessage;
 	extern bool dDecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize );
     
+#ifdef _WIN32    
+	typedef bool (CallConv * pDecryptMessageWithKeyHandles )( HCRYPTPROV hCSP, HCRYPTKEY hKey, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize);
+
+	extern pDecryptMessageWithKeyHandles DecryptMessageWithKeyHandles;
+	extern bool dDecryptMessageWithKeyHandles ( HCRYPTPROV hCSP, HCRYPTKEY hKey, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize );
+#endif
+
     typedef void (CallConv * pReleaseCert)(int deviceID);
     
     extern pReleaseCert ReleaseCert;

@@ -285,7 +285,7 @@ namespace environs
 #	define	ANDROID_LOG_VERBOSE						1
 #else
 #	define	ENVIRONS_MAKE_BODY(tag,msg)				tag " " CLASS_NAME " " msg ENVIRONS_LOG_NL
-#	define	ENVIRONS_MAKE_BODY_ID(tag,msg)			tag " " CLASS_NAME " [ 0x%X ] " msg ENVIRONS_LOG_NL
+#	define	ENVIRONS_MAKE_BODY_ID(tag,msg)			tag " " CLASS_NAME " [ %12X ] " msg ENVIRONS_LOG_NL
 #endif
 
 #define ENVIRONS_VERB_NCMD(expression)				ENVIRONS_LOG_NRCMD ( ENVIRONS_LOGTAG_VERBOSE,	expression )

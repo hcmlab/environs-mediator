@@ -27,16 +27,10 @@
 #   define  CLIENTEXP(exp)
 
 #   define MAX_STUNT_SOCKETS_IN_QUEUE			20
-
-#	define USE_LOCKFREE_SOCKET_ACCESS
-
-#	define USE_INTERLOCK_SEND_BUSY_STATE
-
 #   define ENABLE_MEDIATOR_LOCK
-//#   define ENABLE_MEDIATOR_SEND_LOCK
 
 #	ifndef NDEBUG
-//#		define	TRACE_MEDIATOR_OBJECTS
+#		define	TRACE_MEDIATOR_OBJECTS
 #	endif
 #else
 #   define  DAEMONEXP(exp)
@@ -45,38 +39,28 @@
 #   define MAX_STUNT_SOCKETS_IN_QUEUE			50
 
 //#   define ENABLE_MEDIATOR_LOCK
-//#   define ENABLE_MEDIATOR_SEND_LOCK
-#   define ENABLE_MEDIATOR_SEND_LOCK_TEST
 #endif
-
-//#define MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-#define MEDIATOR_STUNT_REG_REQUEST_MIN_WAIT_MS  150
-#define MEDIATOR_STUN_REG_REQUEST_MIN_WAIT_MS   150
 
 //#define MEDIATOR_USE_TCP_NODELAY
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
 //#define MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_CLIENT
-//#define USE_NONBLOCK_CLIENT_SOCKET
+#define MEDIATOR_USE_HEX_APPAREAKEY
+
+#ifdef MEDIATOR_USE_HEX_APPAREAKEY
+#   define MEDIATOR_APP_AREA_KEY_FORMAT            "%08X%s %s"
+#else
+#   define MEDIATOR_APP_AREA_KEY_FORMAT            "%011i %s %s"
+#endif
 
 #ifndef MEDIATORDAEMON
-#   define MEDIATOR_DEVICELIST_KEEP_CONNECTED
-#   define MEDIATOR_RESPONSE_MAP
+
+//#   define DEBUG_SEQNR
 #else
-#   define ENABLE_SINGLE_CLIENT_THREAD
-#	ifdef ENABLE_SINGLE_CLIENT_THREAD
-#       ifdef _WIN32
-#           define ENABLE_WINSOCK_CLIENT_THREADS
-#       endif
-#	endif
+#   ifdef _WIN32
+#       define ENABLE_WINSOCK_CLIENT_THREADS
 
-#	define USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#		define USE_NONBLOCK_CLIENT_SOCKET
-
-#       ifdef _WIN32
-#           define ENABLE_WINSOCK_SEND_THREADS
-#       endif
-#	endif
+#       define ENABLE_WINSOCK_SEND_THREADS
+#   endif
 
 #endif
 
@@ -90,6 +74,8 @@
 #ifdef MEDIATORDAEMON
 #   include <string>
 #endif
+
+#define MEDIATOR_PROTOCOL_VERSION		'8'
 
 #define DEFAULT_MEDIATOR_PORT					5898
 #define DEFAULT_BROADCAST_PORT					5899
@@ -113,7 +99,6 @@
 #define MEDIATOR_BROADCAST_GREET				"E.D.Helo"
 #define MEDIATOR_BROADCAST_BYEBYE				"E.D.Bye"
 #define MEDIATOR_PROTOCOL_VERSION_MIN			'2'
-#define MEDIATOR_PROTOCOL_VERSION				'7'
 
 #define	MEDIATOR_CMD_SET						's'
 #define	MEDIATOR_CMD_GET						'g'
@@ -139,6 +124,7 @@
 #define	MEDIATOR_SRV_CMD_SESSION_LOCKED			'L'
 #define	MEDIATOR_CMD_STUNT						'x'
 #define	MEDIATOR_CMD_STUN						'y'
+#define	MEDIATOR_CMD_STUNT_CLEAR				'k'
 #define	MEDIATOR_CMD_HELP_TLS_GEN				't'
 #define	MEDIATOR_CMD_SESSION_ASSIGN				's'
 #define	MEDIATOR_CMD_DEVICE_FLAGS				'o'
@@ -188,10 +174,10 @@ const unsigned int		maxStuntSocketAlive	= 1000 * 60 * 5; // 5 min. (in ms)
 namespace environs	/// Namespace: environs ->
 {
     extern bool BuildAppAreaField ( unsigned char * sizesDst, const char * app, const char * area, bool ext );
-    extern bool BuildAppAreaID ( char * sizesDst, int deviceID, char idType, const char * app, const char * area );
-	extern bool SetNonBlockSocket ( int sock, bool set, const char * name );
+    extern bool BuildAppAreaID ( char * sizesDst, int deviceID, const char * app, const char * area, char channel, unsigned int token );
+	extern bool SetNonBlockSocket ( int &sock, bool set, const char * name );
     
-    extern bool SocketTimeout ( int sock, int recvSec, int sendSec, bool isMS = false );
+    extern bool SocketTimeout ( int &sock, int recvSec, int sendSec, bool isMS = false );
     
     extern bool FakeConnect ( int sock, unsigned int port );
 
@@ -255,10 +241,15 @@ namespace environs	/// Namespace: environs ->
         ILock ();
         ~ILock ();
     };
-    
-    
-    
-#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
+
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+	typedef struct AppAreaKey
+	{
+		int			deviceID;
+		char		appArea [ MAX_NAMEPROPERTY * 2 ];
+	}
+	AppAreaKey;
+#endif
     
 #	if defined(TRACE_MEDIATOR_OBJECTS) && defined(MEDIATORDAEMON)
 #		ifndef CLASS_NAME
@@ -268,6 +259,13 @@ namespace environs	/// Namespace: environs ->
     
     extern pthread_mutex_t			sendContextsMapLock;
     extern std::map<SendContext *, SendContext *> sendContextsMap;
+
+    extern pthread_mutex_t			clientsMapLock;
+
+	struct DeviceInstanceNode;
+
+	extern pthread_mutex_t			 deviceInstancesMapLock;
+	extern std::map<DeviceInstanceNode *, DeviceInstanceNode *> deviceInstancesMap;
 #	endif
     
     class SendLoad
@@ -287,16 +285,16 @@ namespace environs	/// Namespace: environs ->
     class SendContext
     {
     public:
-        SendContext () : buffer ( 0 ),
-#   ifdef MEDIATORDAEMON
-        done ( false ), seqNr ( 0 ),
+        SendContext () : buffer ( 0 ), seqNr ( 0 ),
+#   if defined(MEDIATORDAEMON)
+        done ( false ),
 #   endif
         freeSendBuffer ( false ), sendBuffer ( 0 ), sendCurrent ( 0 ), sendSize ( 0 )
         {
 #	ifdef TRACE_MEDIATOR_OBJECTS
-            LockAcquireA ( sendContextsMapLock, "" );
+            LockAcquireA ( sendContextsMapLock, "SendContext" );
             sendContextsMap [ this ] = this;
-            LockReleaseA ( sendContextsMapLock, "" );
+            LockReleaseA ( sendContextsMapLock, "SendContext" );
 #	endif
         }
         
@@ -324,10 +322,10 @@ namespace environs	/// Namespace: environs ->
         
         char *                  buffer;
         unsigned int            size;
-        
-#   ifdef MEDIATORDAEMON
-        bool                    done;
         unsigned int            seqNr;
+        
+#   if defined(MEDIATORDAEMON)
+        bool                    done;
 #   endif
         
         bool					freeSendBuffer;
@@ -335,7 +333,7 @@ namespace environs	/// Namespace: environs ->
         unsigned int            sendCurrent;
         unsigned int            sendSize;
         
-#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST
+#if !defined(MEDIATORDAEMON)
         struct 	sockaddr_in		addr;
         int                     sock;
 #endif
@@ -347,9 +345,7 @@ namespace environs	/// Namespace: environs ->
 #		endif
 #	endif
     
-#endif
     
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
     typedef struct ClientProcContext
     {
         char *          msg;
@@ -357,42 +353,58 @@ namespace environs	/// Namespace: environs ->
         unsigned int	remainingSize;
     }
     ClientProcContext;
-#endif
+
 
 	struct DeviceInstanceNode;
+    
+    typedef struct StuntRegisterContext
+    {
+        StuntRegisterContext () : registerTime ( 0 ), token ( 0 ), sockI ( INVALID_FD ), sockC ( INVALID_FD )
+        {
+            Zero ( addrI ); Zero ( addrC );
+        }
+        
+		~StuntRegisterContext () {
+			if ( IsValidFD ( sockI ) ) {
+				ShutdownCloseSocket ( sockI, true, "StuntRegisterContext interact" );
+			}
+			if ( IsValidFD ( sockC ) ) {
+				ShutdownCloseSocket ( sockC, true, "StuntRegisterContext comdat" );
+			}
+		}
+
+        unsigned int            registerTime;
+        unsigned int            token;
+		int						sockI;
+        struct 	sockaddr_in		addrI;
+		int						sockC;
+        struct 	sockaddr_in		addrC;
+    }
+    StuntRegisterContext;
+    
 
     typedef struct ThreadInstance DAEMONEXP ( : public ILock )
 	{
 		void				*	daemon;
-
         int						deviceID;
-        
-        
-        ThreadSync              thread;
-        
 		unsigned int			version;
 		long long				sessionID;
+        
+        ThreadSync              thread;        
 
 		INTEROPTIMEVAL			aliveLast;
+		INTEROPTIMEVAL			connectTime;
         
-        SOCKETSYNC				socket;
-        
+        SOCKETSYNC				socket;        
         DAEMONEXP ( SOCKETSYNC socketToClose; )
         
 		unsigned short			port;
 		unsigned short			portUdp;
 
 		struct 	sockaddr_in		addr;
-
-        INTEROPTIMEVAL			connectTime;
         
-        CLIENTEXP ( INTEROPTIMEVAL  stuntSocketRegisteredTime; )
+        std::map < std::string, sp ( StuntRegisterContext ) > stuntSocketsLog;
 
-#ifdef ENABLE_CONCURRENT_STUNT
-        std::map < std::string, unsigned int > stuntSocketsLog;
-#else
-        SOCKETSYNC				stuntSocket;
-#endif
         pthread_mutex_t         stuntSocketLock;
         
 		unsigned short			stuntPort;
@@ -425,36 +437,24 @@ namespace environs	/// Namespace: environs ->
 		sp ( DeviceInstanceNode )   deviceSP;
         
         
-#if defined(USE_MEDIATOR_DAEMON_SEND_THREAD) || defined(USE_MEDIATOR_CLIENT_SEND_THREAD)
         lib::QueueVector			sendQueue;
-
-#	ifdef USE_INTERLOCK_SEND_BUSY_STATE
-		LONGSYNC                    sendBusy1;
-#	else
-		bool						sendBusy;
-#	endif
+        lib::QueueVector			sendQueuePrior;
         pthread_mutex_t				sendQueueLock;
 
 #	ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
 		HANDLE						receiveEvent;
 #	endif
-#endif
         
 #ifdef MEDIATORDAEMON
+        LONGSYNC                    sendBusy1;
+        
+		bool						inAcceptorList;
         short                       sendFails;
         
         volatile ThreadInstance  *	stuntTarget;
         
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
         up ( char [ ] )             bufferUP;
         ClientProcContext           ctx;
-#endif
-        
-#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-        INTEROPTIMEVAL              stuntLastSend;
-        
-        INTEROPTIMEVAL              stunLastSend;
-#endif
 #endif        
         bool                        allocated;
         
@@ -469,7 +469,6 @@ namespace environs	/// Namespace: environs ->
 	}
 	ThreadInstance;
 
-    extern int GetStuntSocket ( ThreadInstance * inst );
     extern void AddStuntSocket ( ThreadInstance * inst, int sock );
     
     void DisposeSendContexts ( ThreadInstance * client );
@@ -611,20 +610,12 @@ namespace environs	/// Namespace: environs ->
 
 		char				*	buffer;
 
-#if ( defined(ENABLE_MEDIATOR_SEND_LOCK) || defined(ENABLE_MEDIATOR_SEND_LOCK_TEST) )
-#   ifdef USE_MEDIATOR_SEND_LOCK
-		pthread_mutex_t			sendLock;
-#   endif
-#endif
 		pthread_mutex_t			receiveLock;
 		pthread_cond_t			receiveEvent;
         bool                    longReceive;
         
-#ifdef MEDIATOR_RESPONSE_MAP
         std::map < int, MediatorResponseBuffer * > responseBuffers;
-#else
-        char				*	responseBuffer;
-#endif
+        
         LONGSYNC                renewerAccess;
         LONGSYNC                renewerQueue;
         
@@ -761,10 +752,9 @@ namespace environs	/// Namespace: environs ->
 
         bool                    PrepareAndStartBroadcastThread ( bool runThread = true );
         
-#ifdef USE_MEDIATOR_NON_BLOCK_BROADCAST
         virtual bool            PushSendBC ( bool copy, void * buffer, unsigned int size, unsigned int ip, unsigned short port ) { return false; };
         virtual bool            SendBufferOrEnqueueBC ( bool copy, void * buffer, unsigned int size, unsigned int ip, unsigned short port ) { return false; };        
-#endif
+
 		bool					IsLocalIP ( unsigned int ip );
         static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
         
@@ -1190,20 +1180,89 @@ namespace environs	/// Namespace: environs ->
 
 
 	/**
+	* Mediator stunt socket clear message structure
+	*/
+	typedef struct StuntClearTarget
+	{
+		unsigned int	size;
+		char			version;
+		char			ident [ 3 ];
+
+		int				deviceID;
+		unsigned char   sizes [ 2 ];
+	}
+	NET_PACK_ALIGN StuntClearTarget;
+
+
+	/**
 	* Mediator stunt socket registration message structure
 	*/
 	typedef struct StuntSockRegTarget
 	{
 		unsigned int	size;
-		char        *   key;
+        
+        int				deviceID;
+        unsigned int    token;
+        char			channelType;
+        char			pad0;
+        unsigned char   sizes [ 2 ];
 	}
-	NET_PACK_ALIGN StuntSockRegTarget;
+    NET_PACK_ALIGN StuntSockRegTarget;
+    
+    
+    typedef struct StuntSockRegKey
+    {
+        unsigned int	size;
+        char          * key;
+    }
+    NET_PACK_ALIGN StuntSockRegKey;
+    
+    
+	typedef struct STUNTRegReqPacketV8
+	{
+		unsigned int	size;
+		char			version;
+		char			ident [ 3 ];
 
+		unsigned int	notify;
+
+        int				deviceID;
+        unsigned int    token;
+		char			channelType;
+		char			pad0;
+		unsigned char   sizes [ 2 ];
+	}
+    NET_PACK_ALIGN STUNTRegReqPacketV8;
+    
+    
+    typedef struct STUNTRegReqBufferV8
+    {
+        STUNTRegReqPacketV8 header;
+        AppAreaBuffer   appArea;
+    }
+    NET_PACK_ALIGN STUNTRegReqBufferV8;
+    
     
     /**
      * Mediator STUNT request message structure
      */
-	typedef struct STUNTReqHeaderV6
+    typedef struct STUNTReqHeaderV8
+    {
+        unsigned int	size;
+        char			version;
+        char			ident [ 2 ];
+        char			channel;
+        unsigned int	seqNr;
+        
+        int				deviceID;
+        unsigned int    token;
+        
+        unsigned char   sizes [ 2 ];
+    }
+    NET_PACK_ALIGN STUNTReqHeaderV8;
+    
+    
+    typedef struct STUNTReqHeaderV6
 	{
 		unsigned int	size;
         char			version;
@@ -1222,6 +1281,14 @@ namespace environs	/// Namespace: environs ->
      * Mediator STUNT request message structure
      * with appArea space
      */
+    typedef struct STUNTReqPacketV8
+    {
+        STUNTReqHeaderV8	header;
+        char                appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+    }
+    NET_PACK_ALIGN STUNTReqPacketV8;
+    
+    
     typedef struct STUNTReqPacketV6
     {
         STUNTReqHeaderV6	header;
@@ -1324,6 +1391,40 @@ namespace environs	/// Namespace: environs ->
     
     
     NET_PACK_PUSH1
+
+	/**
+	* Mediator STUNT response/request message structure
+	*/
+	typedef struct STUNTRespReqHeaderV8
+	{
+		unsigned int	size;
+		char			ident [ 3 ];
+		char			channel;
+		unsigned int	seqNr;
+
+		int				deviceID;
+		int				token;
+		unsigned int	ip;
+		unsigned int	ipe;
+		unsigned short	porti;
+		unsigned short	porte;
+
+		unsigned char   sizes [ 2 ];
+	}
+	NET_PACK_ALIGN STUNTRespReqHeaderV8;
+
+
+	/**
+	* Mediator STUNT response/request message structure
+	* with appArea space
+	*/
+	typedef struct STUNTRespReqPacketV8
+	{
+		STUNTRespReqHeaderV8	header;
+		char                    appArea [ ( MAX_NAMEPROPERTY + 2 ) * 2 ];
+	}
+	NET_PACK_ALIGN STUNTRespReqPacketV8;
+
     
     /**
      * Mediator STUNT response/request message structure

@@ -49,6 +49,8 @@ int main(int argc, char* argv[])
 {
 #ifdef TRACE_MEDIATOR_OBJECTS
 	LockInitA ( sendContextsMapLock );
+	LockInitA ( deviceInstancesMapLock );
+	LockInitA ( clientsMapLock );
 #endif
 
 	WSAData wsaData;

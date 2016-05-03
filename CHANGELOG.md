@@ -1,3 +1,18 @@
+### v 0.9.8.7
+
+---------------------------
+
+* Added: Mediator server use cached decrypt key
+* Added: Mediator layer high priority queue
+* Fixed: Bug in stunt channel establisher
+* Updated: Mediator client layer send thread usage
+* Reworked: Concurrent stunt implementation
+* Fixed: Bug in Mediator layer compress algorithm
+* Updated: Disposal of concurrent stunt sockets
+* Updated: Stunt locks
+* Updated: Code for concurrent stunt in mediator layer
+
+
 ### v 0.9.8.6
 
 ---------------------------

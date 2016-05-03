@@ -50,6 +50,18 @@ using namespace std;
 
 #define USE_NOTIFY_TMP_VECTORS
 
+#ifdef _WIN32
+#   define USE_WIN32_CACHED_PRIVKEY
+#   define USE_ONE_TO_ONE_SOCKET_EVENTS
+#endif
+
+//#define USE_TRY_SEND_BEFORE_THREAD_SEND
+
+#ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
+#	define PUSH_PARTIAL_SENDS
+#else
+#   define  SendBufferOrEnqueue(a,b,c,d,e)    PushSend(a,b,c,d,e) 
+#endif
 
 // Default configuration
 
@@ -142,7 +154,8 @@ namespace environs
 	{
 	public:
 		msp ( long long, ThreadInstance ) list;
-		vsp ( ThreadInstance ) cache;
+        vsp ( ThreadInstance ) cache;
+		vsp ( ThreadInstance ) toRemove;
 
 		bool Init ()
 		{
@@ -158,7 +171,7 @@ namespace environs
 		void BuildCache ()
 		{
 			Lock1 ( "BuildCache" );
-
+            
 			cache.clear ();
 
 			msp ( long long, ThreadInstance )::iterator it = list.begin ();
@@ -181,6 +194,13 @@ namespace environs
 	};
 
 
+	class InstanceObjMap : public ILock
+	{
+	public:
+		msp ( void *, ThreadInstance ) list;
+	};
+
+
 	typedef struct _UserItem
 	{
 		int             authLevel;
@@ -197,17 +217,16 @@ namespace environs
     };
     
     
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
-    
     class ClientContext : public EnvLock
     {
     public:
-        ClientContext () : clientCount ( 0 )
+        ClientContext () : clientCount ( 0 ), clientsChanged ( 0 )
 #ifdef ENABLE_WINSOCK_CLIENT_THREADS
-			, revent ( 0 )
+			, revents ( 0 )
 #else
-			, desc ( 0 ), descCapacity ( 0 )
+			, desc ( 0 )
 #endif		
+			, descCapacity ( 0 )
 		{}
         
         ~ClientContext ()
@@ -215,7 +234,16 @@ namespace environs
             clients.clear();            
 
 #ifdef ENABLE_WINSOCK_CLIENT_THREADS
-			CloseWSAHandle_n ( revent );
+#	ifdef USE_ONE_TO_ONE_SOCKET_EVENTS
+			if ( revents ) {
+				for ( size_t i = 0; i < descCapacity; ++i ) {
+					CloseWSAHandle_n ( revents [ i ] );
+				}
+				free ( revents );
+			}
+#else
+			CloseWSAHandle_n ( revents );
+#endif
 #else
 			if ( desc )
 				free ( desc );
@@ -223,20 +251,25 @@ namespace environs
         }
         
         bool Add ( const sp ( ThreadInstance ) &clientSP );
-        bool Remove ( const sp ( ThreadInstance ) &clientSP );
+        bool Remove ( const sp ( ThreadInstance ) &clientSP, bool useLock, bool keepOrder = true );
         
         vsp ( ThreadInstance ) clients;
-        size_t  clientCount;
+        size_t				clientCount;
+
+		LONGSYNCNV			clientsChanged;
 
 #ifdef ENABLE_WINSOCK_CLIENT_THREADS
-		HANDLE	revent;
+#	ifdef USE_ONE_TO_ONE_SOCKET_EVENTS
+		HANDLE			*	revents;
 #else
-		struct pollfd * desc;
-		size_t descCapacity;
+		HANDLE				revents;
 #endif
+#else
+		struct pollfd	*	desc;
+#endif
+		size_t				descCapacity;
     };
     
-#endif
     
     INLINEFUNC DeviceInstanceNode * GetDeviceInstance ( int deviceID, DeviceInstanceNode * devices );
     
@@ -299,7 +332,7 @@ namespace environs
 		bool									deviceMappingDirty;
 
 
-		InstanceList                            acceptClients;
+		InstanceObjMap							acceptClients;
 		bool                                    RemoveAcceptClient ( ThreadInstance * );
 
 		sp ( ApplicationDevices )				GetApplicationDevices ( const char * appName, const char * areaName );
@@ -339,6 +372,11 @@ namespace environs
 		char								*	privKey;
 		unsigned int							privKeySize;
 		unsigned int                            encPadding;
+
+#ifdef USE_WIN32_CACHED_PRIVKEY
+		HCRYPTPROV								hPrivKeyCSP;
+		HCRYPTKEY								hPrivKey;
+#endif
 		AESContext                              aesCtx;
 		char                                    aesKey [ 32 ];
 
@@ -364,11 +402,12 @@ namespace environs
 #endif
 		unsigned int                            bannAfterTries;
 		pthread_mutex_t							bannedIPsLock;
-		std::map<unsigned int, std::time_t>		bannedIPs;
-		std::map<unsigned int, unsigned int>	bannedIPConnects;
+        std::map<unsigned int, std::time_t>		bannedIPs;
+        std::map<unsigned int, unsigned int>	bannedIPConnects;
+		std::map<unsigned int, unsigned int>	connectedIPs;
 
 		bool									IsIpBanned ( unsigned int ip );
-		void									BannIP ( unsigned int ip );
+		bool									BannIP ( unsigned int ip );
 		void									BannIPRemove ( unsigned int ip );
 
 		int										ScanForParameters ( char * buffer, unsigned int maxLen, const char * delim, char ** params, int maxParams );
@@ -393,7 +432,6 @@ namespace environs
 		static void *							ClientThreadStarter ( void * arg );
 		int                                     ClientThread ( const sp ( ThreadInstance ) &clientSP );
 
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
         unsigned int							clientThreadCount;
         EnvSignal                               clientEvent;
         EnvThread							**	clientThreads;
@@ -407,7 +445,7 @@ namespace environs
         void                                    ClientThreads ( int threadNr );
         
         void                                    ClientRemove ( ThreadInstance * client );
-#endif
+
 		bool									HandleRequest ( ThreadInstance * client, char * buffer );
 		bool									UpdateDeviceRegistry ( sp ( DeviceInstanceNode ) device, unsigned int ip, char * msg );
 
@@ -417,11 +455,21 @@ namespace environs
 		bool									HandleDeviceRegistration ( const sp ( ThreadInstance ) &clientSP, unsigned int ip, char * msg );
 		bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &clientSP, unsigned int ip, char * msg );
 		bool									SecureChannelAuth ( ThreadInstance * client );
+
 		void									HandleStuntSocketRegistration ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
-        bool									HandleSTUNTRequest ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV6 * msg );
+		void									HandleStuntSocketRegistrationV6 ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
+
+        bool									HandleSTUNTRequest ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV8 * msg );
+		bool									HandleSTUNTRequestV6 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV6 * msg );
         bool									HandleSTUNTRequestV5 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacket * msg );
 		bool									HandleSTUNTRequestV4 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV4 * msg );
+
 		bool									NotifySTUNTRegRequest ( ThreadInstance * client );
+
+		void									HandleSTUNTClear ( ThreadInstance * client, StuntClearTarget * msg );
+
+		bool									NotifySTUNTRegRequest ( ThreadInstance * destClient, int sourceID, const char * appName, const char * areaName, char channelType, unsigned int token );
+
 		int                                     GetNextDeviceID ( char * areaName, char * appName, unsigned int ip );
 
 		void									HandleCLSGenHelp ( ThreadInstance * client );
@@ -439,9 +487,9 @@ namespace environs
 
 		bool									HandleShortMessage ( ThreadInstance * client, char * msg, unsigned int size );
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 		unsigned int							sendThreadCount;
 		EnvThread							**	sendThreads;
+        LONGSYNCNV                          *   sessionsChanged;
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
 		HANDLE									sendEvents [2];
@@ -464,13 +512,18 @@ namespace environs
 #endif
         bool                                    PushSend ( ThreadInstance * client, void * buffer, unsigned int size, bool copy = true, unsigned int seqNr = 0 );
 
-		bool                                    PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent );
-		bool                                    PushSend ( ThreadInstance * client, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent, bool copy, unsigned int seqNr = 0 );
+#ifdef PUSH_PARTIAL_SENDS
+        bool                                    PushSend ( ThreadInstance * client, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent, bool copy, unsigned int seqNr );
 
+		bool                                    PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent );
+#endif
+
+#ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
 		bool									SendBufferOrEnqueue ( ThreadInstance * client, void * msg, unsigned int size, bool copy = true, unsigned int seqNr = 0 );
 		int										SendBufferOrEnqueue ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size );
-        int										SendBuffer ( ThreadInstance * client, SendContext * ctx );
 #endif
+        int										SendBuffer ( ThreadInstance * client, SendContext * ctx );
+
         pthread_t								notifyThreadID;
 		pthread_cond_t							notifyEvent;
 		pthread_mutex_t							notifyLock;
@@ -487,6 +540,7 @@ namespace environs
 		pthread_cond_t							hWatchdogEvent;
 
 	private:
+        LONGSYNC                                watchdogSessionsChanged;
 		INTEROPTIMEVAL							checkLast;
 		static void 						*	WatchdogThreadStarter ( void * arg );
 		void									WatchdogThread ( MediatorThreadInstance * listeners );

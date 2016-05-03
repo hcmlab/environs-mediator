@@ -38,21 +38,17 @@ using namespace environs;
 #	define OutputDebugStringA(msg)		fputs(msg,stdout)
 #endif
 
-//#define ENABLE_DEPRECATED_V4
-#ifndef USE_NONBLOCK_CLIENT_SOCKET
-//#	define USE_NONBLOCK_CLIENT_SOCKET
-#endif
-
 //#define MEDIATOR_USE_TCP_NODELAY
 
-#define USE_HANDLE_STUNT_UNLOCK2
-#define USE_REMOVEDEVICE_WITH_UNLOCK
-#define USE_TRY_SEND_BEFORE_THREAD_SEND
-#define USE_SEND_THREAD_MULTIPLE_CONTEXTS
+#define MAX_SEQNR_DELAY			10
 
-int debugID = 0x12;
+#define SEND_THREADS_DEFAULT	2
+#define CLIENT_THREADS_DEFAULT	3
+
+int debugID = 0x14;
 //#define DEBUG_DEVICE_ID
 #define ENABLE_SEND_THREAD_TRYLOCK
+//#define DEBUG_TIMEOUT_ISSUE
 
 #include <fstream>
 #include <sstream>
@@ -120,7 +116,7 @@ int _getch ( )
 #endif
 
 #ifdef DEBUG_CHECK_CLIENT_CALL_MS
-unsigned int maxMeasureDiff = 20;
+unsigned int maxMeasureDiff = 60;
 
 #   define DEBUG_CHECK_START()          unsigned int start_ms_32 = GetEnvironsTickCount32 ()
 #   define DEBUG_CHECK_START_1()        start_ms_32 = GetEnvironsTickCount32 ()
@@ -154,7 +150,12 @@ namespace environs
 #ifndef NDEBUG
 	pthread_mutex_t			 sendContextsMapLock;
 	std::map<SendContext *, SendContext *> sendContextsMap;
+
+	pthread_mutex_t			 clientsMapLock;
 	std::map<ThreadInstance *, ThreadInstance *> clientsMap;
+
+	pthread_mutex_t			 deviceInstancesMapLock;
+	std::map<DeviceInstanceNode *, DeviceInstanceNode *> deviceInstancesMap;
 #endif
 
     size_t GetTimeString ( char * timeBuffer, unsigned int bufferSize );
@@ -208,47 +209,6 @@ namespace environs
 			LockReleaseA ( inst->stuntSocketLock, "ClearStuntSockets" );
 		}
     }
-
-
-	void ReplaceStuntSocket ( ThreadInstance * inst, int replace )
-	{
-		SOCKETSYNCNV sock = ReplaceThreadSocket ( &inst->stuntSocket, replace );
-		if ( sock != -1 )
-		{
-			int sockToClose = -1;
-
-			if ( LockAcquireA ( inst->stuntSocketLock, "ReplaceStuntSocket" ) )
-			{
-				int front = inst->stuntSocketsFront;
-				int end = inst->stuntSocketsLast;
-
-				front++;
-
-				if ( front >= MAX_STUNT_SOCKETS_IN_QUEUE )
-					front = 0;
-
-				if ( front == end ) {
-					sockToClose = inst->stuntSockets [ end ];
-
-					end++;
-					if ( end >= MAX_STUNT_SOCKETS_IN_QUEUE )
-						end = 0;
-				}
-
-				inst->stuntSockets [ front ] = ( int ) sock;
-
-				inst->stuntSocketsFront = front;
-				inst->stuntSocketsLast = end;
-
-				LockReleaseA ( inst->stuntSocketLock, "ReplaceStuntSocket" );
-			}
-
-			inst->stuntSocketTime = GetEnvironsTickCount ();
-
-			if ( sockToClose != -1 )
-				ShutdownCloseSocket ( sockToClose, true, "ReplaceStuntSocket" );
-		}
-	}
 
 
 	bool CloseThreadSocket ( SOCKETSYNC * psock )
@@ -334,12 +294,18 @@ namespace environs
                 
             case MEDIATOR_CMD_HELP_TLS_GEN:
                 return "HELP_TLS_GEN";
+
+			case MEDIATOR_CMD_STUNT_CLEAR:
+				return "STUNT_CLEAR";
                 
             case MEDIATOR_CMD_DEVICE_FLAGS:
                 return "DEVICE_FLAGS";
                 
             case MEDIATOR_CMD_DEVICE_LIST_QUERY_COUNT:
                 return "DEVICE_LIST_QUERY_COUNT";
+
+			case MEDIATOR_OPT_BLANK:
+				return "LOGON";
                 
             default:
                 break;
@@ -471,6 +437,17 @@ namespace environs
 	DeviceInstanceNode::~DeviceInstanceNode ()
 	{
 		clientSP = 0; rootSP = 0;
+
+#	ifdef TRACE_MEDIATOR_OBJECTS
+		LockAcquireA ( deviceInstancesMapLock, "DeviceInstanceNode" );
+
+		const std::map<DeviceInstanceNode *, DeviceInstanceNode *>::iterator it = deviceInstancesMap.find ( this );
+		if ( it != deviceInstancesMap.end () ) {
+			deviceInstancesMap.erase ( it );
+		}
+
+		LockReleaseA ( deviceInstancesMapLock, "DeviceInstanceNode" );
+#	endif
 	}
 
 
@@ -486,21 +463,11 @@ namespace environs
 
 		input					= inputBuffer;
 
-		listeners.clear ();
-		usersDB.clear ();
-
-		ports.clear ();
-		bannedIPs.clear ();
-		bannedIPConnects.clear ();
 		bannAfterTries      = 3;
 
 		areasCounter        = 0;
-		areaIDs.clear ();
 
 		appsCounter         = 0;
-		appIDs.clear ();
-
-		notifyTargets.clear ();
 
 		networkOK			= 0xFFFFFFFF;
 		networkMask			= 0xFFFFFFFF;
@@ -516,6 +483,10 @@ namespace environs
 		privKey				= 0;
 		privKeySize			= 0;
 
+#ifdef _WIN32
+		hPrivKeyCSP			= 0;
+		hPrivKey			= 0;
+#endif
 		Zero ( notifyThreadID );
 
 		srand ( getRandomValue ( ( void * ) &checkLast ) );
@@ -541,23 +512,22 @@ namespace environs
 		reqAuth					= true;
 		logToFile					= false;
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-		sendThreadCount			= 2;
+		sendThreadCount			= SEND_THREADS_DEFAULT;
         sendThreadsAlive        = false;
 		sendThreads				= 0;
-#endif
+        sessionsChanged         = 0;
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
 		sendEvents [ 0 ] = 0;
 		sendEvents [ 1 ] = 0;
 #endif
 
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
-        clientThreadCount       = 2;
+        clientThreadCount       = CLIENT_THREADS_DEFAULT;
         clientThreadsAlive      = false;
         clientThreads           = 0;
         clientContexts          = 0;
-#endif
+        watchdogSessionsChanged = 1;
+        
         InitEnvironsCrypt ();
 	}
 
@@ -572,6 +542,10 @@ namespace environs
 		areaIDs.clear ();
 		appIDs.clear ();
         
+        bannedIPs.clear ();
+        bannedIPConnects.clear ();
+        connectedIPs.clear ();
+        
         while ( !notifyQueue.empty () )
         {
             NotifyQueueContext * ctx = notifyQueue.front ();
@@ -580,7 +554,6 @@ namespace environs
                 delete ctx;
         }
         
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
         if ( clientThreads ) {
             for ( unsigned int i = 0; i < clientThreadCount; ++i )
             {
@@ -597,9 +570,7 @@ namespace environs
             free ( clientContexts );
             clientContexts = 0;
         }
-#endif
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 		if ( sendThreads ) {
 			for ( unsigned int i = 0; i < sendThreadCount; ++i ) 
 			{
@@ -610,7 +581,12 @@ namespace environs
             free ( sendThreads );
 			sendThreads = 0;
 		}
-#endif
+        
+        if ( sessionsChanged ) {
+            free ( sessionsChanged );
+            sessionsChanged = 0;
+        }
+        
         CloseLog ();
 
 		AESDisposeKeyContext ( &aesCtx );
@@ -670,8 +646,6 @@ namespace environs
 				CErr ( "InitMediator: Failed to init hWatchdogEvent." );
 				return false;
 			}
-            
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD 
 
 #	ifdef ENABLE_WINSOCK_SEND_THREADS
 			CreateWSAHandle ( sendEvents [ 0 ], false );
@@ -681,13 +655,11 @@ namespace environs
 				return false;
 			sendEvent.autoreset = false;
 #	endif
-#endif
             
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
             if ( !clientEvent.Init () )
                 return false;
             clientEvent.autoreset = false;
-#endif
+
             if ( !areas.Init () )
 				return false;
 			areas.list.clear ();
@@ -751,6 +723,17 @@ namespace environs
 	{
 		CVerb ( "ReleaseKeys" );
 
+#ifdef USE_WIN32_CACHED_PRIVKEY
+		if ( hPrivKey ) {
+			CryptDestroyKey ( hPrivKey );
+			hPrivKey = 0;
+		}
+
+		if ( hPrivKeyCSP ) {
+			CryptReleaseContext ( hPrivKeyCSP, 0 );
+			hPrivKeyCSP = 0;
+		}
+#endif
 		if ( privKey ) {
 			DisposePrivateKey ( ( void ** ) &privKey );
 		}
@@ -774,6 +757,17 @@ namespace environs
 			return false;
 		}
 
+#ifdef USE_WIN32_CACHED_PRIVKEY
+		if ( !CryptAcquireContext ( &hPrivKeyCSP, NULL, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT ) ) {
+			CErr ( "LoadKeys: CryptAcquireContext failed." );
+			return false;
+		}
+
+		if ( !CryptImportKey ( hPrivKeyCSP, ( BYTE * ) privKey, privKeySize, NULL, 0, &hPrivKey ) ) {
+			CErr ( "LoadKeys: CryptImportKey failed." );
+			return false;
+		}
+#endif
 		return true;
 	}
 
@@ -900,7 +894,6 @@ namespace environs
 					bannedIPConnects [ value ] = tries;
 				}
             }
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
 			else if ( str [ 0 ] == 'S' && str [ 1 ] == 'T' && str [ 2 ] == ':' ) {
 				if ( !( iss >> prefix >> value ) ) {
 					CLogArg ( "LoadConfig: Invalid config line: %s", str );
@@ -914,9 +907,6 @@ namespace environs
 					}
 				}
 			}
-#endif
-            
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
             else if ( str [ 0 ] == 'C' && str [ 1 ] == 'T' && str [ 2 ] == ':' ) {
                 if ( !( iss >> prefix >> value ) ) {
                     CLogArg ( "LoadConfig: Invalid config line: %s", str );
@@ -930,7 +920,6 @@ namespace environs
                     }
                 }
             }
-#endif
             else if ( str [ 0 ] == 'A' && str [ 1 ] == 'E' && str [ 2 ] == 'S' && str [ 3 ] == ':' ) {
 				string aesString;
 
@@ -1062,15 +1051,12 @@ namespace environs
 		if ( !fileLog )
 			configs << "LF: 0" << endl;
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-		if ( sendThreadCount != 2 )
+		if ( sendThreadCount != SEND_THREADS_DEFAULT )
 			configs << "ST: " << sendThreadCount << endl;
-#endif
         
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
-        if ( clientThreadCount != 2 )
+        if ( clientThreadCount != CLIENT_THREADS_DEFAULT )
             configs << "CT: " << clientThreadCount << endl;
-#endif
+
         if ( strncmp ( anonymousUser, MEDIATOR_ANONYMOUS_USER, MAX_NAMEPROPERTY ) ) {
 			configs << "AU: " << anonymousUser << endl;
 			configs << "AP: " << anonymousPassword << endl;
@@ -1220,8 +1206,8 @@ namespace environs
 			sp ( AppsList ) appList = it->second;
 
 			if ( !appList ) {
-				areasMap.list.erase ( it );
-				it = areasMap.list.begin ();
+				areasMap.list.erase ( it++ );
+//				it = areasMap.list.begin ();
 				continue;
 			}
 
@@ -1229,26 +1215,26 @@ namespace environs
 			while ( ita != appList->apps.end () )
 			{
 				if ( !ita->second ) {
-					appList->apps.erase ( ita );
-					ita = appList->apps.begin ();
+					appList->apps.erase ( ita++ );
+//					ita = appList->apps.begin ();
 					continue;
 				}
 
 				if ( !ita->second->values.size () ) {
-					appList->apps.erase ( ita );
-					ita = appList->apps.begin ();
+					appList->apps.erase ( ita++ );
+//					ita = appList->apps.begin ();
 					continue;
 				}
-				ita++;
+				++ita;
 			}
 
 			if ( !appList->apps.size () ) {
-				areasMap.list.erase ( it );
-				it = areasMap.list.begin ();
+				areasMap.list.erase ( it++ );
+//				it = areasMap.list.begin ();
 				continue;
 			}
 
-			it++;
+			++it;
 		}
 
 		areasMap.Unlock ( "LoadProjectValues" );
@@ -1471,7 +1457,7 @@ namespace environs
 
 	bool MediatorDaemon::SaveDeviceMappings ()
 	{
-		bool ret = true;
+		bool success = true;
 
 		CVerb ( "SaveDeviceMappings" );
 
@@ -1479,27 +1465,33 @@ namespace environs
         
         DEBUG_CHECK_START ();
         
+        msp ( string, DeviceMapping ) cache;
+        
 		if ( !deviceMappings.Lock ( "SaveDeviceMappings" ) ) {
-			ret = false;
+			success = false;
 		}
 		else {
-			// Save devcie mappings
-			for ( msp ( string, DeviceMapping )::iterator it = deviceMappings.list.begin (); it != deviceMappings.list.end (); it++ )
-			{
-				if ( !it->second )
-					continue;
-
-				plainstream << it->first << " " << it->second->deviceID << " " << it->second->authLevel << " " << it->second->authToken << endl;
-			}
+            cache = deviceMappings.list;
 
 			if ( !deviceMappings.Unlock ( "SaveDeviceMappings" ) ) {
-				ret = false;
+				success = false;
 			}
+        }
+        
+        // Build devcie mappings
+        msp ( string, DeviceMapping )::iterator end = cache.end ();
+        
+        for ( msp ( string, DeviceMapping )::iterator it = cache.begin (); it != end; ++it )
+        {
+            DeviceMapping * item = it->second.get ();
+            if ( item ) {
+                plainstream << it->first << " " << item->deviceID << " " << item->authLevel << " " << item->authToken << endl;
+            }
         }
         
         DEBUG_CHECK_MEASURE ( "SaveDeviceMappings" );
         
-		if ( ret ) {
+		if ( success ) {
 			/// Encrypt plaintext
 			string text = plainstream.str ();
 
@@ -1507,11 +1499,11 @@ namespace environs
 			unsigned int bufferLen = ( unsigned int ) text.length ();
 
 			if ( bufferLen ) {
-				ret = false;
+				success = false;
 
 				if ( AESEncrypt ( &aesCtx, ( char * ) text.c_str (), &bufferLen, &cipher ) && cipher ) {
 					if ( SavePrivateBinary ( DEVMAPFILE, cipher, bufferLen ) ) {
-						ret = true;
+						success = true;
 					}
 					else CErr ( "SaveDeviceMappings: Failed to save into file." );
 
@@ -1524,7 +1516,7 @@ namespace environs
 			}
 		}
 
-		return ret;
+		return success;
 	}
 
 
@@ -1792,39 +1784,47 @@ namespace environs
 	}
 
 
-	void MediatorDaemon::BannIP ( unsigned int ip )
+	bool MediatorDaemon::BannIP ( unsigned int ip )
 	{
-		CVerbArg ( "BannIP: [%s]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+		CVerbArg ( "BannIP: [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 
 		if ( networkOK == 0xFFFFFFFF )
-			return;
+			return true;
 
 		if ( ( ip & networkMask ) == networkOK ) {
 			CVerb ( "IsIpBanned: IP is OK!" );
-			return;
+			return false;
 		}
 
+        bool banned = false;
+        
 		if ( !LockAcquireA ( bannedIPsLock, "BannIP" ) )
-			return;
+			return false;
 
-		unsigned int tries = bannedIPConnects [ ip ];
-		if ( tries < bannAfterTries ) {
-			bannedIPConnects [ ip ] = ++tries;
-			CVerbVerbArg ( "BannIP: retain bann due to allowed tries [%s] [%u/%u]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), tries, bannAfterTries );
-		}
-		else {
-			std::time_t t = std::time ( 0 );
-
-			bannedIPs [ ip ] = t;
-
-			if ( printStdOut ) {
-				printf ( "Banned ip : [ %s ]\n", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-			}
-		}
+        std::map<unsigned int, unsigned int>::iterator it = connectedIPs.find ( ip );
+        if ( it == connectedIPs.end () )
+        {
+            unsigned int tries = bannedIPConnects [ ip ];
+            if ( tries < bannAfterTries ) {
+                bannedIPConnects [ ip ] = ++tries;
+                CVerbVerbArg ( "BannIP: Retain bann due to allowed tries [ %s ] [ %u : %u ]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), tries, bannAfterTries );
+            }
+            else {
+                std::time_t t = std::time ( 0 );
+                
+                bannedIPs [ ip ] = t;
+                
+                if ( printStdOut ) {
+                    printf ( "Banned ip : [ %s ]\n", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+                }
+                banned = true;
+            }
+            configDirty = true;
+        }
 
 		LockReleaseVA ( bannedIPsLock, "IsIpBanned" );
 
-		configDirty = true;
+		return banned;
 	}
 
 
@@ -1840,21 +1840,22 @@ namespace environs
 		const std::map<unsigned int, std::time_t>::iterator iter = bannedIPs.find ( ip );
 		if ( iter != bannedIPs.end () )
 		{
-			CVerbArg ( "BannIPRemove: The IP [%s] has been banned before", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+			CVerbArg ( "BannIPRemove: The IP [ %s ] has been banned before", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 			ret = true;
 
 			bannedIPs.erase ( iter );
-
-			const std::map<unsigned int, unsigned int>::iterator itert = bannedIPConnects.find ( ip );
-			if ( itert != bannedIPConnects.end () )
-				bannedIPConnects.erase ( itert );
-
-			if ( printStdOut ) {
-				printf ( "Removed from banned list ip : [ %s ]\n", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
-			}
-		}
-
-		LockReleaseVA ( bannedIPsLock, "IsIpBanned" );
+        }
+        
+        const std::map<unsigned int, unsigned int>::iterator itert = bannedIPConnects.find ( ip );
+        if ( itert != bannedIPConnects.end () ) {
+            bannedIPConnects.erase ( itert );
+            
+            if ( printStdOut ) {
+                printf ( "Removed from banned list ip : [ %s ]\n", inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+            }
+        }
+        
+        LockReleaseVA ( bannedIPsLock, "IsIpBanned" );
 
 		if ( ret ) {
 			configDirty = true;
@@ -1872,17 +1873,13 @@ namespace environs
 
 		isRunning = true;
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
         StopSendThreads ();
         
         StartSendThreads ();
-#endif
         
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
         StopClientThreads ();
         
         StartClientThreads ();
-#endif
         
 		for ( unsigned int pos = 0; pos < ports.size (); pos++ )
 		{
@@ -2029,31 +2026,51 @@ namespace environs
 		// Wait for each thread to terminate
         ReleaseThreads ();        
 
+		vsp ( ThreadInstance ) tmpClients;
+		vsp ( ThreadInstance ) tmpClients1;
+
 		// There should be no active sessions here.
 		// However, in failure cases (e.g. query/lock errors), this may happen.
 		// So, we check that and release lingering client sessions
 		sessions.Lock ( "Dispose" );
 		sessions.Lock1 ( "Dispose" );
 
-		vsp ( ThreadInstance ) tmpClients ( sessions.cache );
+		tmpClients = sessions.cache;
+		tmpClients1 = sessions.toRemove;
 		
 		sessions.list.clear ();
+		sessions.toRemove.clear ();
 		sessions.cache.clear ();
 
 		sessions.Unlock1 ( "Dispose" );
 		sessions.Unlock ( "Dispose" );
 
-		vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
+		vsp ( ThreadInstance )::iterator itv = tmpClients.begin ();
 
-		while ( sessionItv != tmpClients.end () )
+		while ( itv != tmpClients.end () )
 		{
-			sp ( ThreadInstance )	clientSP = *sessionItv;
+			const sp ( ThreadInstance )	&clientSP = *itv;
 
 			if ( clientSP ) {
 				ReleaseClient ( clientSP.get () );
 			}
 
-			++sessionItv;
+			++itv;
+		}
+
+		tmpClients.clear ();
+
+		itv = tmpClients1.begin ();
+
+		while ( itv != tmpClients1.end () )
+		{
+			const sp ( ThreadInstance )	&clientSP = *itv;
+
+			if ( clientSP ) {
+				ClientRemove ( clientSP.get () );
+			}
+
+			++itv;
 		}
 
 		tmpClients.clear ();
@@ -2063,7 +2080,7 @@ namespace environs
 
 		areasMap.Lock ( "Dispose" );
 
-		for ( msp ( string, AppsList )::iterator it = areasMap.list.begin (); it != areasMap.list.end (); it++ )
+		for ( msp ( string, AppsList )::iterator it = areasMap.list.begin (); it != areasMap.list.end (); ++it )
 		{
 			sp ( AppsList ) appsList = it->second;
 			if ( !appsList )
@@ -2071,7 +2088,7 @@ namespace environs
 
 			appsList->Lock ( "Dispose" );
 
-			for ( msp ( string, ListValues )::iterator ita = appsList->apps.begin (); ita != appsList->apps.end (); ita++ )
+			for ( msp ( string, ListValues )::iterator ita = appsList->apps.begin (); ita != appsList->apps.end (); ++ita )
 			{
 				sp ( ListValues ) listValues = ita->second;
 				if ( !listValues )
@@ -2122,8 +2139,6 @@ namespace environs
 		if ( !client )
 			return;
 		client->socket = -1;
-        
-		CloseThreadSocket ( &client->stuntSocket );
 
         CloseThreadSocket ( &client->socketToClose );
         
@@ -2155,13 +2170,10 @@ namespace environs
 		isRunning       = false;
 		acceptEnabled   = false;
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
         StopSendThreads ();
-#endif
         
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
         StopClientThreads ();
-#endif
+
         Mediator::ReleaseThreads ( true );
 
 		// Release notifier thread
@@ -2192,24 +2204,28 @@ namespace environs
 				delete ctx;
 		}
 
-		/*for ( unsigned int pos = 0; pos < listeners.size(); pos++ ) {
-		sp ( MediatorThreadInstance ) listener = listeners [ pos ];
-		if ( !listener )
-		continue;
-
-		listener->Dispose ();
-		}*/
-		listeners.clear ();
-
-
 		acceptClients.Lock ( "ReleaseThreads" );
+
+		msp ( void *, ThreadInstance )::iterator it = acceptClients.list.begin ();
+
+		while ( it != acceptClients.list.end () )
+		{
+			const sp ( ThreadInstance ) & constSP = it->second;
+
+			if ( constSP ) {
+				ShutdownCloseSocket ( ( int ) constSP->socketToClose, false, "ReleaseThreads" );
+			}
+			++it;
+		}
 
 		while ( acceptClients.list.size () > 0 )
 		{
-			sp ( ThreadInstance ) first = acceptClients.list [ 0 ];
+            sp ( ThreadInstance ) first = acceptClients.list.begin ()->second;
 
 			acceptClients.list.erase ( acceptClients.list.begin () );
 
+            first->inAcceptorList = false;
+            
 			acceptClients.Unlock ( "ReleaseThreads" );
 
 			ReleaseClient ( first.get () );
@@ -2218,6 +2234,8 @@ namespace environs
 		}
 
 		acceptClients.Unlock ( "ReleaseThreads" );
+
+		listeners.clear ();
 
 		return ret;
 	}
@@ -2387,12 +2405,8 @@ namespace environs
 		}
 
         if ( found && device ) {
-#ifdef USE_REMOVEDEVICE_WITH_UNLOCK
-			RemoveDeviceUnlock ( appDevs, device );
+            RemoveDeviceUnlock ( appDevs, device );
             return;
-#else
-            RemoveDevice ( device, false );
-#endif
         }
 
 		appDevs->Unlock ( "RemoveDevice" );
@@ -2613,7 +2627,7 @@ namespace environs
 			if ( client->filterMode == MEDIATOR_FILTER_NONE )
 			{
 				/// Remove from NoRestrict notifiers
-				CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in NONE-filter", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
+				CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [ 0x%X : %s : %s ] in NONE-filter", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
 
 				if ( LockAcquireA ( notifyTargetsLock, "UpdateNotifyTargets" ) )
 				{
@@ -2621,7 +2635,7 @@ namespace environs
 
 					if ( notifyIt != notifyTargets.end () )
 					{
-						CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from NONE-filter", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
+						CVerbArg ( "UpdateNotifyTargets: Removing deviceID [ 0x%X : %s : %s ] from NONE-filter", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
 
 						notifyTargets.erase ( notifyIt );
 					}
@@ -2637,7 +2651,7 @@ namespace environs
 					const map<unsigned int, string>::iterator areaIdsIt = areaIDs.find ( device->rootSP->areaId );
 
 					if ( areaIdsIt == areaIDs.end () ) {
-						CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", device->rootSP->areaId );
+						CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [ %u ]", device->rootSP->areaId );
 						break;
 					}
 
@@ -2648,7 +2662,7 @@ namespace environs
 					const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( areaIdsIt->second );
 
 					if ( areaIt == areas.list.end () ) {
-						CWarnArg ( "UpdateNotifyTargets: Failed to find area [%s]", areaIdsIt->second.c_str () );
+						CWarnArg ( "UpdateNotifyTargets: Failed to find area [ %s ]", areaIdsIt->second.c_str () );
 					}
 					else
 						areaApps = areaIt->second;
@@ -2656,13 +2670,13 @@ namespace environs
 					areas.Unlock ( "UpdateNotifyTargets" );
 
 					if ( areaApps && areaApps->Lock1 ( "UpdateNotifyTargets" ) ) {
-						CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [0x%X / %s / %s] in Area-filter", client->deviceID, device->info.areaName, device->info.appName );
+						CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [ 0x%X : %s : %s ] in Area-filter", client->deviceID, device->info.areaName, device->info.appName );
 
 						const msp ( long long, ThreadInstance )::iterator notifyIt = areaApps->notifyTargets.find ( client->sessionID );
 
 						if ( notifyIt != areaApps->notifyTargets.end () )
 						{
-							CVerbArg ( "UpdateNotifyTargets: Removing deviceID [0x%X / %s / %s] from Area-filter", client->deviceID, device->info.areaName, device->info.appName );
+							CVerbArg ( "UpdateNotifyTargets: Removing deviceID [ 0x%X : %s : %s ] from Area-filter", client->deviceID, device->info.areaName, device->info.appName );
 
 							areaApps->notifyTargets.erase ( notifyIt );
 						}
@@ -2685,7 +2699,7 @@ namespace environs
 
 		if ( filterMode == MEDIATOR_FILTER_NONE )
 		{
-			CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to NoRestrict-targets", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
+			CVerbArg ( "UpdateNotifyTargets: Adding deviceID [ 0x%X : %s : %s ] to NoRestrict-targets", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
 
 			if ( LockAcquireA ( notifyTargetsLock, "UpdateNotifyTargets" ) )
 			{
@@ -2702,7 +2716,7 @@ namespace environs
 				const map<unsigned int, string>::iterator areaIDsIt = areaIDs.find ( device->rootSP->areaId );
 
 				if ( areaIDsIt == areaIDs.end () ) {
-					CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [%u]", device->rootSP->areaId );
+					CWarnArg ( "UpdateNotifyTargets: Failed to find area ID [ %u ]", device->rootSP->areaId );
 					break;
 				}
 
@@ -2713,7 +2727,7 @@ namespace environs
 				const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( areaIDsIt->second );
 
 				if ( areaIt == areas.list.end () ) {
-					CWarnArg ( "UpdateNotifyTargets: Failed to find area [%s]", areaIDsIt->second.c_str () );
+					CWarnArg ( "UpdateNotifyTargets: Failed to find area [ %s ]", areaIDsIt->second.c_str () );
 				}
 				else
 					areaApps = areaIt->second;
@@ -2721,7 +2735,7 @@ namespace environs
 				areas.Unlock ( "UpdateNotifyTargets" );
 
 				if ( areaApps && areaApps->Lock1 ( "UpdateNotifyTargets" ) ) {
-					CVerbArg ( "UpdateNotifyTargets: Adding deviceID [0x%X / %s / %s] to Area-filter", client->deviceID, device->info.areaName, device->info.appName );
+					CVerbArg ( "UpdateNotifyTargets: Adding deviceID [ 0x%X : %s : %s ] to Area-filter", client->deviceID, device->info.areaName, device->info.appName );
 
 					areaApps->notifyTargets [ client->sessionID ] = clientSP;
 
@@ -2762,7 +2776,7 @@ namespace environs
 
 				areas.list [ pareaName ] = areaApps;
 			}
-			else { CErrArg ( "GetDeviceList: Failed to create new area [%s] Low memory problem?!", areaName ); }
+			else { CErrArg ( "GetDeviceList: Failed to create new area [ %s ] Low memory problem?!", areaName ); }
 		}
 		else
 			areaApps = areaIt->second;
@@ -2771,7 +2785,7 @@ namespace environs
 
 
 		if ( !areaApps || !areaApps->Lock ( "GetDeviceList" ) ) {
-			CLogArg ( "GetDeviceList: App [%s] not found.", appName );
+			CLogArg ( "GetDeviceList: App [ %s ] not found.", appName );
 			return 0;
 		}
 
@@ -2801,7 +2815,7 @@ namespace environs
 						// Create a new map for the area
 						appsList = make_shared < AppsList > ();
 						if ( !appsList || !appsList->Init () ) {
-							CErrArg ( "GetDeviceList: Failed to create new area [%s].", pareaName.c_str () );
+							CErrArg ( "GetDeviceList: Failed to create new area [ %s ].", pareaName.c_str () );
 
 							appsList.reset ();
 						}
@@ -2821,7 +2835,7 @@ namespace environs
 						{
 							listValues = make_shared < ListValues > (); // new map<string, ValuePack*> ();
 							if ( !listValues || !listValues->Init () ) {
-								CErrArg ( "GetDeviceList: Failed to create new application [%s].", appsName.c_str () );
+								CErrArg ( "GetDeviceList: Failed to create new application [ %s ].", appsName.c_str () );
 
 								listValues.reset ();
 							}
@@ -2857,7 +2871,7 @@ namespace environs
 					}
 				}
 			}
-			else { CErrArg ( "GetDeviceList: Failed to create new application devicelist [%s].", appName ); }
+			else { CErrArg ( "GetDeviceList: Failed to create new application devicelist [ %s ].", appName ); }
 		}
 		else
 			appDevices = appsIt->second;
@@ -2939,7 +2953,9 @@ namespace environs
 		printf ( "p - print active devices\n" );
 		printf ( "r - reload pkcs keys\n" );
 		printf ( "s - toggle output to stdout\n" );
-		printf ( "t - toggle authentication\n" );
+        printf ( "t - toggle authentication\n" );
+        printf ( "x - show bann list\n" );
+        printf ( "y - show connected IPs\n" );
 		printf ( "z - clear bann list\n" );
 #ifdef DEBUG_CHECK_CLIENT_CALL_MS
 		printf ( "n - measure ms (%i) set\n", maxMeasureDiff );
@@ -3064,7 +3080,7 @@ namespace environs
 					}
 					if ( areasMap.Lock ( "Run" ) )
 					{
-						for ( msp ( string, AppsList )::iterator it = areasMap.list.begin (); it != areasMap.list.end (); it++ )
+						for ( msp ( string, AppsList )::iterator it = areasMap.list.begin (); it != areasMap.list.end (); ++it )
 						{
 							sp ( AppsList ) appsList = it->second;
 							if ( !appsList || !appsList->Lock ( "Run" ) )
@@ -3072,7 +3088,7 @@ namespace environs
 
 							CLogArg ( "Area: %s", it->first.c_str () );
 
-							for ( msp ( string, ListValues )::iterator ita = appsList->apps.begin (); ita != appsList->apps.end (); ita++ )
+							for ( msp ( string, ListValues )::iterator ita = appsList->apps.begin (); ita != appsList->apps.end (); ++ita )
 							{
 								sp ( ListValues ) values = ita->second;
 								if ( !values || !values->Lock ( "Run" ) )
@@ -3107,7 +3123,6 @@ namespace environs
 								const char * pwStr = ConvertToHexString ( item->pass.c_str (), ENVIRONS_USER_PASSWORD_LENGTH );
 								if ( pwStr ) {
 									CLogArg ( "User: %s\t[%s]", it->first.c_str (), pwStr );
-
 								}
 							}
 						}
@@ -3135,18 +3150,25 @@ namespace environs
 
 					if ( acceptClients.Lock ( "Run" ) )
 					{
-						for ( size_t i = 0; i < acceptClients.list.size (); i++ )
+						msp ( void *, ThreadInstance ) &list = acceptClients.list;
+						msp ( void *, ThreadInstance )::iterator itm = list.begin ();
+
+						size_t i = 0;
+
+						while ( itm != list.end () )
 						{
-							sp ( ThreadInstance ) client = acceptClients.list [ i ];
-							if ( client )
+							i++;
+
+							const sp ( ThreadInstance ) &clientSP = itm->second;
+							if ( clientSP )
 							{
-								sp ( DeviceInstanceNode ) deviceSP = client->deviceSP;
+								sp ( DeviceInstanceNode ) deviceSP = clientSP->deviceSP;
 								if ( deviceSP )
 								{
-									CLogArg ( "[%i]: [%i]", i, client->deviceID );
+									CLogArg ( "[%i]: [%i]", i, clientSP->deviceID );
 
 									if ( printStdOut )
-										printf ( "[%zu]: [%i]\n", i, client->deviceID );
+										printf ( "[%zu]: [%i]\n", i, clientSP->deviceID );
 
 									printDevice ( deviceSP.get () );
 								}
@@ -3160,6 +3182,7 @@ namespace environs
 							if ( printStdOut )
 								printf ( "----------------------------------------------------------------\n" );
 						}
+
 						acceptClients.Unlock ( "Run" );
 					}
 					CLog ( "----------------------------------------------------------------" );
@@ -3359,14 +3382,71 @@ namespace environs
 						printf ( "Run: Authentication is now [%s]\n", reqAuth ? "required" : "disabled" );
 					CLogArg ( "Run: Authentication is now [%s]", reqAuth ? "required" : "disabled" );
 					continue;
-				}
-				else if ( c == 'z' ) {
+                }
+                else if ( c == 'x' ) {
+                    if ( LockAcquireA ( bannedIPsLock, "Run" ) ) {
+                        if ( printStdOut ) {
+                            printf ( "-------------------------------------------------------\n" );
+                            printf ( "Connected IPs with [ %u ] entries.\n", ( unsigned int ) connectedIPs.size () );
+                            printf ( "-------------------------------------------------------\n" );
+                        }
+                        CLogArg ( "Connected IPs with [ %u ] entries..", ( unsigned int ) connectedIPs.size () );
+                        
+                        std::map<unsigned int, unsigned int>::iterator iter;
+                        
+                        for ( iter = connectedIPs.begin (); iter != connectedIPs.end (); ++iter ) {
+                            if ( printStdOut )
+                                printf ( "[ %-15s : %u ]\n", inet_ntoa ( *( ( struct in_addr * ) &iter->first ) ), iter->second );
+                            CLogArg ( "[ %-15s : %u ]", inet_ntoa ( *( ( struct in_addr * ) &iter->first ) ), iter->second );
+                        }
+                        
+                        LockReleaseVA ( bannedIPsLock, "Run" );
+                    }
+                    continue;
+                }
+                else if ( c == 'y' ) {
+                    if ( LockAcquireA ( bannedIPsLock, "Run" ) ) {
+                        if ( printStdOut ) {
+                            printf ( "-------------------------------------------------------\n" );
+                            printf ( "Bannlist with [ %u ] entries.\n", ( unsigned int ) bannedIPs.size () );
+                            printf ( "-------------------------------------------------------\n" );
+                        }
+                        CLogArg ( "Bannlist with [ %u ] entries..", ( unsigned int ) bannedIPs.size () );
+                        
+                        std::map<unsigned int, std::time_t>::iterator iter;
+
+                        for ( iter = bannedIPs.begin (); iter != bannedIPs.end (); ++iter ) {
+                            if ( printStdOut )
+                                printf ( "[ %s ]\n", inet_ntoa ( *( ( struct in_addr * ) &iter->first ) ) );
+                            CLogArg ( "[ %s ]", inet_ntoa ( *( ( struct in_addr * ) &iter->first ) ) );
+                        }
+                        
+                        if ( printStdOut ) {
+                            printf ( "-------------------------------------------------------\n" );
+                            printf ( "IPs with tries [ %u ] entries.\n", ( unsigned int ) bannedIPConnects.size () );
+                            printf ( "-------------------------------------------------------\n" );
+                        }
+                        CLogArg ( "IPs with tries [ %u ] entries..", ( unsigned int ) bannedIPConnects.size () );
+                        
+                        std::map<unsigned int, unsigned int>::iterator itert;
+                        
+                        for ( itert = bannedIPConnects.begin (); itert != bannedIPConnects.end (); ++itert ) {
+                            if ( printStdOut )
+                                printf ( "[ %-15s : %u ]\n", inet_ntoa ( *( ( struct in_addr * ) &itert->first ) ), itert->second );
+                            CLogArg ( "[ %-15s : %u ]", inet_ntoa ( *( ( struct in_addr * ) &itert->first ) ), itert->second );
+                        }
+                        
+                        LockReleaseVA ( bannedIPsLock, "Run" );
+                    }
+                    continue;
+                }
+                else if ( c == 'z' ) {
 					if ( LockAcquireA ( bannedIPsLock, "Run" ) ) {
 						if ( printStdOut )
-							printf ( "Run: Clearing bannlist with [%u] entries.\n", ( unsigned int ) bannedIPs.size () );
-						CLogArg ( "Run: Clearing bannlist with [%u] entries.", ( unsigned int ) bannedIPs.size () );
+							printf ( "Run: Clearing bannlist with [ %u ] entries.\n", ( unsigned int ) bannedIPs.size () );
+						CLogArg ( "Run: Clearing bannlist with [ %u ] entries.", ( unsigned int ) bannedIPs.size () );
 						bannedIPs.clear ();
-						bannedIPConnects.clear ();
+						//bannedIPConnects.clear ();
 
 						LockReleaseVA ( bannedIPsLock, "Run" );
 					}
@@ -3781,7 +3861,7 @@ namespace environs
 			CLog ( "\n" );
 			const char * ips = inet_ntoa ( addr.sin_addr );
 
-			CLogArg ( "Acceptor: New socket [ %i ] connection with IP [ %s : %d ]", sock, ips, ntohs ( addr.sin_port ) );
+			CLogArg ( "Acceptor [ %i ]: Connection with IP [ %s : %d ]", sock, ips, ntohs ( addr.sin_port ) );
 			CLog ( "\n" );
 
 			if ( acceptEnabled )
@@ -3810,29 +3890,55 @@ namespace environs
 
 				strlcpy ( client->ips, ips, sizeof ( client->ips ) );
 
-				if ( !acceptClients.Lock ( "Acceptor" ) )
-					goto NextClient;
+
+				client->thread.autoreset = false;
+				client->thread.ResetSync ( "Acceptor", false );
 
 				client->clientSP = clientSP;
 
 				// Create client thread
-                
-                client->thread.autoreset = false;
-                client->thread.ResetSync ( "Acceptor", false );
-                
 				if ( !client->thread.Run ( pthread_make_routine ( &MediatorDaemon::ClientThreadStarter ), ( void * ) client, "Acceptor" ) )
 				{
-					client->socket          = -1;
-					client->socketToClose   = -1;
-					client->clientSP        = 0;
+					client->socket			= INVALID_FD;
+					client->socketToClose	= INVALID_FD;
+					client->clientSP		= 0;
 				}
 				else {
-					sock = -1;
-                    acceptClients.list.push_back ( clientSP );
-//                    acceptClients.list.push_back ( client->clientSP );
+					sock = INVALID_FD;
+
+					if ( acceptClients.Lock ( "Acceptor" ) )
+					{
+						client->inAcceptorList = true;
+
+						acceptClients.list [ client ] = clientSP;
+
+						acceptClients.Unlock ( "Acceptor" );
+					}
 				}
 
-				acceptClients.Unlock ( "Acceptor" );
+
+				//if ( !acceptClients.Lock ( "Acceptor" ) )
+				//	goto NextClient;
+
+				//client->inAcceptorList	= true;
+				//acceptClients.list [ client ] = clientSP;
+
+				//acceptClients.Unlock ( "Acceptor" );
+
+				//client->clientSP = clientSP;
+
+				//// Create client thread
+				//if ( !client->thread.Run ( pthread_make_routine ( &MediatorDaemon::ClientThreadStarter ), ( void * ) client, "Acceptor" ) )
+				//{
+				//	client->socket          = INVALID_FD;
+				//	client->socketToClose   = INVALID_FD;
+				//	client->clientSP        = 0;
+
+				//	RemoveAcceptClient ( client );
+				//}
+				//else {
+				//	sock = INVALID_FD;
+				//}
 			}
 
 		NextClient:
@@ -4184,30 +4290,12 @@ namespace environs
                     sendBuffer [ length - 1 ] = 0;
                 }
                 
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-				if ( !SendBufferOrEnqueue ( client, sendBuffer, ( unsigned int ) length, false, seqNr ) ) {
-					CErrArg ( "HandleRequest [ %i ]: Failed to response value [%s] for key [%s]", client->socket, response, params [ 1 ] );
-					free ( sendBuffer );
-				}
-				else success = true;
-#	else
-                if ( !PushSend ( client, sendBuffer, ( unsigned int ) length, false ) ) {
+                if ( !SendBufferOrEnqueue ( client, sendBuffer, ( unsigned int ) length, false, seqNr ) ) {
                     CErrArg ( "HandleRequest [ %i ]: Failed to response value [%s] for key [%s]", client->socket, response, params [ 1 ] );
                     free ( sendBuffer );
                 }
                 else success = true;
-#	endif
-#else
-                int sentBytes = SendBuffer ( client, sendBuffer, ( unsigned int ) length );
-                if ( sentBytes != ( int ) length ) {
-                    CErrArg ( "HandleRequest [ %i ]: Failed to response value [%s] for key [%s]", client->socket, response, params [ 1 ] );
-                }
-                else success = true;
-                
-                free ( sendBuffer );
-#endif
-			}
+            }
 
 			return success;
 		}
@@ -4346,15 +4434,15 @@ namespace environs
 						CWarnArg ( "HandleRegistration [ %s : %i ]:\tStunt socket registration packet overflow.", client->ips, client->socket ); break;
 					}
 
-					/// Get the spare id
-					unsigned int spareIDa = *( ( unsigned int * ) ( msg + 8 ) );
+					/// Get the stunt id
+					unsigned int stuntIDa = *( ( unsigned int * ) ( msg + 8 ) );
 
 					if ( !stuntClients.Lock ( "HandleRegistration" ) )
 						break;
 
-					const msp ( long long, ThreadInstance )::iterator iter = stuntClients.list.find ( spareIDa );
+					const msp ( long long, ThreadInstance )::iterator iter = stuntClients.list.find ( stuntIDa );
 					if ( iter == stuntClients.list.end () ) {
-						CLogArg ( "HandleRegistration [ %s : %i ]:\tStunt id [ %u ] not found.", client->ips, client->socket, spareIDa );
+						CLogArg ( "HandleRegistration [ %s : %i ]:\tStunt id [ %u ] not found.", client->ips, client->socket, stuntIDa );
 
 						stuntClients.Unlock ( "HandleRegistration" );
 						break;
@@ -4375,10 +4463,6 @@ namespace environs
 
 				if ( !AESDecrypt ( &relClient->aes, useSession ? &regPack->payload : ( msg + 16 ), &regLen, &decrypted ) )
 					break;
-
-				if ( regLen != MEDIATOR_BROADCAST_SPARE_ID_LEN ) {
-					CWarnArg ( "HandleRegistration [ %s : %i ]:\tStunt socket registration packet is not of correct type.", client->ips, client->socket ); break;
-				}
 
 				HandleStuntSocketRegistration ( client.get (), relClient, decrypted + 4, regLen );
 				CVerbArg ( "HandleRegistration [ %s : %i ]:\tClosing stunt socket reg. thread [ 0x%X ].", client->ips, client->socket, relClient->deviceID );
@@ -4472,7 +4556,7 @@ namespace environs
 
 			/*if ( msgLen == MEDIATOR_BROADCAST_SPARE_ID_LEN ) {
 			HandleStuntSocketRegistration ( client, deviceID );
-			CVerbID ( "HandleRegistration: Closing spare socket reg. thread." );
+			CVerbID ( "HandleRegistration: Closing stunt socket reg. thread." );
 			return 0;
 			}
 			else */
@@ -4533,25 +4617,16 @@ namespace environs
 						}
 					}
 #endif
+                    int s = ( int ) client->socket;
+                    SocketTimeout ( s, -1, 0 );
 
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-#	if !defined(ENABLE_WINSOCK_SEND_THREADS) && !defined(ENABLE_WINSOCK_CLIENT_THREADS)
-					if ( !SetNonBlockSocket ( ( int ) client->socket, true, "HandleRegistration" ) ) 
+#if !defined(ENABLE_WINSOCK_SEND_THREADS) && !defined(ENABLE_WINSOCK_CLIENT_THREADS)
+					if ( !SetNonBlockSocket ( s , true, "HandleRegistration" ) )
 					{
 						CWarnArgID ( "HandleRegistration [ %s : %i ]:\tDevice registration failed.", client->ips, client->socket );
 						return false;
 					}
-#	endif
 #endif
-
-#ifdef ENABLE_WINSOCK_SEND_THREADS1
-					if ( WSAEventSelect ( ( int ) client->socket, sendEvents [ 0 ], FD_WRITE ) == SOCKET_ERROR ) {
-						CWarnArgID ( "HandleRegistration [ %s : %i ]:\tFailed to register send event [ %d ]", client->ips, client->socket, WSAGetLastError () );
-						return false;
-					}
-#endif
-                    
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
                     // Look for a client thread to assign to
                     unsigned int clientToMap = 0;
                     int fewest = -1;
@@ -4575,13 +4650,15 @@ namespace environs
                     }
 
 #ifdef ENABLE_WINSOCK_CLIENT_THREADS
+#	ifndef USE_ONE_TO_ONE_SOCKET_EVENTS
 					if ( WSAEventSelect ( ( int ) client->socket, clientContexts [ clientToMap ]->revent, FD_READ | FD_CLOSE ) == SOCKET_ERROR ) {
 						CWarnArgID ( "HandleRegistration [ %s : %i ]:\tFailed to register receive event [ %d ]", client->ips, client->socket, WSAGetLastError () );
 						return 0;
 					}
+#	endif
 #endif                    
                     clientEvent.Notify ( "HandleRegistration" );
-#endif
+
 					CLogArgID ( "HandleRegistration [ %s : %i ]:\tDevice registration succeeded.", client->ips, client->socket );
 
 					return 1;
@@ -4629,15 +4706,15 @@ namespace environs
 						CWarnArg ( "HandleRegistration [ %s : %i ]:\tStunt socket registration packet overflow.", client->ips, client->socket ); break;
 					}
 
-					/// Get the spare id
-					unsigned int spareIDa = *( ( unsigned int * ) ( msg + 8 ) );
+					/// Get the stunt id
+					unsigned int stuntIDa = *( ( unsigned int * ) ( msg + 8 ) );
 
 					if ( !stuntClients.Lock ( "HandleRegistration" ) )
 						break;
 
-					const msp ( long long, ThreadInstance )::iterator iter = stuntClients.list.find ( spareIDa );
+					const msp ( long long, ThreadInstance )::iterator iter = stuntClients.list.find ( stuntIDa );
 					if ( iter == stuntClients.list.end () ) {
-						CLogArg ( "HandleRegistration [ %s : %i ]:\tStunt id [%u] not found.", client->ips, client->socket, spareIDa );
+						CLogArg ( "HandleRegistration [ %s : %i ]:\tStunt id [%u] not found.", client->ips, client->socket, stuntIDa );
 
 						stuntClients.Unlock ( "HandleRegistration" );
 						break;
@@ -4743,7 +4820,7 @@ namespace environs
 
 			/*if ( msgLen == MEDIATOR_BROADCAST_SPARE_ID_LEN ) {
 			HandleStuntSocketRegistration ( client, deviceID );
-			CVerbID ( "HandleRegistration: Closing spare socket reg. thread." );
+			CVerbID ( "HandleRegistration: Closing stunt socket reg. thread." );
 			return 0;
 			}
 			else */
@@ -4805,24 +4882,14 @@ namespace environs
 					}
 #endif
 
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-#	if !defined(ENABLE_WINSOCK_SEND_THREADS) && !defined(ENABLE_WINSOCK_CLIENT_THREADS)
-					if ( !SetNonBlockSocket ( ( int ) client->socket, true, "HandleRegistration" ) )
+#if !defined(ENABLE_WINSOCK_SEND_THREADS) && !defined(ENABLE_WINSOCK_CLIENT_THREADS)
+                    int s = ( int ) client->socket;
+					if ( !SetNonBlockSocket ( s, true, "HandleRegistration" ) )
 					{
 						CWarnArgID ( "HandleRegistration [ %s : %i ]:\tDevice registration failed.", client->ips, client->socket );
 						return false;
 					}
-#	endif
 #endif
-
-#ifdef ENABLE_WINSOCK_SEND_THREADS1
-					if ( WSAEventSelect ( ( int ) client->socket, sendEvents [ 0 ], FD_WRITE ) == SOCKET_ERROR ) {
-						CWarnArgID ( "HandleRegistration [ %s : %i ]:\tFailed to register send event [ %d ]", client->ips, client->socket, WSAGetLastError () );
-						return false;
-					}
-#endif
-
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
 					// Look for a client thread to assign to
 					unsigned int clientToMap = 0;
 					unsigned int fewest = 0;
@@ -4837,20 +4904,22 @@ namespace environs
 						}
 
 						clientContexts [ i ]->Unlock ( "HandleRegistration" );
-				}
+					}
 
 					if ( !clientContexts [ clientToMap ]->Add ( client ) ) {
 						return 0;
 					}
 
 #ifdef ENABLE_WINSOCK_CLIENT_THREADS
+#	ifndef USE_ONE_TO_ONE_SOCKET_EVENTS
 					if ( WSAEventSelect ( ( int ) client->socket, clientContexts [ clientToMap ]->revent, FD_READ | FD_CLOSE ) == SOCKET_ERROR ) {
 						CWarnArgID ( "HandleRegistration [ %s : %i ]:\tFailed to register receive event [ %d ]", client->ips, client->socket, WSAGetLastError () );
 						return 0;
 					}
+#	endif
 #endif                    
 					clientEvent.Notify ( "HandleRegistration" );
-#endif
+
 					CLogArgID ( "HandleRegistration [ %s : %i ]:\tDevice registration succeeded.", client->ips, client->socket );
 
 					return 1;
@@ -4862,15 +4931,13 @@ namespace environs
 
 		return ret;
 	}
-
     
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
     
     void MediatorDaemon::ClientRemove ( ThreadInstance * client )
     {
         CVerbArg ( "ClientRemove [ %s : %i ]", client->ips, client->port );
         
-        if ( isRunning )
+        if ( isRunning && client->daemon )
         {
             RemoveAcceptClient ( client );
             
@@ -4887,15 +4954,23 @@ namespace environs
             
             sessions.Lock ( "ClientRemove" );
             
-            const msp ( long long, ThreadInstance )::iterator sessionIt = sessions.list.find ( client->sessionID );
+            const msp ( long long, ThreadInstance )::iterator &sessionIt = sessions.list.find ( client->sessionID );
             
-            if ( sessionIt != sessions.list.end () ) {
+            if ( sessionIt != sessions.list.end () ) 
+			{
                 sessions.list.erase ( sessionIt );
-            }
 
-			sessions.BuildCache ();
+				sessions.BuildCache ();
+            }
             
             sessions.Unlock ( "ClientRemove" );
+            
+            for ( size_t i = 0; i < sendThreadCount; ++i )
+            {
+				___sync_val_compare_and_swap ( sessionsChanged + i, 0, 1 );
+            }
+            
+            ___sync_val_compare_and_swap ( &watchdogSessionsChanged, 0, 1 );
             
             client->thread.Notify ( "ClientRemove" );
             
@@ -4919,8 +4994,75 @@ namespace environs
 #endif
             CloseThreadSocket ( &client->socketToClose );
             
+            // Updated connected ips
+            //
+            
+            if ( client->authenticated && client->sessionID )
+            {
+                unsigned int ip = client->addr.sin_addr.s_addr;
+                
+                if ( LockAcquireA ( bannedIPsLock, "ClientRemove" ) )
+                {
+                    std::map<unsigned int, unsigned int>::iterator it = connectedIPs.find ( ip );
+                    if ( it != connectedIPs.end () )
+                    {
+                        unsigned int c = it->second;
+                        if ( c <= 1 )
+                            connectedIPs.erase ( it );
+                        else
+							connectedIPs [ ip ] = ( c - 1 );
+                    }
+                    
+                    LockReleaseVA ( bannedIPsLock, "ClientRemove" );
+                }
+            }
+            
             client->daemon = 0;
         }
+    }
+    
+    
+    void ApplySocketBufferSizes ( ThreadInstance * client, size_t recvSize )
+    {
+        int deviceID = client->deviceID;
+        
+        CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]", client->ips, client->socket );
+        
+        int rc;
+        
+        int recSize = 0;
+        
+        socklen_t retSize = sizeof ( recSize );
+        
+        // - Load send buffer size
+        rc = getsockopt ( ( int ) client->socket, SOL_SOCKET, SO_RCVBUF, ( char * ) &recSize, &retSize );
+        if ( rc < 0 ) {
+            CErrArgID ( "ApplySocketBufferSizes [ %s : %i ]: Failed to query receive buffer size!", client->ips, client->socket ); LogSocketError ();
+        }
+        else {
+            CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]: receive buffer size [%i]", client->ips, client->socket, recSize );
+            
+            recvSize <<= 1;
+            
+            if ( recSize < recvSize ) {
+                rc = setsockopt ( ( int ) client->socket, SOL_SOCKET, SO_RCVBUF, ( const char * ) &recvSize, sizeof ( recvSize ) );
+                if ( rc < 0 ) {
+                    CErrArgID ( "ApplySocketBufferSizes [ %s : %i ]: Failed to set receive buffer size to [ %u ].", client->ips, client->socket, recvSize ); LogSocketError ();
+                }
+                else {
+                    CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]: Receive buffer size set to [ %i ].", client->ips, client->socket, recvSize );
+                }
+            }
+        }
+        
+        /*
+        rc = setsockopt ( (int) client->socket, SOL_SOCKET, SO_SNDBUF, ( const char * ) &recSize, sizeof ( recSize ) );
+        if ( rc < 0 ) {
+            CErrArgID ( "ApplySocketBufferSizes [ %s : %i ]: Failed to set send buffer size.", client->ips, client->socket ); LogSocketError ();
+        }
+        else {
+            CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]: Send buffer size set to [ %i ].", client->ips, client->socket, recSize );
+        }*/
     }
     
     
@@ -4959,7 +5101,10 @@ namespace environs
 				CErr ( "ClientThreadStarter: Failed to set TCP_NODELAY on socket" ); LogSocketError ();
 			}
 #endif
-			SocketTimeout ( ( int ) client->socket, -1, 10 );
+            ApplySocketBufferSizes ( client, MEDIATOR_CLIENT_MAX_BUFFER_SIZE );
+            
+            int s = ( int ) client->socket;
+			SocketTimeout ( s, -1, 20 );
 
 			client->ctx.msg				= client->bufferUP.get ();
 			client->ctx.msgEnd			= client->ctx.msg;
@@ -4978,135 +5123,45 @@ namespace environs
         }
         return 0;
     }
-#else
-    void * MediatorDaemon::ClientThreadStarter ( void *arg )
-    {
-        if ( !arg )
-			return 0;
-
-		ThreadInstance * client = ( ThreadInstance * ) arg;
-
-		CVerbArg ( "ClientThreadStarter: Address of arg [ 0x%p ].", &client );
-
-		MediatorDaemon * daemon = ( MediatorDaemon * ) client->daemon;
-		if ( !daemon )
-			return 0;
-
-		sp ( ThreadInstance ) clientSP = client->clientSP;
-		if ( clientSP )
-		{
-            client->clientSP.reset ();
-            
-#ifdef MEDIATOR_USE_TCP_NODELAY
-			int value = 1;
-			int ret = setsockopt ( ( int ) client->socket, IPPROTO_TCP, TCP_NODELAY, ( const char * ) &value, sizeof ( value ) );
-			if ( ret < 0 ) {
-				CErr ( "ClientThreadStarter: Failed to set TCP_NODELAY on socket" ); LogSocketError ();
-			}
-#endif
-            SocketTimeout ( ( int ) client->socket, -1, 10 );
-            
-			// Execute thread
-			daemon->ClientThread ( clientSP );
-		}
-
-		if ( daemon->isRunning )
-		{
-			daemon->RemoveAcceptClient ( client );
-
-			CVerbArg ( "Client [ %s : %i ]:\tDisposing memory for client", client->ips, client->port );
-
-			sp ( DeviceInstanceNode ) deviceSP = client->deviceSP;
-
-			if ( deviceSP ) {
-				CVerbArg ( "Client [ %s : %i ]:\tReleasing deviceSP", client->ips, client->port );
-
-				daemon->RemoveDevice ( deviceSP.get () );
-				client->deviceSP = 0;
-			}
-
-			daemon->sessions.Lock ( "Client" );
-
-			const msp ( long long, ThreadInstance )::iterator sessionIt = daemon->sessions.list.find ( client->sessionID );
-			if ( sessionIt != daemon->sessions.list.end () ) {
-				daemon->sessions.list.erase ( sessionIt );
-			}
-
-			daemon->sessions.BuildCache ();
-
-			daemon->sessions.Unlock ( "Client" );
-
-			DisposeSendContexts ( client );
-
-            client->thread.Notify ( "Client" );
-            
-            if ( client->stuntSocketsFront != client->stuntSocketsLast )
-            {
-                if ( LockAcquireA ( client->stuntSocketLock, "Client" ) )
-                {
-                    client->CloseStuntSockets ();
-                    
-                    LockReleaseVA ( client->stuntSocketLock, "Client" );
-                }
-            }
-
-#if defined(ENABLE_WINSOCK_SEND_THREADS) || defined(ENABLE_WINSOCK_CLIENT_THREADS)
-			if ( IsValidFD ( ( int ) client->socketToClose ) )
-			{
-				if ( WSAEventSelect ( ( int ) client->socketToClose, NULL, 0 ) ) {
-					CErr ( "Client: Failed to deassoc event from socket." );
-				}
-			}
-#endif
-            CloseThreadSocket ( &client->socketToClose );
-            
-			client->daemon = 0;
-		}
-		return 0;
-	}
-#endif
-
-#ifdef MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
-	/*
-	void ApplySocketBufferSizes ( ThreadInstance * client, char * msg )
-	{
-	int deviceID = client->deviceID;
-
-	CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]", client->ips, client->socket );
-
-	int rc;
-	int * pUI = reinterpret_cast<int *>( msg );
-
-	int recSize = *pUI; pUI++;
-	int sendSize = *pUI;
-
-	if ( sendSize > 32000 && sendSize < 2000000 )
-	{
-	rc = setsockopt ( (int) client->socket, SOL_SOCKET, SO_RCVBUF, ( const char * ) &sendSize, sizeof ( sendSize ) );
-	if ( rc < 0 ) {
-	CErrArgID ( "ApplySocketBufferSizes [ %s : %i ]: Failed to set receive buffer size.", client->ips, client->socket ); LogSocketError ();
-	}
-	else {
-	CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]: Receive buffer size set to [ %i ].", client->ips, client->socket, sendSize );
-	}
-	}
-
-	if ( recSize > 32000 && recSize < 2000000 )
-	{
-	rc = setsockopt ( (int) client->socket, SOL_SOCKET, SO_SNDBUF, ( const char * ) &recSize, sizeof ( recSize ) );
-	if ( rc < 0 ) {
-	CErrArgID ( "ApplySocketBufferSizes [ %s : %i ]: Failed to set send buffer size.", client->ips, client->socket ); LogSocketError ();
-	}
-	else {
-	CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]: Send buffer size set to [ %i ].", client->ips, client->socket, recSize );
-	}
-	}
-	}
-	*/
-#endif
 
     
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
+#ifdef MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
+    void ApplySocketBufferSizes ( ThreadInstance * client, char * msg )
+    {
+        int deviceID = client->deviceID;
+        
+        CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]", client->ips, client->socket );
+        
+        int rc;
+        int * pUI = reinterpret_cast<int *>( msg );
+        
+        int recSize = *pUI; pUI++;
+        int sendSize = *pUI;
+        
+        if ( sendSize > 32000 && sendSize < 2000000 )
+        {
+            rc = setsockopt ( (int) client->socket, SOL_SOCKET, SO_RCVBUF, ( const char * ) &sendSize, sizeof ( sendSize ) );
+            if ( rc < 0 ) {
+                CErrArgID ( "ApplySocketBufferSizes [ %s : %i ]: Failed to set receive buffer size.", client->ips, client->socket ); LogSocketError ();
+            }
+            else {
+                CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]: Receive buffer size set to [ %i ].", client->ips, client->socket, sendSize );
+            }
+        }
+        
+        if ( recSize > 32000 && recSize < 2000000 )
+        {
+            rc = setsockopt ( (int) client->socket, SOL_SOCKET, SO_SNDBUF, ( const char * ) &recSize, sizeof ( recSize ) );
+            if ( rc < 0 ) {
+                CErrArgID ( "ApplySocketBufferSizes [ %s : %i ]: Failed to set send buffer size.", client->ips, client->socket ); LogSocketError ();
+            }
+            else {
+                CVerbArgID ( "ApplySocketBufferSizes [ %s : %i ]: Send buffer size set to [ %i ].", client->ips, client->socket, recSize );
+            }
+        }
+    }
+#endif
+    
     
     int MediatorDaemon::ClientThread ( const sp ( ThreadInstance ) &clientSP )
     {
@@ -5126,13 +5181,16 @@ namespace environs
 		unsigned int	remainingSize	= client->ctx.remainingSize;
 		char		*	msgDec			= 0;
 		unsigned int	msgDecLength;
-		char		*	decrypted		= 0;
-
+        char		*	decrypted		= 0;
+        
+#ifndef NDEBUG
+        char lastCommand = 0;
+#endif
+        
 		char		*	msg;
 		char        *   buffer          = client->bufferUP.get ();
 		if ( !buffer )
 			goto ShutdownClient;
-
         
         while ( isRunning && IsValidFD ( client->socket ) )
         {
@@ -5160,8 +5218,7 @@ namespace environs
 				client->ctx.msgEnd          = msgEnd;
 				client->ctx.remainingSize   = remainingSize;
 
-				if ( !handled )
-					return 1;
+				if ( !handled ) return 1;
 				return 0;
 			}
 
@@ -5198,7 +5255,7 @@ namespace environs
                     if ( msgLength >= MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) {
                         CErrArgID ( "ClientThread [ %s : %i ]:\tmsgLength [ %d ] >= [ %i ]!", client->ips, sock, msgLength, MEDIATOR_CLIENT_MAX_BUFFER_SIZE );
                         
-                        /// Reset channel until received bytes is 0?
+                        /// Reset channel until received bytes becomes 0?
                         goto ShutdownClient;
                     }
                     break;
@@ -5221,32 +5278,30 @@ namespace environs
                         
                         if ( flags == 0x80000000 ) {
                             /// Message is encrypted with public certificate
-                            if ( !DecryptMessage ( privKey, privKeySize, msg + 4, msgDecLength, &decrypted, &msgDecLength ) ) {
+#ifdef USE_WIN32_CACHED_PRIVKEY
+							if ( !DecryptMessageWithKeyHandles ( hPrivKeyCSP, hPrivKey, msg + 4, msgDecLength, &decrypted, &msgDecLength ) )
+#else
+                            if ( !DecryptMessage ( privKey, privKeySize, msg + 4, msgDecLength, &decrypted, &msgDecLength ) ) 
+#endif
+							{
                                 CWarnArgID ( "ClientThread [ %s : %i ]:\tDecrypt with privKey failed!", client->ips, sock ); goto ShutdownClient;
                             }
                             msgDec = decrypted;
                         }
-                        else {
-                            CErrArgID ( "ClientThread [ %s : %i ]:\tUnknown encryption flags", client->ips, sock );
-                            goto ShutdownClient; /// Unknown encryption flags
-                        }
+                        else { CErrArgID ( "ClientThread [ %s : %i ]:\tUnknown encryption flags", client->ips, sock ); goto ShutdownClient; }
                     }
                 }
-                else {
-                    msgDecLength = msgLength; msgDec = msg;
-                }
+                else { msgDecLength = msgLength; msgDec = msg; }
 
 				if ( msgDec [ 4 ] == 'H' ) {
 					if ( msgDec [ 5 ] == 'C' && msgDec [ 6 ] == 'L' && msgDec [ 7 ] == 'S' )
 					{
 						if ( client->encrypt ) {
-							CWarnArgID ( "ClientThread [ %s : %i ]:\tTried to establish a safe channel again. Not allowed.", client->ips, sock );
-							goto ShutdownClient;
+							CWarnArgID ( "ClientThread [ %s : %i ]:\tTried to establish a safe channel again. Not allowed.", client->ips, sock ); goto ShutdownClient;
 						}
 
 						if ( !SecureChannelAuth ( client ) ) {
-							CWarnArgID ( "ClientThread [ %s : %i ]:\tEstablishing Security / Authentication failed.", client->ips, sock );
-							goto ShutdownClient;
+							CWarnArgID ( "ClientThread [ %s : %i ]:\tEstablishing Security / Authentication failed.", client->ips, sock ); goto ShutdownClient;
 						}
 						CLogArgID ( "ClientThread [ %s : %i ]:\tEstablishing Security / Authentication succeeded.", client->ips, sock );
 						goto Continue;
@@ -5258,13 +5313,11 @@ namespace environs
                     {
                         int ret = HandleRegistration ( deviceID, clientSP, bytesLeft, msgDec, msgDecLength );
                         if ( ret == 0 ) {
-							free_n ( decrypted );
-                            return -1;
+							free_n ( decrypted ); return -1;
                         }
                         if ( ret > 0 ) {
                             BannIPRemove ( client->addr.sin_addr.s_addr );                            
-							free_n ( decrypted );
-                            return 1;
+							free_n ( decrypted ); return 1;
                         }
                         CVerbArgID ( "ClientThread [ %s : %i ]:\tHandle registration failed.", client->ips, sock );
                     }
@@ -5284,8 +5337,7 @@ namespace environs
                 }
                 
                 if ( msgDec [ 4 ] < MEDIATOR_PROTOCOL_VERSION_MIN ) {
-                    CWarnArgID ( "ClientThread [ %s : %i ]:\tVersion [ %c ] not supported anymore", client->ips, sock, msgDec [ 4 ] );
-                    goto ShutdownClient;
+                    CWarnArgID ( "ClientThread [ %s : %i ]:\tVersion [ %c ] not supported anymore", client->ips, sock, msgDec [ 4 ] ); goto ShutdownClient;
                 }
                 
                 client->aliveLast	= checkLast;
@@ -5317,7 +5369,10 @@ namespace environs
 							goto Continue;
 
                     command         = msgDec [ 5 ];
-                    
+#ifndef NDEBUG
+					lastCommand = command;
+#endif
+
 #ifdef DEBUG_DEVICE_ID1
                     if ( deviceID == debugID ) {
                         char timeString [ 256 ];
@@ -5341,14 +5396,8 @@ namespace environs
                     // COMMAND: Return port of destination and request STUNT for client with deviceID (IP, IPe, Port)
                     else if ( command == MEDIATOR_CMD_STUNT )
                     {
-                        HandleSTUNTRequest ( clientSP, ( STUNTReqPacketV6 * ) msgDec );
+                        HandleSTUNTRequest ( clientSP, ( STUNTReqPacketV8 * ) msgDec );
                     }
-                    // COMMAND:
-                    /*else if ( command == MEDIATOR_CMD_STUN )
-                    {
-                        HandleSTUNRequest ( client, msgDec );
-                    }
-                    */
                     // COMMAND:
                     else if ( command == MEDIATOR_CMD_GET_DEVICES )
                     {
@@ -5359,29 +5408,6 @@ namespace environs
                     {
                         HandleShortMessage ( client, msgDec, unitLength );
                     }
-                    // COMMAND: // This is probably DEPRECATED
-                    /*else if ( command == MEDIATOR_CMD_REQ_STUNT_ID )
-                    {
-                        stuntClients.Lock ( "Client: spare ID" );
-                        
-                        unsigned int sid = ++stuntID;
-                        
-                        CVerbArgID ( "Client [ %s : %i ]:\tAssigned spare ID [ %u ]", client->ips, sock, sid );
-                        
-                        stuntClients.list [ ( unsigned int ) sid ] = clientSP;
-                        
-                        stuntClients.Unlock ( "Client: spare ID" );
-                        
-                        *( ( unsigned int * ) msgDec ) = MEDIATOR_NAT_REQ_SIZE;
-                        *( ( unsigned int * ) ( msgDec + 4 ) ) = ( unsigned int ) sid;
-                        
-                        int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
-                        
-                        if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
-                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response spare client ID [ %u ]", client->ips, sock, sid );
-                        }
-                    }
-                    */
                     // COMMAND:
                     else if ( command == MEDIATOR_CMD_HELP_TLS_GEN )
                     {
@@ -5393,10 +5419,10 @@ namespace environs
                     // COMMAND:
                     else if ( command == MEDIATOR_CMD_SET_FILTERMODE )
                     {
-                        if ( client->authLevel >= 3 ) {
-                            MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
-                            UpdateNotifyTargets ( clientSP, medMsg->ids.id2.msgID );
-                        }
+						if ( client->authLevel >= 3 ) {
+							MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
+							UpdateNotifyTargets ( clientSP, medMsg->ids.id2.msgID );
+						}
                     }
                     // COMMAND:
                     else if ( command == MEDIATOR_CMD_HEARTBEAT )
@@ -5429,23 +5455,9 @@ namespace environs
                             sendSize = MEDIATOR_MSG_VERSION_SIZE;
                         }
                         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-                        if ( !SendBufferOrEnqueue ( client, versionBuffer, sendSize ) ) {
+                        if ( !SendBufferOrEnqueue ( client, versionBuffer, sendSize, true, 0 ) ) {
                             CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
                         }
-#else
-                        if ( !PushSend ( client, versionBuffer, sendSize ) ) {
-                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-                        }
-#endif
-#else
-                        int sentBytes = SendBuffer ( client, versionBuffer, sendSize );
-                        
-                        if ( sentBytes != sendSize ) {
-                            CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-                        }
-#endif
                     }
                     // COMMAND:
                     else if ( command == MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE )
@@ -5466,6 +5478,11 @@ namespace environs
                     {
                         HandleDeviceFlagSet ( client, msgDec );
                     }
+					// COMMAND:
+					else if ( command == MEDIATOR_CMD_STUNT_CLEAR )
+					{
+						HandleSTUNTClear ( client, ( StuntClearTarget * ) msgDec );
+					}
 #ifdef MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
                     /*else if ( command == MEDIATOR_CMD_SET_SOCKET_BUFFERS )
                      {
@@ -5476,8 +5493,7 @@ namespace environs
                     // COMMAND:
                     else if ( command == MEDIATOR_CMD_QUIT )
                     {
-                        client->SendTcpFin ();
-                        break;
+                        client->SendTcpFin (); break;
                     }
                     else {
                         msgDec [ unitLength - 1 ] = 0;
@@ -5536,11 +5552,12 @@ namespace environs
         {
 			bool isBanned = false;
 
-            if ( !client->deviceID && client->addr.sin_addr.s_addr ) {
-                if ( /*!isBanned &&*/ !client->authenticated ) {
+			unsigned int ip = client->addr.sin_addr.s_addr;
+
+            if ( !client->deviceID && ip ) {
+                if ( !client->authenticated ) {
                     CWarnArgID ( "ClientThread [ %s : %i : %i ]:\tRequest has not been identified. kicking connect.", client->ips, client->port, sock );
-                    BannIP ( client->addr.sin_addr.s_addr );
-                    isBanned = true;
+					isBanned = BannIP ( ip );
                 }
             }
             
@@ -5561,440 +5578,6 @@ namespace environs
         CLogArgID ( "ClientThread [ %s : %i : %i ]:\tDisconnected", client->ips, client->port, sock );
         return -1;
     }
-#else
-    int MediatorDaemon::ClientThread ( const sp ( ThreadInstance ) &clientSP )
-    {
-        CVerb ( "ClientThread started" );
-        
-        ThreadInstance * client = clientSP.get ();
-        
-        CLogArg ( "ClientThread started for [ %s ] socket [ %i ]", client->ips, client->socket );
-        
-        int             deviceID        = 0;
-        char        *   buffer          = 0;
-
-		CVerbArg ( "Client [ %s : %i ]:\tSource port [ %u ]", client->ips, client->socket, ntohs ( client->addr.sin_port ) );
-
-		char		*	msg;
-		char		*	msgEnd;
-		int				bytesReceived, sock = ( int ) client->socket;
-		unsigned int	remainingSize	= MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
-		char		*	msgDec			= 0;
-		unsigned int	msgDecLength;
-		char		*	decrypted		= 0;
-		up ( char [ ] ) bufferUP;
-
-
-		bool isBanned = IsIpBanned ( client->addr.sin_addr.s_addr );
-		if ( isBanned )
-			goto ShutdownClient;
-
-		bufferUP = up ( char [ ] ) ( new char [ MEDIATOR_CLIENT_MAX_BUFFER_SIZE + 1 ] );
-		if ( !bufferUP )
-			goto ShutdownClient;
-
-		msgEnd = buffer = bufferUP.get ();
-        
-#ifdef USE_NONBLOCK_CLIENT_SOCKET       
-		int rc;
-        struct pollfd desc;
-        desc.events = POLLIN | POLLERRMASK;
-#endif
-		while ( isRunning && IsValidFD ( client->socket ) )
-        {
-			CVerbVerbArgID ( "Client [ %s : %i ]:\tGoing into recv ... buffer free [ %i ]!", client->ips, sock, remainingSize );
-            
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-            
-            desc.revents	= 0;
-			desc.fd         = ( int ) client->socket,
-            
-            rc = poll ( &desc, 1, 6000 );
-            if ( rc == -1 ) {
-                VerbLogSocketError (); VerbLogSocketError1 ();
-                CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; rc [ -1 ]!", client->ips, sock );
-                break;
-            }
-            if ( rc == 0 ) {
-                CVerbVerbArgID ( "Client [ %s : %i ]:\tconnection/socket timeoout; rc [ 0 ]!", client->ips, sock );
-                continue;
-            }
-
-			if ( ( desc.revents & POLLIN ) == 0 ) {
-				if ( desc.revents & POLLERRMASK ) {
-					CVerbVerbArgID ( "Client [ %s : %i ]:\tconnection/socket error; rc [ %i ]!", client->ips, sock, rc );
-					break;
-				}
-				continue;
-			}
-            
-            bytesReceived = ( int ) recv ( ( int ) client->socket, msgEnd, remainingSize, 0 );
-			/*if ( bytesReceived == 0 ) {
-				CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; rc [ -1 ]!", client->ips, sock );
-				break;
-			}*/
-
-            if ( bytesReceived <= 0 ) {
-                SOCKETRETRY ();
-                
-                VerbLogSocketError (); VerbLogSocketError1 ();
-                CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; Bytes [ %i ]!", client->ips, sock, bytesReceived );
-                break;
-            }
-#else
-            bytesReceived = ( int ) recv ( ( int ) client->socket, msgEnd, remainingSize, 0 );
-            if ( bytesReceived <= 0 ) {
-                VerbLogSocketError (); VerbLogSocketError1 ();
-                CVerbArgID ( "Client [ %s : %i ]:\tconnection/socket closed by someone; Bytes [ %i ]!", client->ips, sock, bytesReceived );
-                break;
-            }
-#endif
-			msgEnd [ bytesReceived ] = 0;
-			msg = buffer;
-
-			unsigned int msgLength;
-			char command;
-            
-#ifdef DEBUG_DEVICE_ID
-            unsigned int start = 0;
-#endif
-            
-			int bytesLeft = ( int ) ( bytesReceived + ( msgEnd - msg ) );
-			while ( bytesLeft >= 8 )
-            {
-#ifdef DEBUG_DEVICE_ID
-                if ( deviceID == debugID ) {
-                    start = GetEnvironsTickCount32 ();
-                }
-#endif
-				msgLength = *( ( unsigned int * ) msg );
-				unsigned flags = 0xF0000000 & msgLength;
-
-				msgLength &= 0xFFFFFFF;
-
-				CVerbVerbArgID ( "Client [ %s : %i ]:\tmsgLength [ %d ] Bytes left [ %i ]!", client->ips, sock, msgLength, bytesLeft );
-
-				if ( msgLength > ( unsigned int ) bytesLeft )
-				{
-					if ( msgLength >= MEDIATOR_CLIENT_MAX_BUFFER_SIZE ) {
-						CErrArgID ( "Client [ %s : %i ]:\tmsgLength [ %d ] >= [ %i ]!", client->ips, sock, msgLength, MEDIATOR_CLIENT_MAX_BUFFER_SIZE );
-
-						/// Reset channel until received bytes is 0?
-						goto ShutdownClient;
-					}
-					break;
-				}
-
-				if ( flags )
-				{
-					/// Message is encrypted                
-					if ( flags & 0x40000000 )
-					{
-						msgDecLength = msgLength;
-
-						/// Message is AES encrypted
-						if ( !AESDecrypt ( &client->aes, msg, &msgDecLength, &decrypted ) )
-							break;
-						msgDec = decrypted;
-					}
-					else {
-						msgDecLength = msgLength - 4;
-
-						if ( flags == 0x80000000 ) {
-							/// Message is encrypted with public certificate
-							if ( !DecryptMessage ( privKey, privKeySize, msg + 4, msgDecLength, &decrypted, &msgDecLength ) ) {
-								CWarnArgID ( "Client [ %s : %i ]:\tDecrypt with privKey failed!", client->ips, sock ); goto ShutdownClient;
-							}
-							msgDec = decrypted;
-						}
-						else {
-							CErrArgID ( "Client [ %s : %i ]:\tUnknown encryption flags", client->ips, sock );
-							goto ShutdownClient; /// Unknown encryption flags
-						}
-					}
-				}
-				else {
-					msgDecLength = msgLength; msgDec = msg;
-				}
-
-				if ( msgDec [ 4 ] == 'H' && msgDec [ 5 ] == 'C' && msgDec [ 6 ] == 'L' && msgDec [ 7 ] == 'S' )
-				{
-					if ( client->encrypt ) {
-						CWarnArgID ( "Client [ %s : %i ]:\tTried to establish a safe channel again. Not allowed.", client->ips, sock );
-						goto ShutdownClient;
-					}
-
-					if ( !SecureChannelAuth ( client ) ) {
-						CWarnArgID ( "Client [ %s : %i ]:\tEstablishing Security / Authentication failed.", client->ips, sock );
-						goto ShutdownClient;
-					}
-					CLogArgID ( "Client [ %s : %i ]:\tEstablishing Security / Authentication succeeded.", client->ips, sock );
-					goto Continue;
-				}
-
-				if ( msgDec [ 4 ] == 'E' ) {
-					if ( msgDec [ 5 ] == '.' && msgDec [ 6 ] == 'D' )
-					{
-						int ret = HandleRegistration ( deviceID, clientSP, bytesLeft, msgDec, msgDecLength );
-						if ( ret == 1 ) {
-							BannIPRemove ( client->addr.sin_addr.s_addr );
-							goto Continue;
-						}
-						if ( ret == 0 ) {
-							if ( decrypted ) free ( decrypted );
-							return 0;
-						}
-						CVerbArgID ( "Client [ %s : %i ]:\tHandle registration failed.", client->ips, sock );
-						goto ShutdownClient;
-					}
-
-					CLogArgID ( "Client [ %s : %i ]:\tInvalid message [ %s %c %c %c ]. Refusing client.", client->ips, sock, GetCommandString ( msgDec [ 5 ] ), msgDec [ 4 ], msgDec [ 6 ], msgDec [ 7 ] );
-					goto ShutdownClient;
-				}
-
-				CVerbArgID ( "Client [ %s : %i ]:\t[ %s %c %c %c ]", client->ips, sock, GetCommandString ( msgDec [ 5 ] ), msgDec [ 4 ], msgDec [ 6 ], msgDec [ 7 ] );
-
-				if ( !client->deviceID ) {
-					CWarnArgID ( "Client [ %s : %i ]:\tRequest has not been identified. kicking connect.", client->ips, sock );
-
-					if ( !client->authenticated )
-						BannIP ( client->addr.sin_addr.s_addr );
-					goto ShutdownClient;
-				}
-
-				if ( msgDec [ 4 ] < MEDIATOR_PROTOCOL_VERSION_MIN ) {
-					CWarnArgID ( "Client [ %s : %i ]:\tVersion [ %c ] not supported anymore", client->ips, sock, msgDec [ 4 ] );
-					goto ShutdownClient;
-				}
-
-				client->aliveLast = checkLast;
-                
-                command = msgDec [ 5 ];
-                
-#ifdef DEBUG_DEVICE_ID1
-                if ( deviceID == debugID ) {
-                    char timeString [ 256 ];
-                    GetTimeString ( timeString, sizeof ( timeString ) );
-                    printf ( "%s . [ %s %c %c ]\n", timeString, GetCommandString ( command ), msgDec [ 6 ], msgDec [ 7 ] );
-                }
-#endif
-
-				if ( command == MEDIATOR_CMD_NATSTAT )
-				{
-					bool behindNAT = ( *( ( unsigned int * ) ( msgDec + 8 ) ) != ( unsigned int ) client->addr.sin_addr.s_addr );
-
-					*( ( unsigned int * ) msgDec ) = MEDIATOR_NAT_REQ_SIZE;
-					msgDec [ 4 ] = behindNAT ? 1 : 0;
-
-					int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
-
-					if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response NAT value [ %d ]", client->ips, sock, behindNAT );
-					}
-				}
-				// COMMAND: Return port of destination and request STUNT for client with deviceID (IP, IPe, Port)
-				else if ( command == MEDIATOR_CMD_STUNT )
-				{
-					HandleSTUNTRequest ( clientSP, ( STUNTReqPacketV6 * ) msgDec );
-				}
-				// COMMAND: 
-				else if ( command == MEDIATOR_CMD_STUN )
-				{
-					HandleSTUNRequest ( client, msgDec );
-				}
-				// COMMAND: 
-				else if ( command == MEDIATOR_CMD_GET_DEVICES )
-				{
-					HandleQueryDevices ( clientSP, msgDec );
-				}
-				// COMMAND: 
-				else if ( command == MEDIATOR_CMD_SHORT_MESSAGE )
-				{
-					HandleShortMessage ( client, msgDec );
-				}
-				// COMMAND: // This is probably DEPRECATED
-				else if ( command == MEDIATOR_CMD_REQ_STUNT_ID )
-				{
-					stuntClients.Lock ( "Client: spare ID" );
-
-					unsigned int sid = ++stuntID;
-
-					CVerbArgID ( "Client [ %s : %i ]:\tAssigned spare ID [ %u ]", client->ips, sock, sid );
-
-					stuntClients.list [ ( unsigned int ) sid ] = clientSP;
-
-					stuntClients.Unlock ( "Client: spare ID" );
-
-					*( ( unsigned int * ) msgDec ) = MEDIATOR_NAT_REQ_SIZE;
-					*( ( unsigned int * ) ( msgDec + 4 ) ) = ( unsigned int ) sid;
-
-					int sentBytes = SendBuffer ( client, msgDec, MEDIATOR_NAT_REQ_SIZE );
-
-					if ( sentBytes != MEDIATOR_NAT_REQ_SIZE ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response spare client ID [ %u ]", client->ips, sock, sid );
-					}
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_HELP_TLS_GEN )
-				{
-					if ( msgDec [ 6 ] == 's' )
-						HandleCertSign ( client, msgDec );
-					else
-						HandleCLSGenHelp ( client );
-				}
-				// COMMAND: 
-				else if ( command == MEDIATOR_CMD_SET_FILTERMODE )
-				{
-					if ( client->authLevel >= 3 ) {
-						MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
-						UpdateNotifyTargets ( clientSP, medMsg->ids.id2.msgID );
-					}
-				}
-				// COMMAND: 
-				else if ( command == MEDIATOR_CMD_HEARTBEAT )
-				{
-					goto Continue;
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_GET_VERSION )
-				{
-					// 0x00 relCount, 0x000 minor, 0x000 major; 0x00000000 revision
-					unsigned int version = BUILD_MAJOR_VERSION;
-					version |= BUILD_MINOR_VERSION << 12;
-					version |= BUILD_RELEASE_COUNTER << 24;
-
-                    int sendSize;
-					unsigned int versionBuffer [ 5 ];
-                    
-                    if ( client->version < '6' ) {
-                        versionBuffer [ 0 ] = MEDIATOR_MSG_VERSION_SIZE;
-                        versionBuffer [ 1 ] = version;
-                        versionBuffer [ 2 ] = BUILD_REVISION;
-                        sendSize = MEDIATOR_MSG_VERSION_SIZE;
-                    }
-                    else {
-                        versionBuffer [ 0 ] = MEDIATOR_MSG_VERSION_SIZE;
-                        versionBuffer [ 1 ] = version;
-                        versionBuffer [ 2 ] = *( ( unsigned int * ) ( msgDec + 8 ) );
-                        versionBuffer [ 3 ] = BUILD_REVISION;
-                        
-                        sendSize = MEDIATOR_MSG_VERSION_SIZE;
-                    }
-                    
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-					if ( !SendBufferOrEnqueue ( client, versionBuffer, sendSize ) ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-					}
-#else
-                    if ( !PushSend ( client, versionBuffer, sendSize ) ) {
-                        CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-                    }
-#endif
-#else
-					int sentBytes = SendBuffer ( client, versionBuffer, sendSize );
-
-					if ( sentBytes != sendSize ) {
-						CErrArgID ( "Client [ %s : %i ]:\tFailed to response Mediator version", client->ips, sock );
-					}
-#endif
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_NOTIFICATION_SUBSCRIBE )
-				{
-					MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
-
-					client->subscribedToNotifications = ( medMsg->ids.id2.msgID == 1 ? true : false );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_MESSAGE_SUBSCRIBE )
-				{
-					MediatorMsg * medMsg = ( MediatorMsg * ) msgDec;
-
-					client->subscribedToMessages = ( medMsg->ids.id2.msgID == 1 ? true : false );
-				}
-				// COMMAND:
-				else if ( command == MEDIATOR_CMD_DEVICE_FLAGS )
-				{
-					HandleDeviceFlagSet ( client, msgDec );
-				}
-#ifdef MEDIATOR_USE_SOCKET_BUFFERS_APPLY_AT_SERVER
-				/*else if ( command == MEDIATOR_CMD_SET_SOCKET_BUFFERS )
-				{
-				ApplySocketBufferSizes ( client, msgDec + 8 );
-				}
-				*/
-#endif
-				else {
-					msgDec [ msgDecLength - 1 ] = 0;
-
-					HandleRequest ( client, msgDec );
-				}
-            Continue:
-                
-#ifdef DEBUG_DEVICE_ID
-                if ( deviceID == debugID ) {
-                    unsigned int end = GetEnvironsTickCount32 ();
-                    
-                    unsigned int diff = end - start;
-                    char timeString [ 256 ];
-                    GetTimeString ( timeString, sizeof ( timeString ) );
-                    
-                    printf ( "%sClient: [ %u ms ]\t[ %s %i bytes ] [ %c %c ]\n", timeString, diff, GetCommandString ( msgDec [ 5 ] ), msgLength, msgDec [ 6 ], msgDec [ 7 ] );
-                }
-#endif
-				bytesLeft -= msgLength;
-				msg += msgLength;
-
-                if ( decrypted ) { free ( decrypted ); decrypted = 0; }
-			}
-
-			remainingSize = MEDIATOR_CLIENT_MAX_BUFFER_SIZE - 1;
-
-			if ( bytesLeft > 0 ) {
-				msgEnd += bytesReceived;
-
-				RefactorBuffer ( msg, buffer, bytesLeft, msgEnd );
-				remainingSize -= bytesLeft;
-			}
-			else
-				msgEnd = buffer;
-		}
-
-    ShutdownClient:
-        client->socket = INVALID_FD;
-        client->aliveLast = 0;
-
-		if ( decrypted ) free ( decrypted );
-
-		if ( isRunning )
-		{
-			if ( !client->deviceID && client->addr.sin_addr.s_addr ) {
-				if ( !isBanned && !client->authenticated ) {
-					CWarnArgID ( "Client [ %s : %i : %i ]:\tRequest has not been identified. kicking connect.", client->ips, client->port, sock );
-					BannIP ( client->addr.sin_addr.s_addr );
-					isBanned = true;
-				}
-			}
-
-			if ( !isBanned )
-				UpdateNotifyTargets ( clientSP, -1 );
-            
-            if ( LockAcquireA ( client->stuntSocketLock, "Client" ) )
-            {
-                client->CloseStuntSockets ();
-                
-                LockReleaseVA ( client->stuntSocketLock, "Client" );
-            }
-		}
-		else {
-			UpdateNotifyTargets ( clientSP, -1 );
-		}
-
-		CLogArgID ( "Client [ %s : %i : %i ]:\tDisconnected", client->ips, client->port, sock );
-		return 0;
-	}
-#endif
 
 
 	INLINEFUNC DeviceInstanceNode * GetDeviceInstance ( int deviceID, DeviceInstanceNode * device )
@@ -6066,7 +5649,7 @@ namespace environs
 		DeviceInstanceNode	* device = GetDeviceInstance ( deviceID, destList );
 		if ( device )
 			destClient = device->clientSP;
-
+		 
         LockReleaseV ( destLock, "GetThreadInstance" );
         
         DEBUG_CHECK_MEASURE ( "GetThreadInstance" );
@@ -6090,10 +5673,6 @@ namespace environs
 
         ShortMsgPacketV4	*	msg4			= ( ShortMsgPacketV4 * ) msg;
 
-#ifndef USE_MEDIATOR_DAEMON_SEND_THREAD
-		char                version             = shortMsg->version;
-		bool				sendError			= true;
-#endif
 		char			*	sendBuffer			= msg;
 		ShortMsgPacketHeader*   msgBuffer       = 0;
 		int					length				= shortMsg->size;
@@ -6101,9 +5680,6 @@ namespace environs
 		int                 destID				= shortMsg->deviceID;
 		int                 deviceID			= sourceClient->deviceID;
 
-#ifndef USE_MEDIATOR_DAEMON_SEND_THREAD
-		int					sentBytes;
-#endif
 		CVerbArgID ( "HandleShortMessage [ %i ]", sourceClient->socket );
 
 		sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
@@ -6196,78 +5772,19 @@ namespace environs
 
 		CLogArgID ( "HandleShortMessage [ %i ]: Send message to device [ 0x%X ] IP [ %u bytes -> %s ]", sourceClient->socket, destID, length, inet_ntoa ( destClient->addr.sin_addr ) );
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( sendBuffer == ( char * ) msgBuffer ) {
-			if ( PushSend ( destClient, sendBuffer, length, false ) ) {
-				CLogArgID ( "HandleShortMessage [ %i ]: Successfully sent message.", sourceClient->socket );
-
-				msgBuffer = 0;
-			}
-		}
-		else {
-			if ( PushSend ( destClient, sendBuffer, length ) ) {
-				CLogArgID ( "HandleShortMessage [ %i ]: Successfully sent message.", sourceClient->socket );
-			}
-		}
-#	else
-        if ( sendBuffer == (char *) msgBuffer ) {
-            if ( PushSend ( destClient, sendBuffer, length, false ) ) {
+        if ( sendBuffer == ( char * ) msgBuffer ) {
+            if ( PushSend ( destClient, sendBuffer, length, false, 0 ) ) {
                 CLogArgID ( "HandleShortMessage [ %i ]: Successfully sent message.", sourceClient->socket );
                 
                 msgBuffer = 0;
             }
         }
         else {
-            if ( PushSend ( destClient, sendBuffer, length ) ) {
+            if ( PushSend ( destClient, sendBuffer, length, true, 0 ) ) {
                 CLogArgID ( "HandleShortMessage [ %i ]: Successfully sent message.", sourceClient->socket );
             }
         }
-#	endif        
     SendResponse:
-#else
-		sentBytes = SendBuffer ( destClient, sendBuffer, length );
-		if ( sentBytes == length ) {
-			CLogArgID ( "HandleShortMessage [ %i ]: Successfully sent message.", sourceClient->socket );
-			sendError = false;
-        }
-        
-    SendResponse:
-        // Deprecated. Will be removed soon.
-        if ( version < '4' )
-        {
-            length = 12;
-            *( ( unsigned int * ) sendBuffer ) = length;
-            
-            if ( sendError ) {
-                sendBuffer [ 6 ] = 'e';
-            }
-            else {
-                sendBuffer [ 6 ] = 's';
-            }
-            
-            CLogArgID ( "HandleShortMessage [ %i ]: Send reply to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-            
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-            if ( !PushSend ( sourceClient, sendBuffer, length ) ) {
-                CErrArgID ( "HandleShortMessage [ %i ]: Failed to send reply to requestor IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-                LogSocketError ();
-                
-                free_n ( msgBuffer );
-                return false;
-            }
-#else
-            sentBytes = SendBuffer ( sourceClient, sendBuffer, length );
-            if ( sentBytes != length ) {
-                CErrArgID ( "HandleShortMessage [ %i ]: Failed to send reply to requestor IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-                LogSocketError ();
-                
-                free_n ( msgBuffer );
-                return false;
-            }
-#endif
-        }
-#endif        
         free_n ( msgBuffer );
 		return true;
 	}
@@ -6730,7 +6247,7 @@ namespace environs
         /// Take over filterMode
         subCmd          = header->opt1;
         
-#ifdef DEBUG_DEVICE_ID
+#if defined(DEBUG_DEVICE_ID) || defined(DEBUG_TIMEOUT_ISSUE)
         char timeString [ 256 ];
         if ( deviceID == debugID ) {
             GetTimeString ( timeString, sizeof ( timeString ) );
@@ -6876,7 +6393,7 @@ namespace environs
             
             areas.Unlock ( "HandleQueryDevices" );
             
-            for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); its++ )
+            for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); ++its )
             {
                 AreaApps * areaApps	= its->get ();
                 
@@ -6884,7 +6401,7 @@ namespace environs
                     continue;
                 apps = &areaApps->apps;
                 
-                for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ita++ )
+                for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ++ita )
                 {
                     appDevices = ita->second;
                     if ( !appDevices || appDevices.get () == sourceDevice->rootSP.get () )
@@ -6947,7 +6464,7 @@ namespace environs
             
             apps = &areaApps->apps;
             
-            for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ita++ )
+            for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ++ita )
             {
                 appDevices = ita->second;
                 if ( !appDevices || appDevices == sourceDevice->rootSP )
@@ -7002,73 +6519,43 @@ namespace environs
             length = header->size = 12;
         }
         
-#ifdef DEBUG_DEVICE_ID
-        if ( deviceID == debugID ) {
-            GetTimeString ( timeString, sizeof ( timeString ) );
-            printf ( "%sHandleQueryDevices [ %i ]: [ %i ] send devicelist%s [ %d bytes -> %s ]\n", timeString, (int)sourceClient->socket, seqNr, sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
-        }
-#endif
-        CLogArgID ( "HandleQueryDevices [ %i ]: send devicelist%s [ %d bytes -> %s ]", (int)sourceClient->socket, sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( sendBuffer == resultBuffer ) {
-			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, false, seqNr ) ) {
-				CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-#ifdef DEBUG_DEVICE_ID
-				if ( deviceID == debugID ) {
-					GetTimeString ( timeString, sizeof ( timeString ) );
-					printf ( "%sHandleQueryDevices [ %i ]: [ %i ] Failed to send devicelist response to IP [ %s ]\n", timeString, ( int ) sourceClient->socket, seqNr, inet_ntoa ( sourceClient->addr.sin_addr ) );
-				}
-#endif
-				success = false;
-			}
-			else
-				resultBuffer = 0;
+#if defined(DEBUG_DEVICE_ID) || defined(DEBUG_TIMEOUT_ISSUE)
+		if ( deviceID == debugID ) {
+			GetTimeString ( timeString, sizeof ( timeString ) );
+			printf ( "%sHandleQueryDevices [ %i ]: [ %i ] send devicelist%s [ %d bytes -> %s ]\n", timeString, ( int ) sourceClient->socket, seqNr, sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
 		}
-		else {
-			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, true, seqNr  ) ) {
+#endif
+        CLogArgID ( "HandleQueryDevices [ %i ]: send devicelist%s [ %-15s <- %d bytes ]", (int)sourceClient->socket, sendBuffer [ 5 ] == 'c' ? "/count" : "", inet_ntoa ( sourceClient->addr.sin_addr ), length );
+        
+        if ( sendBuffer == resultBuffer ) {
+            if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, false, seqNr ) ) {
                 CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
 #ifdef DEBUG_DEVICE_ID
+                if ( deviceID == debugID ) {
+                    GetTimeString ( timeString, sizeof ( timeString ) );
+                    printf ( "%sHandleQueryDevices [ %i ]: [ %i ] Failed to send devicelist response to IP [ %s ]\n", timeString, ( int ) sourceClient->socket, seqNr, inet_ntoa ( sourceClient->addr.sin_addr ) );
+                }
+#endif
+                success = false;
+            }
+            else
+                resultBuffer = 0;
+        }
+        else {
+            if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, true, seqNr  ) ) {
+                CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+#if defined(DEBUG_DEVICE_ID) || defined(DEBUG_TIMEOUT_ISSUE)
                 if ( deviceID == debugID ) {
                     GetTimeString ( timeString, sizeof ( timeString ) );
                     printf ( "%sHandleQueryDevices [ %i ]: [ %i ] Failed to send devicelist response to IP [ %s ]\n", timeString, (int)sourceClient->socket, seqNr, inet_ntoa ( sourceClient->addr.sin_addr ) );
                 }
 #endif
-				success = false;
-			}
-		}
-#	else
-        if ( sendBuffer == resultBuffer ) {
-            if ( !PushSend ( sourceClient.get (), sendBuffer, length, false ) ) {
-                CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-				success = false;
-			}
-			else
-				resultBuffer = 0;
+                success = false;
+            }
         }
-        else {
-            if ( !PushSend ( sourceClient.get (), sendBuffer, length ) ) {
-                CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-				success = false;
-			}
-        }
-#	endif
-
-		free_n ( resultBuffer );
-		return success;
-#else
-        int sentBytes = SendBuffer ( sourceClient.get (), sendBuffer, length );
         
         free_n ( resultBuffer );
-        
-        if ( sentBytes != length ) {
-            CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-            LogSocketError ();
-            return false;
-        }
-		return true;
-#endif
+		return success;
     }
     
     
@@ -7227,7 +6714,7 @@ namespace environs
 
 			areas.Unlock ( "HandleQueryDevices" );
 
-			for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); its++ )
+			for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); ++its )
 			{
 				AreaApps * areaApps	= its->get ();
 
@@ -7235,7 +6722,7 @@ namespace environs
 					continue;
 				apps = &areaApps->apps;
 
-				for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ita++ )
+				for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ++ita )
 				{
 					appDevices = ita->second;
 					if ( !appDevices || appDevices.get () == sourceDevice->rootSP.get () )
@@ -7292,7 +6779,7 @@ namespace environs
 
 			apps = &areaApps->apps;
 
-			for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ita++ )
+			for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ++ita )
 			{
 				appDevices = ita->second;
 				if ( !appDevices || appDevices == sourceDevice->rootSP )
@@ -7348,51 +6835,21 @@ namespace environs
 
 		CLogArgID ( "HandleQueryDevices [ %i ]: send devicelist%s [%d bytes -> %s]", sourceClient->socket, sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
 
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
 		if ( sendBuffer == resultBuffer ) {
-			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, false ) ) {
+			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, false, 0 ) ) {
 				CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
 				free_n ( resultBuffer );
 				return false;
 			}
 		}
 		else {
-			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length ) ) {
+			if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, true, 0 ) ) {
 				CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
 				free_n ( resultBuffer );
 				return false;
 			}
 			free_n ( resultBuffer );
 		}
-#	else
-        if ( sendBuffer == resultBuffer ) {
-            if ( !PushSend ( sourceClient.get (), sendBuffer, length, false ) ) {
-                CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-                free_n ( resultBuffer );
-                return false;
-            }
-        }
-        else {
-            if ( !PushSend ( sourceClient.get (), sendBuffer, length ) ) {
-                CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-                free_n ( resultBuffer );
-                return false;
-            }
-            free_n ( resultBuffer );
-        }
-#	endif
-#else
-		int sentBytes = SendBuffer ( sourceClient.get (), sendBuffer, length );
-
-		free_n ( resultBuffer );
-
-		if ( sentBytes != length ) {
-			CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			LogSocketError ();
-			return false;
-		}
-#endif
 
 		return true;
 	}
@@ -7503,7 +6960,7 @@ namespace environs
 
 			areas.Unlock ( "HandleQueryDevices" );
 
-			for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); its++ )
+			for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); ++its )
 			{
 				AreaApps * areaApps	= its->get ();
 
@@ -7511,7 +6968,7 @@ namespace environs
 					continue;
 				apps = &areaApps->apps;
 
-				for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ita++ )
+				for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ++ita )
 				{
 					appDevices = ita->second;
 					if ( !appDevices || appDevices.get () == sourceDevice->rootSP.get () || !appDevices->count )
@@ -7553,7 +7010,7 @@ namespace environs
 
 			apps = &areaApps->apps;
 
-			for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ita++ )
+			for ( msp ( string, ApplicationDevices )::iterator ita = apps->begin (); ita != apps->end (); ++ita )
 			{
 				appDevices = ita->second;
 				if ( !appDevices || appDevices == sourceDevice->rootSP || !appDevices->count )
@@ -7602,40 +7059,18 @@ namespace environs
 			length = query->size = 8;
 		}
 
-		CLogArgID ( "HandleQueryDevices [ %i ]: send devicelist%s [%d bytes -> %s]", sourceClient->socket, sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length ) ) {
-			CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-
-			if ( sendBuffer != msg )
-				free ( sendBuffer );
-			return false;
-		}
-#	else
-		if ( !PushSend ( sourceClient.get (), sendBuffer, length ) ) {
-			CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-
-			if ( sendBuffer != msg )
-				free ( sendBuffer );
-			return false;
-		}
-#	endif
-		if ( sendBuffer != msg )
+		CLogArgID ( "HandleQueryDevices [ %i ]: send devicelist%s [ %d bytes -> %s ]", sourceClient->socket, sendBuffer [ 5 ] == 'c' ? "/count" : "", length, inet_ntoa ( sourceClient->addr.sin_addr ) );
+        
+        if ( !SendBufferOrEnqueue ( sourceClient.get (), sendBuffer, length, true, 0 ) ) {
+            CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [ %s ]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+            
+            if ( sendBuffer != msg )
+                free ( sendBuffer );
+            return false;
+        }
+        
+        if ( sendBuffer != msg )
 			free ( sendBuffer );
-#else
-		int sentBytes = SendBuffer ( sourceClient.get (), sendBuffer, length );
-
-		if ( sendBuffer != msg )
-			free ( sendBuffer );
-
-		if ( sentBytes != length ) {
-			CErrArgID ( "HandleQueryDevices [ %i ]: Failed to send devicelist response to IP [%s]", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			LogSocketError ();
-			return false;
-		}
-#endif
 
 		return true;
 	}
@@ -7785,26 +7220,16 @@ namespace environs
 		else {
 			msg->sizes [ 0 ] = 1;
 			msg->sizes [ 1 ] = 1;
-		}
-		msg->size = sizeof ( MediatorStatusMsg ) + msg->sizes [ 0 ] + msg->sizes [ 1 ];
 
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( destClient.get (), msg, msg->size ) ) {
-			CErrArg ( "[ 0x%X ].HandleDeviceFlagSet [ %i ]: Failed to send device flags to device IP [ %s ]!", client->deviceID, client->socket, inet_ntoa ( destClient->addr.sin_addr ) );
+			char * m = ( char * ) ( msg->sizes + 2 ); *m = 0; m++; *m = 0;
 		}
-#	else
-		if ( !PushSend ( destClient.get (), msg, msg->size ) ) {
-			CErrArg ( "[ 0x%X ].HandleDeviceFlagSet [ %i ]: Failed to send device flags to device IP [ %s ]!", client->deviceID, client->socket, inet_ntoa ( destClient->addr.sin_addr ) );
-		}
-#	endif
-#else
-		int sentBytes = SendBuffer ( destClient.get (), msg, msg->size );
-		if ( sentBytes != ( int ) msg->size ) {
-			CErrArg ( "[ 0x%X ].HandleDeviceFlagSet [ %i ]: Failed to send device flags to device IP [ %s ]!", client->deviceID, client->socket, inet_ntoa ( destClient->addr.sin_addr ) );
-		}
-#endif
-	}
+
+		msg->size = sizeof ( MediatorStatusMsg ) + msg->sizes [ 0 ] + msg->sizes [ 1 ];
+        
+        if ( !SendBufferOrEnqueue ( destClient.get (), msg, msg->size, true, 0 ) ) {
+            CErrArg ( "[ 0x%X ].HandleDeviceFlagSet [ %i ]: Failed to send device flags to device IP [ %s ]!", client->deviceID, client->socket, inet_ntoa ( destClient->addr.sin_addr ) );
+        }
+    }
 
 
 	bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * sourceClient, char * msg )
@@ -7857,26 +7282,12 @@ namespace environs
 		*pUI = sourceClient->portUdp;
 
 		CLogArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: send STUN request to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( destClient.get (), buffer, MEDIATOR_STUN_RESP_SIZE ) ) {
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN request to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
-			//return false;
-		}
-#	else
-		if ( !PushSend ( destClient.get (), buffer, MEDIATOR_STUN_RESP_SIZE ) ) {
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN request to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
-			//return false;
-		}
-#	endif
-#else
-		int sentBytes = SendBuffer ( destClient.get (), buffer, MEDIATOR_STUN_RESP_SIZE );
-		if ( sentBytes != MEDIATOR_STUN_RESP_SIZE ) {
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN request to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
-			//return false;
-		}
-#endif
+        
+        if ( !SendBufferOrEnqueue ( destClient.get (), buffer, MEDIATOR_STUN_RESP_SIZE, true, 0 ) ) {
+            CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN request to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( destClient->addr.sin_addr ) );
+            //return false;
+        }
+        
 		buffer [ 3 ] = '-';
 		pUI = ( unsigned int * ) buffer; pUI++;
 		*( ( int * ) pUI ) = DestID; pUI++;
@@ -7885,46 +7296,20 @@ namespace environs
 		*pUI = 0;
 
 		CLogArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: send STUN reply to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( sourceClient, buffer, MEDIATOR_STUN_RESP_SIZE ) ) {
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN reply to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			return false;
-		}
-#else
-		if ( !PushSend ( sourceClient, buffer, MEDIATOR_STUN_RESP_SIZE ) ) {
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN reply to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			return false;
-		}
-#endif
-#else
-		sentBytes = SendBuffer ( sourceClient, buffer, MEDIATOR_STUN_RESP_SIZE );
-
-		if ( sentBytes != MEDIATOR_STUN_RESP_SIZE ) {
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN reply to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			return false;
-		}
-#endif
-		return true;
+        
+        if ( !SendBufferOrEnqueue ( sourceClient, buffer, MEDIATOR_STUN_RESP_SIZE, true, 0 ) ) {
+            CErrArg ( "[ 0x%X ].HandleSTUNRequest [ %i ]: Failed to send STUN reply to device IP [ %s ]!", DestID, sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+            return false;
+        }
+        return true;
 	}
 
     
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
     bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IPe, unsigned int Porte )
     {
         if ( destClient->version < '5' )
             return HandleSTUNRequest ( destClient, sourceID, areaName, appName, IPe, Porte );
         
-#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-        INTEROPTIMEVAL now = GetEnvironsTickCount ();
-        
-        INTEROPTIMEVAL sendDiff = ( now - destClient->stunLastSend );
-        if ( sendDiff < MEDIATOR_STUNT_REG_REQUEST_MIN_WAIT_MS )
-            return true;
-        
-        destClient->stunLastSend = now;
-#endif
         STUNReqReqPacket *	request = (STUNReqReqPacket *) calloc ( 1, sizeof ( STUNReqReqPacket ) );
         if ( !request )
             return false;
@@ -7961,96 +7346,19 @@ namespace environs
         header->size = sizeof ( STUNReqReqHeader ) + header->sizes [ 0 ] + header->sizes [ 1 ];
         
         CLogArg ( "[0x%X].HandleSTUNRequest: Send STUN request to device IP [ %s ] Port [ %u / %u ]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ), Porte, header->Porti );
-
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( destClient, request, header->size, false ) )
-		{
-			CErrArg ( "[0x%X].HandleSTUNRequest: Failed to send STUN request to device IP [ %s ]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
-			free ( request );
-			return false;
-		}
-#else
-        if ( !PushSend ( destClient, request, header->size, false ) )
+        
+        if ( !SendBufferOrEnqueue ( destClient, request, header->size, false, 0 ) )
         {
             CErrArg ( "[0x%X].HandleSTUNRequest: Failed to send STUN request to device IP [ %s ]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
             free ( request );
             return false;
         }
-#endif
         return true;
     }
 
-#else
-    bool MediatorDaemon::HandleSTUNRequest ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IPe, unsigned int Porte )
-	{
-		if ( destClient->version < '5' )
-			return HandleSTUNRequest ( destClient, sourceID, areaName, appName, IPe, Porte );
-
-#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-		INTEROPTIMEVAL now = GetEnvironsTickCount ();
-
-		INTEROPTIMEVAL sendDiff = ( now - destClient->stunLastSend );
-		if ( sendDiff < MEDIATOR_STUNT_REG_REQUEST_MIN_WAIT_MS )
-			return true;
-
-		destClient->stunLastSend = now;
-#endif
-		STUNReqReqPacket	request;
-		STUNReqReqHeader *	header = &request.header;
-		Zero ( request );
-
-		CVerbArg ( "[0x%X].HandleSTUNRequest: UDPrec -> TCPsend [0x%X]", sourceID, destClient->deviceID );
-
-		header->size = sizeof ( request );
-		header->ident [ 0 ] = MEDIATOR_CMD_STUN;
-		header->ident [ 1 ] = MEDIATOR_OPT_NULL;
-		header->ident [ 2 ] = MEDIATOR_OPT_NULL;
-		header->ident [ 3 ] = MEDIATOR_OPT_NULL;
-
-		header->deviceID = sourceID;
-		header->IPe = IPe;
-		header->Porte = ( unsigned short ) Porte;
-
-		sp ( DeviceInstanceNode ) deviceSP = destClient->deviceSP;
-		if ( deviceSP ) {
-			header->IPi     = deviceSP->info.ip;
-			header->Porti   = deviceSP->info.udpPort;
-		}
-		header->sizes [ 0 ] = 1;
-		header->sizes [ 1 ] = 1;
-
-		if ( areaName && *areaName && appName && *areaName ) {
-			if ( !BuildAppAreaField ( header->sizes, appName, areaName, false ) ) {
-				return false;
-			}
-		}
-
-		header->size = sizeof ( STUNReqReqHeader ) + header->sizes [ 0 ] + header->sizes [ 1 ];
-
-		CLogArg ( "[0x%X].HandleSTUNRequest: Send STUN request to device IP [ %s ] Port [ %u / %u ]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ), Porte, header->Porti );
-        
-        int sentBytes = SendBuffer ( destClient, &request, header->size );
-        if ( sentBytes != ( int ) header->size )
-        {
-            CErrArg ( "[0x%X].HandleSTUNRequest: Failed to send STUN request to device IP [ %s ]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
-            return false;
-        }
-        return true;
-	}
-#endif
 
 	bool MediatorDaemon::HandleSTUNRequestV4 ( ThreadInstance * destClient, int sourceID, const char * areaName, const char * appName, unsigned int IPe, unsigned int Porte )
 	{
-#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-		INTEROPTIMEVAL now = GetEnvironsTickCount ();
-
-		INTEROPTIMEVAL sendDiff = ( now - destClient->stunLastSend );
-		if ( sendDiff < MEDIATOR_STUNT_REG_REQUEST_MIN_WAIT_MS )
-			return true;
-
-		destClient->stunLastSend = now;
-#endif
-
 		STUNReqReqPacketV4	request;
 		Zero ( request );
 
@@ -8073,56 +7381,75 @@ namespace environs
 		strlcpy ( request.appName, appName, sizeof ( request.appName ) );
 
 		CLogArg ( "[ 0x%X ].HandleSTUNRequest: Send STUN request to device IP [%s] Port [%u/%u]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ), Porte, request.Porti );
+        
+        if ( !SendBufferOrEnqueue ( destClient, &request, sizeof ( request ), true, 0 ) )
+        {
+            CErrArg ( "[ 0x%X ].HandleSTUNRequest: Failed to send STUN request to device IP [%s]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
+            return false;
+        }
+        
+        return true;
+	}
+    
+	
+	bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client, int sourceID, const char * appName, const char * areaName, char channelType, unsigned int token )
+	{
+		int deviceID = client->deviceID;
 
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( destClient, &request, sizeof ( request ) ) )
-		{
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest: Failed to send STUN request to device IP [%s]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
-			return false;
-		}
-#	else
-		if ( !PushSend ( destClient, &request, sizeof ( request ) ) )
-		{
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest: Failed to send STUN request to device IP [%s]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
-			return false;
-		}
-#	endif
-#else
-		int sentBytes = SendBuffer ( destClient, &request, sizeof ( request ) );
-		if ( sentBytes != sizeof ( request ) )
-		{
-			CErrArg ( "[ 0x%X ].HandleSTUNRequest: Failed to send STUN request to device IP [%s]!", destClient->deviceID, inet_ntoa ( destClient->addr.sin_addr ) );
-			return false;
-		}
-#endif
+		CVerbID ( "NotifySTUNTRegRequest" );
 
-		return true;
+		STUNTRegReqPacketV8	* req = ( STUNTRegReqPacketV8 * ) calloc ( 1, sizeof ( STUNTRegReqPacketV8 ) + sizeof ( AppAreaBuffer ) );
+		if ( !req )
+			return false;
+
+		/// Notify a stunt socket registration request
+
+		req->version = MEDIATOR_PROTOCOL_VERSION;
+
+		req->ident [ 0 ] = MEDIATOR_CMD_MEDIATOR_NOTIFY;
+		req->ident [ 1 ] = MEDIATOR_OPT_NULL;
+		req->ident [ 2 ] = MEDIATOR_OPT_NULL;
+
+		req->notify = NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ;
+
+		req->channelType	= channelType;
+		req->deviceID		= sourceID;
+        req->token          = token;
+
+		if ( areaName && appName ) {
+			if ( !BuildAppAreaField ( req->sizes, appName, areaName, false ) ) {
+				return false;
+			}
+		}
+		else {
+			req->sizes [ 0 ] = 1; req->sizes [ 1 ] = 1;
+		}
+
+		req->size    = sizeof ( STUNTRegReqPacketV8 ) + req->sizes [ 0 ] + req->sizes [ 1 ];
+
+		CLogArgID ( "NotifySTUNTRegRequest: Send stunt socket register request to device [ %s ]", inet_ntoa ( client->addr.sin_addr ) );
+        
+        // Push to priority queue (fake a seqNr)
+        if ( !SendBufferOrEnqueue ( client, req, req->size, false, client->seqNr - 1 ) ) {
+            CErrArgID ( "NotifySTUNTRegRequest: Failed to send stunt socket register request to device IP [ %s ]!", inet_ntoa ( client->addr.sin_addr ) ); LogSocketError ();
+            free ( req );
+            return false;
+        }
+        return true;
 	}
 
-    
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-    
+
     bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
     {
         int deviceID = client->deviceID;
         
-#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-        INTEROPTIMEVAL now = GetEnvironsTickCount ();
-        
-        INTEROPTIMEVAL sendDiff = ( now - client->stuntLastSend );
-        if ( sendDiff < MEDIATOR_STUN_REG_REQUEST_MIN_WAIT_MS )
-            return true;
-        
-        client->stuntLastSend = now;
-#endif
         CVerbID ( "NotifySTUNTRegRequest" );
         
         STUNTRegReqPacket	* req = (STUNTRegReqPacket *) calloc ( 1, sizeof ( STUNTRegReqPacket ) );
         if ( !req )
             return false;
         
-        /// Notify a spare socket registration request
+        /// Notify a stunt socket registration request
         
         req->size    = MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE;
         req->version = MEDIATOR_PROTOCOL_VERSION;
@@ -8133,72 +7460,337 @@ namespace environs
         
         req->notify = NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ;
         
-        CLogArgID ( "NotifySTUNTRegRequest: Send spare socket register request to device [ %s ]", inet_ntoa ( client->addr.sin_addr ) );
-
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( client, req, MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE, false ) ) {
-			CErrArgID ( "NotifySTUNTRegRequest: Failed to send spare socket register request to device IP [ %s ]!", inet_ntoa ( client->addr.sin_addr ) ); LogSocketError ();
-			free ( req );
-			return false;
-		}
-#	else
-        if ( !PushSend ( client, req, MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE, false ) ) {
-            CErrArgID ( "NotifySTUNTRegRequest: Failed to send spare socket register request to device IP [ %s ]!", inet_ntoa ( client->addr.sin_addr ) ); LogSocketError ();
+        CLogArgID ( "NotifySTUNTRegRequest: Send stunt socket register request to device [ %s ]", inet_ntoa ( client->addr.sin_addr ) );
+        
+        if ( !SendBufferOrEnqueue ( client, req, MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE, false, 0 ) ) {
+            CErrArgID ( "NotifySTUNTRegRequest: Failed to send stunt socket register request to device IP [ %s ]!", inet_ntoa ( client->addr.sin_addr ) ); LogSocketError ();
             free ( req );
             return false;
         }
-#	endif
         return true;
     }
     
-#else
-    
-    bool MediatorDaemon::NotifySTUNTRegRequest ( ThreadInstance * client )
+
+	void MediatorDaemon::HandleSTUNTClear ( ThreadInstance * client, StuntClearTarget * msg )
 	{
-		int deviceID = client->deviceID;
+		char				keyID [ 36 + sizeof ( AppAreaBuffer ) ];
+		char			*	key			= keyID + 4;
+		char			*	appName		= 0;
+		char			*	areaName	= 0;
 
-#ifdef MEDIATOR_LIMIT_STUNT_REG_REQUESTS
-		INTEROPTIMEVAL now = GetEnvironsTickCount ();
+		if ( msg->sizes [ 0 ] > 1 && msg->sizes [ 0 ] < MAX_NAMEPROPERTY )
+			areaName = (char *) (msg->sizes + 2);
 
-		INTEROPTIMEVAL sendDiff = ( now - client->stuntLastSend );
-		if ( sendDiff < MEDIATOR_STUN_REG_REQUEST_MIN_WAIT_MS )
-			return true;
+		if ( msg->sizes [ 1 ] > 1 && msg->sizes [ 1 ] < MAX_NAMEPROPERTY )
+			areaName = ( char * ) areaName + msg->sizes [ 0 ];
 
-		client->stuntLastSend = now;
-#endif
-		CVerbID ( "NotifySTUNTRegRequest" );
+		if ( !BuildAppAreaID ( ( char * ) keyID, msg->deviceID, appName, areaName, MEDIATOR_STUNT_CHANNEL_MAIN, 0 ) ) {
+			CErr ( "HandleSTUNTClear: Failed to build app area id!" );
+			return;
+		}
 
-		STUNTRegReqPacket	req;
-		Zero ( req );
+		sp ( StuntRegisterContext ) toDispose;
 
-		/// Notify a spare socket registration request
+		if ( !LockAcquireA ( client->stuntSocketLock, "HandleSTUNTClear" ) )
+			return;
 
-		req.size    = MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE;
-		req.version = MEDIATOR_PROTOCOL_VERSION;
+		const std::map < std::string, sp ( StuntRegisterContext ) >::iterator &foundIt = client->stuntSocketsLog.find ( key );
 
-		req.ident [ 0 ] = MEDIATOR_CMD_MEDIATOR_NOTIFY;
-		req.ident [ 1 ] = MEDIATOR_OPT_NULL;
-		req.ident [ 2 ] = MEDIATOR_OPT_NULL;
+		if ( foundIt != client->stuntSocketsLog.end () )
+		{
+			toDispose = foundIt->second;
 
-		//memcpy ( req.ident, "i;;", 3 );
+			client->stuntSocketsLog.erase ( foundIt );
+		}
 
-		req.notify = NOTIFY_MEDIATOR_SRV_STUNT_REG_REQ;
+		LockReleaseA ( client->stuntSocketLock, "HandleSTUNTClear" );
+	}
 
-		CLogArgID ( "NotifySTUNTRegRequest: Send spare socket register request to device [ %s ]", inet_ntoa ( client->addr.sin_addr ) );
+
+	bool MediatorDaemon::HandleSTUNTRequest ( const sp ( ThreadInstance ) &sourceClientSP, STUNTReqPacketV8 * req )
+	{
+		ThreadInstance * sourceClient = sourceClientSP.get ();
+
+		if ( sourceClient->version < '8' || req->header.version < '8' )
+			return HandleSTUNTRequestV6 ( sourceClientSP, ( STUNTReqPacketV6 * ) req );
+
+		sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
+		if ( !sourceDeviceSP )
+			return false;
+		DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ();
+
+		STUNTRespReqPacketV8 response;
+		Zero ( response );
+
+		STUNTRespReqHeaderV8 * header			= &response.header;
+
+		STUNTRespPacketV6	* reqResponse		= ( STUNTRespPacketV6 * ) &response;
+
+		unsigned int        seqNr           = req->header.seqNr;
+		sourceClient->seqNr = seqNr;
+
+		unsigned int		sendSize		= 0;
+		unsigned int		IP				= 0, IPe = 0;
+
+		char				channelType		= req->header.channel;
+		bool				extResp			= ( channelType != ';' );
+
+		unsigned short		portSource		= 0;
+		unsigned short		portDest		= 0;
+		int                 deviceID		= sourceDevice->info.deviceID; // *pUI;
+		int                 destID          = req->header.deviceID;
         
-        int sentBytes = SendBuffer ( client, &req, MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE );
+        bool				alreadyInvoked	= false;
+        bool				invalidToken	= false;
+		bool				unlockAppDevice	= false;
+		int					status			= 0;
+		const char  *		areaName        = 0;
+		const char  *		appName         = 0;
+		DeviceInstanceNode *	destDevice		= 0;
+		sp ( DeviceInstanceNode ) destDeviceSP	= 0;
+
+		char				sourceStuntID [ sizeof( AppAreaBuffer ) + 36 ];
+		char				destStuntID [ sizeof ( AppAreaBuffer ) + 36 ];
+
+		std::map < std::string, sp ( StuntRegisterContext ) >::iterator foundIt;
+
+		// Look for the destination client
+		sp ( ThreadInstance )	destClient		= 0;
+		sp ( ApplicationDevices ) appDevices	= 0;
+
+		if ( req->header.sizes [ 0 ] > MAX_NAMEPROPERTY || req->header.sizes [ 1 ] > MAX_NAMEPROPERTY )
+			return false;
+
+		appName		= req->appArea;
+		areaName	= appName + req->header.sizes [ 0 ];
+
+		if ( !req->header.sizes [ 0 ] || !req->header.sizes [ 1 ] || !*areaName || !*appName ) {
+			appName = 0; areaName = 0;
+			appDevices = sourceDevice->rootSP;
+		}
+		else {
+			appDevices		= GetApplicationDevices ( appName, areaName );
+			unlockAppDevice = true;
+		}
+
+		if ( !appDevices )
+			goto Quit;
+
+		if ( !appDevices->Lock ( "HandleSTUNTRequest" ) ) {
+			if ( unlockAppDevice )
+				UnlockApplicationDevices ( appDevices.get () );
+			goto Quit;
+		}
+
+		if ( unlockAppDevice )
+			UnlockApplicationDevices ( appDevices.get () );
+
+		destDevice = GetDeviceInstance ( destID, appDevices->devices );
+		if ( destDevice ) {
+			destDeviceSP	= destDevice->baseSP;
+			destClient		= destDevice->clientSP;
+		}
+
+		appDevices->Unlock ( "HandleSTUNTRequest" );
+
+		if ( !destClient || !destDeviceSP ) {
+			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
+		}
+
+		// Build source client stunt id
+		if ( !BuildAppAreaID ( sourceStuntID, destID, appName, areaName, channelType, req->header.token ) ) {
+			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to build source stunt id for [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
+		}
+
+		// Acquire the lock on sourceClient stuntmap
+		if ( !LockAcquireA ( sourceClient->stuntSocketLock,"HandleSTUNTRequest" ) ) goto Quit;
+
+		///
+		/// Check whether the source client is ready for a stunt
+		///
+		foundIt = sourceClient->stuntSocketsLog.find ( sourceStuntID + 4 );
+
+		if ( foundIt != sourceClient->stuntSocketsLog.end () )
+		{
+			StuntRegisterContext * ctx = foundIt->second.get ();
+            
+            if ( ctx->token == req->header.token ) {
+                struct sockaddr_in * a = channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->addrI : &ctx->addrC;
+                
+                portSource = ntohs ( a->sin_port );
+            }
+            else {
+                invalidToken = true;
+            }
+		}
+
+		LockReleaseA ( sourceClient->stuntSocketLock, "HandleSTUNTRequest" );
+		
+        if ( invalidToken ) {
+            status = 0; goto Quit;
+        }
         
-        if ( sentBytes != MEDIATOR_CMD_MEDIATOR_NOTIFY_SIZE ) {
-            CErrArgID ( "NotifySTUNTRegRequest: Failed to send spare socket register request to device IP [ %s ]!", inet_ntoa ( client->addr.sin_addr ) ); LogSocketError ();
-            return false;
+		if ( !portSource ) {
+			CLogArgID ( "HandleSTUNTRequest [ %i ]: Source client has not registered the stunt socket yet!", sourceClient->socket );
+
+			NotifySTUNTRegRequest ( sourceClient, destID, appName, areaName, channelType, req->header.token ); status = -1; goto Quit;
+		}
+
+		IP = sourceDevice->info.ip;
+
+		// Build source client stunt id
+		if ( !appName || !areaName ) {
+			if ( !BuildAppAreaID ( destStuntID, deviceID, appName, areaName, channelType, req->header.token ) ) {
+				CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to build dest stunt id for [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
+			}
+		}
+		else {
+			if ( !BuildAppAreaID ( destStuntID, deviceID, sourceDevice->info.appName, sourceDevice->info.areaName, channelType, req->header.token ) ) {
+				CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to build dest stunt id for [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
+			}		
+		}
+
+        invalidToken = false;
+        
+		// Acquire the lock on destClient stuntmap
+		if ( !LockAcquireA ( destClient->stuntSocketLock, "HandleSTUNTRequest" ) ) goto Quit;
+
+		///
+		/// Check whether the source client is ready for a stunt
+		///
+		foundIt = destClient->stuntSocketsLog.find ( destStuntID + 4 );
+
+		if ( foundIt != destClient->stuntSocketsLog.end () )
+        {
+			StuntRegisterContext * ctx = foundIt->second.get ();
+            
+            if ( ctx->token == req->header.token ) {
+                struct sockaddr_in * a = channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->addrI : &ctx->addrC;
+                
+                portDest = ntohs ( a->sin_port );
+                
+                if ( portDest ) {
+                    if ( a->sin_addr.s_addr ) {
+                        a->sin_addr.s_addr = 0;
+                    }
+                    else alreadyInvoked = true;
+                }
+            }
+            else {
+                invalidToken = true;
+            }
+		}
+
+        LockReleaseA ( destClient->stuntSocketLock, "HandleSTUNTRequest" );
+        
+        if ( invalidToken ) {
+            status = 0; goto Quit;
+        }
+        
+        if ( alreadyInvoked ) {
+            reqResponse->ident [ 0 ] = MEDIATOR_OPT_NULL;
+            reqResponse->ident [ 1 ] = MEDIATOR_OPT_NULL;            
+            reqResponse->channel     = channelType;
+            goto SendPorts;
+        }
+        
+		///
+		/// Check whether the destination client is ready for a stunt
+		///
+		if ( !portDest ) {
+			CLogArgID ( "HandleSTUNTRequest [ %i ]: Destination client [ 0x%X ] has not renewed the stunt socket yet!", sourceClient->socket, destID );
+
+			if ( appName && areaName )
+				NotifySTUNTRegRequest ( destClient.get (), deviceID, sourceDevice->info.appName, sourceDevice->info.areaName, channelType, req->header.token );
+			else
+				NotifySTUNTRegRequest ( destClient.get (), deviceID, appName, areaName, channelType, req->header.token );  status = -1; goto Quit;
+		}
+
+		IPe = sourceClient->addr.sin_addr.s_addr;
+
+		if ( !IP || !IPe ) {
+			CErrArgID ( "HandleSTUNTRequest [ %i ]: Invalid IP [ %s ] IPe [ %x : %d ] for sourceDevice or invalid Port [ %d ] for destinationDevice in database!", sourceClient->socket,
+				inet_ntoa ( *( ( struct in_addr * ) &IP ) ), IPe, portSource, portDest );
+			goto Quit;
+		}
+
+		header->ident [ 0 ] = MEDIATOR_CMD_STUNT;
+		header->ident [ 1 ] = MEDIATOR_OPT_NULL;
+		header->ident [ 2 ] = MEDIATOR_OPT_NULL;
+
+		header->channel    = channelType;
+		header->seqNr      = seqNr;
+		header->deviceID   = sourceClient->deviceID;
+		header->token	   = req->header.token;
+		header->ip         = IP;
+		header->ipe        = IPe;
+		header->porti      = sourceDevice->info.tcpPort;
+		header->porte      = portSource;
+
+		if ( areaName && appName ) {
+			if ( !BuildAppAreaField ( header->sizes, sourceDevice->info.appName, sourceDevice->info.areaName, false ) ) {
+				goto Quit;
+			}
+		}
+		else {
+			header->sizes [ 0 ] = 1; header->sizes [ 1 ] = 1;
+		}
+
+		header->size = sizeof ( STUNTRespReqHeaderV8 ) + header->sizes [ 0 ] + header->sizes [ 1 ];
+
+		CLogArgID ( "STUNTRequest [ %i ]: Send request to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ), portSource );
+        
+        if ( !SendBufferOrEnqueue ( destClient.get (), header, header->size, true, destClient.get ()->seqNr - 1 ) ) {
+            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
+            LogSocketError ();
+            goto Quit;
+        }
+        
+    SendPorts:
+		sendSize = extResp ? MEDIATOR_STUNT_ACK_EXT_SIZE_V6 : MEDIATOR_STUNT_ACK_SIZE_V6;
+		reqResponse->size = sendSize;
+
+		reqResponse->respCode = 'p';
+
+		reqResponse->seqNr = seqNr;
+		reqResponse->porte = portDest;
+		reqResponse->porti = destDeviceSP ? destDeviceSP->info.tcpPort : 0;
+
+		if ( extResp ) {
+			reqResponse->ip  = destDeviceSP->info.ip;
+			reqResponse->ipe = destClient->addr.sin_addr.s_addr;
+		}
+
+		CLogArgID ( "STUNTRequest [ %i ]: Send response to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
+        
+        if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, sendSize, true, seqNr ) ) {
+            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+            LogSocketError ();
+            goto Quit;
         }
         return true;
-    }
-#endif
-    
-    
-#ifdef USE_HANDLE_STUNT_UNLOCK2
-    bool MediatorDaemon::HandleSTUNTRequest ( const sp ( ThreadInstance ) &sourceClientSP, STUNTReqPacketV6 * req )
+
+	Quit:
+		if ( status > 0 )
+			return true;
+
+		reqResponse->size   = MEDIATOR_STUNT_ACK_SIZE_V6;
+		reqResponse->seqNr  = seqNr;
+
+		if ( status < 0 )
+			reqResponse->respCode = 'r';
+		else
+			reqResponse->respCode = 'e';
+        
+        if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6, true, seqNr ) ) {
+            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
+            LogSocketError ();
+        }
+        return false;
+	}
+
+
+    bool MediatorDaemon::HandleSTUNTRequestV6 ( const sp ( ThreadInstance ) &sourceClientSP, STUNTReqPacketV6 * req )
     {
         ThreadInstance * sourceClient = sourceClientSP.get ();
         
@@ -8210,9 +7802,6 @@ namespace environs
             return false;
         DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ();
         
-#ifndef USE_MEDIATOR_DAEMON_SEND_THREAD
-        int					sentBytes;
-#endif
         STUNTRespReqPacketV6 response;
         Zero ( response );
         
@@ -8265,7 +7854,7 @@ namespace environs
         if ( !appDevices )
             goto Quit;
         
-        if ( !appDevices->Lock ( "HandleSTUNTRequest" ) ) {
+        if ( !appDevices->Lock ( "HandleSTUNTRequestV6" ) ) {
             if ( unlockAppDevice )
                 UnlockApplicationDevices ( appDevices.get () );
             goto Quit;
@@ -8280,23 +7869,23 @@ namespace environs
             destClient = destDevice->clientSP;
         }
         
-        appDevices->Unlock ( "HandleSTUNTRequest" );
+        appDevices->Unlock ( "HandleSTUNTRequestV6" );
         
         if ( !destClient || !destDeviceSP ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
+            CErrArgID ( "HandleSTUNTRequestV6 [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
         }
         
         sourceClient->stuntTarget = destClient.get ();
         
         if ( destClient->stuntTarget == sourceClient ) {
-            CVerbArg ( "HandleSTUNTRequest [ %i ]: The destination client is already stunt connecting to us.", sourceClient->socket );
+            CVerbArg ( "HandleSTUNTRequestV6 [ %i ]: The destination client is already stunt connecting to us.", sourceClient->socket );
             sourceClient->stuntTarget = 0;
             
             status = -1; goto Quit;
         }
         
         // Acquire the lock on sourceClient
-        if ( !sourceClient->Lock ( "HandleSTUNTRequest" ) ) goto UnlockQuit;
+        if ( !sourceClient->Lock ( "HandleSTUNTRequestV6" ) ) goto UnlockQuit;
         sourceLocked = true;
         
         ///
@@ -8304,9 +7893,9 @@ namespace environs
         ///
         portSource = sourceClient->stuntPort;
         if ( !portSource ) {
-            CLogArgID ( "HandleSTUNTRequest [ %i ]: Source client has not renewed the spare socket yet!", sourceClient->socket );
+            CLogArgID ( "HandleSTUNTRequestV6 [ %i ]: Source client has not renewed the stunt socket yet!", sourceClient->socket );
             
-            sourceClient->Unlock ( "HandleSTUNTRequest" );
+            sourceClient->Unlock ( "HandleSTUNTRequestV6" );
             
             NotifySTUNTRegRequest ( sourceClient ); status = -1; goto Quit;
         }
@@ -8317,7 +7906,7 @@ namespace environs
         
         
         // Acquire the lock on destClient
-        if ( !destClient->Lock ( "HandleSTUNTRequest" ) ) goto UnlockQuit;
+        if ( !destClient->Lock ( "HandleSTUNTRequestV6" ) ) goto UnlockQuit;
         destLocked = true;
         
         ///
@@ -8325,11 +7914,11 @@ namespace environs
         ///
         portDest = destClient->stuntPort;
         if ( !portDest ) {
-            CLogArgID ( "HandleSTUNTRequest [ %i ]: Destination client [ 0x%X ] has not renewed the spare socket yet!", sourceClient->socket, destID );
+            CLogArgID ( "HandleSTUNTRequestV6 [ %i ]: Destination client [ 0x%X ] has not renewed the stunt socket yet!", sourceClient->socket, destID );
             
-            sourceClient->Unlock ( "HandleSTUNTRequest" );
+            sourceClient->Unlock ( "HandleSTUNTRequestV6" );
             
-            destClient->Unlock ( "HandleSTUNTRequest" );
+            destClient->Unlock ( "HandleSTUNTRequestV6" );
             
             NotifySTUNTRegRequest ( destClient.get () );  status = -1; goto Quit;
         }
@@ -8337,7 +7926,7 @@ namespace environs
         IPe = sourceClient->addr.sin_addr.s_addr;
         
         if ( !IP || !IPe ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Invalid IP [ %s ] IPe [ %x : %d ] for sourceDevice or invalid Port [ %d ] for destinationDevice in database!", sourceClient->socket,
+            CErrArgID ( "HandleSTUNTRequestV6 [ %i ]: Invalid IP [ %s ] IPe [ %x : %d ] for sourceDevice or invalid Port [ %d ] for destinationDevice in database!", sourceClient->socket,
                        inet_ntoa ( *( ( struct in_addr * ) &IP ) ), IPe, portSource, portDest );
             goto UnlockQuit;
         }
@@ -8348,9 +7937,9 @@ namespace environs
         sourceLocked                = false;
         destLocked                  = false;
         
-        sourceClient->Unlock ( "HandleSTUNTRequest" );
+        sourceClient->Unlock ( "HandleSTUNTRequestV6" );
         
-        destClient->Unlock ( "HandleSTUNTRequest" );
+        destClient->Unlock ( "HandleSTUNTRequestV6" );
         
         header->ident [ 0 ] = MEDIATOR_CMD_STUNT;
         header->ident [ 1 ] = MEDIATOR_OPT_NULL;
@@ -8375,31 +7964,14 @@ namespace environs
         
         header->size = sizeof ( STUNTRespReqHeaderV6 ) + header->sizes [ 0 ] + header->sizes [ 1 ];
         
-        CLogArgID ( "STUNTRequest [ %i ]: Send request to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ), portSource );
+        CLogArgID ( "STUNTRequestV6 [ %i ]: Send request to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ), portSource );
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
         if ( !SendBufferOrEnqueue ( destClient.get (), header, header->size, true, seqNr ) ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
+            CErrArgID ( "HandleSTUNTRequestV6 [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
             LogSocketError ();
             goto UnlockQuit;
         }
-#	else
-		if ( !PushSend ( destClient.get (), header, header->size ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#	endif
-#else
-        sentBytes = SendBuffer ( destClient.get (), header, header->size );
         
-        if ( sentBytes != ( int ) header->size ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
-            LogSocketError ();
-            goto UnlockQuit;
-        }
-#endif
         sendSize = extResp ? MEDIATOR_STUNT_ACK_EXT_SIZE_V6 : MEDIATOR_STUNT_ACK_SIZE_V6;
         reqResponse->size = sendSize;
         
@@ -8415,42 +7987,24 @@ namespace environs
             reqResponse->ipe = destClient->addr.sin_addr.s_addr;
         }
         
-        CLogArgID ( "STUNTRequest [ %i ]: Send response to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
+        CLogArgID ( "STUNTRequestV6 [ %i ]: Send response to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
         
-        
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, sendSize, true, seqNr ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#	else
-        if ( !PushSend ( sourceClient, reqResponse, sendSize ) ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+        if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, sendSize, true, seqNr ) ) {
+            CErrArgID ( "HandleSTUNTRequestV6 [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
             LogSocketError ();
             goto UnlockQuit;
         }
-#	endif
-#else
-        sentBytes = SendBuffer ( sourceClient, reqResponse, sendSize );
         
-        if ( sentBytes != ( int ) sendSize ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-            LogSocketError ();
-            goto UnlockQuit;
-        }
-#endif
         status = 1;
         
     UnlockQuit:
         /// Release the mutex on destClient
         if ( destLocked )
-            destClient->Unlock ( "HandleSTUNTRequest" );
+            destClient->Unlock ( "HandleSTUNTRequestV6" );
         
         /// Release the mutex on sourceClient
         if ( sourceLocked )
-            sourceClient->Unlock ( "HandleSTUNTRequest" );
+            sourceClient->Unlock ( "HandleSTUNTRequestV6" );
         
     Quit:
         if ( status > 0 )
@@ -8464,316 +8018,14 @@ namespace environs
         else
             reqResponse->respCode = 'e';
         
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6, true, seqNr ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
-			LogSocketError ();
-		}
-#	else
-        if ( !PushSend ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6 ) ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
+        if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6, true, seqNr ) ) {
+            CErrArgID ( "HandleSTUNTRequestV6 [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
             LogSocketError ();
         }
-#	endif
-#else
-        sentBytes = SendBuffer ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6 );
-        
-        if ( sentBytes != MEDIATOR_STUNT_ACK_SIZE_V6 ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
-            LogSocketError ();
-        }
-#endif
         sourceClient->stuntTarget = 0;
         
         return false;
     }
-    
-#else 
-    
-     bool MediatorDaemon::HandleSTUNTRequest ( const sp ( ThreadInstance ) &sourceClientSP, STUNTReqPacketV6 * req )
-     {
-     ThreadInstance * sourceClient = sourceClientSP.get ();
-     
-     if ( sourceClient->version < '6' )
-     return HandleSTUNTRequestV5 ( sourceClientSP, ( STUNTReqPacket * ) req );
-        
-        sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
-        if ( !sourceDeviceSP )
-            return false;
-        DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ();
-
-#ifndef USE_MEDIATOR_DAEMON_SEND_THREAD
-        int					sentBytes;
-#endif
-        STUNTRespReqPacketV6 response;
-        Zero ( response );
-        
-        STUNTRespReqHeaderV6 * header			= &response.header;
-        
-        STUNTRespPacketV6	* reqResponse		= ( STUNTRespPacketV6 * ) &response;
-        
-        unsigned int		sendSize		= 0;
-        unsigned int		IP				= 0, IPe = 0;
-        
-        char				channelType		= req->header.channel;
-        bool				extResp			= ( channelType != ';' );
-        
-        unsigned short		portSource;
-        unsigned short		portDest;
-        int                 deviceID		= sourceDevice->info.deviceID; // *pUI;
-        int                 destID          = req->header.deviceID;
-        
-        bool				sourceLocked	= false;
-        bool				destLocked		= false;
-        bool				unlockAppDevice	= false;
-        int					status			= 0;
-        const char  *		areaName        = 0;
-        const char  *		appName         = 0;
-        DeviceInstanceNode *	destDevice		= 0;
-        sp ( DeviceInstanceNode ) destDeviceSP	= 0;
-        
-        // find the destination client
-        sp ( ThreadInstance )	destClient		= 0;
-        sp ( ApplicationDevices ) appDevices	= 0;
-        
-        if ( req->header.sizes [ 0 ] > MAX_NAMEPROPERTY || req->header.sizes [ 1 ] > MAX_NAMEPROPERTY )
-            return false;
-        
-        appName		= req->appArea;
-        areaName	= appName + req->header.sizes [ 0 ];
-        
-        if ( !req->header.sizes [ 0 ] || !req->header.sizes [ 1 ] || !*areaName || !*appName ) {
-            appName = 0; areaName = 0;
-            appDevices = sourceDevice->rootSP;
-        }
-        else {
-            appDevices = GetApplicationDevices ( appName, areaName );
-            unlockAppDevice = true;
-        }
-        
-        if ( !appDevices )
-            goto Quit;
-        
-        if ( !appDevices->Lock ( "HandleSTUNTRequest" ) ) {
-            if ( unlockAppDevice )
-                UnlockApplicationDevices ( appDevices.get () );
-            goto Quit;
-        }
-        
-        if ( unlockAppDevice )
-            UnlockApplicationDevices ( appDevices.get () );
-        
-        destDevice = GetDeviceInstance ( destID, appDevices->devices );
-        if ( destDevice ) {
-            destDeviceSP = destDevice->baseSP;
-            destClient = destDevice->clientSP;
-        }
-        
-        appDevices->Unlock ( "HandleSTUNTRequest" );
-        
-        if ( !destClient || !destDeviceSP ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
-        }
-        
-        sourceClient->stuntTarget = destClient.get ();
-        
-        if ( destClient->stuntTarget == sourceClient ) {
-            CVerbArg ( "HandleSTUNTRequest [ %i ]: The destination client is already stunt connecting to us.", sourceClient->socket );
-            sourceClient->stuntTarget = 0;
-            
-            status = -1; goto Quit;
-        }
-        
-        // Acquire the lock on sourceClient
-        if ( !sourceClient->Lock ( "HandleSTUNTRequest" ) ) goto UnlockQuit;
-        sourceLocked = true;
-        
-        ///
-        /// Check whether the source client is ready for a stunt
-        ///
-        portSource = sourceClient->stuntPort;
-        if ( !portSource ) {
-            CLogArgID ( "HandleSTUNTRequest [ %i ]: Source client has not renewed the spare socket yet!", sourceClient->socket );
-            
-            sourceClient->Unlock ( "HandleSTUNTRequest" );
-            
-            NotifySTUNTRegRequest ( sourceClient ); status = -1; goto Quit;
-        }
-        
-        IP = sourceDevice->info.ip;
-        //IPe = sourceDevice->IPe; // the IPe of deviceInfo could potentially be collected by broadcast from sometime before...
-        // use the ip address of the source received
-        
-        
-        // Acquire the lock on destClient
-        if ( !destClient->Lock ( "HandleSTUNTRequest" ) ) goto UnlockQuit;
-        destLocked = true;
-        
-        ///
-        /// Check whether the destination client is ready for a stunt
-        ///
-        portDest = destClient->stuntPort;
-        if ( !portDest ) {
-            CLogArgID ( "HandleSTUNTRequest [ %i ]: Destination client [ 0x%X ] has not renewed the spare socket yet!", sourceClient->socket, destID );
-            
-            sourceClient->Unlock ( "HandleSTUNTRequest" );
-            
-            destClient->Unlock ( "HandleSTUNTRequest" );
-            
-            NotifySTUNTRegRequest ( destClient.get () );  status = -1; goto Quit;
-        }
-        
-        IPe = sourceClient->addr.sin_addr.s_addr;
-        
-        if ( !IP || !IPe ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Invalid IP [ %s ] IPe [ %x : %d ] for sourceDevice or invalid Port [ %d ] for destinationDevice in database!", sourceClient->socket,
-                       inet_ntoa ( *( ( struct in_addr * ) &IP ) ), IPe, portSource, portDest );
-            goto UnlockQuit;
-        }
-        
-        header->ident [ 0 ] = MEDIATOR_CMD_STUNT;
-        header->ident [ 1 ] = MEDIATOR_OPT_NULL;
-        header->ident [ 2 ] = MEDIATOR_OPT_NULL;
-        
-        header->channel    = channelType;
-        header->seqNr      = req->header.seqNr;
-        header->deviceID   = sourceClient->deviceID;
-        header->ip         = IP;
-        header->ipe        = IPe;
-        header->porti      = sourceDevice->info.tcpPort;
-        header->porte      = portSource;
-        
-        if ( areaName && appName ) {
-            if ( !BuildAppAreaField ( header->sizes, sourceDevice->info.appName, sourceDevice->info.areaName, false ) ) {
-                goto UnlockQuit;
-            }
-        }
-        else {
-            header->sizes [ 0 ] = 1; header->sizes [ 1 ] = 1;
-        }
-        
-        header->size = sizeof ( STUNTRespReqHeaderV6 ) + header->sizes [ 0 ] + header->sizes [ 1 ];
-        
-        CLogArgID ( "STUNTRequest [ %i ]: Send request to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ), portSource );
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( destClient.get (), header, header->size ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#	else
-		if ( !PushSend ( destClient.get (), header, header->size ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#	endif
-#else
-        sentBytes = SendBuffer ( destClient.get (), header, header->size );
-        
-        if ( sentBytes != ( int ) header->size ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
-            LogSocketError ();
-            goto UnlockQuit;
-        }
-#endif
-        sendSize = extResp ? MEDIATOR_STUNT_ACK_EXT_SIZE_V6 : MEDIATOR_STUNT_ACK_SIZE_V6;
-        reqResponse->size = sendSize;
-        
-        reqResponse->respCode = 'p';
-        
-        reqResponse->seqNr = req->header.seqNr;
-        reqResponse->porte = portDest;
-        reqResponse->porti = destDeviceSP ? destDeviceSP->info.tcpPort : 0;
-        //reqResponse->portUdp = destClient->portUdp;
-        
-        if ( extResp ) {
-            reqResponse->ip = destDeviceSP->info.ip;
-            reqResponse->ipe = destClient->addr.sin_addr.s_addr;
-        }
-        
-        CLogArgID ( "STUNTRequest [ %i ]: Send response to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
-        
-        destClient->stuntPort = 0; // Clear the port
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, sendSize ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#	else
-		if ( !PushSend ( sourceClient, reqResponse, sendSize ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#	endif
-#else
-        sentBytes = SendBuffer ( sourceClient, reqResponse, sendSize );
-        
-        if ( sentBytes != ( int ) sendSize ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-            LogSocketError ();
-            goto UnlockQuit;
-        }
-#endif        
-        destClient->stuntPort   = 0;
-        sourceClient->stuntPort = 0;
-        
-        status = 1;
-        sourceClient->stuntTarget = 0;
-        
-    UnlockQuit:
-        /// Release the mutex on destClient
-        if ( destLocked )
-            destClient->Unlock ( "HandleSTUNTRequest" );
-        
-        /// Release the mutex on sourceClient
-        if ( sourceLocked )
-            sourceClient->Unlock ( "HandleSTUNTRequest" );
-        
-    Quit:
-        if ( status > 0 )
-            return true;
-        
-        reqResponse->size = MEDIATOR_STUNT_ACK_SIZE_V6;
-        reqResponse->seqNr = req->header.seqNr;
-        
-        if ( status < 0 )
-            reqResponse->respCode = 'r';
-        else
-            reqResponse->respCode = 'e';
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-#	ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
-		if ( !SendBufferOrEnqueue ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6 ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
-			LogSocketError ();
-		}
-#	else
-		if ( !PushSend ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6 ) ) {
-			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
-			LogSocketError ();
-		}
-#	endif
-#else
-        sentBytes = SendBuffer ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE_V6 );
-        
-        if ( sentBytes != MEDIATOR_STUNT_ACK_SIZE_V6 ) {
-            CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
-            LogSocketError ();
-        }
-#endif
-        sourceClient->stuntTarget = 0;
-        
-        return false;
-    }
-#endif
     
     
     bool MediatorDaemon::HandleSTUNTRequestV5 ( const sp ( ThreadInstance ) &sourceClientSP, STUNTReqPacket * req )
@@ -8787,10 +8039,6 @@ namespace environs
 		if ( !sourceDeviceSP )
 			return false;
 		DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ();
-
-#ifndef USE_MEDIATOR_DAEMON_SEND_THREAD
-		int					sentBytes;
-#endif
 
 		STUNTRespReqPacket	response;
 		Zero ( response );
@@ -8880,7 +8128,7 @@ namespace environs
 		///
 		portSource = sourceClient->stuntPort;
 		if ( !portSource ) {
-            CLogArgID ( "HandleSTUNTRequestV5 [ %i ]: Source client has not renewed the spare socket yet!", sourceClient->socket );
+            CLogArgID ( "HandleSTUNTRequestV5 [ %i ]: Source client has not renewed the stunt socket yet!", sourceClient->socket );
             
             sourceClient->Unlock ( "HandleSTUNTRequest" );
 
@@ -8901,7 +8149,7 @@ namespace environs
 		///
 		portDest = destClient->stuntPort;
 		if ( !portDest ) {
-            CLogArgID ( "HandleSTUNTRequestV5 [ %i ]: Destination client [ 0x%X ] has not renewed the spare socket yet!", sourceClient->socket, destID );
+            CLogArgID ( "HandleSTUNTRequestV5 [ %i ]: Destination client [ 0x%X ] has not renewed the stunt socket yet!", sourceClient->socket, destID );
             
             sourceClient->Unlock ( "HandleSTUNTRequest" );
             
@@ -8941,22 +8189,13 @@ namespace environs
 		header->size = sizeof ( STUNTRespReqHeader ) + header->sizes [ 0 ] + header->sizes [ 1 ];
 
 		CLogArgID ( "STUNTRequest [ %i ]: Send request to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ), portSource );
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-		if ( !PushSend ( destClient.get (), header, header->size ) ) {
-			CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
-			goto UnlockQuit;
-		}
-#else
-		sentBytes = SendBuffer ( destClient.get (), header, header->size );
-
-		if ( sentBytes != ( int ) header->size ) {
-			CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#endif
-		sendSize = extResp ? MEDIATOR_STUNT_ACK_EXT_SIZE : MEDIATOR_STUNT_ACK_SIZE;
+        
+        if ( !PushSend ( destClient.get (), header, header->size ) ) {
+            CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send STUNT request to device [ 0x%X ] IP [ %s ]!", sourceClient->socket, destID, inet_ntoa ( destClient->addr.sin_addr ) );
+            goto UnlockQuit;
+        }
+        
+        sendSize = extResp ? MEDIATOR_STUNT_ACK_EXT_SIZE : MEDIATOR_STUNT_ACK_SIZE;
 		reqResponse->size = sendSize;
 
 		reqResponse->respCode = 'p';
@@ -8973,22 +8212,12 @@ namespace environs
 		CLogArgID ( "STUNTRequest [ %i ]: Send response to device [ 0x%X ] IP [ %s : %d ]", sourceClient->socket, destID, inet_ntoa ( sourceClient->addr.sin_addr ), portDest );
 
 		destClient->stuntPort = 0; // Clear the port
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-		if ( !PushSend ( sourceClient, reqResponse, sendSize ) ) {
-			CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			goto UnlockQuit;
-		}
-#else
-		sentBytes = SendBuffer ( sourceClient, reqResponse, sendSize );
-
-		if ( sentBytes != ( int ) sendSize ) {
-			CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
-			LogSocketError ();
-			goto UnlockQuit;
-		}
-#endif
-
+        
+        if ( !PushSend ( sourceClient, reqResponse, sendSize ) ) {
+            CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send STUNT response (Port) to sourceClient device IP [ %s ]!", sourceClient->socket, inet_ntoa ( sourceClient->addr.sin_addr ) );
+            goto UnlockQuit;
+        }
+        
 		destClient->stuntPort   = 0;
 		sourceClient->stuntPort = 0;
 
@@ -9014,20 +8243,12 @@ namespace environs
 			reqResponse->respCode = 'r';
 		else
 			reqResponse->respCode = 'e';
-
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-		if ( !PushSend ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE ) ) {
-			CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
-		}
-#else
-		sentBytes = SendBuffer ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE );
-
-		if ( sentBytes != MEDIATOR_STUNT_ACK_SIZE ) {
-			CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
-			LogSocketError ();
-		}
-#endif
-		sourceClient->stuntTarget = 0;
+        
+        if ( !PushSend ( sourceClient, reqResponse, MEDIATOR_STUNT_ACK_SIZE ) ) {
+            CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to send [ %s ] message to sourceClient", sourceClient->socket, reqResponse->respCode == 'e' ? "Failed" : "Retry" );
+        }
+        
+        sourceClient->stuntTarget = 0;
 
 		return false;
 	}
@@ -9133,7 +8354,7 @@ namespace environs
 		///
 		portSource = sourceClient->stuntPort;
 		if ( !portSource ) {
-			CLogArgID ( "HandleSTUNTRequestV4 [ %i ]: Source client has not renewed the spare socket yet!", sourceClient->socket );
+			CLogArgID ( "HandleSTUNTRequestV4 [ %i ]: Source client has not renewed the stunt socket yet!", sourceClient->socket );
 
 			NotifySTUNTRegRequest ( sourceClient ); status = -1; goto UnlockQuit;
 		}
@@ -9152,7 +8373,7 @@ namespace environs
 		///
 		portDest = destClient->stuntPort;
 		if ( !portDest ) {
-			CLogArgID ( "HandleSTUNTRequestV4 [ %i ]: Destination client [ 0x%X ] has not renewed the spare socket yet!", sourceClient->socket, destID );
+			CLogArgID ( "HandleSTUNTRequestV4 [ %i ]: Destination client [ 0x%X ] has not renewed the stunt socket yet!", sourceClient->socket, destID );
 
 			NotifySTUNTRegRequest ( destClient.get () );  status = -1; goto UnlockQuit;
 		}
@@ -9559,12 +8780,10 @@ namespace environs
 			return false;
 		}
 
-		// Clear all lingering devices in the list with the same deviceID
-
-		if ( !RemoveAcceptClient ( client ) ) {
+		/*if ( !RemoveAcceptClient ( client ) ) {
 			CErrArgID ( "HandleDeviceRegistration [ %s ]:\tFailed to lookup the client in acceptClients.", client->ips );
 			return false;
-		}
+		}*/
 
 		char		*	uid		= 0;
 		bool			created = false;
@@ -9754,6 +8973,10 @@ namespace environs
 
 		if ( *msg < '4' )
 			UpdateDeviceRegistry ( deviceSP, ip, msg );
+
+		if ( !RemoveAcceptClient ( client ) ) {
+			CErrArgID ( "HandleDeviceRegistration [ %s ]:\tFailed to lookup the client in acceptClients.", client->ips );
+		}
         
         /// Assign a session id
         long long sid = __sync_add_and_fetch ( &sessionCounter, 1 );
@@ -9769,11 +8992,40 @@ namespace environs
 		if ( !sessions.Unlock ( "HandleDeviceRegistration" ) )
             return false;
         
+        // Updated connected ips
+        //
+        if ( LockAcquireA ( bannedIPsLock, "HandleDeviceRegistration" ) )
+        {
+            unsigned int c = 1;
+            
+            std::map<unsigned int, unsigned int>::iterator it = connectedIPs.find ( ip );
+            
+            if ( it != connectedIPs.end () ) {
+                c += it->second;
+            }
+            
+            connectedIPs [ ip ] = c;
+            
+            LockReleaseVA ( bannedIPsLock, "HandleDeviceRegistration" );
+        }
+        
+        for ( size_t i = 0; i < sendThreadCount; ++i )
+        {
+			___sync_val_compare_and_swap ( sessionsChanged + i, 0, 1 );
+        }
+        
+        ___sync_val_compare_and_swap ( &watchdogSessionsChanged, 0, 1 );
+        
         CVerbArgID ( "HandleDeviceRegistration [ %s ]:\tAssinged session id [%i]", client->ips, sid );
 
-		client->sessionID = sid;
-
-		/// Send session id to client
+        client->sessionID = sid;
+        
+#ifdef ENABLE_WINSOCK_SEND_THREADS
+        WSASetEvent ( sendEvents [ 1 ] );
+#else
+        sendEvent.Notify ( "PushSend" );
+#endif
+        /// Send session id to client
 		MediatorMsg * sessMsg = ( MediatorMsg * ) &regMsg;
 
 		sessMsg->size = sizeof ( MediatorMsg );
@@ -9817,10 +9069,10 @@ namespace environs
 
 		// Clear all lingering devices in the list with the same deviceID
 
-		if ( !RemoveAcceptClient ( client ) ) {
+		/*if ( !RemoveAcceptClient ( client ) ) {
 			CErrArgID ( "HandleDeviceRegistrationV4 [ %s ]:\tFailed to lookup the client in acceptClients.", client->ips );
 			return false;
-		}
+		}*/
 
 		char		*	uid		= 0;
 		bool			created = false;
@@ -10011,6 +9263,10 @@ namespace environs
 
 		if ( *msg < '4' )
 			UpdateDeviceRegistry ( deviceSP, ip, msg );
+
+		if ( !RemoveAcceptClient ( client ) ) {
+			CErrArgID ( "HandleDeviceRegistration [ %s ]:\tFailed to lookup the client in acceptClients.", client->ips );
+		}
         
         /// Assign a session id
         long long sid = __sync_add_and_fetch ( &sessionCounter, 1 );
@@ -10023,14 +9279,44 @@ namespace environs
 
 		sessions.BuildCache ();
 
-		CVerbArgID ( "HandleDeviceRegistrationV4 [ %s ]:\tAssinged session id [%i]", client->ips, sid );
-
 		if ( !sessions.Unlock ( "HandleDeviceRegistration" ) )
-			return false;
+            return false;
+        
+        CVerbArgID ( "HandleDeviceRegistrationV4 [ %s ]:\tAssinged session id [%i]", client->ips, sid );
 
-		client->sessionID = sid;
-
-		/// Send session id to client
+        client->sessionID = sid;
+        
+        // Updated connected ips
+        //
+        if ( LockAcquireA ( bannedIPsLock, "HandleDeviceRegistration" ) )
+        {
+            unsigned int c = 1;
+            
+            std::map<unsigned int, unsigned int>::iterator it = connectedIPs.find ( ip );
+            
+            if ( it != connectedIPs.end () ) {
+                c += it->second;
+            }
+            
+            connectedIPs [ ip ] = c;
+            
+            LockReleaseVA ( bannedIPsLock, "HandleDeviceRegistration" );
+        }
+        
+        for ( size_t i = 0; i < sendThreadCount; ++i )
+        {
+			___sync_val_compare_and_swap ( sessionsChanged + i, 0, 1 );
+        }
+        
+        ___sync_val_compare_and_swap ( &watchdogSessionsChanged, 0, 1 );
+        
+#ifdef ENABLE_WINSOCK_SEND_THREADS
+        WSASetEvent ( sendEvents [ 1 ] );
+#else
+        sendEvent.Notify ( "PushSend" );
+#endif
+        
+        /// Send session id to client
 		MediatorMsg * sessMsg = ( MediatorMsg * ) &regMsg;
 
 		sessMsg->size = sizeof ( MediatorMsg );
@@ -10062,7 +9348,7 @@ namespace environs
 		int				length		= 0;
 		int				recvLength	= 0;
 		int				sentBytes   = -1;
-		int				addrLen		= sizeof ( struct sockaddr );
+		//int				addrLen		= sizeof ( struct sockaddr );
 
 		if ( !certificate ) {
 			CErr ( "SecureChannelAuth: Certificate missing!" );
@@ -10091,7 +9377,6 @@ namespace environs
 
 		if ( sock != -1 )
 			sentBytes = ( int ) send ( sock, buffer, length, MSG_NOSIGNAL );
-		//sentBytes = (int)sendto ( sock, buffer, length, MSG_NOSIGNAL, (struct sockaddr *) &client->addr, sizeof(struct sockaddr) );
 
 		if ( ( int ) length != sentBytes ) {
 			LogSocketError ();
@@ -10109,17 +9394,16 @@ namespace environs
 
 	ReceiveNext:
 		/// Wait for response
-		bytesReceived = ( int ) recvfrom ( ( int ) client->socket, recBuffer, recBufferSize, 0, ( struct sockaddr* ) &client->addr, ( socklen_t * ) &addrLen );
+		//bytesReceived = ( int ) recvfrom ( ( int ) client->socket, recBuffer, recBufferSize, 0, ( struct sockaddr* ) &client->addr, ( socklen_t * ) &addrLen );
+		bytesReceived = ( int ) recv ( ( int ) client->socket, recBuffer, recBufferSize, 0 );
 		if ( bytesReceived <= 0 ) {
-			CLogArg ( "SecureChannelAuth [ %i ]: Socket closed; Bytes [%i]!", client->socket, bytesReceived ); return false;
+			CLogArg ( "SecureChannelAuth [ %i ]: Socket closed; [ %i bytes ]!", client->socket, bytesReceived ); return false;
 		}
 
 		length += bytesReceived;
 
 		if ( !msgSize ) {
-			unsigned int * pUI1 = reinterpret_cast<unsigned int *>( buffer );
-
-			msgSize = *pUI1;
+			msgSize = *( reinterpret_cast<unsigned int *>( buffer ) ) & 0xFFFF;
 
 			if ( msgSize >= ENVIRONS_MAX_KEYBUFFER_SIZE ) {
 				CErrArg ( "SecureChannelAuth [ %i ]: Message size [ %u ] would overflow receive buffer [ %u ]. Aborting transfer.", client->socket, msgSize, ENVIRONS_MAX_KEYBUFFER_SIZE );
@@ -10134,8 +9418,8 @@ namespace environs
 		if ( length < msgSize ) {
 			CVerbArg ( "SecureChannelAuth [ %i ]: Received message is not not complete.", client->socket );
 
-			recBuffer += bytesReceived;
-			recBufferSize -= bytesReceived;
+			recBuffer		+= bytesReceived;
+			recBufferSize	-= bytesReceived;
 			goto ReceiveNext;
 		}
 
@@ -10299,171 +9583,30 @@ namespace environs
 	}
     
 
-#ifndef USE_MEDIATOR_DAEMON_SEND_THREAD
-	
-#ifdef USE_NONBLOCK_CLIENT_SOCKET
-
-	bool WaitForSend ( SOCKETSYNC &sock )
-	{
-		struct pollfd desc;
-
-		desc.events = POLLOUT | POLLERRMASK;
-		desc.fd = ( int ) sock;
-		desc.revents = 0;
-
-		if ( sock != -1 )
-		{
-			int rc = poll ( &desc, 1, 10 );
-			if ( rc > 0 ) {
-				if ( desc.revents & POLLOUT )
-					return true;
-			}
-		}
-		return false;
-	}
-
-
-	int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen )
-	{
-		CVerbVerbArg ( "SendBuffer [ %i ]", client->socket );
-
-		int             rc          = -1;
-		char *          cipher      = 0;
-		unsigned int    toSendLen   = msgLen;
-		unsigned int    bytesSent   = 0;
-		int             deviceID    = client->deviceID;
-
-		CVerbArgID ( "SendBuffer [ %i ]", client->socket );
-
-		if ( IsInvalidFD ( ( int ) client->socket ) )
-			return -1;
-
-		if ( client->encrypt ) {
-			if ( !AESEncrypt ( &client->aes, ( char * ) msg, &toSendLen, &cipher ) || !cipher ) {
-				CErrArgID ( "SendBuffer [ %i ]: Failed to encrypt AES message.", client->socket );
-				return rc;
-			}
-			msg = cipher;
-		}
-
-		CVerbArgID ( "SendBuffer [ %i ]: [ %i ] bytes", client->socket, toSendLen );
-
-	SendNext:
-		if ( client->aliveLast && client->socket != -1 ) 
-		{
-			rc = ( int ) send ( ( int ) client->socket, ( ( char * ) msg ) + bytesSent, toSendLen - bytesSent, MSG_NOSIGNAL );
-
-#ifndef USE_MEDIATOR_DAEMON_SEND_THREAD
-			if ( rc < 0 )
-			{
-				SOCKET_Check_Val ( check );
-
-				if ( SOCKET_Check_Retry ( check ) ) {
-					if ( WaitForSend ( client->socket ) )
-						goto SendNext;
-				}
-			}
-#endif
-			if ( rc > 0 )
-			{
-				bytesSent += rc;
-				if ( bytesSent == ( int ) toSendLen ) {
-					client->sendFails = 0;
-					rc = msgLen;
-				}
-				else
-					goto SendNext;
-			}
-			else
-				client->sendFails++;
-		}
-		else {
-			client->sendFails++;
-		}
-
-		CVerbArgID ( "SendBuffer [ %i ]: [ %i ] bytes. Done.", client->socket, toSendLen );
-
-		if ( cipher )
-			free ( cipher );
-		return rc;
-	}
-#else
-	int MediatorDaemon::SendBuffer ( ThreadInstance * client, void * msg, unsigned int msgLen )
-	{
-		CVerbVerbArg ( "SendBuffer [ %i ]", client->socket );
-
-		int             rc          = -1;
-		char *          cipher      = 0;
-        unsigned int    toSendLen   = msgLen;
-        unsigned int    bytesSent   = 0;
-		int             deviceID    = client->deviceID;
-
-		CVerbArgID ( "SendBuffer [ %i ]", client->socket );
-
-		if ( IsInvalidFD ( ( int ) client->socket ) )
-			return -1;
-
-		if ( client->encrypt ) {
-			if ( !AESEncrypt ( &client->aes, ( char * ) msg, &toSendLen, &cipher ) || !cipher ) {
-				CErrArgID ( "SendBuffer [ %i ]: Failed to encrypt AES message.", client->socket );
-				return rc;
-			}
-			msg = cipher;
-		}
-
-		CVerbArgID ( "SendBuffer [ %i ]: [ %i ] bytes", client->socket, toSendLen );
-
-    SendNext:
-        if ( client->aliveLast && client->socket != -1 ) {
-            rc = ( int ) send ( ( int ) client->socket, (( char * ) msg) + bytesSent, toSendLen - bytesSent, MSG_NOSIGNAL );
-            if ( rc > 0 )
-            {
-                bytesSent += rc;
-                if ( bytesSent == ( int ) toSendLen ) {
-                    client->sendFails = 0;
-                    rc = msgLen;
-                }
-                else
-					goto SendNext;
-            }
-			else
-				client->sendFails++;
-        }
-        else {
-            client->sendFails++;
-        }
-
-		CVerbArgID ( "SendBuffer [ %i ]: [ %i ] bytes. Done.", client->socket, toSendLen );
-            
-		if ( cipher )
-			free ( cipher );
-		return rc;
-    }
-#endif
-
-#endif
-
 	bool MediatorDaemon::RemoveAcceptClient ( ThreadInstance * client )
 	{
+		if ( !client->inAcceptorList )
+			return true;
 		bool found = false;
+
+		sp ( ThreadInstance ) clientSP;
 
 		if ( !acceptClients.Lock ( "RemoveAcceptClient" ) )
 			return false;
 
-		vector < sp ( ThreadInstance ) > &list = acceptClients.list;
+		msp ( void *, ThreadInstance ) &clients = acceptClients.list;
 
-		// find the one in our vector
-		size_t size = list.size ();
-
-		for ( size_t i = 0; i < size; ++i )
+		if ( clients.size () > 0 )
 		{
-			if ( list [ i ].get () == client )
+			// find the one in our vector
+			msp ( void *, ThreadInstance )::iterator it = clients.find ( client );
+			if ( it != clients.end () )
 			{
-				CVerbArg ( "RemoveAcceptClient: Erasing [ %i ] from client list", i );
+				CVerbArg ( "RemoveAcceptClient: Erasing [ 0x%X ] from client list", clientSP->deviceID );
 
-				list.erase ( list.begin () + i );
+				client->inAcceptorList = false;
+				clients.erase ( it );
 				found = true;
-				break;
 			}
 		}
 
@@ -10472,26 +9615,46 @@ namespace environs
 	}
 
 
-	void MediatorDaemon::HandleStuntSocketRegistration ( ThreadInstance * spareClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen )
+	void MediatorDaemon::HandleStuntSocketRegistration ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen )
 	{
+		if ( orgClient->version < '8' )
+			return HandleStuntSocketRegistrationV6 ( stuntClient, orgClient, msg, msgLen );
+
+		if ( msgLen < ( MEDIATOR_BROADCAST_SPARE_ID_LEN + sizeof ( StuntSockRegTarget ) ) ) {
+			CWarnArg ( "HandleStuntSocketRegistration [ %s : %i ]:\tStunt socket registration packet is not of correct type.", stuntClient->ips, stuntClient->socket );
+			return;
+		}
+        
+        StuntSockRegTarget * regTarget   = ( StuntSockRegTarget * ) ( msg + MEDIATOR_BROADCAST_SPARE_ID_LEN - 4 );
+        
 		int deviceID = *( ( int * ) ( msg + 12 ) );
 
 		CVerbID ( "HandleStuntSocketRegistration" );
-
-		int							sock = -1;
-		int							stuntSocket = -1;
         
-        spareClient->socketToClose  = -1;
+        
+        char                    *   appName     = 0;
+        char                    *   areaName    = 0;
+		bool						success     = false;
+        int							stuntSocket = INVALID_FD;
+		int							toClose		= INVALID_FD;
+        
+        char                        buffer [ 36 + sizeof ( AppAreaBuffer ) ];
+		char                    *   key			= buffer + 4;
+        
+        int                     *   s           = 0;
+        struct sockaddr_in      *   addr        = 0;
+		StuntRegisterContext	*	ctx			= 0;
+        sp ( StuntRegisterContext ) ctxSP;
 
-		DeviceInstanceNode *		device;
+		DeviceInstanceNode      *   device;
 
 		sp ( DeviceInstanceNode )	deviceSP;
 
-		RemoveAcceptClient ( spareClient );
+		//RemoveAcceptClient ( stuntClient );
 
 		// We need at first the deviceID
 		if ( !deviceID ) {
-			CWarnID ( "HandleStuntSocketRegistration: Invalid device [0] for spare socket mapping!" ); goto Finish;
+			CWarnID ( "HandleStuntSocketRegistration: Invalid deviceID [ 0 ] for stunt socket mapping!" ); goto Finish;
 		}
 
 		/// Verify that the registration is correct
@@ -10505,30 +9668,172 @@ namespace environs
 		}
 
 		// Check for matching IP
-		if ( !orgClient->daemon || spareClient->addr.sin_addr.s_addr != orgClient->addr.sin_addr.s_addr ) {
+		if ( !orgClient->daemon || stuntClient->addr.sin_addr.s_addr != orgClient->addr.sin_addr.s_addr ) {
 			CWarnID ( "HandleStuntSocketRegistration: Requestor has been disposed or IP address of requestor does not match!" ); goto Finish;
 		}
 
-		stuntSocket = ( int ) ReplaceThreadSocket ( &spareClient->socket, INVALID_FD );
+        stuntSocket = ( int ) stuntClient->socket;
+        if ( IsInvalidFD ( stuntSocket ) )
+            goto Finish;
+        
+        if ( regTarget->sizes [ 0 ] > 1 && regTarget->sizes [ 0 ] < MAX_NAMEPROPERTY + 1 && regTarget->sizes [ 1 ] > 1 && regTarget->sizes [ 1 ] < MAX_NAMEPROPERTY + 1 ) {
+            appName = ( char * ) ( regTarget->sizes + 2 );
+            appName [ regTarget->sizes [ 0 ] - 1 ] = 0;
+            
+            areaName = appName + regTarget->sizes [ 0 ];
+            areaName [ regTarget->sizes [ 1 ] - 1 ] = 0;
+        }
+        
+        if ( !BuildAppAreaID ( buffer, regTarget->deviceID, appName, areaName, regTarget->channelType, regTarget->token ) )
+            goto Finish;
+        
+        if ( LockAcquireA ( orgClient->stuntSocketLock, "HandleStuntSocketRegistration" ) )
+        {
+            msp ( std::string, StuntRegisterContext ) &sockets = orgClient->stuntSocketsLog;
+            
+            const msp ( std::string, StuntRegisterContext )::iterator &foundIt = sockets.find ( key );
+            
+            unsigned int now = GetEnvironsTickCount32 ();
+            
+            if ( foundIt == sockets.end () )
+            {
+                ctxSP = sp_make ( StuntRegisterContext );
+                if ( ctxSP )
+                {
+					ctx = ctxSP.get ();
 
-		if ( IsValidFD ( stuntSocket ) ) {
-			spareClient->socketToClose = INVALID_FD;
+                    ctx->token          = regTarget->token;
+                    ctx->registerTime   = now;
+                    
+                    s = ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->sockI : &ctx->sockC );
+                    *s = stuntSocket;
+                    
+                    addr    = ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->addrI : &ctx->addrC );
+                    *addr   = stuntClient->addr;
+                    
+                    sockets [ key ] = ctxSP;
+                    
+                    success = true;
+                }
+            }
+            else {
+                ctxSP   = foundIt->second;
+                ctx     = ctxSP.get ();
+                
+                if ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ) {
+                    s       = &ctx->sockI;
+                    addr    = &ctx->addrI;
+                }
+                else {
+                    s       = &ctx->sockC;
+                    addr    = &ctx->addrC;
+                }
+                
+                if ( now - ctx->registerTime > 10000 ) {
+                    // Reuse the context if the last registration attempt has been done more than 10 seconds before
+                    ctx->registerTime   = now;
+                    ctx->token          = regTarget->token;
+                    
+                    toClose = *s; *s = stuntSocket;
+                    
+                    *addr   = stuntClient->addr;
+                    success = true;
+                }
+                else {
+                    if ( ctx->token == regTarget->token )
+                    {
+                        if ( !addr->sin_port )
+                        {
+                            toClose = *s; *s = stuntSocket;
+                            *addr   = stuntClient->addr;
+                            success = true;
+                        }
+                    }
+                }
+            }
+            
+            LockReleaseA ( orgClient->stuntSocketLock, "HandleStuntSocketRegistration" );
+        }
+
+	Finish:
+		if ( IsValidFD ( toClose ) )
+			ShutdownCloseSocket ( toClose, true, "HandleStuntSocketRegistration" );
+
+        if ( success ) {
+			send ( stuntSocket, ( char * ) &deviceID, sizeof ( deviceID ), MSG_NOSIGNAL );
+            
+            stuntClient->socket = stuntClient->socketToClose = INVALID_FD;
+
+            CLogArgID ( "HandleStuntSocketRegistration: Successfully registered stunt socket on port [ %d ].", addr ? ntohs ( addr->sin_port ) : 0 );
+		}
+        else  {
+            stuntSocket = (int) stuntClient->socket;
+            
+            if ( IsValidFD ( stuntSocket ) ) {
+                int i = 0; send ( stuntSocket, ( char * ) &i, sizeof ( i ), MSG_NOSIGNAL );
+            }
+            
+            CLogID ( "HandleStuntSocketRegistration: Failed to register stunt socket" );
+        }
+        return;
+	}
+
+
+	void MediatorDaemon::HandleStuntSocketRegistrationV6 ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen )
+	{
+		int deviceID = *( ( int * ) ( msg + 12 ) );
+
+		CVerbID ( "HandleStuntSocketRegistrationV6" );
+
+		int							sock = -1;
+		int							stuntSocket = -1;
+        
+		stuntClient->socketToClose  = -1;
+
+		DeviceInstanceNode *		device;
+
+		sp ( DeviceInstanceNode )	deviceSP;
+
+		//RemoveAcceptClient ( stuntClient );
+
+		// We need at first the deviceID
+		if ( !deviceID ) {
+			CWarnID ( "HandleStuntSocketRegistrationV6: Invalid device [ 0 ] for stunt socket mapping!" ); goto Finish;
 		}
 
-		ReplaceStuntSocket ( orgClient.get (), stuntSocket );
+		/// Verify that the registration is correct
+		deviceSP = orgClient->deviceSP;
+		if ( !deviceSP || ( device = deviceSP.get () ) == 0 ) {
+			CWarnID ( "HandleStuntSocketRegistrationV6: Related client is missing a device instance!" ); goto Finish;
+		}
 
-		orgClient->stuntPort = ntohs ( spareClient->addr.sin_port );
+		if ( deviceID != device->info.deviceID ) {
+			CWarnID ( "HandleStuntSocketRegistrationV6: deviceIDs don't match!" ); goto Finish;
+		}
+
+		// Check for matching IP
+		if ( !orgClient->daemon || stuntClient->addr.sin_addr.s_addr != orgClient->addr.sin_addr.s_addr ) {
+			CWarnID ( "HandleStuntSocketRegistrationV6: Requestor has been disposed or IP address of requestor does not match!" ); goto Finish;
+		}
+
+		stuntSocket = ( int ) ReplaceThreadSocket ( &stuntClient->socket, INVALID_FD );
+
+		if ( IsValidFD ( stuntSocket ) ) {
+			stuntClient->socketToClose = INVALID_FD;
+		}
+
+		orgClient->stuntPort = ntohs ( stuntClient->addr.sin_port );
 
 		sock = 1;
 
 	Finish:
 		if ( sock != 1 ) {
-			CloseThreadSocket ( &spareClient->socket );
+			CloseThreadSocket ( &stuntClient->socket );
 
-			CLogID ( "HandleStuntSocketRegistration: Failed to register spare socket" );
+			CLogID ( "HandleStuntSocketRegistrationV6: Failed to register stunt socket" );
 		}
 		else {
-			CLogArgID ( "HandleStuntSocketRegistration: Successfully registered spare socket on port [ %d ].", orgClient->stuntPort );
+			CLogArgID ( "HandleStuntSocketRegistrationV6: Successfully registered stunt socket on port [ %d ].", orgClient->stuntPort );
 		}
 		return;
 	}
@@ -10537,7 +9842,7 @@ namespace environs
 	std::string escapeJsonString ( const std::string& input )
 	{
 		std::ostringstream ss;
-		for ( std::string::const_iterator iter = input.begin (); iter != input.end (); iter++ ) {
+		for ( std::string::const_iterator iter = input.begin (); iter != input.end (); ++iter ) {
 			switch ( *iter ) {
 			case '\\': ss << "\\\\"; break;
 			case '"': ss << "\\\""; break;
@@ -10821,8 +10126,6 @@ namespace environs
     }
     
     
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
-    
     void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
     {
         if ( !nctx->device )
@@ -10965,10 +10268,11 @@ namespace environs
                     if ( *areaName && *appName > 0 ) {
                         if ( !BuildAppAreaField ( msg->header.sizes, appName, areaName, false ) )
                             return;
-                        msg->header.size = sizeof ( MediatorQueryHeader ) + msg->header.sizes [ 0 ] + msg->header.sizes [ 1 ];
                     }
-                    else
-                        msg->header.size = sizeof ( MediatorQueryHeader ) + 2;
+					else {
+						msg->header.sizes [ 0 ] = 1; msg->header.sizes [ 1 ] = 1;
+					}
+					msg->header.size = sizeof ( MediatorQueryHeader ) + msg->header.sizes [ 0 ] + msg->header.sizes [ 1 ];
                     
                     dataSP->buffer = msg;
                     
@@ -11042,7 +10346,9 @@ namespace environs
                     
                     for ( size_t i = 0; i < size; i++ )
                     {
-                        ThreadInstance * dest = (*destsCur) [ i ].get ();
+						const sp ( ThreadInstance ) & constSP = ( *destsCur ) [ i ];
+
+                        ThreadInstance * dest = constSP.get ();
                         
                         //CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
                         
@@ -11052,9 +10358,9 @@ namespace environs
 #ifdef DEBUGVerb
                         SOCKETSYNC sock = dest->socket;
 #endif
-                        if ( dest->aliveLast && dest->socket != -1 ) {
+                        if ( dest->aliveLast && IsValidFD ( dest->socket ) ) {
 #ifndef NDEBUG
-                            CVerbArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, sock );
+                            CVerbArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, dest->socket );
 #else
                             CVerbArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
 #endif
@@ -11100,7 +10406,9 @@ namespace environs
 
                     for ( size_t i = 0; i < size; i++ )
                     {
-                        ThreadInstance * dest = destsAppArea [ i ].get ();
+						const sp ( ThreadInstance ) & constSP = destsAppArea [ i ];
+
+                        ThreadInstance * dest = constSP.get ();
                         
                         //CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
                         
@@ -11131,338 +10439,6 @@ namespace environs
         CVerbVerb ( "NotifyClients: done." );
     }
     
-#else
-    
-    void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
-    {
-        if ( !nctx->device )
-            return;
-        
-        DeviceInstanceNode  * device = nctx->device.get ();
-        
-        const char * areaName = device->info.areaName;
-        const char * appName = device->info.appName;
-        unsigned int sendSize;
-        
-        bool    reDo;
-        int     repeats;
-        
-#ifdef ENABLE_DEPRECATED_V4
-		MediatorNotifyV4	msgV4;
-		Zero ( msgV4 );
-
-		msgV4.cmd0 = MEDIATOR_PROTOCOL_VERSION;
-
-		msgV4.cmd1 = MEDIATOR_CMD_MEDIATOR_NOTIFY;
-		msgV4.opt0 = MEDIATOR_OPT_NULL;
-		msgV4.opt1 = MEDIATOR_OPT_NULL;
-		msgV4.msgID = nctx->notify;
-		msgV4.notifyDeviceID = device->info.deviceID;
-
-		sendSize = sizeof ( MediatorNotifyV4 );
-
-		if ( *areaName && *appName > 0 ) {
-			strlcpy ( msgV4.areaName, areaName, sizeof ( msgV4.areaName ) );
-			strlcpy ( msgV4.appName, appName, sizeof ( msgV4.appName ) );
-			sendSize = sizeof ( MediatorNotifyV4 );
-		}
-		else sendSize = sizeof ( MediatorMsg );
-
-        msgV4.size = sendSize;
-        
-        vsp ( ThreadInstance )      destsV4;
-#endif
-        size_t                      size;
-		sp ( ThreadInstance )		clientSP;
-		sp ( ApplicationDevices )	appDevices;
-
-
-		MediatorNotify	msg;
-		Zero ( msg );
-
-		msg.header.cmd0 = MEDIATOR_PROTOCOL_VERSION;
-
-		msg.header.cmd1 = MEDIATOR_CMD_MEDIATOR_NOTIFY;
-		msg.header.opt0 = MEDIATOR_OPT_NULL;
-		msg.header.opt1 = MEDIATOR_OPT_NULL;
-		msg.header.msgID = nctx->notify;
-		msg.header.notifyDeviceID = device->info.deviceID;
-
-		if ( *areaName && *appName > 0 ) {
-			if ( !BuildAppAreaField ( msg.header.sizes, appName, areaName, false ) )
-				return;
-			msg.header.size = sizeof ( MediatorQueryHeader ) + msg.header.sizes [ 0 ] + msg.header.sizes [ 1 ];
-		}
-		else
-			msg.header.size = sizeof ( MediatorQueryHeader ) + 2;
-
-        vsp ( ThreadInstance )      dests;
-        vector < ThreadInstance * > dests1;
-        vector < ThreadInstance * > dests2;
-        vsp ( ThreadInstance )      destsAppArea;
-        vector < ThreadInstance * > destsAppArea1;
-        vector < ThreadInstance * > destsAppArea2;
-        
-        vector < ThreadInstance * > * toHandle = 0;
-        vector < ThreadInstance * > * destsTmp = 0;
-
-		CLogArg ( "NotifyClients: broadcasting notify [%s]", environs::resolveName ( nctx->notify ) );
-
-		if ( !LockAcquireA ( notifyTargetsLock, "NotifyClients" ) )
-			return;
-
-		/// Get the no filter clients
-		do
-		{
-			msp ( long long, ThreadInstance )::iterator clientIt = notifyTargets.begin ();
-
-			while ( clientIt != notifyTargets.end () )
-			{
-                ThreadInstance * inst = clientIt->second.get ();
-                
-                if ( inst->subscribedToNotifications && inst->socket != -1 && inst->aliveLast ) {
-#ifdef ENABLE_DEPRECATED_V4
-					if ( inst->version < '5' )
-						destsV4.push_back ( clientIt->second );
-					else
-#endif
-                        dests.push_back ( clientIt->second );
-                    
-                    dests1.push_back ( inst );
-				}
-				clientIt++;
-			}
-		}
-		while ( 0 );
-
-		LockReleaseVA ( notifyTargetsLock, "NotifyClients" );
-
-		/// Get the AreaApps
-		do
-		{
-			sp ( AreaApps ) areaApps = 0;
-
-			if ( !areas.Lock ( "NotifyClients" ) )
-				return;
-
-			const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( areaName );
-
-			if ( areaIt != areas.list.end () )
-				areaApps = areaIt->second;
-
-			areas.Unlock ( "NotifyClients" );
-
-			if ( !areaApps || !areaApps->Lock1 ( "NotifyClients" ) ) {
-				CLogArg ( "NotifyClients: Area [ %s ] not found.", areaName );
-				break;
-			}
-
-			msp ( long long, ThreadInstance )::iterator clientIt = areaApps->notifyTargets.begin ();
-
-			while ( clientIt != areaApps->notifyTargets.end () )
-            {
-                ThreadInstance * inst = clientIt->second.get ();
-                
-                if ( inst->subscribedToNotifications && inst->socket != -1 && inst->aliveLast ) {
-#ifdef ENABLE_DEPRECATED_V4
-					if ( inst->version < '5' )
-						destsV4.push_back ( clientIt->second );
-					else
-#endif
-                        dests.push_back ( clientIt->second );
-                    dests1.push_back ( inst );
-				}
-				clientIt++;
-			}
-
-			areaApps->Unlock1 ( "NotifyClients" );
-		}
-		while ( 0 );
-
-		appDevices	= GetApplicationDevices ( appName, areaName );
-		if ( appDevices )
-		{
-			if ( appDevices->Lock ( "NotifyClients" ) )
-			{
-				device = appDevices->devices;
-				while ( device )
-				{
-                    clientSP = device->clientSP;
-                    
-                    ThreadInstance * inst = clientSP.get ();
-                    if ( inst )
-                    {
-                        if ( inst->filterMode == MEDIATOR_FILTER_AREA_AND_APP && inst->socket != -1 && inst->subscribedToNotifications && inst->aliveLast )
-                        {
-#ifdef ENABLE_DEPRECATED_V4
-                            if ( inst->version < '5' )
-                                destsV4.push_back ( clientSP );
-                            else
-#endif
-                                destsAppArea.push_back ( clientSP );
-                            
-                            destsAppArea1.push_back ( inst );
-                        }
-                        
-                    }
-
-					device = device->next;
-				}
-
-				CVerbVerb ( "NotifyClients: unlock." );
-				appDevices->Unlock ( "NotifyClients" );
-			}
-
-			UnlockApplicationDevices ( appDevices.get () );
-		}
-        
-#ifdef ENABLE_DEPRECATED_V4
-		size = destsV4.size ();
-
-		for ( size_t i = 0; i < size; i++ )
-		{
-			const sp ( ThreadInstance ) &destClient = destsV4 [ i ];
-			if ( !destClient )
-				continue;
-
-			ThreadInstance * dest = destClient.get ();
-			//CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
-
-			if ( !dest->deviceID || !dest->subscribedToNotifications )
-				continue;
-#ifndef NDEBUG
-			SOCKETSYNC sock = dest->socket;
-#endif
-			if ( dest->aliveLast && dest->socket != -1 ) {
-#ifndef NDEBUG
-				CLogArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, sock );
-#else
-				CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
-#endif
-				SendBuffer ( dest, ( char * ) &msgV4, sendSize );
-			}
-		}
-
-		//Finish:
-		destsV4.clear ();
-#endif
-
-        sendSize = msg.header.size;
-        
-        repeats = 0;
-        
-        toHandle = &dests1;
-        destsTmp = &dests2;
-        
-    DoNoFilter:
-        reDo = false;
-        size = toHandle->size ();
-
-		for ( size_t i = 0; i < size; i++ )
-		{
-			ThreadInstance * dest = (*toHandle) [ i ];
-            
-			//CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
-
-			if ( !dest->deviceID || !dest->subscribedToNotifications ) {
-				continue;
-			}
-#ifndef NDEBUG
-			SOCKETSYNC sock = dest->socket;
-#endif
-			if ( dest->aliveLast && dest->socket != -1 ) {
-#ifndef NDEBUG
-				CLogArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, sock );
-#else
-				CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
-#endif
-                if ( IsSendReady ( dest->socket ) ) {
-                    SendBuffer ( dest, ( char * ) &msg, sendSize );
-                }
-                else {
-                    destsTmp->push_back ( dest );
-                    reDo = true;
-                }
-			}
-        }
-        
-        if ( reDo && repeats < 3 ) {
-            repeats++;
-            
-            vector < ThreadInstance * > * tmp = toHandle;
-            
-            toHandle = destsTmp; destsTmp = tmp;
-            
-            destsTmp->clear ();
-            goto DoNoFilter;
-        }
-
-		//Finish:
-		dests.clear ();
-        
-		size = destsAppArea.size ();
-		msg.header.sizes [ 0 ] = 1;
-		msg.header.sizes [ 1 ] = 1;
-		msg.appArea [ 0 ] = 0;
-		msg.appArea [ 1 ] = 0;
-		msg.header.size = sizeof ( MediatorQueryHeader ) + 2;
-		sendSize = msg.header.size;
-        
-        repeats = 0;
-        
-        toHandle = &destsAppArea1;
-        destsTmp = &destsAppArea2;
-        
-    DoAppArea:
-        reDo = false;
-        size = toHandle->size ();
-
-		for ( size_t i = 0; i < size; i++ )
-        {
-            ThreadInstance * dest = (*toHandle) [ i ];
-
-			//CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
-
-			if ( !dest->deviceID || !dest->subscribedToNotifications ) {
-				continue;
-			}
-#ifndef NDEBUG
-			SOCKETSYNC sock = dest->socket;
-#endif
-			if ( dest->aliveLast && dest->socket != -1 ) {
-#ifndef NDEBUG
-				CLogArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, sock );
-#else
-				CLogArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
-#endif
-                if ( IsSendReady ( dest->socket ) ) {
-                    SendBuffer ( dest, ( char * ) &msg, sendSize );
-                }
-                else {
-                    destsTmp->push_back ( dest );
-                    reDo = true;
-                }
-			}
-		}
-
-        if ( reDo && repeats < 3 ) {
-            repeats++;
-            
-            vector < ThreadInstance * > * tmp = toHandle;
-            
-            toHandle = destsTmp; destsTmp = tmp;
-            
-            destsTmp->clear ();
-            goto DoAppArea;
-        }
-        
-		//Finish:
-		destsAppArea.clear ();
-
-		CVerbVerb ( "NotifyClients: done." );
-    }
-#endif
-    
     
     class StartThreadInstance
     {
@@ -11473,8 +10449,6 @@ namespace environs
         MediatorDaemon * mediator;
     };
     
-    
-#ifdef ENABLE_SINGLE_CLIENT_THREAD
     
 #define GROW_SIZE   100
     
@@ -11504,6 +10478,8 @@ namespace environs
             
             if ( desc ) {
                 memcpy ( tmp, desc, descCapacity * sizeof ( struct pollfd ) );
+
+				free_n ( desc );
             }
             desc = tmp;
             descCapacity = size;
@@ -11515,44 +10491,122 @@ namespace environs
         }
 
 		desc [ clientCount ].fd = ( int ) clientSP->socket;
+#else
+#	ifdef USE_ONE_TO_ONE_SOCKET_EVENTS
+		bool grow = true;
+
+		if ( revents ) {
+			if ( clients.size () + 2 < descCapacity ) {
+				grow = false;
+			}
+		}
+
+		if ( grow ) {
+			size_t size = descCapacity + GROW_SIZE;
+
+			HANDLE * tmp = ( HANDLE * ) calloc ( size, sizeof ( HANDLE ) );
+			if ( !tmp ) {
+				Unlock ( "Add" );
+				return false;
+			}
+
+			if ( revents ) {
+				memcpy ( tmp, revents, descCapacity * sizeof ( HANDLE ) );
+			}
+
+			for ( size_t i = descCapacity; i < size; ++i ) {
+				tmp [ i ] = WSACreateEvent ();
+				if ( tmp [ i ] == WSA_INVALID_EVENT ) {
+					Unlock ( "Add" );
+					return false;
+				}
+			}
+			
+			free_n ( revents );
+
+			revents		 = tmp;
+			descCapacity = size;
+		}
+
+		if ( WSAEventSelect ( ( int ) clientSP->socket, revents [ clientCount ], FD_READ | FD_CLOSE ) == SOCKET_ERROR ) {
+			CWarnArg ( "Add [ %s : %i ]:\tFailed to register receive event [ %d ]", clientSP->ips, clientSP->socket, WSAGetLastError () );
+		}
+#	endif
 #endif
         clients.push_back ( clientSP );
         clientCount++;
-        
+
+		___sync_val_compare_and_swap ( &clientsChanged, 0, 1 );
+
         Unlock ( "Add" );
         return true;
     }
     
     
-    bool ClientContext::Remove ( const sp ( ThreadInstance ) &clientSP )
+    bool ClientContext::Remove ( const sp ( ThreadInstance ) &clientSP, bool useLock, bool keepOrder )
     {
         ThreadInstance * client = clientSP.get ();
         if ( !client )
             return false;
         
-        if ( !Lock ( "Remove" ) )
+        if ( useLock && !Lock ( "Remove" ) )
             return false;
         
         bool success = false;
         
+#ifdef ENABLE_WINSOCK_CLIENT_THREADS
+
+		size_t size = clients.size ();
+
+		for ( size_t i = 0; i < size; ++i )
+		{
+			const sp ( ThreadInstance ) & constSP = clients [ i ];
+
+			if ( constSP.get () == client )
+			{
+				clients.erase ( clients.begin () + i );
+
+#	ifdef USE_ONE_TO_ONE_SOCKET_EVENTS
+				if ( keepOrder && ( i + 1 < clientCount ) )
+				{
+					HANDLE tmp = revents [ i ];
+
+					for ( size_t j = i; j < clientCount; ++j )
+					{
+						revents [ j ] = revents [ j + 1 ];
+					}
+					revents [ clientCount ] = tmp;
+				}
+#	endif
+				clientCount--;
+
+				___sync_val_compare_and_swap ( &clientsChanged, 0, 1 );
+				success = true;
+				break;
+			}
+		}
+#else
         for ( size_t i = 0; i < clients.size (); ++i )
         {
             if ( clients [ i ].get () == client )
             {
                 clients.erase ( clients.begin() + i );
 
-#ifndef ENABLE_WINSOCK_CLIENT_THREADS
                 for ( size_t j = i; j < clientCount; ++j )
                 {
                     desc [ j ].fd = desc [ j + 1 ].fd;
                 }
-#endif
                 clientCount --;
+
+				___sync_val_compare_and_swap ( &clientsChanged, 0, 1 );
                 success = true;
+				break;
             }
         }
+#endif
         
-        Unlock ( "Remove" );
+		if ( useLock )
+			Unlock ( "Remove" );
         return success;
     }
     
@@ -11592,7 +10646,9 @@ namespace environs
                     return false;
 
 #ifdef ENABLE_WINSOCK_CLIENT_THREADS
+#	ifndef USE_ONE_TO_ONE_SOCKET_EVENTS
 				CreateWSAHandle ( clientContexts [ i ]->revent, false );
+#	endif
 #endif
             }
         }
@@ -11668,7 +10724,7 @@ namespace environs
 
 				ctx->Unlock ( "StopClientThreads" );
 
-				vsp ( ThreadInstance )::iterator it = tmpClients.begin ();
+				/*vsp ( ThreadInstance )::iterator it = tmpClients.begin ();
 
 				while ( it != tmpClients.end () )
 				{
@@ -11676,10 +10732,10 @@ namespace environs
 
 					ClientRemove ( client.get () );
 
-					ctx->Remove ( client );
+					ctx->Remove ( client, true, false );
 
 					++it;
-				}
+				}*/
 
 				tmpClients.clear ();
             }
@@ -11706,8 +10762,12 @@ namespace environs
         return 0;
     }
     
+
+#define CLIENT_THREAD_TIMEOUT_START		100
+#define CLIENT_THREAD_TIMEOUT_MAX		2000
+#define CLIENT_THREAD_TIMEOUT_STEPS		100
     
-    
+
     void  MediatorDaemon::ClientThreads ( int threadNr )
     {
         CLogArg ( "ClientThreads [ %i ]: started ...", threadNr );
@@ -11716,45 +10776,66 @@ namespace environs
         
         if ( !isRunning )
             return;
-        
-        vsp ( ThreadInstance )  tmpClients;
 
-#ifndef ENABLE_WINSOCK_CLIENT_THREADS
-        vsp ( ThreadInstance )  toRemove;
-#endif
         ClientContext * ctx = clientContexts [ threadNr ];
-		int timeout = 10;
+		int timeout		= CLIENT_THREAD_TIMEOUT_START;
+		int emptyRound	= 0;
 
+        vsp ( ThreadInstance )  tmpClients;
+        vsp ( ThreadInstance )  toRemove;
+
+		size_t					i, size;
+
+#ifdef ENABLE_WINSOCK_CLIENT_THREADS
+		int						rcWait;
+#endif
         while ( clientThreadsAlive )
         {
+#ifdef ENABLE_WINSOCK_CLIENT_THREADS
+			rcWait = -1;
+#endif
 #ifndef ENABLE_WINSOCK_CLIENT_THREADS
             bool polled = false;
 #endif
-
             if ( ctx->clientCount > 0 ) {
 #ifdef ENABLE_WINSOCK_CLIENT_THREADS
-				DWORD rc;
+#	ifdef USE_ONE_TO_ONE_SOCKET_EVENTS
+				rcWait = ( int ) WSAWaitForMultipleEvents ( ( DWORD ) ctx->clientCount, ctx->revents, FALSE, timeout, FALSE );
 
-				if ( ( rc = WSAWaitForMultipleEvents ( 1, &ctx->revent, FALSE, timeout, FALSE ) ) == WSA_WAIT_TIMEOUT ) {
-					if ( timeout < 1000 )
-						timeout += 10;
+				if ( rcWait == WSA_WAIT_TIMEOUT ) {
+					if ( timeout < CLIENT_THREAD_TIMEOUT_MAX )
+						timeout += CLIENT_THREAD_TIMEOUT_STEPS;
+					rcWait = -1;
 				}
 				else {
-					WSAResetEvent ( ctx->revent );
-					timeout = 10;
+					if ( rcWait < ctx->clientCount )
+						WSAResetEvent ( ctx->revents [ rcWait ] );
+					else
+						rcWait = -1;
+					timeout = CLIENT_THREAD_TIMEOUT_START;
 				}
 #else
-                for ( int i = 0; i < ctx->clientCount; ++i ) {
+				if ( ( rcWait = WSAWaitForMultipleEvents ( 1, &ctx->revents, FALSE, timeout, FALSE ) ) == WSA_WAIT_TIMEOUT ) {
+					if ( timeout < CLIENT_THREAD_TIMEOUT_MAX )
+						timeout += CLIENT_THREAD_TIMEOUT_STEPS;
+				}
+				else {
+					WSAResetEvent ( ctx->revents );
+					timeout = CLIENT_THREAD_TIMEOUT_START;
+				}
+#endif
+#else
+                for ( i = 0; i < ctx->clientCount; ++i ) {
                     ctx->desc [ i ].revents = 0;
                 }
                 
                 int rc = poll ( ctx->desc, (unsigned int) ctx->clientCount, timeout );
 				if ( rc == 0 ) {
-					if ( timeout < 1000 )
-						timeout += 10;
+					if ( timeout < CLIENT_THREAD_TIMEOUT_MAX )
+						timeout += CLIENT_THREAD_TIMEOUT_STEPS;
 				}
 				else
-					timeout = 10;
+					timeout = CLIENT_THREAD_TIMEOUT_START;
 
 				polled = true;
 #endif
@@ -11766,87 +10847,147 @@ namespace environs
                 
                 clientEvent.UnlockCond ( "ClientThreads" );
             }
-            
-        DoNext:
-            size_t handled = 0;
-            
-            if ( !ctx->Lock ( "ClientThreads" ) )
-                break;
-            
-            vsp ( ThreadInstance ) & clients = ctx->clients;
-            
-            for ( int i = 0; i < ctx->clientCount; ++i )
-            {
-#ifndef ENABLE_WINSOCK_CLIENT_THREADS
-                if ( polled ) {
-                    if ( ctx->desc [ i ].revents & POLLERRMASK ) {
-                        
-                        toRemove.push_back ( clients [ i ] );
-                        continue;
-                    }
-                }
-#endif
-                tmpClients.push_back ( clients [ i ] );
-            }
-            
-            if ( !ctx->Unlock ( "ClientThreads" ) )
-                break;
-            
-            vsp ( ThreadInstance )::iterator it;
+			emptyRound = 0;
 
-#ifndef ENABLE_WINSOCK_CLIENT_THREADS
-            if ( toRemove.size () > 0 )
-            {
-                it = toRemove.begin ();
-                
-                while ( it != toRemove.end () )
-                {
-                    const sp ( ThreadInstance ) &client = *it;
-                    
-                    CVerbArg ( "ClientThreads [ %i ]: Removing [ 0x%X ] ...", threadNr, client->deviceID );
-                    
-                    ClientRemove ( client.get () );
-                    
-                    ctx->Remove ( client );
-                    ++it;
-                }
-                
-                toRemove.clear ();
-            }
+        DoNext:
+			if ( !isRunning )
+				break;
+            size_t handled = 0;
+
+			size = tmpClients.size ();
+
+			LONGSYNCNV state = 0;
+
+			if ( ctx->clientsChanged == 1 )
+				state = ___sync_val_compare_and_swap ( &ctx->clientsChanged, 1, 0 );			
+			if ( state == 1 )
+			{
+				if ( !ctx->Lock ( "ClientThreads" ) )
+					break;
+
+				tmpClients.clear ();
+
+#ifdef ENABLE_WINSOCK_CLIENT_THREADS
+				tmpClients = ctx->clients;
+#else
+				vsp ( ThreadInstance ) & clients = ctx->clients;
+
+				for ( i = 0; i < ctx->clientCount; ++i )
+				{
+					if ( polled ) {
+						if ( ctx->desc [ i ].revents & POLLERRMASK ) {
+
+							toRemove.push_back ( clients [ i ] );
+							continue;
+						}
+					}
+					tmpClients.push_back ( clients [ i ] );
+				}
+#endif            
+				if ( !ctx->Unlock ( "ClientThreads" ) )
+					break;
+
+				size = tmpClients.size ();
+			}
+#ifdef USE_ONE_TO_ONE_SOCKET_EVENTS
+			else if ( rcWait >= 0 && rcWait < size )
+			{
+				const sp ( ThreadInstance ) &clientSP = tmpClients [ rcWait ];
+
+				DEBUG_CHECK_START ();
+
+				int rc = ClientThread ( clientSP );
+
+				DEBUG_CHECK_MEASURE ( "ClientThreads" );
+
+				handled++;
+				rcWait = -1;
+
+				if ( rc < 0 ) {
+					CVerbArg ( "ClientThreads [ %i ]: Removing [ 0x%X ] ...", threadNr, clientSP->deviceID );
+
+					toRemove.push_back ( clientSP );
+					goto CheckRemovedClients;
+				}
+			}
 #endif
-            
-            it = tmpClients.begin();
-            
-            while ( it != tmpClients.end () )
+            i = 0;            
+            while ( i < size )
             {
-                const sp ( ThreadInstance ) &client = *it;
+                const sp ( ThreadInstance ) &clientSP = tmpClients [ i ]; ++i;
                 
-                int rc = ClientThread ( client );
+                DEBUG_CHECK_START ();
+
+                int rc = ClientThread ( clientSP );
+                
+                DEBUG_CHECK_MEASURE ( "ClientThreads" );
                 
                 if ( rc < 0 ) {
-					CVerbArg ( "ClientThreads [ %i ]: Removing [ 0x%X ] ...", threadNr, client->deviceID );
-                    
-                    ClientRemove ( client.get () );
-                    
-                    ctx->Remove ( client );
+					CVerbArg ( "ClientThreads [ %i ]: Removing [ 0x%X ] ...", threadNr, clientSP->deviceID );
+
+					toRemove.push_back ( clientSP );
                 }
                 else if ( rc == 0 )
 					handled++;
-                
-                ++it;
             }
-            
-            tmpClients.clear();
-            
+
+#ifdef USE_ONE_TO_ONE_SOCKET_EVENTS
+		CheckRemovedClients:
+#endif
+            size = toRemove.size ();
+			if ( size > 0 )
+            {
+                i = 0;
+
+				ctx->Lock ( "ClientThreads" );
+
+				while ( i < size )
+                {
+                    const sp ( ThreadInstance ) & constSP = toRemove [ i ];
+                    
+					ctx->Remove ( constSP, false );
+                    ++i;
+				}
+
+				ctx->Unlock ( "ClientThreads" );
+                
+                i = 0;
+
+				sessions.Lock1 ( "ClientThreads" );				
+				
+				while ( i < size )
+                {
+                    const sp ( ThreadInstance ) & constSP = toRemove [ i ];
+                    
+					sessions.toRemove.push_back ( constSP );
+					++i;
+				}
+
+				sessions.Unlock1 ( "ClientThreads" );
+                
+                ___sync_val_compare_and_swap ( &watchdogSessionsChanged, 0, 1 );
+
+				if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+					CVerbArg ( "ClientThreads [ %i ]: Watchdog signal failed.", threadNr );
+				}
+
+				toRemove.clear ();
+				handled++;
+			}
+           
 			if ( handled > 0 ) {
-				timeout = 10;
+				emptyRound = 0;
+				timeout = CLIENT_THREAD_TIMEOUT_START;
+				goto DoNext;
+			}
+
+			emptyRound++;
+			if ( emptyRound <= 2 ) {
 				goto DoNext;
 			}
         }
     }
-#endif
-        
-#ifdef USE_MEDIATOR_DAEMON_SEND_THREAD
+    
     
     bool MediatorDaemon::StartSendThreads ()
     {
@@ -11858,7 +10999,16 @@ namespace environs
             return false;
 
 		if ( !sendThreads ) {
-			sendThreads = ( EnvThread ** ) calloc ( sendThreadCount, sizeof ( EnvThread  *) );
+            if ( sessionsChanged ) {
+                free ( sessionsChanged );
+                sessionsChanged = 0;
+            }
+            
+            sessionsChanged = ( LONGSYNCNV * ) calloc ( sendThreadCount, sizeof ( LONGSYNCNV ) );
+            if ( !sessionsChanged )
+                return false;
+
+            sendThreads = ( EnvThread ** ) calloc ( sendThreadCount, sizeof ( EnvThread  * ) );
 			if ( !sendThreads )
 				return false;
 
@@ -11868,6 +11018,7 @@ namespace environs
                 
 				if ( !sendThreads [ i ] || !sendThreads [ i ]->Init () )
 					return false;
+                sessionsChanged [ i ] = 1;
 			}
 		}
 
@@ -11938,17 +11089,15 @@ namespace environs
 		delete ctx;
 		return 0;
 	}
-
-
-#ifdef USE_INTERLOCK_SEND_BUSY_STATE
-
+    
+    
 	void MediatorDaemon::SendContextsCompress ( ThreadInstance * client )
 	{
 		lib::QueueVector    *   queue = &client->sendQueue;
 
 		// Look how many contexts we can pack into one send to encrypt
 		// Max size is half of client buffer of mobile listeners
-		int				contexts = 0;
+		int				contexts = 0, contextsDelete;
 		int				remainSize = MEDIATOR_CONTEXT_BUFFER_SIZE_MAX;
 
 		SendContext **	items       = ( SendContext ** ) queue->items;
@@ -11960,17 +11109,16 @@ namespace environs
 
 		while ( contexts < ( int ) queue->size_ )
 		{
-			SendContext * item = items [ cur ];
+			ctx = items [ cur ];
 
-			if ( item->sendBuffer ) {
+			if ( ctx->sendBuffer ) {
 				cur--;
 				break;
 			}
-
-            if ( !item->seqNr || item->seqNr >= client->seqNr ) {
-                lastSize = item->size;
-                remainSize -= lastSize;
-            }
+            
+            lastSize = ctx->size;
+            remainSize -= lastSize;
+            
 			contexts++;
 
 			if ( remainSize <= 1024 )
@@ -11998,38 +11146,40 @@ namespace environs
 		// Merge previous contexts to current context
 		char *			curPtr  = tmp;
         unsigned int	curSize = 0;
-        unsigned int    seqNr   = client->seqNr;
-
-        contexts--;
+        
+        contextsDelete = contexts - 1;
         
 		for ( int i = 0; i < contexts; ++i )
         {
-            // Removed previous contexts
-            ctx = ( SendContext * ) queue->pop ();
+            if ( i < contextsDelete ) {
+                // Removed previous contexts
+                ctx = ( SendContext * ) queue->pop ();
+            }
+            else {
+                ctx = ( SendContext * ) queue->first ();
+            }
             if ( !ctx )
                 continue;
             
-            if ( !ctx->seqNr || ctx->seqNr >= seqNr )
-            {
-                unsigned int itemSize = ctx->size;
-                
-                if ( ctx->buffer )
-                    memcpy ( curPtr, ctx->buffer, itemSize );
-                else
-                    memcpy ( curPtr, ctx->dataSP->buffer, itemSize );
-                
-                curSize += itemSize;
-                curPtr += itemSize;
-#ifdef DEBUG_DEVICE_ID
-                if ( ctx->seqNr && client->deviceID == debugID ) {
-                    char timeString [ 256 ];
-                    GetTimeString ( timeString, sizeof ( timeString ) );
-                    printf ( "%sSendThread: Prepared response [ %i ].\n", timeString, ctx->seqNr );
-                }
-#endif
-            }
+            unsigned int itemSize = ctx->size;
             
-            delete ctx;
+            if ( ctx->buffer )
+                memcpy ( curPtr, ctx->buffer, itemSize );
+            else
+                memcpy ( curPtr, ctx->dataSP->buffer, itemSize );
+            
+            curSize += itemSize;
+            curPtr += itemSize;
+#ifdef DEBUG_DEVICE_ID
+            if ( ctx->seqNr && client->deviceID == debugID ) {
+                char timeString [ 256 ];
+                GetTimeString ( timeString, sizeof ( timeString ) );
+                printf ( "%sSendThread: Prepared response [ %i ].\n", timeString, ctx->seqNr );
+            }
+#endif
+            
+            if ( i < contextsDelete ) // Skip deletion of the last context. We reuse it.
+                delete ctx;
         }
         
         ctx = ( SendContext * ) queue->first ();
@@ -12047,6 +11197,9 @@ namespace environs
 		ctx->size   = curSize;
 	}
 
+#define SEND_THREAD_TIMEOUT_START		10
+#define SEND_THREAD_TIMEOUT_MAX			2000
+#define SEND_THREAD_TIMEOUT_STEPS		100
 
 	void MediatorDaemon::SendThread ( int threadNr )
 	{
@@ -12057,70 +11210,119 @@ namespace environs
 		if ( !isRunning )
 			return;
 
-		int rc, clientCount = 0, clientsToRetry = 0, remainSendContexts;		
+		int rc, clientCount = 0, clientBuffersFull = 0, remainSendContexts;
 
 		pthread_mutex_t     *   lock;
 		lib::QueueVector    *   queue;
 		int						emptyRound;
+		int						clientsSend;
 		int						timeout = 100;
 
-		while ( sendThreadsAlive )
+        vsp ( ThreadInstance )  tmpClients;
+        
+        size_t                  clientsCacheCount       = 0;
+        size_t                  clientsCacheCapacity    = 0;
+        ThreadInstance      **  clientsCache            = 0;
+        
+        size_t i;
+
+        while ( sendThreadsAlive )
 		{
 			emptyRound = 0;
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
+			//CLogArg ( "SendThread [ %i ]: Going into wait ...", threadNr );
+
 			if ( ( rc = WSAWaitForMultipleEvents ( 2, sendEvents, FALSE, timeout, FALSE ) ) == WSA_WAIT_TIMEOUT ) {
-				if ( timeout < 1000 )
-					timeout += 200;
+				if ( timeout < SEND_THREAD_TIMEOUT_MAX )
+					timeout += SEND_THREAD_TIMEOUT_STEPS;
 			}
 			else {
 				WSAResetEvent ( sendEvents [ 0 ] );
 				WSAResetEvent ( sendEvents [ 1 ] );
-				timeout = 100;
+				timeout = SEND_THREAD_TIMEOUT_START;
 			}
 #else
-			//int waitTime = ( clientCount && (clientsSkipped == clientCount) ) ? 1000 : 10000;
-			//int waitTime = ( clientCount && ( clientsToRetry == clientCount ) ) ? 1000 : 10000;
-
 			rc = sendEvent.WaitOne ( "SendThread", timeout, true, true );
 			if ( rc < 0 ) {
-				if ( timeout < 1000 )
-					timeout += 200;
+				if ( timeout < SEND_THREAD_TIMEOUT_MAX )
+					timeout += SEND_THREAD_TIMEOUT_STEPS;
 			}
 			else
-				timeout = 100;
+				timeout = SEND_THREAD_TIMEOUT_START;
 
 			sendEvent.ResetSync ( "SendThread", false );
 
 			sendEvent.UnlockCond ( "SendThread" );
 #endif
 		DoWork:
-			clientsToRetry = 0; clientCount = 0; remainSendContexts = 0;
+			clientBuffersFull = 0; // clients which's send buffers are full
+			clientCount = 0; remainSendContexts = 0; clientsSend = 0;
 
 			// Look for an appropriate context to send
-			// and put them into the temporary vector     
-			if ( !sessions.Lock1 ( "SendThread sessions" ) )
-				break;
+			// and put them into the temporary vector
+            if ( sessionsChanged [ threadNr ] == 1 && ( ___sync_val_compare_and_swap ( sessionsChanged + threadNr, 1, 0 ) == 1 ) )
+            {
+				tmpClients.clear ();
 
-			vsp ( ThreadInstance )  tmpClients ( sessions.cache );
+                if ( !sessions.Lock1 ( "SendThread sessions" ) )
+                    break;
+                
+                tmpClients = sessions.cache;
+                
+                if ( !sessions.Unlock1 ( "SendThread sessions" ) )
+                    break;
+                
+                clientsCacheCount = tmpClients.size ();
+                
+                if ( clientsCacheCount > 0 ) {
+                    // Build cache
+                    if ( clientsCacheCount >= clientsCacheCapacity )
+                    {
+                        free_m ( clientsCache );
+                        clientsCacheCapacity = 0;
+                        
+                        size_t capacity = clientsCacheCount + 50;
+                        
+                        clientsCache = ( ThreadInstance ** ) malloc ( sizeof (ThreadInstance *) * capacity );
+                        if ( !clientsCache )
+                            break;
+                        
+                        clientsCacheCapacity    = capacity;
+                    }
+                    
+                    i = 0; size_t c = 0;
+                    while ( i < clientsCacheCount )
+                    {
+                        const sp ( ThreadInstance ) & constSP = tmpClients [ i ];
+                        
+                        ThreadInstance * client = constSP.get (); ++i;
+                        if ( client ) {
+                            clientsCache [ c ] = client; ++c;
+                        }
+                    }
+                    clientsCacheCount = c;
+                }
+            }
 
-			if ( !sessions.Unlock1 ( "SendThread sessions" ) )
-				break;
-
-			if ( tmpClients.size () == 0 )
+			if ( clientsCacheCount == 0 )
 				continue;
 
-			vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
-
-			while ( isRunning && sessionItv != tmpClients.end () )
+            i = 0;
+			while ( isRunning && i < clientsCacheCount )
 			{
-				ThreadInstance * client = sessionItv->get ();
+                ThreadInstance * client = clientsCache [ i ]; i++;
 
                 int state = 1;
                 
 				if ( client && IsValidFD ( client->socket ) && client->aliveLast )
 				{
-                    state = (int) ___sync_val_compare_and_swap ( &client->sendBusy1, 0, 1 );
+					if ( client->sendFails > 20 )
+						goto DoNextClient;
+
+					if ( client->sendBusy1 == 0 )
+						state = ( int ) ___sync_val_compare_and_swap ( &client->sendBusy1, 0, 1 );
+
                     if ( state == 1 )
                         goto DoNextClient;
                     
@@ -12128,16 +11330,24 @@ namespace environs
 
                     lock  = &client->sendQueueLock;
 
+					if ( client->sendQueuePrior.size_ > 0 )
+					{
+						if ( !LockAcquire ( lock, "SendThread" ) )
+							goto DoNextClient;
+					}
+					else {
 #ifdef ENABLE_SEND_THREAD_TRYLOCK
-					if ( pthread_mutex_trylock ( lock ) )
-						goto DoNextClient;
+						if ( pthread_mutex_trylock ( lock ) )
+							goto DoNextClient;
 #else
-					if ( !LockAcquire ( lock, "SendThread" ) )
-                        goto DoNextClient;
+						if ( !LockAcquire ( lock, "SendThread" ) )
+							goto DoNextClient;
 #endif
+					}
+
                     queue = &client->sendQueue;
 
-					if ( client->sendFails > 20 || queue->size_ <= 0 )
+					if ( queue->size_ <= 0 && client->sendQueuePrior.size_ <= 0 )
 					{
 						LockRelease ( lock, "SendThread" );
 						goto DoNextClient;
@@ -12153,22 +11363,78 @@ namespace environs
                         queue->pop ();
                         delete ctx;
                     }
-
-					clientCount++;
+                    
+                    queue = &client->sendQueuePrior;
+                    
+                    while ( queue->size_ > 0 )
+                    {
+                        SendContext * ctx = ( SendContext * ) queue->first ();
+                        if ( !ctx || !ctx->done )
+                            break;
+                        
+                        queue->pop ();
+                        delete ctx;
+                    }
+                    
+                    clientCount++;
+                    
+                    bool changeToPriorityQueue = false;
+                    
+                ContinueWithPriorityQueue:
+                    while ( client->sendQueuePrior.size_ > 0 )
+                    {
+                        SendContext * ctx;
+                        
+                        if ( client->sendQueue.size_ > 0 )
+                        {
+                            ctx = ( SendContext * ) client->sendQueue.first ();
+                            if ( ctx->sendCurrent ) {
+                                changeToPriorityQueue = true;
+                                break;
+                            }
+                        }
+                        
+                        ctx = ( SendContext * ) queue->first ();
+                        
+                        LockRelease ( lock, "SendThread" );
+                        
+                        if ( ctx )
+                            rc = SendBuffer ( client, ctx );
+                        else
+                            goto DoNextClient;
+                        
+                        if ( rc <= 0 ) {
+                            // -1 - Error.
+                            //  0 - Only partly send
+                            clientBuffersFull++;
+                            goto DoNextClient;
+                        }
+						clientsSend++;
+                        
+#ifdef ENABLE_SEND_THREAD_TRYLOCK_FOR_PRIO_QUEUE
+                        if ( pthread_mutex_trylock ( lock ) )
+                            goto DoNextClient;
+#else
+                        if ( !LockAcquire ( lock, "SendThread" ) )
+                            goto DoNextClient;
+#endif
+                        ctx = ( SendContext * ) queue->pop ();
+                        
+                        if ( ctx )
+                            delete ctx;
+                    }
+                    
+                    queue = &client->sendQueue;
 
 					while ( queue->size_ > 0 )
 					{
 						// Handle the first queue element
 						SendContext * ctx = ( SendContext * ) queue->first ();
 
-#ifdef USE_SEND_THREAD_MULTIPLE_CONTEXTS
-						if ( client->version < '7' || queue->size_ <= 1 || ctx->sendBuffer ) {
+						if ( changeToPriorityQueue || client->version < '7' || queue->size_ <= 1 || ctx->sendBuffer ) {
 							LockRelease ( lock, "SendThread" );
-
-							if ( !ctx->seqNr || ctx->seqNr >= client->seqNr )
-								rc = SendBuffer ( client, ctx );
-							else
-								rc = 1;
+                            
+                            rc = SendBuffer ( client, ctx );
 						}
 						else {
 							SendContextsCompress ( client );
@@ -12182,29 +11448,38 @@ namespace environs
 							else
 								goto DoNextClient;
 						}
-#else
-						LockRelease ( lock, "SendThread" );
 
-						rc = SendBuffer ( client, ctx );
-#endif
 						if ( rc <= 0 ) {
 							// -1 - Error.
 							//  0 - Only partly send 
-							clientsToRetry++;
+							clientBuffersFull++;
 							goto DoNextClient;
 						}
                         
+						if ( changeToPriorityQueue ) 
+						{
+							if ( !LockAcquire ( lock, "SendThread" ) )
+								goto DoNextClient;
+						}
+						else {
 #ifdef ENABLE_SEND_THREAD_TRYLOCK
-                        if ( pthread_mutex_trylock ( lock ) )
-                            goto DoNextClient;
+							if ( pthread_mutex_trylock ( lock ) )
+								goto DoNextClient;
 #else
-                        if ( !LockAcquire ( lock, "SendThread" ) )
-                            goto DoNextClient;
+							if ( !LockAcquire ( lock, "SendThread" ) )
+								goto DoNextClient;
 #endif
+						}
+						ctx = ( SendContext * ) queue->pop ();
 
-						queue->pop ();
-
-						delete ctx;
+                        if ( ctx )
+                            delete ctx;
+                        
+                        if ( changeToPriorityQueue || client->sendQueuePrior.size_ > 0 ) {
+                            changeToPriorityQueue = false;
+							queue = &client->sendQueuePrior;
+                            goto ContinueWithPriorityQueue;
+                        }
 					}
 
 					LockRelease ( lock, "SendThread" );
@@ -12214,335 +11489,59 @@ namespace environs
                 if ( state == 0 )
                     ___sync_val_compare_and_swap ( &client->sendBusy1, 1, 0 );
 
-				remainSendContexts += ( int ) client->sendQueue.size_;
-
-				++sessionItv;
+                remainSendContexts += ( int ) client->sendQueue.size_;
+                remainSendContexts += ( int ) client->sendQueuePrior.size_;
 			}
 
-			tmpClients.clear ();
+			/// Trigger Watchdog
+			//if ( LockAcquireA ( thread_lock, "Watchdog" ) ) {
 
-			if ( remainSendContexts > 0 || clientsToRetry != clientCount
+				/*if ( pthread_cond_signal ( &hWatchdogEvent ) ) {
+					CVerbArgID ( "SendThread [ %i ]:\tWatchdog signal failed.", threadNr );
+				}*/
+
+				//LockReleaseVA ( thread_lock, "Watchdog" );
+			//}
+
+			if ( !isRunning )
+				break;
+
+			if ( clientsSend > 0 && ( remainSendContexts > 0 || clientBuffersFull != clientCount
 #ifndef ENABLE_WINSOCK_SEND_THREADS
 				|| sendEvent.IsSetDoReset ()
 #endif    
-				)
+				) )
 			{
-				emptyRound = 0; timeout = 100;
+				emptyRound = 0; timeout = SEND_THREAD_TIMEOUT_START;
 				goto DoWork;
 			}
 
 			emptyRound++;
 			if ( emptyRound <= 2 ) {
-				timeout = 10;
+				timeout = SEND_THREAD_TIMEOUT_START;
 				goto DoWork;
 			}
-		}
+
+			i = 0;
+			while ( i < clientsCacheCount )
+			{
+				ThreadInstance * client = clientsCache [ i ]; i++;
+				if ( client->sendQueuePrior.size_ > 0 ) {
+					goto DoWork;
+				}
+
+				if ( client->sendQueue.size_ > 0 ) {
+					timeout = 10;
+					break;
+				}
+			}
+        }
+        
+        free_n ( clientsCache );
 
 		CLogArg ( "SendThread [ %i ]: bye bye ...", threadNr );
 	}
 
-#else    
-    
-    void  MediatorDaemon::SendThread ( int threadNr )
-    {
-        CLogArg ( "SendThread [ %i ]: started ...", threadNr );
-        
-        pthread_setname_current_envthread ( "MediatorDaemon::SendThread" );
-        
-        if ( !isRunning )
-            return;
-        
-		int rc, clientCount = 0, clientsToRetry = 0, remainSendContexts;
-        vsp ( ThreadInstance )  tmpClients;
-        
-        pthread_mutex_t     *   lock;
-        lib::QueueVector    *   queue;
-		int						emptyRound;
-		int						timeout = 100;
-
-        while ( sendThreadsAlive )
-        {
-			emptyRound = 0;
-
-#ifdef ENABLE_WINSOCK_SEND_THREADS
-			if ( ( rc = WSAWaitForMultipleEvents ( 2, sendEvents, FALSE, timeout, FALSE ) ) == WSA_WAIT_TIMEOUT ) {
-				if ( timeout < 1000 )
-					timeout += 200;
-			}
-			else {
-				WSAResetEvent ( sendEvents [ 0 ] );
-				WSAResetEvent ( sendEvents [ 1 ] );
-				timeout = 100;
-			}
-#else
-			//int waitTime = ( clientCount && (clientsSkipped == clientCount) ) ? 1000 : 10000;
-			//int waitTime = ( clientCount && ( clientsToRetry == clientCount ) ) ? 1000 : 10000;
-
-			rc = sendEvent.WaitOne ( "SendThread", timeout, true, true );
-			if ( rc < 0 ) {
-				if ( timeout < 1000 )
-					timeout += 200;
-			}
-			else
-				timeout = 100;
-
-			sendEvent.ResetSync ( "SendThread", false );
-
-			sendEvent.UnlockCond ( "SendThread" );
-#endif
-		DoWork:
-			clientsToRetry = 0; clientCount = 0; remainSendContexts = 0; 
-
-            // Look for an appropriate context to send
-            // and put them into the temporary vector     
-            if ( !sessions.Lock ( "SendThread S." ) )
-                break;
-
-			msp ( long long, ThreadInstance )::iterator sessionIt = sessions.list.begin ();
-            
-            while ( sessionIt != sessions.list.end () )
-            {
-                ThreadInstance * client = sessionIt->second.get ();
-                
-                if ( IsValidFD ( client->socket ) && client->sendQueue.size_ > 0 && !client->sendBusy && client->aliveLast )
-                {
-                    tmpClients.push_back ( sessionIt->second );
-                }
-                
-                ++sessionIt;
-            }
-            
-            if ( !sessions.Unlock ( "SendThread S." ) )
-                break;
-
-			if ( tmpClients.size () == 0 )
-				continue;
-
-            vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
-            
-            while ( isRunning && sessionItv != tmpClients.end () )
-            {
-                ThreadInstance * client = sessionItv->get ();
-                
-                if ( client && IsValidFD ( client->socket ) && client->aliveLast )
-                {
-                    CVerbArg ( "SendThread: Checking deviceID [ 0x%X : %s ] socket [ %i ]", client->deviceID, client->ips, client->socket );
-                    
-                    lock = &client->sendQueueLock;
-                    
-                    if ( !LockAcquire ( lock, "SendThread 1." ) )
-                        goto DoNextClient;
-                    
-                    if ( client->sendBusy || client->sendFails > 20 )
-                    {
-                        LockRelease ( lock, "SendThread" );
-                        goto DoNextClient;
-                    }
-                    
-                    queue = &client->sendQueue;
-                    
-                    if ( queue->size_ <= 0 ) {                        
-                        LockRelease ( lock, "SendThread" );
-                        goto DoNextClient;
-                    }
-
-					client->sendBusy = true;
-
-					clientCount++;
-                    
-                    while ( queue->size_ > 0 )
-                    {
-						// Handle the first queue element
-						SendContext * ctx = ( SendContext * ) queue->first ();
-
-#ifdef USE_SEND_THREAD_MULTIPLE_CONTEXTS
-						if ( client->version < '7' || queue->size_ <= 1 || ctx->sendBuffer ) {
-							LockRelease ( lock, "SendThread" );
-
-                            if ( !ctx->seqNr || ctx->seqNr >= client->seqNr )
-                                rc = SendBuffer ( client, ctx );
-                            else
-                                rc = 1;
-						}
-						else {
-							// Look how many contexts we can pack into one send to encrypt
-							// Max size is half of client buffer of mobile listeners
-							int				contexts	= 0;
-							int				remainSize	= MEDIATOR_CONTEXT_BUFFER_SIZE_MAX;
-
-							SendContext **	items		= ( SendContext ** ) queue->items;
-							int				cur			= ( int ) queue->next;
-							int				capacity	= ( int ) queue->capacity;
-
-							while ( contexts < ( int ) queue->size_ )
-							{
-                                SendContext * item = items [ cur ];
-                                
-								if ( item->sendBuffer ) {
-									cur--;
-									break;
-								}
-
-                                if ( !item->seqNr || item->seqNr >= client->seqNr )
-                                    remainSize -= item->size;
-								contexts++;
-
-								if ( remainSize <= 1024 )
-									break;
-
-								cur++;
-								if ( cur >= capacity )
-									cur = 0;
-							}
-
-							if ( remainSize < 0 ) {
-								contexts--;
-								cur = ( int ) queue->next + contexts;
-
-								if ( cur >= capacity )
-									cur -= capacity;
-
-								remainSize -= items [ cur ]->size;
-							}
-
-							int requiredSize = (MEDIATOR_CONTEXT_BUFFER_SIZE_MAX - remainSize) + 128;
-
-							char * tmp = ( char * ) malloc ( requiredSize );
-							if ( tmp )
-							{
-								// Merge previous contexts to current context
-								char *			curPtr		= tmp;
-								unsigned int	curSize		= 0;
-								cur = ( int ) queue->next;
-
-								for ( int i = 0; i < contexts; ++i )
-								{
-									if ( cur >= capacity )
-										cur = 0;
-
-									ctx = items [ cur ];
-                                    
-                                    if ( !ctx->seqNr || ctx->seqNr >= client->seqNr )
-                                    {
-                                        unsigned int itemSize = ctx->size;
-                                        
-                                        if ( ctx->buffer )
-                                            memcpy ( curPtr, ctx->buffer, itemSize );
-                                        else
-                                            memcpy ( curPtr, ctx->dataSP->buffer, itemSize );
-                                        
-                                        curSize += itemSize;
-                                        curPtr += itemSize;
-#ifdef DEBUG_DEVICE_ID
-                                        if ( ctx->seqNr && client->deviceID == debugID ) {
-                                            char timeString [ 256 ];
-                                            GetTimeString ( timeString, sizeof ( timeString ) );
-                                            printf ( "%sSendThread: Prepared response [ %i ].\n", timeString, ctx->seqNr );
-                                        }
-#endif
-                                    }
-                                    
-									cur++;
-								}
-
-								cur = ( int ) ( queue->next + contexts ) - 1;
-								if ( cur >= capacity )
-									cur -= capacity;
-
-								ctx = items [ cur ];
-
-                                if ( ctx->sendBuffer && ctx->freeSendBuffer ) {
-                                    free ( ctx->sendBuffer );
-                                    ctx->sendBuffer = 0; ctx->freeSendBuffer = false;
-                                }
-								if ( ctx->buffer )
-									free ( ctx->buffer );
-								else
-									ctx->dataSP = 0;
-
-								ctx->buffer = tmp;
-								ctx->size   = curSize;
-
-								contexts--;
-
-								// Removed previous contexts
-								for ( int i = 0; i < contexts; ++i )
-								{
-									SendContext * tctx = ( SendContext * ) queue->pop ();
-									delete tctx;
-								}
-
-								LockRelease ( lock, "SendThread" );
-
-								rc = SendBuffer ( client, ctx );
-							}
-							else {
-								LockRelease ( lock, "SendThread" );
-
-								rc = 0;
-							}
-						}
-#else
-                        LockRelease ( lock, "SendThread" );
-                        
-                        rc = SendBuffer ( client, ctx );        
-#endif
-                        if ( rc <= 0 ) {
-							// -1 - Error.
-                            //  0 - Only partly send 
-							clientsToRetry++;
-
-                            client->sendBusy = false;
-                            goto DoNextClient;
-                        }
-                        
-                        if ( !LockAcquire ( lock, "SendThread 2." ) )
-                            goto DoNextClient;
-                        
-                        queue->pop ();
-                        
-                        delete ctx;
-                    }
-
-					client->sendBusy = false;
-
-                    LockRelease ( lock, "SendThread" );
-                }
-                
-			DoNextClient:
-                if ( client )
-                    remainSendContexts += ( int ) client->sendQueue.size_;
-
-                ++sessionItv;
-            }
-            
-            tmpClients.clear ();
-
-			if ( remainSendContexts > 0 || clientsToRetry != clientCount
-#ifndef ENABLE_WINSOCK_SEND_THREADS
-				|| sendEvent.IsSetDoReset ()
-#endif    
-					) 
-			{
-				emptyRound = 0; timeout = 100;
-				goto DoWork;
-			}
-            
-			emptyRound++;
-			if ( emptyRound <= 2 ) {
-				timeout = 10;
-				goto DoWork;
-			}
-        }        
-        
-        CLogArg ( "SendThread [ %i ]: bye bye ...", threadNr );
-    }    
-#endif
-
-
-#ifndef NDEBUG
-    size_t maxQueueSize = 0;
-#endif
     
     bool MediatorDaemon::PushSend ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size )
     {
@@ -12562,10 +11561,7 @@ namespace environs
 
 			if ( IsValidFD ( ( int ) client->socket ) )
 				success = client->sendQueue.push ( ctx );            
-#ifndef NDEBUG
-            if ( client->sendQueue.size_ > maxQueueSize )
-                maxQueueSize = client->sendQueue.size_;
-#endif            
+          
             LockReleaseA ( client->sendQueueLock, "PushSend" );
             
             DEBUG_CHECK_MEASURE ( "PushSend" );
@@ -12611,13 +11607,18 @@ namespace environs
 
             if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
                 break;
+            
+            if ( IsValidFD ( ( int ) client->socket ) ) {
+                if ( seqNr )
+                {
+                    ctx->seqNr  = seqNr;
+                    
+                    success = client->sendQueuePrior.push ( ctx );
+                }
+                else
+                    success = client->sendQueue.push ( ctx );
+            }
 
-			if ( IsValidFD ( ( int ) client->socket ) )
-				success = client->sendQueue.push ( ctx );   
-#ifndef NDEBUG
-            if ( client->sendQueue.size_ > maxQueueSize )
-                maxQueueSize = client->sendQueue.size_;
-#endif
             LockReleaseA ( client->sendQueueLock, "PushSend" );
             
             DEBUG_CHECK_MEASURE ( "PushSend" );
@@ -12642,7 +11643,8 @@ namespace environs
         return false;
     }
     
-
+    
+#ifdef PUSH_PARTIAL_SENDS
 	bool MediatorDaemon::PushSend ( ThreadInstance * client, char * toSend, unsigned int toSendSize, unsigned int toSendCurrent, bool copy, unsigned int seqNr )
 	{
 		bool success = false;
@@ -12673,14 +11675,19 @@ namespace environs
             DEBUG_CHECK_START ();
 
 			if ( !LockAcquireA ( client->sendQueueLock, "PushSend" ) )
-				break;
+                break;
+            
+            if ( IsValidFD ( ( int ) client->socket ) ) {
+                if ( seqNr )
+                {
+                    ctx->seqNr  = seqNr;
+                    
+                    success = client->sendQueuePrior.push ( ctx );
+                }
+                else
+                    success = client->sendQueue.push ( ctx );
+            }
 
-			if ( IsValidFD ( ( int ) client->socket ) )
-				success = client->sendQueue.push ( ctx );
-#ifndef NDEBUG
-			if ( client->sendQueue.size_ > maxQueueSize )
-				maxQueueSize = client->sendQueue.size_;
-#endif
             LockReleaseA ( client->sendQueueLock, "PushSend" );
             
             DEBUG_CHECK_MEASURE ( "PushSend" );
@@ -12729,10 +11736,7 @@ namespace environs
 
 			if ( IsValidFD ( ( int ) client->socket ) )
 				success = client->sendQueue.push ( ctx );
-#ifndef NDEBUG
-			if ( client->sendQueue.size_ > maxQueueSize )
-				maxQueueSize = client->sendQueue.size_;
-#endif
+
             LockReleaseA ( client->sendQueueLock, "PushSend" );
             
             DEBUG_CHECK_MEASURE ( "PushSend" );
@@ -12756,6 +11760,8 @@ namespace environs
 		}
 		return false;
     }
+#endif
+    
     
 #ifdef USE_NOTIFY_TMP_VECTORS
     bool MediatorDaemon::PushSendTry ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size )
@@ -12875,7 +11881,7 @@ namespace environs
                     rc = 1;
                     ctx->done = true;
                     
-#ifdef DEBUG_DEVICE_ID
+#if defined(DEBUG_DEVICE_ID) || defined(DEBUG_TIMEOUT_ISSUE)
                     if ( deviceID == debugID && ctx->seqNr ) {
                         char timeString [ 256 ];
                         GetTimeString ( timeString, sizeof ( timeString ) );
@@ -12953,7 +11959,8 @@ namespace environs
 		return rc;
 	}
 
-
+    
+#ifdef USE_TRY_SEND_BEFORE_THREAD_SEND
 	bool MediatorDaemon::SendBufferOrEnqueue ( ThreadInstance * client, void * msg, unsigned int size, bool copy, unsigned int seqNr )
 	{
 		CVerbVerbArg ( "SendBufferOrEnqueue [ %i ]", client->socket );
@@ -13106,7 +12113,6 @@ namespace environs
 	}
 #endif
     
-    
     void MediatorDaemon::CheckProjectValues ()
     {
         std::time_t now = std::time ( 0 );
@@ -13148,7 +12154,7 @@ namespace environs
 
 			msp ( string, ListValues ) tmpListValues;
 
-			for ( msp ( string, ListValues )::iterator ita = appsList->apps.begin (); ita != appsList->apps.end (); ita++ )
+			for ( msp ( string, ListValues )::iterator ita = appsList->apps.begin (); ita != appsList->apps.end (); ++ita )
 			{
 				sp ( ListValues ) listValues = ita->second;
 				if ( !listValues )
@@ -13161,7 +12167,7 @@ namespace environs
             
             DEBUG_CHECK_MEASURE_1 ( "CheckProjectValues 2" );
             
-			for ( msp ( string, ListValues )::iterator ita = tmpListValues.begin (); ita != tmpListValues.end (); ita++ )
+			for ( msp ( string, ListValues )::iterator ita = tmpListValues.begin (); ita != tmpListValues.end (); ++ita )
 			{
                 sp ( ListValues ) listValues = ita->second;
                 
@@ -13182,7 +12188,7 @@ namespace environs
 						}
 					}
 					if ( addIt )
-						itv++;
+						++itv;
 				}
 
                 listValues->Unlock ( "CheckProjectValues" );
@@ -13208,28 +12214,33 @@ namespace environs
 	{
 		CLog ( "Watchdog started..." );
 
-		sp ( ThreadInstance )	clientSP;
 		ThreadInstance		*	client				= 0;
 		const unsigned int		checkDuration		= 1000 * 120; // 2 min. (in ms)
 		const unsigned int		checkTimeout		= 1000 * 30; // 30 sec.
+		const unsigned int		checkTimeoutMin		= 1000 * 2; // 2 sec.
 		const unsigned int      maxTimeout			= checkDuration * 3;
 		const unsigned int		logRollDurationMin	= 1000 * 60 * 20; // 20 min. (in ms)
 		INTEROPTIMEVAL			timeLogRollLast		= 0;
 		const unsigned int		projectValuesDurationMin	= 1000 * 60 * 60; // 1 h. (in ms)
-		INTEROPTIMEVAL			timeProjectValues	= 0;
-
+        INTEROPTIMEVAL			timeProjectValues	= 0;
+        INTEROPTIMEVAL			timeAcceptCheckLast	= 0;
+        const unsigned int		acceptCheckDurationMin	= 1000 * 6; // 2 sec. (in ms)
 
 #if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
 		unsigned int			timeout				= checkTimeout;
 #else
-		struct timeval	now;
-		struct timespec timeout;
+		struct timeval          now;
+		struct timespec         timeout;
 #endif
-
 		// Send started signal
 		if ( !threads->watchdog.Notify ( "Acceptor" ) ) {
 			CErr ( "Watchdog: Error to signal event" );
 		}
+
+		vsp ( ThreadInstance ) toDeleteClients;
+        vsp ( ThreadInstance ) sessionClients;
+        vsp ( ThreadInstance ) tmpClients;
+        vsp ( StuntRegisterContext ) toDisposeSPs;
 
 		while ( isRunning )
 		{
@@ -13237,15 +12248,92 @@ namespace environs
 
             bool reDo = false;
 
-			if ( !sessions.Lock1 ( "Watchdog" ) ) break;
+			INTEROPTIMEVAL lastCheckTime = checkLast;
 
-			vsp ( ThreadInstance ) tmpClients ( sessions.cache );
+			checkLast = GetEnvironsTickCount ();
 
-            if ( !sessions.Unlock1 ( "Watchdog" ) ) break;
+			vsp ( ThreadInstance ) toDeleteTmp;
+			vsp ( ThreadInstance ) toRemoveClients;
             
-            INTEROPTIMEVAL lastCheckTime = checkLast;
+            if ( ___sync_val_compare_and_swap ( &watchdogSessionsChanged, 1, 0 ) == 1 )
+            {
+                sessionClients.clear ();
+                
+                if ( !sessions.Lock1 ( "Watchdog" ) ) break;
+                
+                sessionClients = sessions.cache;
+                
+                if ( sessions.toRemove.size () > 0 )
+                {
+                    toRemoveClients = sessions.toRemove; sessions.toRemove.clear ();
+                }
+                
+                if ( !sessions.Unlock1 ( "Watchdog" ) ) break;
+            }
+
+			vsp ( ThreadInstance )::iterator it;
+
+			// Remove the closed clients
+            size_t i;
+            size_t size = toRemoveClients.size ();
+			if ( size > 0 )
+			{
+                i = 0;
+				while ( i < size )
+				{
+                    const sp ( ThreadInstance ) & constSP  = toRemoveClients [ i ]; ++i;
+                    
+					ClientRemove ( constSP.get () );
+
+					if ( constSP.use_count () > 1 )
+						toDeleteTmp.push_back ( constSP );
+				}
+
+				toRemoveClients.clear ();
+			}
             
-            checkLast = GetEnvironsTickCount ();
+			// Look which one we ca delete directly and which one needs to be deferred
+			it = toDeleteClients.begin ();
+			
+			while ( it != toDeleteClients.end () )
+            {
+                const sp ( ThreadInstance ) & constSP = *it;
+                
+				if ( constSP.use_count () <= 1 ) {
+					it = toDeleteClients.erase ( it );
+				}
+				else ++it;
+			}
+
+            size = toDeleteTmp.size ();
+			if ( size > 0 )
+            {
+                i = 0;
+				while ( i < size )
+                {
+                    const sp ( ThreadInstance ) & constSP  = toDeleteTmp [ i ]; ++i;
+                    
+					if ( constSP.use_count () > 1 ) {
+						// Check whether the client has already been added to the container (otherwise we risk a memory leak)
+
+						size_t sized	= toDeleteClients.size ();
+						size_t j		= 0;
+
+						ThreadInstance * toDelete = constSP.get ();
+
+						while ( j < sized ) {
+							const sp ( ThreadInstance ) & constSP1  = toDeleteTmp [ j ]; ++j;
+
+							if ( constSP1.get () == toDelete )
+								break;
+						}
+
+						if ( j >= sized )
+							toDeleteClients.push_back ( constSP );
+					}
+				}
+				toDeleteTmp.clear ();
+			}
             
             INTEROPTIMEVAL compensate = ( checkLast - lastCheckTime );
             
@@ -13254,20 +12342,21 @@ namespace environs
             else
                 compensate = 0;
             
-            vsp ( ThreadInstance )::iterator sessionItv = tmpClients.begin ();
+            i       = 0;
+            size    = sessionClients.size ();
+            
+			while ( i < size )
+            {
+                const sp ( ThreadInstance ) & constSP = sessionClients [ i ]; ++i;
 
-			while ( sessionItv != tmpClients.end () )
-			{
-				clientSP = *sessionItv;
-
-				if ( clientSP ) {
-					client = clientSP.get ();
+				if ( constSP ) {
+					client = constSP.get ();
 
 					CVerbArg ( "Watchdog: Checking deviceID [ 0x%X : %s ] socket [ %i ]", client->deviceID, client->ips, client->socket );
 
 					if ( client->sendFails > 20 || ( checkLast - client->aliveLast ) > ( maxTimeout + compensate ) )
 					{
-						if ( client->socket != -1 )
+						if ( IsValidFD ( client->socket ) )
 						{
 							CLogArg ( "Watchdog: Disconnecting [ 0x%X : %s ]  socket [ %i ] due to expired heartbeat or failed sends [ %i ] ...", client->deviceID, client->ips, client->socket, client->sendFails );
 
@@ -13296,78 +12385,116 @@ namespace environs
 							}
 						}
 						else {
-							/*if ( client->spareSockets.size () > 0 && (checkLast - client->spareSocketTime) > maxSpareSocketAlive ) {
-							ClearSpareSockets ( client );
-							}*/
-
 #ifdef USE_VERIFYSOCKETS
 							VerifySockets ( client, false );
 #endif
 						}
 					}
+                    
+                    if ( IsValidFD ( client->socket ) )
+                    {
+                        msp ( string, StuntRegisterContext ) & sockets = client->stuntSocketsLog;
+                        
+                        if ( LockAcquireA ( client->stuntSocketLock, "RegisterStuntSocket" ) )
+                        {
+                            unsigned int now = GetEnvironsTickCount32 ();
+                            
+                            msp ( string, StuntRegisterContext )::iterator itm = sockets.begin ();
+                            
+                            while ( itm != sockets.end () )
+                            {
+                                const sp ( StuntRegisterContext ) &ctx = itm->second;
+                                
+                                if ( now - ctx->registerTime > 30000 )
+                                {
+									toDisposeSPs.push_back ( ctx );
+
+                                    sockets.erase ( itm++ );
+                                }
+                                else ++itm;
+                            }
+                            
+                            LockReleaseA ( client->stuntSocketLock, "RegisterStuntSocket" );
+
+							toDisposeSPs.clear ();
+                        }
+                    }
 				}
-
-				++sessionItv;
 			}
-
-			tmpClients.clear ();
 
 
 			//
 			// Check acceptClients
-			//
-			if ( !acceptClients.Lock ( "Watchdog" ) ) break;
-
-			vector < sp ( ThreadInstance ) > &list = acceptClients.list;
-
-			for ( size_t i = 0; i < list.size (); )
-			{
-				clientSP = list [ i ];
-				if ( clientSP )
-				{
-					INTEROPTIMEVAL diff = ( checkLast - clientSP->connectTime );
-
-					if ( clientSP->sendFails > 20 || ( checkLast > clientSP->connectTime && diff > checkDuration ) )
-					{
-						tmpClients.push_back ( clientSP );
-
-						list.erase ( list.begin () + i );
-					}
-					else {
-						i++;
-					}
-				}
-				else {
-					CErrArg ( "Watchdog: **** Invalid Client [ %i ]", i );
-
-					list.erase ( list.begin () + i );
-				}
-			}
-
-			if ( !acceptClients.Unlock ( "Watchdog" ) ) break;
-
-
-			for ( size_t i = 0; i < tmpClients.size (); ++i )
-			{
-				clientSP = tmpClients [ i ];
-				if ( clientSP )
-				{
-					ReleaseClient ( clientSP.get () );
-
-					reDo = true;
-				}
-				else {
-					CErrArg ( "Watchdog: **** Invalid Client [%i]", i );
-				}
-			}
-
-			if ( reDo )
-				continue;
+            //
+            if ( ( checkLast - timeAcceptCheckLast ) > acceptCheckDurationMin )
+            {
+                i = 0;
+                msp ( void *, ThreadInstance )              &list   = acceptClients.list;
+                
+                if ( !acceptClients.Lock ( "Watchdog" ) ) break;
+                
+                timeAcceptCheckLast = checkLast;
+                
+                msp ( void *, ThreadInstance )::iterator    itm     = list.begin ();
+                msp ( void *, ThreadInstance )::iterator    end     = list.end ();
+                
+                while ( itm != end )
+                {
+                    i++; const sp ( ThreadInstance ) &constSP = itm->second;
+                    
+                    client = constSP.get ();
+                    if ( client )
+                    {
+                        INTEROPTIMEVAL diff = ( checkLast - client->connectTime );
+                        
+                        if ( client->sendFails > 20 || ( checkLast > client->connectTime && diff > checkDuration ) )
+                        {
+                            tmpClients.push_back ( constSP );
+                            
+                            client->inAcceptorList = false;
+                            list.erase ( itm++ );
+                            end = list.end ();
+                        }
+                        else ++itm;
+                    }
+                    else {
+                        CErrArg ( "Watchdog: **** Invalid Client [ %i ]", i );
+                        
+                        list.erase ( itm++ );
+                        end = list.end ();
+                    }
+                }
+                
+                if ( !acceptClients.Unlock ( "Watchdog" ) ) break;
+                
+                size = tmpClients.size ();
+                if ( size > 0 )
+                {
+                    i = 0;
+                    while ( i < size )
+                    {
+                        const sp ( ThreadInstance ) &constSP = tmpClients [ i ]; ++i;
+                        if ( constSP )
+                        {
+                            ReleaseClient ( constSP.get () );
+                            
+                            reDo = true;
+                        }
+                        else {
+                            CErrArg ( "Watchdog: **** Invalid Client [%i]", i );
+                        }
+                    }
+                    
+                    tmpClients.clear ();
+                }
+            }
+            
+            if ( reDo )
+                continue;
 
 			if ( !LockAcquireA ( thread_lock, "Watchdog" ) ) break;
 
-#if defined(_WIN32) && !defined(USE_PTHREADS_FOR_WINDOWS)
-#else
+#if !defined(_WIN32) || defined(USE_PTHREADS_FOR_WINDOWS)
 			gettimeofday ( &now, NULL );
 
 			timeout.tv_sec = now.tv_sec + ( checkTimeout / 1000 );
@@ -13384,7 +12511,20 @@ namespace environs
 				CheckProjectValues ();
 			}
 
-			pthread_cond_timedwait ( &hWatchdogEvent, &thread_lock, &timeout );
+			do
+			{
+				pthread_cond_timedwait ( &hWatchdogEvent, &thread_lock, &timeout );
+
+				if ( !isRunning )
+					break;
+
+				INTEROPTIMEVAL now = GetEnvironsTickCount ();
+
+				if ( ( now - checkLast ) > checkTimeoutMin )
+					break;
+			}
+			while ( isRunning );
+
 
 			if ( !LockReleaseA ( thread_lock, "Watchdog" ) )
 				break;
@@ -13666,7 +12806,7 @@ namespace environs
 		line << logBuffer;
 
 		if ( pthread_mutex_lock ( &logMutex ) ) {
-			OutputDebugStringA ( "MLog: Failed to aquire mutex!" );
+			OutputDebugStringA ( "MLog: Failed to aquire lock!\n" );
 			return;
 		}
 
@@ -13674,7 +12814,7 @@ namespace environs
 		logfile.flush ();
 
 		if ( pthread_mutex_unlock ( &logMutex ) ) {
-			OutputDebugStringA ( "MLog: Failed to release mutex on logfile!" );
+			OutputDebugStringA ( "MLog: Failed to release lock on logfile!\n" );
 		}
 
 		line.clear ();
@@ -13706,7 +12846,7 @@ namespace environs
 		line << msg;
 
 		if ( pthread_mutex_lock ( &logMutex ) ) {
-			OutputDebugStringA ( "MLog: Failed to aquire mutex!" );
+			OutputDebugStringA ( "MLog: Failed to aquire mutex!\n" );
 			return;
 		}
 
@@ -13714,7 +12854,7 @@ namespace environs
 											  //logfile.flush ();
 
 		if ( pthread_mutex_unlock ( &logMutex ) ) {
-			OutputDebugStringA ( "MLog: Failed to release mutex!" );
+			OutputDebugStringA ( "MLog: Failed to release mutex!\n" );
 		}
 	}
 
@@ -13805,16 +12945,16 @@ namespace environs
 		CLog ( "CloseLog" );
 
 		if ( pthread_mutex_lock ( &logMutex ) ) {
-			OutputDebugStringA ( "CloseLog: Failed to aquire mutex on logfile!" );
+			OutputDebugStringA ( "CloseLog: Failed to aquire mutex on logfile!\n" );
 			return false;
 		}
 
 		if ( !logfile.is_open () ) {
-			OutputDebugStringA ( "CloseLog: logfile is not openend!" );
+			OutputDebugStringA ( "CloseLog: logfile is not openend!\n" );
 			goto Finish;
 		}
 
-		OutputDebugStringA ( "CloseLog: Closing log file..." );
+		OutputDebugStringA ( "CloseLog: Closing log file ...\n" );
 
 		if ( logToFile == true )
 			logStatusBefore = 1;
@@ -13826,7 +12966,7 @@ namespace environs
 
 	Finish:
 		if ( pthread_mutex_unlock ( &logMutex ) ) {
-			OutputDebugStringA ( "CloseLog: Failed to release mutex on logfile!" );
+			OutputDebugStringA ( "CloseLog: Failed to release mutex on logfile!\n" );
 			return false;
 		}
 

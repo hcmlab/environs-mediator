@@ -84,7 +84,7 @@
 #	define msp(key,type)			std::map < key, std::shared_ptr < type > >
 #	define smsp(key,type)			std::shared_ptr < std::map < key, std::shared_ptr < type > > >
 
-#	define devListNew(UIControl,type) make_shared < vsp ( type ) > ()
+#	define devListNew(UIControl,type)			make_shared < vsp ( type ) > ()
 #	define devListNewArg(UIControl,type,arg)	make_shared < vsp ( type ) > ( arg->begin (), arg->end () )
 #	define deviceListCopy(type,src,dst)
 

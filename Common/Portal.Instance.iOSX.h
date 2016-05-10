@@ -78,10 +78,10 @@
 @property (readonly, nonatomic) bool    isOutgoing;
 
 /** Application defined contexts for arbitrary use. */
-@property (nonatomic) id                appContext1;
-@property id                            appContext2;
-@property id                            appContext3;
-@property id                            appContext4;
+@property (strong, nonatomic) id        appContext1;
+@property (strong, nonatomic) id        appContext2;
+@property (strong, nonatomic) id        appContext3;
+@property (strong, nonatomic) id        appContext4;
 
 // Exclude cpp related code from objective c headers
 #ifdef __cplusplus

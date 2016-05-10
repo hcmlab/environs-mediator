@@ -30,7 +30,7 @@
 #   define ENABLE_MEDIATOR_LOCK
 
 #	ifndef NDEBUG
-#		define	TRACE_MEDIATOR_OBJECTS
+//#		define	TRACE_MEDIATOR_OBJECTS
 #	endif
 #else
 #   define  DAEMONEXP(exp)
@@ -73,12 +73,17 @@
 
 #ifdef MEDIATORDAEMON
 #   include <string>
+#   define USE_WRITE_LOCKS1
+#   define USE_WRITE_LOCKS2
+#   define USE_WRITE_LOCKS3
+#   define USE_NOTIFY_TARGET_INDEX
 #endif
 
-#define MEDIATOR_PROTOCOL_VERSION		'8'
+#define MEDIATOR_PROTOCOL_VERSION               '8'
 
 #define DEFAULT_MEDIATOR_PORT					5898
-#define DEFAULT_BROADCAST_PORT					5899
+//#define DEFAULT_BROADCAST_PORT					5899
+
 #define	BUFFERSIZE								1024
 #define MESSAGE_BUFFER_SIZE						512
 #define	IP_MAX_SIZE								22
@@ -241,6 +246,132 @@ namespace environs	/// Namespace: environs ->
         ILock ();
         ~ILock ();
     };
+
+    class MediatorDaemon;
+
+    class ILock1
+    {
+        friend class MediatorDaemon;
+
+        pthread_mutex_t lock1;
+        bool			init1;
+
+    public:
+        bool Init1 ();
+        bool Lock1 ( const char * func );
+        bool Unlock1 ( const char * func );
+        ILock1 ();
+        ~ILock1 ();
+    };
+
+    class ILock2
+    {
+        friend class MediatorDaemon;
+
+        pthread_mutex_t lock2;
+        bool			init2;
+
+    public:
+        bool Init2 ();
+        bool Lock2 ( const char * func );
+        bool Unlock2 ( const char * func );
+        ILock2 ();
+        ~ILock2 ();
+    };
+
+
+    class INoRWLock
+    {
+        friend class MediatorDaemon;
+
+        pthread_mutex_t lock1;
+        bool			init1;
+        
+    public:
+        INoRWLock ();
+        ~INoRWLock ();
+
+        bool Init ();
+
+        bool LockRead ( const char * f );
+
+        bool UnlockRead ( const char * f );
+
+        bool LockWrite ( const char * f );
+
+        bool UnlockWrite ( const char * f );
+    };
+
+    
+    // ILock1 is writer lock
+    // EnvSignal is reader lock
+    class IRWLock : ILock1, EnvSignal
+    {
+        friend class MediatorDaemon;
+
+        int reader;
+
+    public:
+        bool Init ()
+        {
+            reader = 0;
+
+            if ( !EnvSignal::Init () )
+                return false;
+
+			Notify ( "" );
+            return Init1 ();
+        }
+
+        bool LockRead ( const char * f )
+        {
+            if ( !Lock1 ( f ) )
+                return false;
+            if ( !Lock ( f ) )
+                return false;
+
+            reader++;
+
+            if ( reader == 1 )
+                ResetSync ( f );
+
+            if ( !Unlock ( f ) )
+                return false;
+
+            return Unlock1 ( f );
+        }
+
+
+        bool UnlockRead ( const char * f )
+        {
+            if ( !Lock ( f ) )
+                return false;
+
+            reader--;
+
+            if ( reader == 0 )
+                Notify ( f );
+
+            return Unlock ( f );
+        }
+
+
+        bool LockWrite ( const char * f )
+        {
+            if ( !Lock1 ( f ) )
+                return false;
+
+            WaitOne ( f );
+            return true;
+        }
+        
+        
+        bool UnlockWrite ( const char * f )
+        {
+            return Unlock1 ( f );
+        }
+    };
+
 
 #ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
 	typedef struct AppAreaKey
@@ -447,7 +578,10 @@ namespace environs	/// Namespace: environs ->
         
 #ifdef MEDIATORDAEMON
         LONGSYNC                    sendBusy1;
-        
+
+#ifdef USE_NOTIFY_TARGET_INDEX
+        int                         inNotifierList;
+#endif
 		bool						inAcceptorList;
         short                       sendFails;
         
@@ -465,6 +599,7 @@ namespace environs	/// Namespace: environs ->
         bool                        Init ();
         void                        Dispose ();
         void                        CloseStuntSockets ();
+        bool                        GetStuntSockets ( std::vector<int> &socks );
 #endif
 	}
 	ThreadInstance;
@@ -474,7 +609,12 @@ namespace environs	/// Namespace: environs ->
     void DisposeSendContexts ( ThreadInstance * client );
     
 
-	class ApplicationDevices : public ILock
+    class ApplicationDevices :
+#ifdef USE_WRITE_LOCKS1
+    public IRWLock
+#else
+    public INoRWLock
+#endif
 	{
 	public:
 		ApplicationDevices ();
@@ -492,6 +632,9 @@ namespace environs	/// Namespace: environs ->
 
 		DeviceInstanceNode	*	devices;
 
+#ifdef USE_WRITE_LOCKS2
+        pthread_mutex_t         deviceCacheLock;
+#endif
 		bool					deviceCacheDirty;
         int						deviceCacheCount;
         int						deviceCacheCapacity;

@@ -1,3 +1,12 @@
+### v 0.9.8.8
+
+---------------------------
+
+* Added: RWLock to Mediator layer (used in server)
+* Updated: Mediator layer compressed device ident keys
+
+
+
 ### v 0.9.8.7
 
 ---------------------------

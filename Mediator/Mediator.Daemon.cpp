@@ -340,10 +340,39 @@ namespace environs
 	{
 		if ( init1 )
 			LockDisposeA ( lock1 );
-	}
+    }
 
 
-	MediatorThreadInstance::MediatorThreadInstance ()
+    ILock2::ILock2 ()
+    {
+        init2 =  LockInitA ( lock2 );
+    }
+
+    bool ILock2::Init2 ()
+    {
+        if ( !init2 )
+            init2 =  LockInitA ( lock2 );
+        return init2;
+    }
+
+    bool ILock2::Lock2 ( const char * func )
+    {
+        return LockAcquireA ( lock2, func );
+    }
+
+    bool ILock2::Unlock2 ( const char * func )
+    {
+        return LockReleaseA ( lock2, func );
+    }
+
+    ILock2::~ILock2 ()
+    {
+        if ( init2 )
+            LockDisposeA ( lock2 );
+    }
+    
+    
+    MediatorThreadInstance::MediatorThreadInstance ()
 	{
 		Reset ();
 	}
@@ -472,6 +501,7 @@ namespace environs
 		networkOK			= 0xFFFFFFFF;
 		networkMask			= 0xFFFFFFFF;
 		checkLast			= 0;
+		bannedIPLast		= 0;
 
 		usersDBDirty		= false;
 		configDirty			= false;
@@ -518,16 +548,15 @@ namespace environs
         sessionsChanged         = 0;
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-		sendEvents [ 0 ] = 0;
-		sendEvents [ 1 ] = 0;
+		sendEvent				= 0;
 #endif
-
         clientThreadCount       = CLIENT_THREADS_DEFAULT;
         clientThreadsAlive      = false;
         clientThreads           = 0;
         clientContexts          = 0;
         watchdogSessionsChanged = 1;
-        
+
+        notifyTargetsSize       = 0;
         InitEnvironsCrypt ();
 	}
 
@@ -594,8 +623,7 @@ namespace environs
 		ReleaseEnvironsCrypt ();
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-		CloseWSAHandle_n ( sendEvents [ 0 ] );
-		CloseWSAHandle_n ( sendEvents [ 1 ] );
+		CloseWSAHandle_n ( sendEvent );
 #endif
 		if ( allocated ) {
 			LockDisposeA ( usersDBLock );
@@ -648,8 +676,7 @@ namespace environs
 			}
 
 #	ifdef ENABLE_WINSOCK_SEND_THREADS
-			CreateWSAHandle ( sendEvents [ 0 ], false );
-			CreateWSAHandle ( sendEvents [ 1 ], false );
+			CreateWSAHandle ( sendEvent, false );
 #	else
 			if ( !sendEvent.Init () )
 				return false;
@@ -1131,7 +1158,7 @@ namespace environs
 				CVerbArg ( "Loading area [%s]", str );
 
 				apps = make_shared < AppsList > ();
-				if ( !apps || !apps->Init () ) {
+                if ( !apps || !apps->Init () ) {
 					CErrArg ( "LoadProjectValues: Failed to create new area [%s].", str + 2 );
 					break;
 				}
@@ -1207,7 +1234,6 @@ namespace environs
 
 			if ( !appList ) {
 				areasMap.list.erase ( it++ );
-//				it = areasMap.list.begin ();
 				continue;
 			}
 
@@ -1216,13 +1242,11 @@ namespace environs
 			{
 				if ( !ita->second ) {
 					appList->apps.erase ( ita++ );
-//					ita = appList->apps.begin ();
 					continue;
 				}
 
 				if ( !ita->second->values.size () ) {
 					appList->apps.erase ( ita++ );
-//					ita = appList->apps.begin ();
 					continue;
 				}
 				++ita;
@@ -1230,7 +1254,6 @@ namespace environs
 
 			if ( !appList->apps.size () ) {
 				areasMap.list.erase ( it++ );
-//				it = areasMap.list.begin ();
 				continue;
 			}
 
@@ -1284,17 +1307,15 @@ namespace environs
 				if ( !appsList )
 					continue;
 
-				sp ( AreaApps ) areaApps = 0;
+				sp ( AreaApps ) areaApps;
 
-				areas.Lock ( "SaveProjectValues" );
+                areas.LockRead ( "SaveProjectValues" );
 
 				const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( it->first );
 				if ( areaIt != areas.list.end () )
 					areaApps = areaIt->second;
-				else
-					areaApps = 0;
 
-				areas.Unlock ( "SaveProjectValues" );
+                areas.UnlockRead ( "SaveProjectValues" );
 
 				conffile << "P:" << it->first << endl;
 
@@ -1323,18 +1344,17 @@ namespace environs
 
 					unsigned int maxID = 0;
 
-					/// Find the appList
-					if ( areaApps && areaApps->Lock ( "SaveProjectValues" ) )
+                    /// Find the appList
+                    if ( areaApps && areaApps->LockRead ( "SaveProjectValues" ) )
 					{
 						const msp ( string, ApplicationDevices )::iterator appsIt = areaApps->apps.find ( ita->first );
 						if ( appsIt != areaApps->apps.end () )
 						{
-							sp ( ApplicationDevices ) appDevices = appsIt->second;
+							const sp ( ApplicationDevices ) & appDevices = appsIt->second;
 							if ( appDevices )
 								maxID = ( unsigned int ) appDevices->latestAssignedID;
-						}
-
-						areaApps->Unlock ( "SaveProjectValues" );
+                        }
+                        areaApps->UnlockRead ( "SaveProjectValues" );
 					}
 
 					conffile << "A:" << ita->first << endl;
@@ -1791,7 +1811,7 @@ namespace environs
 		if ( networkOK == 0xFFFFFFFF )
 			return true;
 
-		if ( ( ip & networkMask ) == networkOK ) {
+		if ( ( ip & networkMask ) == networkOK || ip == bannedIPLast ) {
 			CVerb ( "IsIpBanned: IP is OK!" );
 			return false;
 		}
@@ -1810,6 +1830,8 @@ namespace environs
                 CVerbVerbArg ( "BannIP: Retain bann due to allowed tries [ %s ] [ %u : %u ]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), tries, bannAfterTries );
             }
             else {
+				bannedIPLast = ip;
+
                 std::time_t t = std::time ( 0 );
                 
                 bannedIPs [ ip ] = t;
@@ -2138,7 +2160,8 @@ namespace environs
 
 		if ( !client )
 			return;
-		client->socket = -1;
+
+        client->SendTcpFin ();
 
         CloseThreadSocket ( &client->socketToClose );
         
@@ -2247,7 +2270,7 @@ namespace environs
 
 		vsp ( AreaApps ) tmpAreas;
 
-		areas.Lock ( "ReleaseDevices" );
+        areas.LockWrite ( "ReleaseDevices" );
 
 		for ( msp ( string, AreaApps )::iterator it = areas.list.begin (); it != areas.list.end (); ++it )
 		{
@@ -2257,8 +2280,7 @@ namespace environs
 
 		areas.list.clear ();
 
-		areas.Unlock ( "ReleaseDevices" );
-
+        areas.UnlockWrite ( "ReleaseDevices" );
 
 		for ( vsp ( AreaApps )::iterator it = tmpAreas.begin (); it != tmpAreas.end (); ++it )
 		{
@@ -2266,7 +2288,7 @@ namespace environs
 			if ( !areaApps )
 				continue;
 
-			areaApps->Lock ( "ReleaseDevices" );
+            areaApps->LockWrite ( "ReleaseDevices" );
 
 			vsp ( ApplicationDevices ) tmpAppDevices;
 
@@ -2277,15 +2299,16 @@ namespace environs
 					tmpAppDevices.push_back ( appDevices );
 			}
 
-			areaApps->apps.clear ();
-			areaApps->Unlock ( "ReleaseDevices" );
+            areaApps->apps.clear ();
+
+            areaApps->UnlockWrite ( "ReleaseDevices" );
 
 			for ( vsp ( ApplicationDevices )::iterator ita = tmpAppDevices.begin (); ita != tmpAppDevices.end (); ++ita )
 			{
 				sp ( ApplicationDevices ) appDevices = *ita;
 				if ( appDevices )
-				{
-					appDevices->Lock ( "ReleaseDevices" );
+                {
+                    appDevices->LockWrite ( "ReleaseDevices" );
 
 					vsp ( DeviceInstanceNode ) devSPs;
 
@@ -2301,13 +2324,13 @@ namespace environs
 
 					appDevices->devices = 0;
 
-					appDevices->Unlock ( "ReleaseDevices" );
+                    appDevices->UnlockWrite ( "ReleaseDevices" );
 
 					for ( vsp ( DeviceInstanceNode )::iterator itd = devSPs.begin (); itd != devSPs.end (); ++itd )
 					{
 						sp ( DeviceInstanceNode ) devSP = *itd;
 
-						CVerbArg ( "[0x%X].ReleaseDevices: deleting memory occupied by client", devSP->info.deviceID );
+						CVerbArg ( "[ 0x%X ].ReleaseDevices: deleting memory occupied by client", devSP->info.deviceID );
 
 						ReleaseClient ( devSP->clientSP.get () );
 
@@ -2357,22 +2380,23 @@ namespace environs
 		DeviceInstanceNode	*	device	= 0;
 
 		string appsName ( appName );
-		sp ( ApplicationDevices )			appDevices = 0;
+		sp ( ApplicationDevices )   appDevices;
 
 		string pareaName ( areaName );
-		sp ( AreaApps )						areaApps	= 0;
+		sp ( AreaApps )             areaApps;
 
-		if ( !areas.Lock ( "RemoveDevice" ) )
+        if ( !areas.LockRead ( "RemoveDevice" ) )
 			return;
 
 		const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( pareaName );
 		if ( areaIt != areas.list.end () )
 			areaApps = areaIt->second;
 
-		if ( !areas.Unlock ( "RemoveDevice" ) )
+        if ( !areas.UnlockRead ( "RemoveDevice" ) )
 			return;
 
-		if ( !areaApps || !areaApps->Lock ( "RemoveDevice" ) ) {
+        if ( !areaApps || !areaApps->LockRead ( "RemoveDevice" ) )
+        {
 			CWarnArgID ( "RemoveDevice: areaName [%s] not found.", areaName );
 			return;
 		}
@@ -2381,11 +2405,12 @@ namespace environs
 		if ( appsIt != areaApps->apps.end () )
 			appDevices = appsIt->second;
 
-		areaApps->Unlock ( "RemoveDevice" );
+        areaApps->UnlockRead ( "RemoveDevice" );
         
         ApplicationDevices * appDevs = appDevices.get ();
-        
-		if ( !appDevs || !appDevs->Lock ( "RemoveDevice" ) ) {
+
+        if ( !appDevs || !appDevs->LockWrite ( "RemoveDevice" ) )
+        {
 			CErrArg ( "RemoveDevice: appName [%s] not found.", appName );
 			return;
 		}
@@ -2409,7 +2434,7 @@ namespace environs
             return;
         }
 
-		appDevs->Unlock ( "RemoveDevice" );
+        appDevs->UnlockWrite ( "RemoveDevice" );
     }
     
     
@@ -2466,9 +2491,9 @@ namespace environs
             }
         }
         appDevs->deviceCacheDirty = true;
-        
-        appDevs->Unlock ( "RemoveDeviceUnlock" );
-        
+
+        appDevs->UnlockWrite ( "RemoveDeviceUnlock" );
+
         NotifyClients ( NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED, device->baseSP );
         
         CVerbArg ( "RemoveDeviceUnlock: Disposing device [0x%X]", device->info.deviceID );
@@ -2491,8 +2516,8 @@ namespace environs
 		if ( !appDevs )
 			return;
 
-		if ( useLock )
-			appDevs->Lock ( "RemoveDevice" );
+        if ( useLock )
+            appDevs->LockWrite ( "RemoveDevice" );
 
 		if ( device == appDevs->devices ) {
 			if ( device->next ) {
@@ -2544,11 +2569,10 @@ namespace environs
 		}
 		appDevs->deviceCacheDirty = true;
 
-		if ( useLock )
-			appDevs->Unlock ( "RemoveDevice" );
+        if ( useLock )
+            appDevs->UnlockWrite ( "RemoveDevice" );
 
 		NotifyClients ( NOTIFY_MEDIATOR_SRV_DEVICE_REMOVED, device->baseSP );
-
 
 		CVerbArg ( "RemoveDevice: Disposing device [0x%X]", device->info.deviceID );
 		device->baseSP = 0;
@@ -2615,6 +2639,11 @@ namespace environs
 		DeviceInstanceNode * device;
 		ThreadInstance * client = clientSP.get ();
 
+#ifdef USE_NOTIFY_TARGET_INDEX
+        if ( client->inNotifierList == filterMode )
+            return;
+#endif
+
 		sp ( DeviceInstanceNode ) deviceSP = client->deviceSP;
 		if ( !deviceSP )
 			return;
@@ -2638,6 +2667,12 @@ namespace environs
 						CVerbArg ( "UpdateNotifyTargets: Removing deviceID [ 0x%X : %s : %s ] from NONE-filter", client->deviceID, device ? device->info.areaName : "", device ? device->info.appName : "" );
 
 						notifyTargets.erase ( notifyIt );
+
+                        notifyTargetsSize = notifyTargets.size ();
+
+#ifdef USE_NOTIFY_TARGET_INDEX
+                        client->inNotifierList = -1;
+#endif
 					}
 
 					LockReleaseVA ( notifyTargetsLock, "UpdateNotifyTargets" );
@@ -2655,9 +2690,9 @@ namespace environs
 						break;
 					}
 
-					sp ( AreaApps ) areaApps = 0;
+					sp ( AreaApps ) areaApps;
 
-					areas.Lock ( "UpdateNotifyTargets" );
+                    areas.LockRead ( "UpdateNotifyTargets" );
 
 					const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( areaIdsIt->second );
 
@@ -2667,9 +2702,9 @@ namespace environs
 					else
 						areaApps = areaIt->second;
 
-					areas.Unlock ( "UpdateNotifyTargets" );
+                    areas.UnlockRead ( "UpdateNotifyTargets" );
 
-					if ( areaApps && areaApps->Lock1 ( "UpdateNotifyTargets" ) ) {
+					if ( areaApps && areaApps->Lock2 ( "UpdateNotifyTargets" ) ) {
 						CVerbArg ( "UpdateNotifyTargets: Looking for deviceID [ 0x%X : %s : %s ] in Area-filter", client->deviceID, device->info.areaName, device->info.appName );
 
 						const msp ( long long, ThreadInstance )::iterator notifyIt = areaApps->notifyTargets.find ( client->sessionID );
@@ -2679,9 +2714,15 @@ namespace environs
 							CVerbArg ( "UpdateNotifyTargets: Removing deviceID [ 0x%X : %s : %s ] from Area-filter", client->deviceID, device->info.areaName, device->info.appName );
 
 							areaApps->notifyTargets.erase ( notifyIt );
+
+                            areaApps->notifyTargetsSize = areaApps->notifyTargets.size ();
+
+#ifdef USE_NOTIFY_TARGET_INDEX
+                            client->inNotifierList = -1;
+#endif
 						}
 
-						areaApps->Unlock1 ( "UpdateNotifyTargets" );
+						areaApps->Unlock2 ( "UpdateNotifyTargets" );
 					}
 					break;
 				}
@@ -2705,6 +2746,12 @@ namespace environs
 			{
 				notifyTargets [ client->sessionID ] = clientSP;
 
+                notifyTargetsSize = notifyTargets.size ();
+
+#ifdef USE_NOTIFY_TARGET_INDEX
+                client->inNotifierList = filterMode;
+#endif
+
 				LockReleaseVA ( notifyTargetsLock, "UpdateNotifyTargets" );
 			}
 		}
@@ -2720,9 +2767,9 @@ namespace environs
 					break;
 				}
 
-				sp ( AreaApps ) areaApps = 0;
+				sp ( AreaApps ) areaApps;
 
-				areas.Lock ( "UpdateNotifyTargets" );
+                areas.LockRead ( "UpdateNotifyTargets" );
 
 				const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( areaIDsIt->second );
 
@@ -2732,166 +2779,251 @@ namespace environs
 				else
 					areaApps = areaIt->second;
 
-				areas.Unlock ( "UpdateNotifyTargets" );
+                areas.UnlockRead ( "UpdateNotifyTargets" );
 
-				if ( areaApps && areaApps->Lock1 ( "UpdateNotifyTargets" ) ) {
+                AreaApps * aas = areaApps.get ();
+
+				if ( aas && aas->Lock2 ( "UpdateNotifyTargets" ) ) {
 					CVerbArg ( "UpdateNotifyTargets: Adding deviceID [ 0x%X : %s : %s ] to Area-filter", client->deviceID, device->info.areaName, device->info.appName );
 
-					areaApps->notifyTargets [ client->sessionID ] = clientSP;
+                    aas->notifyTargets [ client->sessionID ] = clientSP;
 
-					areaApps->Unlock1 ( "UpdateNotifyTargets" );
+                    aas->notifyTargetsSize = aas->notifyTargets.size ();
+
+#ifdef USE_NOTIFY_TARGET_INDEX
+                    client->inNotifierList = filterMode;
+#endif
+					aas->Unlock2 ( "UpdateNotifyTargets" );
 				}
 				break;
 			}
 		}
-
-		//Finish:
 	}
 
 
 	sp ( ApplicationDevices ) MediatorDaemon::GetDeviceList ( char * areaName, char * appName, pthread_mutex_t ** lock, int ** pDevicesAvailable, DeviceInstanceNode ** &list )
 	{
-		sp ( ApplicationDevices )	appDevices	= 0;
-		sp ( AreaApps )				areaApps	= 0;
-		sp ( AppsList )				appsList	= 0;
+		sp ( ApplicationDevices )	appDevices;
+        ApplicationDevices       *  appDevs     = 0;
+		sp ( AreaApps )				areaApps;
+		sp ( AppsList )				appsList;
 
 		string appsName ( appName );
 		string pareaName ( areaName );
 
-		areas.Lock ( "GetDeviceList" );
+#ifdef USE_WRITE_LOCKS3
+        bool unlockReadLock = true;
+#endif
+        areas.LockRead ( "GetDeviceList" );
 
 		const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( pareaName );
 
-		if ( areaIt == areas.list.end () ) {
-			/// Create a new one...
-			areaApps = make_shared < AreaApps > ();
-			if ( areaApps && areaApps->Init () && areaApps->Init1 () ) {
-				areasCounter++;
-				areaIDs [ areasCounter ] = pareaName;
+		if ( areaIt == areas.list.end () )
+        {
+#ifdef USE_WRITE_LOCKS3
+            areas.UnlockRead ( "GetDeviceList" );
 
-				areaApps->name = pareaName;
-				areaApps->id = areasCounter;
-				areaApps->apps.clear ();
-				areaApps->notifyTargets.clear ();
+            unlockReadLock = false;
 
-				areas.list [ pareaName ] = areaApps;
-			}
-			else { CErrArg ( "GetDeviceList: Failed to create new area [ %s ] Low memory problem?!", areaName ); }
-		}
-		else
-			areaApps = areaIt->second;
+            areas.LockWrite ( "GetDeviceList" );
 
-		areas.Unlock ( "GetDeviceList" );
+            const msp ( string, AreaApps )::iterator areaIt1 = areas.list.find ( pareaName );
+            if ( areaIt1 != areas.list.end () )
+            {
+                areaApps = areaIt1->second;
 
+                areas.UnlockWrite ( "GetDeviceList" );
+            }
+            else
+            {
+#endif
+                /// Create a new one...
+                areaApps = make_shared < AreaApps > ();
 
-		if ( !areaApps || !areaApps->Lock ( "GetDeviceList" ) ) {
+                if ( areaApps && areaApps->Init () && areaApps->Init2 () ) {
+                    areasCounter++;
+                    areaIDs [ areasCounter ] = pareaName;
+
+                    areaApps->name	= pareaName;
+                    areaApps->id	= areasCounter;
+                    areaApps->apps.clear ();
+                    areaApps->notifyTargets.clear ();
+
+                    areaApps->notifyTargetsSize = 0;
+                    
+                    areas.list [ pareaName ] = areaApps;
+                }
+				else {
+					CErrArg ( "GetDeviceList: Failed to create new area [ %s ]!", areaName ); 
+					areaApps.reset (); 
+				}
+                
+#ifdef USE_WRITE_LOCKS3
+                areas.UnlockWrite ( "GetDeviceList" );
+            }
+#endif
+        }
+        else
+            areaApps = areaIt->second;
+
+#ifdef USE_WRITE_LOCKS3
+        if ( unlockReadLock )
+#endif
+            areas.UnlockRead ( "GetDeviceList" );
+
+        AreaApps * aas = areaApps.get ();
+
+        if ( !aas || !aas->LockRead ( "GetDeviceList" ) )
+        {
 			CLogArg ( "GetDeviceList: App [ %s ] not found.", appName );
 			return 0;
 		}
 
-		const msp ( string, ApplicationDevices )::iterator appsIt = areaApps->apps.find ( appsName );
+#ifdef USE_WRITE_LOCKS2
+        bool releaseReadLock = true;
+		bool resetAppDevs	 = false;
+#endif
+		const msp ( string, ApplicationDevices )::iterator appsIt = aas->apps.find ( appsName );
 
-		if ( appsIt == areaApps->apps.end () )
-		{
+		if ( appsIt == aas->apps.end () )
+        {
 			/// Create a new one...
-			appDevices = make_shared < ApplicationDevices > ();
+			appDevices	= make_shared < ApplicationDevices > ();
+            appDevs		= appDevices.get ();
 
-			if ( appDevices && appDevices->Init () )
-			{
-				appsCounter++;
-				appDevices->id		= appsCounter;
-				appDevices->areaId	= areaApps->id;
-				appDevices->name    = appsName;
-				appIDs [ appsCounter ] = appsName;
+#ifdef USE_WRITE_LOCKS2
+			resetAppDevs = true;
+#endif
+            if ( appDevs && appDevs->Init ()
+#ifdef USE_WRITE_LOCKS2
+                && LockInitA ( appDevs->deviceCacheLock )
+#endif
+                ) {
+#ifdef USE_WRITE_LOCKS2
+                // Release read lock, get write lock, and search again
+                aas->UnlockRead ( "GetDeviceList" );
 
-				// Query maxIDs from value packs
-				if ( areasMap.Lock ( "GetDeviceList" ) )
-				{
-					const msp ( string, AppsList )::iterator areaVPIt = areasMap.list.find ( pareaName );
-					if ( areaVPIt != areasMap.list.end () )
-						appsList = areaVPIt->second;
-					else
-					{
-						// Create a new map for the area
-						appsList = make_shared < AppsList > ();
-						if ( !appsList || !appsList->Init () ) {
-							CErrArg ( "GetDeviceList: Failed to create new area [ %s ].", pareaName.c_str () );
+                releaseReadLock = false;
 
-							appsList.reset ();
-						}
-						else {
-							areasMap.list [ pareaName ] = appsList;
-						}
-					}
+                if ( aas->LockWrite ( "GetDeviceList" ) )
+                {
+                    msp ( string, ApplicationDevices )::iterator appsIt1 = aas->apps.find ( appsName );
+                    if ( appsIt1 != aas->apps.end () )
+                    {
+                        // Somebody has created and added an item while we were acquiring the write lock
+                        appDevices	= appsIt1->second;
+                        appDevs		= appDevices.get ();
+                        aas->UnlockWrite ( "GetDeviceList" );
+                    }
+                    else
+                    {
+#endif
+                        appsCounter++;
+                        appDevs->id         = appsCounter;
+                        appDevs->areaId     = aas->id;
+                        appDevs->name       = appsName;
+                        appIDs [ appsCounter ] = appsName;
 
-					if ( areasMap.Unlock ( "GetDeviceList" ) && appsList && appsList->Lock ( "GetDeviceList" ) )
-					{
-						sp ( ListValues ) listValues = 0;
+                        // Query maxIDs from value packs
+                        if ( areasMap.Lock ( "GetDeviceList" ) )
+                        {
+                            const msp ( string, AppsList )::iterator areaVPIt = areasMap.list.find ( pareaName );
+                            if ( areaVPIt != areasMap.list.end () )
+                                appsList = areaVPIt->second;
+                            else
+                            {
+                                // Create a new map for the area
+                                appsList = make_shared < AppsList > ();
+                                if ( !appsList || !appsList->Init () ) {
+                                    CErrArg ( "GetDeviceList: Failed to create new area [ %s ].", pareaName.c_str () );
 
-						const msp ( string, ListValues )::iterator appsVPIt = appsList->apps.find ( appsName );
-						if ( appsVPIt != appsList->apps.end () )
-							listValues = appsVPIt->second;
-						else
-						{
-							listValues = make_shared < ListValues > (); // new map<string, ValuePack*> ();
-							if ( !listValues || !listValues->Init () ) {
-								CErrArg ( "GetDeviceList: Failed to create new application [ %s ].", appsName.c_str () );
+                                    appsList.reset ();
+                                }
+                                else { areasMap.list [ pareaName ] = appsList; }
+                            }
 
-								listValues.reset ();
-							}
-							else {
-								appsList->apps [ appName ] = listValues;
-							}
-						}
+                            if ( areasMap.Unlock ( "GetDeviceList" ) && appsList && appsList->Lock ( "GetDeviceList" ) )
+                            {
+                                sp ( ListValues ) listValues;
 
-						if ( appsList->Unlock ( "GetDeviceList" ) )
-						{
-							if ( listValues && listValues->Lock ( "GetDeviceList" ) )
-							{
-								const msp ( string, ValuePack )::iterator valueIt = listValues->values.find ( string ( "0_maxID" ) );
-
-								if ( valueIt != listValues->values.end () )
-								{
-									sp ( ValuePack ) value = valueIt->second;
-									if ( value )
-										appDevices->latestAssignedID = value->size;
-								}
-								else {
-									// Create a new one
-									string value = "1";
-
-									AddToArea ( listValues, "0_maxID", value.c_str (), ( unsigned int ) value.length () );
-								}
-
-								listValues->Unlock ( "GetDeviceList" );
-							}
-
-							areaApps->apps [ appsName ] = appDevices;
-						}
-					}
-				}
+                                const msp ( string, ListValues )::iterator appsVPIt = appsList->apps.find ( appsName );
+                                if ( appsVPIt != appsList->apps.end () )
+                                    listValues = appsVPIt->second;
+                                else
+                                {
+                                    listValues = make_shared < ListValues > (); // new map<string, ValuePack*> ();
+                                    if ( !listValues || !listValues->Init () ) {
+                                        CErrArg ( "GetDeviceList: Failed to create new application [ %s ].", appsName.c_str () );
+                                        
+                                        listValues.reset ();
+                                    }
+                                    else { appsList->apps [ appName ] = listValues; }
+                                }
+                                
+                                if ( appsList->Unlock ( "GetDeviceList" ) )
+                                {
+                                    if ( listValues && listValues->Lock ( "GetDeviceList" ) )
+                                    {
+                                        const msp ( string, ValuePack )::iterator valueIt = listValues->values.find ( string ( "0_maxID" ) );
+                                        
+                                        if ( valueIt != listValues->values.end () )
+                                        {
+                                            sp ( ValuePack ) value = valueIt->second;
+                                            if ( value )
+                                                appDevs->latestAssignedID = value->size;
+                                        }
+                                        else {
+                                            // Create a new one
+                                            string value = "1";
+                                            
+                                            AddToArea ( listValues, "0_maxID", value.c_str (), ( unsigned int ) value.length () );
+                                        }
+                                        
+                                        listValues->Unlock ( "GetDeviceList" );
+                                    }
+                                    
+                                    aas->apps [ appsName ] = appDevices;
+#ifdef USE_WRITE_LOCKS2
+									resetAppDevs = false;
+#endif
+                                }
+                            }
+                        }
+#ifdef USE_WRITE_LOCKS2
+                        aas->UnlockWrite ( "GetDeviceList" );                        
+                    }
+                }
+#endif
 			}
-			else { CErrArg ( "GetDeviceList: Failed to create new application devicelist [ %s ].", appName ); }
-		}
-		else
-			appDevices = appsIt->second;
+            else { CErrArg ( "GetDeviceList: Failed to create new application devicelist [ %s ].", appName ); }
+        }
+        else {
+            appDevices	= appsIt->second;
+            appDevs		= appDevices.get ();
+        }
 
-		areaApps->Unlock ( "GetDeviceList" );
+#ifdef USE_WRITE_LOCKS2
+        if ( resetAppDevs ) {
+            appDevices.reset (); appDevs = 0;
+        }
 
-		if ( !appDevices || appDevices->access <= 0 )
+        if ( releaseReadLock )
+#endif
+            aas->UnlockRead ( "GetDeviceList" );
+
+		if ( !appDevs || appDevs->access <= 0 )
 			goto Finish;
 
-		__sync_add_and_fetch ( &appDevices->access, 1 );
+		__sync_add_and_fetch ( &appDevs->access, 1 );
 
-		if ( lock )
-			*lock = &appDevices->lock;
+        if ( lock )
+            *lock = &appDevs->lock1;
 		if ( pDevicesAvailable )
-			*pDevicesAvailable = &appDevices->count;
+			*pDevicesAvailable = &appDevs->count;
 
-		list = &appDevices->devices;
+		list = &appDevs->devices;
 
 	Finish:
-
 		return appDevices;
 	}
 
@@ -2954,6 +3086,7 @@ namespace environs
 		printf ( "r - reload pkcs keys\n" );
 		printf ( "s - toggle output to stdout\n" );
         printf ( "t - toggle authentication\n" );
+		printf ( "w - revoke last bann\n" );
         printf ( "x - show bann list\n" );
         printf ( "y - show connected IPs\n" );
 		printf ( "z - clear bann list\n" );
@@ -3298,7 +3431,7 @@ namespace environs
 						printf ( "----------------------------------------------------------------\n" );
 					}
 
-					if ( areas.Lock ( "Run" ) )
+                    if ( areas.LockRead ( "Run" ) )
 					{
 						for ( msp ( string, AreaApps )::iterator it = areas.list.begin (); it != areas.list.end (); ++it )
 						{
@@ -3308,7 +3441,7 @@ namespace environs
 								if ( printStdOut )
 									printf ( "P: [%s]\n", it->first.c_str () );
 
-								if ( !areaApps || !areaApps->Lock ( "Run" ) )
+                                if ( !areaApps || !areaApps->LockRead ( "Run" ) )
 									continue;
 
 								for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin (); ita != areaApps->apps.end (); ++ita )
@@ -3325,12 +3458,11 @@ namespace environs
 												printf ( "A: [%s]\n", ita->first.c_str () );
 											}
 
-											// Deadlock here
-											if ( appDevices->Lock ( "Run" ) )
+                                            if ( appDevices->LockRead ( "Run" ) )
 											{
 												printDeviceList ( appDevices->devices );
 
-												appDevices->Unlock ( "Run" );
+                                                appDevices->UnlockRead ( "Run" );
 											}
 											CLog ( "----------------------------------------------------------------" );
 											if ( printStdOut )
@@ -3342,13 +3474,11 @@ namespace environs
 												printf ( "A: No devices in [%s]\n", ita->first.c_str () );
 										}
 									}
-								}
-
-								areaApps->Unlock ( "Run" );
+                                }
+                                areaApps->UnlockRead ( "Run" );
 							}
-						}
-
-						areas.Unlock ( "Run" );
+                        }
+                        areas.UnlockRead ( "Run" );
 					}
 					CLog ( "----------------------------------------------------------------" );
 					if ( printStdOut )
@@ -3383,6 +3513,30 @@ namespace environs
 					CLogArg ( "Run: Authentication is now [%s]", reqAuth ? "required" : "disabled" );
 					continue;
                 }
+				else if ( c == 'w' ) {
+					if ( printStdOut ) {
+						printf ( "-------------------------------------------------------\n" );
+						printf ( "Revoke last IP ban [ %s ].\n", inet_ntoa ( *( ( struct in_addr * ) &bannedIPLast ) ) );
+						printf ( "-------------------------------------------------------\n" );
+					}
+
+					if ( LockAcquireA ( bannedIPsLock, "Run" ) ) {
+						CLogArg ( "Revoke last IP ban [ %s ].", inet_ntoa ( *( ( struct in_addr * ) &bannedIPLast ) ) );
+
+						std::map<unsigned int, std::time_t>::iterator iter = bannedIPs.find ( bannedIPLast );
+						if ( iter != bannedIPs.end () ) {
+							bannedIPs.erase ( iter );
+						}
+
+						std::map<unsigned int, unsigned int>::iterator iter1 = connectedIPs.find ( bannedIPLast );
+						if ( iter1 != connectedIPs.end () ) {
+							connectedIPs.erase ( iter1 );
+						}
+
+						LockReleaseVA ( bannedIPsLock, "Run" );
+					}
+					continue;
+				}
                 else if ( c == 'x' ) {
                     if ( LockAcquireA ( bannedIPsLock, "Run" ) ) {
                         if ( printStdOut ) {
@@ -3715,7 +3869,8 @@ namespace environs
 					ApplicationDevices * appDevs;
 					sp ( ApplicationDevices ) appDevices	= GetApplicationDevices ( appName, areaName );
 
-					if ( !appDevices || !appDevices->Lock ( "Udp" ) ) {
+                    if ( !appDevices || !appDevices->LockRead ( "Udp" ) )
+                    {
 						UnlockApplicationDevices ( appDevices.get () );
 						goto Continue;
 					}
@@ -3730,9 +3885,9 @@ namespace environs
 						CErrArg ( "Udp: requested STUN device [ %i ] does not exist", destID );
 					}
 
-					UnlockApplicationDevices ( appDevs );
+                    appDevs->UnlockRead ( "Udp" );
 
-					appDevs->Unlock ( "Udp" );
+					UnlockApplicationDevices ( appDevs );
 
 					if ( !clientSP ) {
 						CErrArg ( "Udp: requested client of STUN device [ %i ] does not exist", destID );
@@ -3915,30 +4070,6 @@ namespace environs
 						acceptClients.Unlock ( "Acceptor" );
 					}
 				}
-
-
-				//if ( !acceptClients.Lock ( "Acceptor" ) )
-				//	goto NextClient;
-
-				//client->inAcceptorList	= true;
-				//acceptClients.list [ client ] = clientSP;
-
-				//acceptClients.Unlock ( "Acceptor" );
-
-				//client->clientSP = clientSP;
-
-				//// Create client thread
-				//if ( !client->thread.Run ( pthread_make_routine ( &MediatorDaemon::ClientThreadStarter ), ( void * ) client, "Acceptor" ) )
-				//{
-				//	client->socket          = INVALID_FD;
-				//	client->socketToClose   = INVALID_FD;
-				//	client->clientSP        = 0;
-
-				//	RemoveAcceptClient ( client );
-				//}
-				//else {
-				//	sock = INVALID_FD;
-				//}
 			}
 
 		NextClient:
@@ -4343,8 +4474,8 @@ namespace environs
 		if ( appDevices )
         {
             DEBUG_CHECK_START ();
-            
-			if ( appDevices->Lock ( "GetNextDeviceID" ) )
+
+            if ( appDevices->LockRead ( "GetNextDeviceID" ) )
 			{
 				/// Find the next free deviceID
 				DeviceInstanceNode	* device = appDevices->devices;
@@ -4368,7 +4499,7 @@ namespace environs
 					device = device->next;
 				}
 
-				appDevices->Unlock ( "GetNextDeviceID" );
+                appDevices->UnlockRead  ( "GetNextDeviceID" );
 			}
 
             UnlockApplicationDevices ( appDevices.get () );
@@ -4992,6 +5123,8 @@ namespace environs
 				}
 			}
 #endif
+            client->SendTcpFin ();
+
             CloseThreadSocket ( &client->socketToClose );
             
             // Updated connected ips
@@ -5563,12 +5696,32 @@ namespace environs
             
             if ( !isBanned )
                 UpdateNotifyTargets ( clientSP, -1 );
-            
-            if ( LockAcquireA ( client->stuntSocketLock, "ClientThread" ) )
+
+            std::vector<int> socks;
+
+            if ( client->stuntSocketsFront != client->stuntSocketsLast )
             {
-                client->CloseStuntSockets ();
-                
-                LockReleaseVA ( client->stuntSocketLock, "ClientThread" );
+                if ( LockAcquireA ( client->stuntSocketLock, "ClientThread" ) )
+                {
+                    client->GetStuntSockets ( socks );
+
+                    LockReleaseVA ( client->stuntSocketLock, "ClientThread" );
+                }
+            }
+
+            size_t size = socks.size ();
+            if ( size > 0 )
+            {
+                size_t i = 0;
+                while ( i < size )
+                {
+                    int socki = socks [ i ]; ++i;
+
+                    if ( IsValidFD ( socki ) )
+                    {
+                        ShutdownCloseSocket ( socki, true, "ClientThread" );
+                    }
+                }
             }
         }
         else {
@@ -5592,7 +5745,71 @@ namespace environs
 	}
 
 
-	sp ( ThreadInstance ) MediatorDaemon::GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName )
+#ifdef USE_WRITE_LOCKS1
+    sp ( ThreadInstance ) MediatorDaemon::GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName )
+    {
+        DEBUG_CHECK_START ();
+
+        bool                        needsUnlock = false;
+        sp ( ApplicationDevices )   appDevices  = 0;
+        DeviceInstanceNode  *       destList    = 0;
+
+        sp ( DeviceInstanceNode ) sourceDeviceSP = sourceClient->deviceSP;
+        if ( !sourceDeviceSP )
+            return 0;
+
+        DeviceInstanceNode * sourceDevice = sourceDeviceSP.get ();
+
+        if ( *areaName && *appName )
+        {
+            if ( sourceDevice && !strncmp ( areaName, sourceDevice->info.areaName, sizeof ( sourceDevice->info.areaName ) )
+                && !strncmp ( appName, sourceDevice->info.appName, sizeof ( sourceDevice->info.appName ) ) )
+            {
+                appDevices = sourceDevice->rootSP;
+            }
+            else {
+                appDevices = GetApplicationDevices ( appName, areaName );
+                if ( !appDevices )
+                    return 0;
+
+                needsUnlock = true;
+            }
+        }
+        else {
+            appDevices = sourceDevice->rootSP;
+        }
+
+        if ( !appDevices->LockRead ( "GetThreadInstance" ) )
+            return 0;
+
+        if ( needsUnlock ) {
+            destList = appDevices->devices;
+
+            UnlockApplicationDevices ( appDevices.get () );
+        }
+        else if ( sourceDevice ) {
+            destList = sourceDevice->rootSP->devices;
+        }
+
+        if ( !destList ) {
+            appDevices->UnlockRead ( "GetThreadInstance" );
+            return 0;
+        }
+        
+        sp ( ThreadInstance ) destClient;
+        
+        DeviceInstanceNode	* device = GetDeviceInstance ( deviceID, destList );
+        if ( device )
+            destClient = device->clientSP;
+
+        appDevices->UnlockRead ( "GetThreadInstance" );
+
+        DEBUG_CHECK_MEASURE ( "GetThreadInstance" );
+        
+        return destClient;
+    }
+#else
+    sp ( ThreadInstance ) MediatorDaemon::GetThreadInstance ( ThreadInstance * sourceClient, int deviceID, const char * areaName, const char * appName )
     {
         DEBUG_CHECK_START ();
         
@@ -5611,7 +5828,7 @@ namespace environs
 			if ( sourceDevice && !strncmp ( areaName, sourceDevice->info.areaName, sizeof ( sourceDevice->info.areaName ) )
 				&& !strncmp ( appName, sourceDevice->info.appName, sizeof ( sourceDevice->info.appName ) ) )
 			{
-				destLock = &sourceDevice->rootSP->lock;
+				destLock = &sourceDevice->rootSP->lock1;
 			}
 			else {
 				appDevices = GetApplicationDevices ( appName, areaName );
@@ -5619,11 +5836,11 @@ namespace environs
 					return 0;
 				}
 
-				destLock = &appDevices->lock;
+				destLock = &appDevices->lock1;
 			}
 		}
 		else {
-			destLock = &sourceDevice->rootSP->lock;
+			destLock = &sourceDevice->rootSP->lock1;
 		}
 
 		if ( !LockAcquire ( destLock, "GetThreadInstance" ) ) {
@@ -5656,7 +5873,7 @@ namespace environs
 
 		return destClient;
 	}
-
+#endif
 
 	bool MediatorDaemon::HandleShortMessage ( ThreadInstance * sourceClient, char * msg, unsigned int size )
 	{
@@ -5860,7 +6077,7 @@ namespace environs
 		if ( !appDevices || !appDevices->count )
 			return true;
 
-		if ( !appDevices->Lock ( "CollectDevices" ) )
+        if ( !appDevices->LockRead ( "CollectDevices" ) )
 			return false;
 
 		bool                    success     = false;
@@ -5893,11 +6110,25 @@ namespace environs
 			goto Finish;
 		}
 
+        // Check if cache is valid
+#ifdef USE_WRITE_LOCKS2
+        if ( !LockAcquireA ( appDevices->deviceCacheLock, "CollectDevices" ) )
+            goto Finish;
 
-		// Check if cache is valid
-		if ( appDevices->deviceCacheDirty && !BuildDevicesCache ( appDevices ) )
-			goto Finish;
+        if ( appDevices->deviceCacheDirty )
+        {
+            bool s = BuildDevicesCache ( appDevices );
+            if ( !s ) {
+                LockReleaseA ( appDevices->deviceCacheLock, "CollectDevices" );
+                goto Finish;
+            }
+        }
 
+        LockReleaseA ( appDevices->deviceCacheLock, "CollectDevices" );
+#else
+        if ( appDevices->deviceCacheDirty && !BuildDevicesCache ( appDevices ) )
+            goto Finish;
+#endif
 		if ( !reqDeviceID )
 		{
 			if ( listCount > resultCapacity )
@@ -5953,8 +6184,8 @@ namespace environs
 			resultCount     += listCount;
 		}
 
-	Finish:
-		if ( !appDevices->Unlock ( "CollectDevices" ) )
+    Finish:
+        if ( !appDevices->UnlockRead ( "CollectDevices" ) )
 			return false;
 		return success;
 	}
@@ -5972,7 +6203,7 @@ namespace environs
 		unsigned int            currentStart;
 		DeviceInstanceNode	*	device; //				= appDevices->devices;
 
-		if ( !appDevices->Lock ( "CollectDevices" ) )
+        if ( !appDevices->LockRead ( "CollectDevices" ) )
 			return false;
 
 		unsigned int listCount	= appDevices->count;
@@ -5980,7 +6211,7 @@ namespace environs
 		if ( startIndex > listCount ) {
 			startIndex -= listCount;
 
-			appDevices->Unlock ( "CollectDevices" );
+            appDevices->UnlockRead ( "CollectDevices" );
 			return true;
 		}
 
@@ -6079,8 +6310,8 @@ namespace environs
 			device = device->next;
 		}
 
-	Finish:
-		if ( !appDevices->Unlock ( "CollectDevices" ) )
+    Finish:
+        if ( !appDevices->UnlockRead ( "CollectDevices" ) )
 			return false;
 		return success;
 	}
@@ -6099,15 +6330,15 @@ namespace environs
 		deviceCount += sourceDevice->rootSP->count;
 
 		if ( filterMode < 1 ) {
-			/// No filtering, get them all		
-			if ( !areas.Lock ( "CollectDevicesCount" ) )
+            /// No filtering, get them all
+            if ( !areas.LockRead ( "CollectDevicesCount" ) )
 				goto Finish;
 
 			/// Iterate over all areas
 			for ( msp ( string, AreaApps )::iterator it = areas.list.begin (); it != areas.list.end (); ++it )
 			{
-				areaApps = it->second;
-				if ( !areaApps || !areaApps->Lock ( "CollectDevicesCount" ) )
+                areaApps = it->second;
+                if ( !areaApps || !areaApps->LockRead ( "CollectDevicesCount" ) )
 					continue;
 
 				for ( msp ( string, ApplicationDevices )::iterator ita = areaApps->apps.begin (); ita != areaApps->apps.end (); ++ita )
@@ -6119,16 +6350,16 @@ namespace environs
 					deviceCount += appDevices->count;
 				}
 
-				areaApps->Unlock ( "CollectDevicesCount" );
+                areaApps->UnlockRead ( "CollectDevicesCount" );
 			}
 
-			areas.Unlock ( "CollectDevicesCount" );
+            areas.UnlockRead ( "CollectDevicesCount" );
 		}
 		else if ( filterMode < 2 ) {
 			/// Get number of devices of other application environments within the same area
 			string areaName ( sourceDevice->info.areaName );
 
-			if ( !areas.Lock ( "CollectDevicesCount" ) )
+            if ( !areas.LockRead ( "CollectDevicesCount" ) )
 				goto Finish;
 
 			const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( areaName );
@@ -6139,9 +6370,10 @@ namespace environs
 			else
 				areaApps = areaIt->second;
 
-			areas.Unlock ( "CollectDevicesCount" );
+            areas.UnlockRead ( "CollectDevicesCount" );
 
-			if ( !areaApps || !areaApps->Lock ( "CollectDevicesCount" ) ) {
+            if ( !areaApps || !areaApps->LockRead ( "CollectDevicesCount" ) )
+            {
 				CLog ( "CollectDevicesCount: Invalid area name." );
 				goto Finish;
 			}
@@ -6155,7 +6387,7 @@ namespace environs
 				deviceCount += appDevices->count;
 			}
 
-			areaApps->Unlock ( "CollectDevicesCount" );
+            areaApps->UnlockRead ( "CollectDevicesCount" );
 		}
 
 	Finish:
@@ -6373,7 +6605,7 @@ namespace environs
         
         if ( filterMode < 1 ) {
             /// No filtering, get them all
-            if ( !areas.Lock ( "HandleQueryDevices" ) )
+            if ( !areas.LockRead ( "HandleQueryDevices" ) )
                 goto Finish;
             
             vsp ( AreaApps ) searchAreas;
@@ -6390,14 +6622,13 @@ namespace environs
                 }
                 searchAreas.push_back ( it->second );
             }
-            
-            areas.Unlock ( "HandleQueryDevices" );
+
+            areas.UnlockRead ( "HandleQueryDevices" );
             
             for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); ++its )
             {
                 AreaApps * areaApps	= its->get ();
-                
-                if ( !areaApps->Lock ( "HandleQueryDevices" ) )
+                if ( !areaApps->LockRead ( "HandleQueryDevices" ) )
                     continue;
                 apps = &areaApps->apps;
                 
@@ -6414,8 +6645,10 @@ namespace environs
                         appEnvMatch = false;
                     
                     if ( !appDevices->count ) {
-                        if ( appEnvMatch )
-                            goto Finish;
+                        if ( appEnvMatch ) {
+                            areaApps->UnlockRead ( "HandleQueryDevices" );
+							goto Finish;
+						}
                     }
                     else
                     {
@@ -6424,13 +6657,12 @@ namespace environs
                         
                         if ( !CollectDevices ( search, deviceIDReq, appDevices.get (), resultList, resultCapacity, resultCount ) )
                         {
-                            areaApps->Unlock ( "HandleQueryDevices" );
+                            areaApps->UnlockRead ( "HandleQueryDevices" );
                             goto Finish;
                         }
                     }
                 }
-                
-                areaApps->Unlock ( "HandleQueryDevices" );
+                areaApps->UnlockRead ( "HandleQueryDevices" );
             }
         }
         else if ( filterMode < 2 ) {
@@ -6439,19 +6671,20 @@ namespace environs
             
             string pareaName ( area );
             
-            sp ( AreaApps ) areaApps = 0;
-            
-            if ( !areas.Lock ( "HandleQueryDevices" ) )
+            sp ( AreaApps ) areaApps;
+
+            if ( !areas.LockRead ( "HandleQueryDevices" ) )
                 goto Finish;
             
             const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( pareaName );
             
             if ( areaIt != areas.list.end () )
                 areaApps = areaIt->second;
-            
-            areas.Unlock ( "HandleQueryDevices" );
-            
-            if ( !areaApps || !areaApps->Lock ( "HandleQueryDevices" ) ) {
+
+            areas.UnlockRead ( "HandleQueryDevices" );
+
+            if ( !areaApps || !areaApps->LockRead ( "HandleQueryDevices" ) )
+            {
 #ifdef DEBUG_DEVICE_ID
                 if ( deviceID == debugID ) {
                     GetTimeString ( timeString, sizeof ( timeString ) );
@@ -6478,8 +6711,10 @@ namespace environs
                 
                 if ( !appDevices->count )
                 {
-                    if ( appEnvMatch )
-                        goto Finish;
+                    if ( appEnvMatch ) {
+                        areaApps->UnlockRead ( "HandleQueryDevices" );
+						goto Finish;
+					}
                 }
                 else {
                     if ( appEnvGiven && !appEnvMatch )
@@ -6489,8 +6724,7 @@ namespace environs
                         break;
                 }
             }
-            
-            areaApps->Unlock ( "HandleQueryDevices" );
+            areaApps->UnlockRead ( "HandleQueryDevices" );
         }
         
     Finish:
@@ -6693,8 +6927,8 @@ namespace environs
 
 
 		if ( filterMode < 1 ) {
-			/// No filtering, get them all	
-			if ( !areas.Lock ( "HandleQueryDevices" ) )
+            /// No filtering, get them all
+            if ( !areas.LockRead ( "HandleQueryDevices" ) )
 				goto Finish;
 
 			vsp ( AreaApps ) searchAreas;
@@ -6712,13 +6946,12 @@ namespace environs
 				searchAreas.push_back ( it->second );
 			}
 
-			areas.Unlock ( "HandleQueryDevices" );
-
+            areas.UnlockRead ( "HandleQueryDevices" );
 			for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); ++its )
 			{
 				AreaApps * areaApps	= its->get ();
 
-				if ( !areaApps->Lock ( "HandleQueryDevices" ) )
+                if ( !areaApps->LockRead ( "HandleQueryDevices" ) )
 					continue;
 				apps = &areaApps->apps;
 
@@ -6736,7 +6969,10 @@ namespace environs
 
 					if ( !appDevices->count ) {
 						if ( appEnvMatch )
+                        {
+                            areaApps->UnlockRead ( "HandleQueryDevices" );
 							goto Finish;
+						}
 					}
 					else
 					{
@@ -6744,14 +6980,14 @@ namespace environs
 							continue;
 
 						if ( !CollectDevices ( search, deviceIDReq, appDevices.get (), resultList, resultCapacity, resultCount ) )
-						{
-							areaApps->Unlock ( "HandleQueryDevices" );
+                        {
+                            areaApps->UnlockRead ( "HandleQueryDevices" );
 							goto Finish;
 						}
 					}
 				}
 
-				areaApps->Unlock ( "HandleQueryDevices" );
+                areaApps->UnlockRead ( "HandleQueryDevices" );
 			}
 		}
 		else if ( filterMode < 2 ) {
@@ -6760,9 +6996,9 @@ namespace environs
 
 			string pareaName ( area );
 
-			sp ( AreaApps ) areaApps = 0;
+			sp ( AreaApps ) areaApps;
 
-			if ( !areas.Lock ( "HandleQueryDevices" ) )
+            if ( !areas.LockRead ( "HandleQueryDevices" ) )
 				goto Finish;
 
 			const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( pareaName );
@@ -6770,9 +7006,10 @@ namespace environs
 			if ( areaIt != areas.list.end () )
 				areaApps = areaIt->second;
 
-			areas.Unlock ( "HandleQueryDevices" );
+            areas.UnlockRead ( "HandleQueryDevices" );
 
-			if ( !areaApps || !areaApps->Lock ( "HandleQueryDevices" ) ) {
+            if ( !areaApps || !areaApps->LockRead ( "HandleQueryDevices" ) )
+            {
 				CLogArg ( "HandleQueryDevices [ %i ]: Area [%s] not found.", sourceClient->socket, areaName );
 				goto Finish;
 			}
@@ -6793,8 +7030,10 @@ namespace environs
 
 				if ( !appDevices->count )
 				{
-					if ( appEnvMatch )
+                    if ( appEnvMatch ) {
+                        areaApps->UnlockRead ( "HandleQueryDevices" );
 						goto Finish;
+					}
 				}
 				else {
 					if ( appEnvGiven && !appEnvMatch )
@@ -6803,9 +7042,8 @@ namespace environs
 					if ( !CollectDevices ( search, deviceIDReq, appDevices.get (), resultList, resultCapacity, resultCount ) )
 						break;
 				}
-			}
-
-			areaApps->Unlock ( "HandleQueryDevices" );
+            }
+            areaApps->UnlockRead ( "HandleQueryDevices" );
 		}
 
 	Finish:
@@ -6946,8 +7184,8 @@ namespace environs
 			goto Finish;
 
 		if ( filterMode < 1 ) {
-			/// No filtering, get them all	
-			if ( !areas.Lock ( "HandleQueryDevices" ) )
+            /// No filtering, get them all
+            if ( !areas.LockRead ( "HandleQueryDevices" ) )
 				goto Finish;
 
 			vsp ( AreaApps ) searchAreas;
@@ -6958,13 +7196,13 @@ namespace environs
 				searchAreas.push_back ( it->second );
 			}
 
-			areas.Unlock ( "HandleQueryDevices" );
+            areas.UnlockRead ( "HandleQueryDevices" );
 
 			for ( vsp ( AreaApps )::iterator its = searchAreas.begin (); its != searchAreas.end (); ++its )
 			{
 				AreaApps * areaApps	= its->get ();
 
-				if ( !areaApps || !areaApps->Lock ( "HandleQueryDevices" ) )
+                if ( !areaApps || !areaApps->LockRead ( "HandleQueryDevices" ) )
 					continue;
 				apps = &areaApps->apps;
 
@@ -6978,22 +7216,22 @@ namespace environs
 
 					if ( !CollectDevicesV4 ( sourceClient.get (), startIndex, deviceIDReq, areaName, appName,
 						appDevices.get (), resultList, resultCount ) )
-					{
-						areaApps->Unlock ( "HandleQueryDevices" );
+                    {
+                        areaApps->UnlockRead ( "HandleQueryDevices" );
 						goto Finish;
 					}
 				}
 
-				areaApps->Unlock ( "HandleQueryDevices" );
+                areaApps->UnlockRead ( "HandleQueryDevices" );
 			}
 		}
 		else if ( filterMode < 2 ) {
 			/// Get number of devices of other application environments within the same area
 			string pareaName ( areaName );
 
-			sp ( AreaApps ) areaApps = 0;
+			sp ( AreaApps ) areaApps;
 
-			if ( !areas.Lock ( "HandleQueryDevices" ) )
+            if ( !areas.LockRead ( "HandleQueryDevices" ) )
 				goto Finish;
 
 			const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( pareaName );
@@ -7001,9 +7239,10 @@ namespace environs
 			if ( areaIt != areas.list.end () )
 				areaApps = areaIt->second;
 
-			areas.Unlock ( "HandleQueryDevices" );
+            areas.UnlockRead ( "HandleQueryDevices" );
 
-			if ( !areaApps || !areaApps->Lock ( "HandleQueryDevices" ) ) {
+            if ( !areaApps || !areaApps->LockRead ( "HandleQueryDevices" ) )
+            {
 				CLogArg ( "HandleQueryDevices [ %i ]: Area [%s] not found.", sourceClient->socket, areaName );
 				goto Finish;
 			}
@@ -7022,9 +7261,8 @@ namespace environs
 					appDevices.get (), resultList, resultCount ) ) {
 					break;
 				}
-			}
-
-			areaApps->Unlock ( "HandleQueryDevices" );
+            }
+            areaApps->UnlockRead ( "HandleQueryDevices" );
 		}
 
 	Finish:
@@ -7197,14 +7435,15 @@ namespace environs
 			appDevices = srcDevice->rootSP;
 		}
 
-		if ( !appDevices )
+		if ( !appDevices || !appDevices->LockRead ( "HandleDeviceFlagSet" ) )
 			return;
 
 		device = GetDeviceInstance ( msg->deviceID, appDevices->devices );
-		if ( !device )
-			return;
+		if ( device )
+			destClient = device->clientSP;
 
-		destClient = device->clientSP;
+		appDevices->UnlockRead ( "HandleDeviceFlagSet" );
+
 		if ( !destClient )
 			return;
 
@@ -7254,7 +7493,7 @@ namespace environs
 
 		sp ( ApplicationDevices ) rootSP = sourceDevice->rootSP;
 
-		if ( !rootSP || !rootSP->Lock ( "HandleSTUNRequest" ) )
+        if ( !rootSP || !rootSP->LockRead ( "HandleSTUNRequest" ) )
 			return false;
 
 		DeviceInstanceNode * device = GetDeviceInstance ( DestID, rootSP->devices );
@@ -7262,7 +7501,7 @@ namespace environs
 		if ( device )
 			destClient = device->clientSP;
 
-		rootSP->Unlock ( "HandleSTUNRequest" );
+        rootSP->UnlockRead ( "HandleSTUNRequest" );
 
 		if ( !destClient ) {
 			CWarnArg ( "[ 0x%X ].HandleSTUNRequest [ %i ] -> Destination device -> [0x%X] not found.", SourceID, sourceClient->socket, DestID );
@@ -7576,7 +7815,8 @@ namespace environs
 		if ( !appDevices )
 			goto Quit;
 
-		if ( !appDevices->Lock ( "HandleSTUNTRequest" ) ) {
+        if ( !appDevices->LockRead ( "HandleSTUNTRequest" ) )
+        {
 			if ( unlockAppDevice )
 				UnlockApplicationDevices ( appDevices.get () );
 			goto Quit;
@@ -7591,7 +7831,7 @@ namespace environs
 			destClient		= destDevice->clientSP;
 		}
 
-		appDevices->Unlock ( "HandleSTUNTRequest" );
+        appDevices->UnlockRead ( "HandleSTUNTRequest" );
 
 		if ( !destClient || !destDeviceSP ) {
 			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
@@ -7602,6 +7842,8 @@ namespace environs
 			CErrArgID ( "HandleSTUNTRequest [ %i ]: Failed to build source stunt id for [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
 		}
 
+        if ( IsInvalidFD ( sourceClient->socket ) ) goto Quit;
+
 		// Acquire the lock on sourceClient stuntmap
 		if ( !LockAcquireA ( sourceClient->stuntSocketLock,"HandleSTUNTRequest" ) ) goto Quit;
 
@@ -7611,8 +7853,10 @@ namespace environs
 		foundIt = sourceClient->stuntSocketsLog.find ( sourceStuntID + 4 );
 
 		if ( foundIt != sourceClient->stuntSocketsLog.end () )
-		{
-			StuntRegisterContext * ctx = foundIt->second.get ();
+        {
+            const sp ( StuntRegisterContext ) & ctxSP = foundIt->second;
+
+            StuntRegisterContext * ctx = ctxSP.get ();
             
             if ( ctx->token == req->header.token ) {
                 struct sockaddr_in * a = channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->addrI : &ctx->addrC;
@@ -7651,6 +7895,8 @@ namespace environs
 		}
 
         invalidToken = false;
+
+        if ( IsInvalidFD ( destClient->socket ) ) goto Quit;
         
 		// Acquire the lock on destClient stuntmap
 		if ( !LockAcquireA ( destClient->stuntSocketLock, "HandleSTUNTRequest" ) ) goto Quit;
@@ -7662,7 +7908,9 @@ namespace environs
 
 		if ( foundIt != destClient->stuntSocketsLog.end () )
         {
-			StuntRegisterContext * ctx = foundIt->second.get ();
+            const sp ( StuntRegisterContext ) & ctxSP = foundIt->second;
+
+			StuntRegisterContext * ctx = ctxSP.get ();
             
             if ( ctx->token == req->header.token ) {
                 struct sockaddr_in * a = channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->addrI : &ctx->addrC;
@@ -7853,8 +8101,9 @@ namespace environs
         
         if ( !appDevices )
             goto Quit;
-        
-        if ( !appDevices->Lock ( "HandleSTUNTRequestV6" ) ) {
+
+        if ( !appDevices->LockRead ( "HandleSTUNTRequestV6" ) )
+        {
             if ( unlockAppDevice )
                 UnlockApplicationDevices ( appDevices.get () );
             goto Quit;
@@ -7868,8 +8117,8 @@ namespace environs
             destDeviceSP = destDevice->baseSP;
             destClient = destDevice->clientSP;
         }
-        
-        appDevices->Unlock ( "HandleSTUNTRequestV6" );
+
+        appDevices->UnlockRead ( "HandleSTUNTRequestV6" );
         
         if ( !destClient || !destDeviceSP ) {
             CErrArgID ( "HandleSTUNTRequestV6 [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
@@ -8089,7 +8338,8 @@ namespace environs
 		if ( !appDevices )
 			goto Quit;
 
-		if ( !appDevices->Lock ( "HandleSTUNTRequest" ) ) {
+        if ( !appDevices->LockRead ( "HandleSTUNTRequest" ) )
+        {
 			if ( unlockAppDevice )
 				UnlockApplicationDevices ( appDevices.get () );
 			goto Quit;
@@ -8104,7 +8354,7 @@ namespace environs
 			destClient = destDevice->clientSP;
 		}
 
-		appDevices->Unlock ( "HandleSTUNTRequest" );
+        appDevices->UnlockRead ( "HandleSTUNTRequest" );
 
 		if ( !destClient || !destDeviceSP ) {
 			CErrArgID ( "HandleSTUNTRequestV5 [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
@@ -8315,7 +8565,8 @@ namespace environs
 		if ( !appDevices )
 			goto Quit;
 
-		if ( !appDevices->Lock ( "HandleSTUNTRequest" ) ) {
+        if ( !appDevices->LockRead ( "HandleSTUNTRequest" ) )
+        {
 			if ( unlockAppDevice )
 				UnlockApplicationDevices ( appDevices.get () );
 			goto Quit;
@@ -8330,7 +8581,7 @@ namespace environs
 			destClient = destDevice->clientSP;
 		}
 
-		appDevices->Unlock ( "HandleSTUNTRequest" );
+        appDevices->UnlockRead ( "HandleSTUNTRequest" );
 
 		if ( !destClient || !destDeviceSP ) {
 			CErrArgID ( "HandleSTUNTRequestV4 [ %i ]: Failed to find device connection for id [ 0x%X ]!", sourceClient->socket, destID ); goto Quit;
@@ -8560,11 +8811,11 @@ namespace environs
 
 		listenAddr.sin_family		= AF_INET;
 		listenAddr.sin_addr.s_addr	= INADDR_ANY; //htonl ( INADDR_BROADCAST ); // INADDR_ANY );
-		listenAddr.sin_port         = htons ( DEFAULT_BROADCAST_PORT );
+		listenAddr.sin_port         = htons ( GET_MEDIATOR_BASE_PORT );
 
 		ret = ::bind ( broadcastSocket, ( struct sockaddr * ) &listenAddr, sizeof ( listenAddr ) );
 		if ( ret < 0 ) {
-			CErrArg ( "BroadcastThread: Failed to bind broadcast listener socket to port %i!", DEFAULT_BROADCAST_PORT );
+			CErrArg ( "BroadcastThread: Failed to bind broadcast listener socket to port %i!", GET_MEDIATOR_BASE_PORT );
 			LogSocketError ();
 			//return 0;
 		}
@@ -8578,7 +8829,7 @@ namespace environs
 		// Wait for broadcast
 		addrLen = sizeof ( listenAddr );
 
-		CLogArg ( "BroadcastThread listen on port %i", DEFAULT_BROADCAST_PORT );
+		CLogArg ( "BroadcastThread listen on port %i", GET_MEDIATOR_BASE_PORT );
 
 		while ( isRunning ) {
 			bytesReceived = ( int ) recvfrom ( broadcastSocket, buffer, BUFFERSIZE, 0, ( struct sockaddr* ) &listenAddr, &addrLen );
@@ -9021,7 +9272,7 @@ namespace environs
         client->sessionID = sid;
         
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-        WSASetEvent ( sendEvents [ 1 ] );
+        WSASetEvent ( sendEvent );
 #else
         sendEvent.Notify ( "PushSend" );
 #endif
@@ -9311,7 +9562,7 @@ namespace environs
         ___sync_val_compare_and_swap ( &watchdogSessionsChanged, 0, 1 );
         
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-        WSASetEvent ( sendEvents [ 1 ] );
+        WSASetEvent ( sendEvent );
 #else
         sendEvent.Notify ( "PushSend" );
 #endif
@@ -9683,7 +9934,12 @@ namespace environs
             areaName = appName + regTarget->sizes [ 0 ];
             areaName [ regTarget->sizes [ 1 ] - 1 ] = 0;
         }
-        
+
+        ctxSP = sp_make ( StuntRegisterContext );
+        if ( !ctxSP )
+            goto Finish;
+        ctx = ctxSP.get ();
+
         if ( !BuildAppAreaID ( buffer, regTarget->deviceID, appName, areaName, regTarget->channelType, regTarget->token ) )
             goto Finish;
         
@@ -9697,27 +9953,23 @@ namespace environs
             
             if ( foundIt == sockets.end () )
             {
-                ctxSP = sp_make ( StuntRegisterContext );
-                if ( ctxSP )
-                {
-					ctx = ctxSP.get ();
+                ctx->token          = regTarget->token;
+                ctx->registerTime   = now;
 
-                    ctx->token          = regTarget->token;
-                    ctx->registerTime   = now;
-                    
-                    s = ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->sockI : &ctx->sockC );
-                    *s = stuntSocket;
-                    
-                    addr    = ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->addrI : &ctx->addrC );
-                    *addr   = stuntClient->addr;
-                    
-                    sockets [ key ] = ctxSP;
-                    
-                    success = true;
-                }
+                s = ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->sockI : &ctx->sockC );
+                *s = stuntSocket;
+
+                addr    = ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ? &ctx->addrI : &ctx->addrC );
+                *addr   = stuntClient->addr;
+
+                sockets [ key ] = ctxSP;
+
+                success = true;
             }
             else {
-                ctxSP   = foundIt->second;
+                const sp ( StuntRegisterContext ) & constSP = foundIt->second;
+
+                ctxSP   = constSP;
                 ctx     = ctxSP.get ();
                 
                 if ( regTarget->channelType == MEDIATOR_STUNT_CHANNEL_MAIN ) {
@@ -9785,10 +10037,10 @@ namespace environs
 
 		CVerbID ( "HandleStuntSocketRegistrationV6" );
 
-		int							sock = -1;
-		int							stuntSocket = -1;
+		int							sock        = INVALID_FD;
+		int							stuntSocket = INVALID_FD;
         
-		stuntClient->socketToClose  = -1;
+		stuntClient->socketToClose  = INVALID_FD;
 
 		DeviceInstanceNode *		device;
 
@@ -10052,36 +10304,38 @@ namespace environs
 		sp ( AreaApps )				areaApps	= 0;
 		sp ( ApplicationDevices )	appDevices	= 0;
 
-		string appsName ( appName );
+        string appsName ( appName );
         string pareaName ( areaName );
         
         DEBUG_CHECK_START ();
 
-		if ( !areas.Lock ( "GetApplicationDevices" ) )
+        if ( !areas.LockRead ( "GetApplicationDevices" ) )
 			return 0;
 
-		const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( pareaName );
+        const msp ( string, AreaApps )::iterator & areaIt = areas.list.find ( pareaName );
 
-		if ( areaIt != areas.list.end () )
+        if ( areaIt != areas.list.end () ) {
 			areaApps = areaIt->second;
+        }
 
-		if ( !areas.Unlock ( "GetApplicationDevices" ) )
+        if ( !areas.UnlockRead ( "GetApplicationDevices" ) )
 			return 0;
 
-		if ( !areaApps || !areaApps->Lock ( "GetApplicationDevices" ) ) {
+        if ( !areaApps || !areaApps->LockRead ( "GetApplicationDevices" ) )
+        {
 			CLogArg ( "GetApplicationDevices: App [ %s ] not found.", appName );
 			return 0;
 		}
 
-		const msp ( string, ApplicationDevices )::iterator appsIt = areaApps->apps.find ( appsName );
+        const msp ( string, ApplicationDevices )::iterator & appsIt = areaApps->apps.find ( appsName );
 
 		if ( appsIt != areaApps->apps.end () )
 			appDevices = appsIt->second;
 
-		areaApps->Unlock ( "GetApplicationDevices" );
+        areaApps->UnlockRead ( "GetApplicationDevices" );
 
 		if ( !appDevices ) {
-			CLogArg ( "GetApplicationDevices: Devicelist of App [%s] not found.", appName );
+			CLogArg ( "GetApplicationDevices: Devicelist of App [ %s ] not found.", appName );
 			CErr ( "GetApplicationDevices: Invalid appDevices!" );
 			goto Finish;
 		}
@@ -10128,10 +10382,11 @@ namespace environs
     
     void MediatorDaemon::NotifyClients ( NotifyQueueContext * nctx )
     {
-        if ( !nctx->device )
+        const sp ( DeviceInstanceNode ) & devSP = nctx->device;
+        if ( !devSP )
             return;
         
-        DeviceInstanceNode  * device = nctx->device.get ();
+        DeviceInstanceNode  * device = devSP.get ();
 
 		int				deviceID	= device->info.deviceID;
         const char *	areaName	= device->info.areaName;
@@ -10146,91 +10401,105 @@ namespace environs
         vsp ( ThreadInstance )      destsAppArea;
         
         CLogArg ( "NotifyClients: broadcasting notify [%s]", environs::resolveName ( nctx->notify ) );
-        
+
         DEBUG_CHECK_START ();
-        
-        if ( !LockAcquireA ( notifyTargetsLock, "NotifyClients" ) )
-            return;
-        
-        /// Get the no filter clients
-        do
+
+        if ( notifyTargetsSize > 0 )
         {
-            msp ( long long, ThreadInstance )::iterator clientIt = notifyTargets.begin ();
-            
-            while ( clientIt != notifyTargets.end () )
+            if ( !LockAcquireA ( notifyTargetsLock, "NotifyClients" ) )
+                return;
+
+            /// Get the no filter clients
+            do
             {
-                ThreadInstance * inst = clientIt->second.get ();
-                
-                if ( inst->subscribedToNotifications && IsValidFD ( inst->socket ) && inst->aliveLast ) {
-                    dests.push_back ( clientIt->second );
+                const msp ( long long, ThreadInstance )::iterator & end = notifyTargets.end ();
+
+                msp ( long long, ThreadInstance )::iterator clientIt = notifyTargets.begin ();
+
+                while ( clientIt != end )
+                {
+                    ThreadInstance * inst = clientIt->second.get ();
+
+                    if ( inst->subscribedToNotifications && IsValidFD ( inst->socket ) && inst->aliveLast ) {
+                        dests.push_back ( clientIt->second );
+                    }
+                    ++clientIt;
                 }
-                ++clientIt;
             }
+            while ( 0 );
+
+            LockReleaseVA ( notifyTargetsLock, "NotifyClients" );
         }
-        while ( 0 );
-        
-        LockReleaseVA ( notifyTargetsLock, "NotifyClients" );
-        
+
         DEBUG_CHECK_MEASURE ( "NotifyClients 1" );
-        
+
         /// Get the AreaApps
         do
         {
             sp ( AreaApps ) areaApps;
             
             DEBUG_CHECK_START_1 ();
-            
-            if ( !areas.Lock ( "NotifyClients" ) )
+
+            if ( !areas.LockRead ( "NotifyClients" ) )
                 return;
             
             const msp ( string, AreaApps )::iterator areaIt = areas.list.find ( areaName );
             
             if ( areaIt != areas.list.end () )
                 areaApps = areaIt->second;
-            
-            areas.Unlock ( "NotifyClients" );
-            
-            if ( !areaApps || !areaApps->Lock1 ( "NotifyClients" ) ) {
-                CLogArg ( "NotifyClients: Area [ %s ] not found.", areaName );
-                break;
-            }
-            
-            msp ( long long, ThreadInstance )::iterator clientIt = areaApps->notifyTargets.begin ();
-            
-            while ( clientIt != areaApps->notifyTargets.end () )
+
+            areas.UnlockRead ( "NotifyClients" );
+
+            AreaApps * aas = areaApps.get ();
+
+            if ( aas && aas->notifyTargetsSize > 0  )
             {
-                ThreadInstance * inst = clientIt->second.get ();
-                
-                if ( inst->subscribedToNotifications && IsValidFD ( inst->socket ) && inst->aliveLast ) {
-                    dests.push_back ( clientIt->second );
+                if ( !aas->Lock2 ( "NotifyClients" ) ) {
+                    CLogArg ( "NotifyClients: Area [ %s ] not found.", areaName );
+                    break;
                 }
-                ++clientIt;
+
+                const msp ( long long, ThreadInstance )::iterator & end = aas->notifyTargets.end ();
+
+                msp ( long long, ThreadInstance )::iterator clientIt = aas->notifyTargets.begin ();
+
+                while ( clientIt != end )
+                {
+                    ThreadInstance * inst = clientIt->second.get ();
+
+                    if ( inst->subscribedToNotifications && IsValidFD ( inst->socket ) && inst->aliveLast ) {
+                        dests.push_back ( clientIt->second );
+                    }
+                    ++clientIt;
+                }
+
+                aas->Unlock2 ( "NotifyClients" );
+                
+                DEBUG_CHECK_MEASURE_1 ( "NotifyClients 2" );
             }
-            
-            areaApps->Unlock1 ( "NotifyClients" );
-            
-            DEBUG_CHECK_MEASURE_1 ( "NotifyClients 2" );
         }
         while ( 0 );
         
         appDevices	= GetApplicationDevices ( appName, areaName );
-        if ( appDevices )
+
+        ApplicationDevices * ads = appDevices.get ();
+        if ( ads )
         {
             DEBUG_CHECK_START_1 ();
-            
-            if ( appDevices->Lock ( "NotifyClients" ) )
+
+            if ( ads->LockRead ( "NotifyClients" ) )
             {
-                device = appDevices->devices;
+                device = ads->devices;
                 while ( device )
                 {
-                    clientSP = device->clientSP;
+                    const sp ( ThreadInstance ) & constSP = device->clientSP;
                     
-                    ThreadInstance * inst = clientSP.get ();
+                    ThreadInstance * inst = constSP.get ();
                     if ( inst )
                     {
                         if ( inst->filterMode == MEDIATOR_FILTER_AREA_AND_APP && IsValidFD ( inst->socket ) && inst->subscribedToNotifications && inst->aliveLast )
                         {
-                            destsAppArea.push_back ( clientSP );
+                            destsAppArea.push_back ( constSP );
                         }
                     }
                     
@@ -10238,12 +10507,13 @@ namespace environs
                 }
                 
                 CVerbVerb ( "NotifyClients: unlock." );
-                appDevices->Unlock ( "NotifyClients" );
+
+                ads->UnlockRead ( "NotifyClients" );
                 
                 DEBUG_CHECK_MEASURE_1 ( "NotifyClients 3" );
             }
             
-            UnlockApplicationDevices ( appDevices.get () );
+            UnlockApplicationDevices ( ads );
         }
         
         size = dests.size ();
@@ -10314,72 +10584,79 @@ namespace environs
             
 #ifdef USE_NOTIFY_TMP_VECTORS
             int                         repeats     = 0;
-            vsp ( ThreadInstance )      tmp;
-            vsp ( ThreadInstance )   *  destsCur    = &destsAppArea;
-            vsp ( ThreadInstance )   *  destsTmp    = &tmp;
-            
-            sp ( SendLoad ) dataSP = std::make_shared < SendLoad > ();
-            if ( dataSP )
+            size_t                   *  sendsDone   = ( size_t * ) calloc ( size, sizeof(size_t) );
+            if ( sendsDone )
             {
-                MediatorNotify * msg = ( MediatorNotify * ) calloc ( 1, sizeof ( MediatorNotify ) );
-                if ( msg )
+                sp ( SendLoad ) dataSP = std::make_shared < SendLoad > ();
+                if ( dataSP )
                 {
-                    msg->header.cmd0 = MEDIATOR_PROTOCOL_VERSION;
-                    
-                    msg->header.cmd1 = MEDIATOR_CMD_MEDIATOR_NOTIFY;
-                    msg->header.opt0 = MEDIATOR_OPT_NULL;
-                    msg->header.opt1 = MEDIATOR_OPT_NULL;
-                    msg->header.msgID = nctx->notify;
-                    msg->header.notifyDeviceID = deviceID;
-                    
-                    msg->header.sizes [ 0 ] = 1;
-                    msg->header.sizes [ 1 ] = 1;
-                    msg->header.size = sizeof ( MediatorQueryHeader ) + 2;
-                    
-                    dataSP->buffer = msg;
-                    
-                    sendSize = msg->header.size;
-                    
-                RetryDests:
-                    destsTmp->clear ();
-                    size = destsCur->size ();
-                    
-                    for ( size_t i = 0; i < size; i++ )
+                    MediatorNotify * msg = ( MediatorNotify * ) calloc ( 1, sizeof ( MediatorNotify ) );
+                    if ( msg )
                     {
-						const sp ( ThreadInstance ) & constSP = ( *destsCur ) [ i ];
+                        msg->header.cmd0 = MEDIATOR_PROTOCOL_VERSION;
 
-                        ThreadInstance * dest = constSP.get ();
-                        
-                        //CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
-                        
-                        if ( !dest->deviceID || !dest->subscribedToNotifications ) {
-                            continue;
-                        }
-#ifdef DEBUGVerb
-                        SOCKETSYNC sock = dest->socket;
-#endif
-                        if ( dest->aliveLast && IsValidFD ( dest->socket ) ) {
-#ifndef NDEBUG
-                            CVerbArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, dest->socket );
-#else
-                            CVerbArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
-#endif
-                            //SendBufferOrEnqueue ( dest, dataSP, sendSize );
-                            if ( size <= 1 || repeats > 4 ) {
-                                PushSend ( dest, dataSP, sendSize );
+                        msg->header.cmd1 = MEDIATOR_CMD_MEDIATOR_NOTIFY;
+                        msg->header.opt0 = MEDIATOR_OPT_NULL;
+                        msg->header.opt1 = MEDIATOR_OPT_NULL;
+                        msg->header.msgID = nctx->notify;
+                        msg->header.notifyDeviceID = deviceID;
+
+                        msg->header.sizes [ 0 ] = 1;
+                        msg->header.sizes [ 1 ] = 1;
+                        msg->header.size = sizeof ( MediatorQueryHeader ) + 2;
+
+                        dataSP->buffer = msg;
+
+                        sendSize = msg->header.size;
+
+                        size_t  done = 0;
+
+                    RetryDests:
+                        for ( size_t i = 0; i < size; i++ )
+                        {
+                            if ( sendsDone [ i ] )
+                                continue;
+
+                            const sp ( ThreadInstance ) & constSP = destsAppArea [ i ];
+
+                            ThreadInstance * dest = constSP.get ();
+
+                            //CLogArg ( "NotifyClients: checking device [0x%X]", dest->deviceID );
+
+                            if ( !dest->deviceID || !dest->subscribedToNotifications ) {
+                                sendsDone [ i ] = 1; done++;
+                                continue;
                             }
-                            else if ( !PushSendTry ( dest, dataSP, sendSize ) )
-                                destsTmp->push_back ( (*destsCur) [ i ] );
+#ifdef DEBUGVerb
+                            SOCKETSYNC sock = dest->socket;
+#endif
+                            if ( dest->aliveLast && IsValidFD ( dest->socket ) ) {
+#ifndef NDEBUG
+                                CVerbArg ( "NotifyClients: Notify device [ 0x%X : %i ]", dest->deviceID, dest->socket );
+#else
+                                CVerbArg ( "NotifyClients: Notify device [ 0x%X ]", dest->deviceID );
+#endif
+                                if ( size <= 1 || repeats > 1 ) {
+                                    PushSend ( dest, dataSP, sendSize );
+                                    sendsDone [ i ] = 1; done++;
+                                }
+                                else if ( PushSendTry ( dest, dataSP, sendSize ) ) {
+                                    sendsDone [ i ] = 1; done++;
+                                }
+                            }
+                            else {
+                                sendsDone [ i ] = 1; done++;
+                            }
                         }
-                    }
-                    
-                    if ( destsTmp->size () > 0 )
-                    {
-                        vsp ( ThreadInstance )   *  t = destsTmp;
-                        destsTmp = destsCur; destsCur = t; repeats++;
-                        goto RetryDests;
+
+                        if ( done < size ) {
+                            repeats++;
+                            goto RetryDests;
+                        }
                     }
                 }
+
+                free ( sendsDone );
             }
 #else
             sp ( SendLoad ) dataSP = std::make_shared < SendLoad > ();
@@ -11023,8 +11300,7 @@ namespace environs
 		}
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-		WSAResetEvent ( sendEvents [ 0 ] );
-		WSAResetEvent ( sendEvents [ 1 ] );
+		WSAResetEvent ( sendEvent );
 #else
 		sendEvent.ResetSync ( "SendThread", false );
 #endif
@@ -11061,7 +11337,7 @@ namespace environs
         for ( unsigned int i = 0; i < sendThreadCount; ++i )
         {
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-			WSASetEvent ( sendEvents [ 1 ] );
+			WSASetEvent ( sendEvent );
 #else
 			sendEvent.Notify ( "StopSendThreads" );
 #endif            
@@ -11213,7 +11489,8 @@ namespace environs
 		int rc, clientCount = 0, clientBuffersFull = 0, remainSendContexts;
 
 		pthread_mutex_t     *   lock;
-		lib::QueueVector    *   queue;
+        lib::QueueVector    *   queue;
+        lib::QueueVector    *   queuePrio;
 		int						emptyRound;
 		int						clientsSend;
 		int						timeout = 100;
@@ -11233,13 +11510,12 @@ namespace environs
 #ifdef ENABLE_WINSOCK_SEND_THREADS
 			//CLogArg ( "SendThread [ %i ]: Going into wait ...", threadNr );
 
-			if ( ( rc = WSAWaitForMultipleEvents ( 2, sendEvents, FALSE, timeout, FALSE ) ) == WSA_WAIT_TIMEOUT ) {
+			if ( ( rc = WSAWaitForMultipleEvents ( 1, &sendEvent, FALSE, timeout, FALSE ) ) == WSA_WAIT_TIMEOUT ) {
 				if ( timeout < SEND_THREAD_TIMEOUT_MAX )
 					timeout += SEND_THREAD_TIMEOUT_STEPS;
 			}
 			else {
-				WSAResetEvent ( sendEvents [ 0 ] );
-				WSAResetEvent ( sendEvents [ 1 ] );
+				WSAResetEvent ( sendEvent );
 				timeout = SEND_THREAD_TIMEOUT_START;
 			}
 #else
@@ -11328,9 +11604,11 @@ namespace environs
                     
 					CVerbArg ( "SendThread: Checking deviceID [ 0x%X : %s ] socket [ %i ]", client->deviceID, client->ips, client->socket );
 
-                    lock  = &client->sendQueueLock;
+                    lock        = &client->sendQueueLock;
+                    queue       = &client->sendQueue;
+                    queuePrio   = &client->sendQueuePrior;
 
-					if ( client->sendQueuePrior.size_ > 0 )
+					if ( queuePrio->size_ > 0 )
 					{
 						if ( !LockAcquire ( lock, "SendThread" ) )
 							goto DoNextClient;
@@ -11345,9 +11623,7 @@ namespace environs
 #endif
 					}
 
-                    queue = &client->sendQueue;
-
-					if ( queue->size_ <= 0 && client->sendQueuePrior.size_ <= 0 )
+					if ( queue->size_ <= 0 && queuePrio->size_ <= 0 )
 					{
 						LockRelease ( lock, "SendThread" );
 						goto DoNextClient;
@@ -11364,15 +11640,13 @@ namespace environs
                         delete ctx;
                     }
                     
-                    queue = &client->sendQueuePrior;
-                    
-                    while ( queue->size_ > 0 )
+                    while ( queuePrio->size_ > 0 )
                     {
-                        SendContext * ctx = ( SendContext * ) queue->first ();
+                        SendContext * ctx = ( SendContext * ) queuePrio->first ();
                         if ( !ctx || !ctx->done )
                             break;
                         
-                        queue->pop ();
+                        queuePrio->pop ();
                         delete ctx;
                     }
                     
@@ -11381,20 +11655,20 @@ namespace environs
                     bool changeToPriorityQueue = false;
                     
                 ContinueWithPriorityQueue:
-                    while ( client->sendQueuePrior.size_ > 0 )
+                    while ( queuePrio->size_ > 0 )
                     {
                         SendContext * ctx;
                         
                         if ( client->sendQueue.size_ > 0 )
                         {
-                            ctx = ( SendContext * ) client->sendQueue.first ();
+                            ctx = ( SendContext * ) queue->first ();
                             if ( ctx->sendCurrent ) {
                                 changeToPriorityQueue = true;
                                 break;
                             }
                         }
                         
-                        ctx = ( SendContext * ) queue->first ();
+                        ctx = ( SendContext * ) queuePrio->first ();
                         
                         LockRelease ( lock, "SendThread" );
                         
@@ -11418,13 +11692,16 @@ namespace environs
                         if ( !LockAcquire ( lock, "SendThread" ) )
                             goto DoNextClient;
 #endif
-                        ctx = ( SendContext * ) queue->pop ();
-                        
+                        ctx = ( SendContext * ) queuePrio->pop ();
+
+                        LockRelease ( lock, "SendThread" );
+
                         if ( ctx )
                             delete ctx;
+
+                        if ( !LockAcquire ( lock, "SendThread" ) )
+                            goto DoNextClient;
                     }
-                    
-                    queue = &client->sendQueue;
 
 					while ( queue->size_ > 0 )
 					{
@@ -11470,14 +11747,19 @@ namespace environs
 								goto DoNextClient;
 #endif
 						}
-						ctx = ( SendContext * ) queue->pop ();
+
+                        ctx = ( SendContext * ) queue->pop ();
+
+                        LockRelease ( lock, "SendThread" );
 
                         if ( ctx )
                             delete ctx;
+
+                        if ( !LockAcquire ( lock, "SendThread" ) )
+                            goto DoNextClient;
                         
                         if ( changeToPriorityQueue || client->sendQueuePrior.size_ > 0 ) {
                             changeToPriorityQueue = false;
-							queue = &client->sendQueuePrior;
                             goto ContinueWithPriorityQueue;
                         }
 					}
@@ -11526,11 +11808,37 @@ namespace environs
 			while ( i < clientsCacheCount )
 			{
 				ThreadInstance * client = clientsCache [ i ]; i++;
-				if ( client->sendQueuePrior.size_ > 0 ) {
+				if ( client->sendQueuePrior.size_ > 0 ) 
+				{
+					// Signal another send thread just to make sure that 
+					// priority queue is drained for sure 
+					if ( clientsCacheCount < 3000 )
+					{
+#ifdef ENABLE_WINSOCK_SEND_THREADS
+						WSASetEvent ( sendEvent );
+						WSAResetEvent ( sendEvent );
+#else
+						sendEvent.Notify ( "SendThread" );
+						sendEvent.ResetSync ( "SendThread", true );
+#endif
+					}
 					goto DoWork;
 				}
 
-				if ( client->sendQueue.size_ > 0 ) {
+				if ( client->sendQueue.size_ > 0 ) 
+				{
+					// Signal another send thread just to make sure that 
+					// some other entity tries to drain the queue before we're going to wait some cycles
+					if ( clientsCacheCount < 3000 )
+					{
+#ifdef ENABLE_WINSOCK_SEND_THREADS
+						WSASetEvent ( sendEvent );
+						WSAResetEvent ( sendEvent );
+#else
+						sendEvent.Notify ( "SendThread" );
+						sendEvent.ResetSync ( "SendThread", true );
+#endif
+					}
 					timeout = 10;
 					break;
 				}
@@ -11570,7 +11878,7 @@ namespace environs
                 break;
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-			WSASetEvent ( sendEvents [ 1 ] );
+			WSASetEvent ( sendEvent );
 #else
 			sendEvent.Notify ( "PushSend" );
 #endif              
@@ -11610,11 +11918,7 @@ namespace environs
             
             if ( IsValidFD ( ( int ) client->socket ) ) {
                 if ( seqNr )
-                {
-                    ctx->seqNr  = seqNr;
-                    
                     success = client->sendQueuePrior.push ( ctx );
-                }
                 else
                     success = client->sendQueue.push ( ctx );
             }
@@ -11627,7 +11931,7 @@ namespace environs
 				break;
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-			WSASetEvent ( sendEvents [ 1 ] );
+			WSASetEvent ( sendEvent );
 #else
 			sendEvent.Notify ( "PushSend" );
 #endif    
@@ -11766,10 +12070,10 @@ namespace environs
 #ifdef USE_NOTIFY_TMP_VECTORS
     bool MediatorDaemon::PushSendTry ( ThreadInstance * client, const sp ( SendLoad ) &dataSP, unsigned int size )
     {
-        bool success = false;
-        
         if ( pthread_mutex_trylock ( &client->sendQueueLock ) )
             return false;
+
+        bool success = false;
         
         SendContext * ctx = new SendContext ();
         if ( ctx )
@@ -11789,7 +12093,7 @@ namespace environs
             }
             
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-            WSASetEvent ( sendEvents [ 1 ] );
+            WSASetEvent ( sendEvent );
 #else
             sendEvent.Notify ( "PushSendTry" );
 #endif
@@ -12360,29 +12664,36 @@ namespace environs
 						{
 							CLogArg ( "Watchdog: Disconnecting [ 0x%X : %s ]  socket [ %i ] due to expired heartbeat or failed sends [ %i ] ...", client->deviceID, client->ips, client->socket, client->sendFails );
 
-							reDo = true;
+                            reDo = true;
 
-							//client->Dispose ();
-							SOCKETSYNC sock = client->socket;
+                            client->SendTcpFin ();
 
-							client->socket = -1;
-
-							if ( sock == -1 )
-								sock = client->socketToClose;
-
-							if ( sock != -1 ) {
-								shutdown ( ( int ) sock, 2 );
-							}
+                            std::vector<int> socks;
 
 							if ( client->stuntSocketsFront != client->stuntSocketsLast )
 							{
 								if ( LockAcquireA ( client->stuntSocketLock, "Watchdog" ) )
 								{
-									client->CloseStuntSockets ();
+                                    client->GetStuntSockets ( socks );
 
 									LockReleaseVA ( client->stuntSocketLock, "Watchdog" );
 								}
-							}
+                            }
+
+                            size = socks.size ();
+                            if ( size > 0 )
+                            {
+                                i = 0;
+                                while ( i < size )
+                                {
+                                    int sock = socks [ i ]; ++i;
+
+                                    if ( IsValidFD ( sock ) )
+                                    {
+                                        ShutdownCloseSocket ( sock, true, "Watchdog" );
+                                    }
+                                }
+                            }
 						}
 						else {
 #ifdef USE_VERIFYSOCKETS
@@ -12395,7 +12706,7 @@ namespace environs
                     {
                         msp ( string, StuntRegisterContext ) & sockets = client->stuntSocketsLog;
                         
-                        if ( LockAcquireA ( client->stuntSocketLock, "RegisterStuntSocket" ) )
+                        if ( LockAcquireA ( client->stuntSocketLock, "Watchdog" ) )
                         {
                             unsigned int now = GetEnvironsTickCount32 ();
                             
@@ -12414,7 +12725,7 @@ namespace environs
                                 else ++itm;
                             }
                             
-                            LockReleaseA ( client->stuntSocketLock, "RegisterStuntSocket" );
+                            LockReleaseA ( client->stuntSocketLock, "Watchdog" );
 
 							toDisposeSPs.clear ();
                         }

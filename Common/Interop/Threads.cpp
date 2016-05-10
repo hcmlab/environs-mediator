@@ -1187,9 +1187,10 @@ namespace environs
 #else
         if ( pthread_cond_prepare ( c_Addr_of ( signal ) ) ) {
             CErrArg ( "ResetSync: Failed [ %s ]", func );
+#ifndef _WIN32
             if ( useLock )
                 UnlockCond ( func );
-            
+#endif
             return false;
         }
 #endif
@@ -1203,19 +1204,19 @@ namespace environs
 
 
 	int EnvSignal::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
-        {
+	{
 #ifndef _WIN32
 		if ( useLock && !LockCond ( func ) )
 			return 0;
 #endif
 		int waitRes = WaitLocked ( func, ms );
 		if ( waitRes )
-        {
+		{
 #ifndef _WIN32
 			if ( !useLock || keepLocked || UnlockCond ( func ) )
 #endif
 				return waitRes;
-        }
+		}
 #ifndef _WIN32
 		else {
 			if ( !keepLocked )

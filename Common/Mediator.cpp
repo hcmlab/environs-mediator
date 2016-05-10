@@ -136,6 +136,49 @@ namespace environs
 		if ( init )
 			LockDisposeA ( lock );
     }
+
+
+    INoRWLock::INoRWLock ()
+    {
+        init1 = false;
+    }
+
+    bool INoRWLock::Init ()
+    {
+        if ( !init1 ) {
+            Zero ( lock1 );
+            init1 = LockInitA ( lock1 );
+        }
+        return init1;
+    }
+
+    bool INoRWLock::LockRead ( const char * func )
+    {
+        return LockAcquireA ( lock1, func );
+    }
+
+    bool INoRWLock::UnlockRead ( const char * func )
+    {
+        return LockReleaseA ( lock1, func );
+    }
+
+    bool INoRWLock::LockWrite ( const char * func )
+    {
+        return LockAcquireA ( lock1, func );
+    }
+
+    bool INoRWLock::UnlockWrite ( const char * func )
+    {
+        return LockReleaseA ( lock1, func );
+    }
+
+    INoRWLock::~INoRWLock ()
+    {
+        //CVerbVerb ( "~ILock" );
+        
+        if ( init1 )
+            LockDisposeA ( lock1 );
+    }
     
     
     void AddStuntSocket ( ThreadInstance * inst, int sock )
@@ -492,6 +535,9 @@ namespace environs
         allocated       = false;
 
 #ifdef MEDIATORDAEMON
+#   ifdef USE_NOTIFY_TARGET_INDEX
+        inNotifierList  = -1;
+#   endif
         inAcceptorList  = false;
 #endif
         
@@ -608,8 +654,42 @@ namespace environs
         
         return thread.Init ();
     }
-    
-    
+
+
+    bool ThreadInstance::GetStuntSockets ( std::vector<int> &socks )
+    {
+        if ( stuntSocketsFront == stuntSocketsLast )
+            return false;
+
+        int sock = ( int ) stuntSockets [ stuntSocketsFront ];
+        if ( IsValidFD ( sock ) )
+        {
+            stuntSockets [ stuntSocketsFront ] = INVALID_FD;
+
+            socks.push_back ( sock );
+        }
+
+        while ( stuntSocketsFront != stuntSocketsLast )
+        {
+            sock = ( int ) stuntSockets [ stuntSocketsLast ];
+            if ( IsValidFD ( sock ) )
+            {
+                stuntSockets [ stuntSocketsLast ] = INVALID_FD;
+
+                socks.push_back ( sock );
+            }
+
+            stuntSocketsLast++;
+            if ( stuntSocketsLast >= MAX_STUNT_SOCKETS_IN_QUEUE )
+                stuntSocketsLast = 0;
+        }
+
+        stuntSocketsFront   = 0;
+        stuntSocketsLast    = 0;
+        return true;
+    }
+
+
     void ThreadInstance::CloseStuntSockets ()
     {
         if ( stuntSocketsFront == stuntSocketsLast )
@@ -646,9 +726,17 @@ namespace environs
     void ThreadInstance::SendTcpFin ( )
     {
         CVerb ( "SendTcpFin" );
-        
-        if ( IsInvalidFD ( ( int ) socket ) )
-            return;
+
+        int sock = ( int ) socket;
+
+        if ( IsInvalidFD ( sock ) ) {
+#ifdef MEDIATORDAEMON
+            sock = ( int ) socketToClose;
+
+            if ( IsInvalidFD ( sock ) )
+#endif
+                return;
+        }
         
         char            buffer [ 8 ];
         char *          cipher      = 0;
@@ -1338,7 +1426,10 @@ namespace environs
 			inst = inst->next;
 
             toDelete->next = 0;
-            
+
+#ifndef MEDIATORDAEMON
+            toDelete->connection.instance.SendTcpFin ();
+#endif
 			ReleaseMediator ( toDelete );
 		}
         
@@ -2024,7 +2115,7 @@ namespace environs
         Zero ( broadcastAddr );
         
         broadcastAddr.sin_family = PF_INET;
-        broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
+        broadcastAddr.sin_port = htons ( GET_MEDIATOR_BASE_PORT );
         
         if ( sendToAny ) {
             broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
@@ -2103,7 +2194,7 @@ namespace environs
         Zero ( broadcastAddr );
         
         broadcastAddr.sin_family = PF_INET;
-        broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
+        broadcastAddr.sin_port = htons ( GET_MEDIATOR_BASE_PORT );
         
         if ( sendToAny ) {
             broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
@@ -2181,7 +2272,7 @@ namespace environs
         
         CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
         
-        SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, DEFAULT_BROADCAST_PORT );
+        SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, GET_MEDIATOR_BASE_PORT );
         
         /// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
         NetPack * net = 0;
@@ -2199,7 +2290,7 @@ namespace environs
         
         net = &localNets;
         while ( net ) {
-            SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, DEFAULT_BROADCAST_PORT );
+            SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, GET_MEDIATOR_BASE_PORT );
             net = net->next;
         }
         
@@ -2243,13 +2334,13 @@ namespace environs
         
         if ( sock == broadcastSocket ) {
             if ( sendToAny )
-                SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, DEFAULT_BROADCAST_PORT );
+                SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, GET_MEDIATOR_BASE_PORT );
         }
         else {
             Zero ( broadcastAddr );
             
             broadcastAddr.sin_family = PF_INET;
-            broadcastAddr.sin_port = htons ( DEFAULT_BROADCAST_PORT );
+            broadcastAddr.sin_port = htons ( GET_MEDIATOR_BASE_PORT );
             
             if ( sendToAny ) {
                 broadcastAddr.sin_addr.s_addr = htonl ( INADDR_BROADCAST ); // 0xFFFFFFFF;
@@ -2282,7 +2373,7 @@ namespace environs
         net = &localNets;
         while ( net ) {
             if ( sock == broadcastSocket ) {
-                SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, DEFAULT_BROADCAST_PORT );
+                SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, GET_MEDIATOR_BASE_PORT );
             }
             else {
                 broadcastAddr.sin_addr.s_addr = htonl ( net->bcast );
@@ -2379,7 +2470,18 @@ namespace environs
 		DeviceInstanceNode	*	device		= 0;
 		pthread_mutex_t		*	mutex		= 0;
 
-		GetDeviceList ( nill, nill, &mutex, nill, listRoot );
+#ifdef USE_WRITE_LOCKS1
+        sp ( ApplicationDevices ) appDevices = GetDeviceList ( nill, nill, &mutex, nill, listRoot );
+
+        if ( !listRoot || !appDevices )
+            return;
+
+        bool isListening = IsServiceAvailable ();
+
+        if ( !appDevices->LockWrite ( "VanishedDeviceWatcher" ) )
+            return;
+#else
+        GetDeviceList ( nill, nill, &mutex, nill, listRoot );
 
 		if ( !listRoot )
 			return;
@@ -2388,7 +2490,7 @@ namespace environs
 
 		if ( !LockAcquire ( mutex, "VanishedDeviceWatcher" ) )
             return;
-        
+#endif
         device = *listRoot;
 
 		while ( device )
@@ -2438,7 +2540,11 @@ namespace environs
 			device = device->next;
 		}
 
+#ifdef USE_WRITE_LOCKS1
+        appDevices->UnlockWrite ( "VanishedDeviceWatcher" );
+#else
 		LockReleaseV ( mutex, "VanishedDeviceWatcher" );
+#endif
 	}
 
 
@@ -2545,7 +2651,11 @@ namespace environs
 		if ( !listRoot )
 			return 0;
 
+#ifdef USE_WRITE_LOCKS1
+        if ( !appDevices->LockWrite ( "UpdateDevicesV4" ) )
+#else
 		if ( !LockAcquire ( mutex, "UpdateDevicesV4" ) )
+#endif
 			goto Finish;
 
 		device = *listRoot;
@@ -2738,7 +2848,12 @@ namespace environs
 			}
 		}
 
-		if ( !LockRelease ( mutex, "UpdateDevicesV4" ) ) {
+#ifdef USE_WRITE_LOCKS1
+        if ( !appDevices->UnlockWrite ( "UpdateDevicesV4" ) )
+#else
+		if ( !LockRelease ( mutex, "UpdateDevicesV4" ) )
+#endif
+        {
 			if ( device ) {
 				device->baseSP = 0;
 				device = 0;
@@ -2865,7 +2980,11 @@ namespace environs
 		if ( !listRoot )
 			return 0;
 
+#ifdef USE_WRITE_LOCKS1
+        if ( !appDevices->LockWrite ( "UpdateDevices" ) )
+#else
 		if ( !LockAcquire ( mutex, "UpdateDevices" ) )
+#endif
 			goto Finish;
 
 		device = *listRoot;
@@ -2993,7 +3112,6 @@ namespace environs
             
 			strlcpy ( device->info.areaName, areaName, sizeof ( device->info.areaName ) );
 			strlcpy ( device->info.appName, appName, sizeof ( device->info.appName ) );
-            
 			break;
 		}
 
@@ -3062,7 +3180,12 @@ namespace environs
 			}
 		}
 
-		if ( !LockRelease ( mutex, "UpdateDevices" ) ) {
+#ifdef MEDIATORDAEMON
+        if ( !appDevices->UnlockWrite ( "UpdateDevices" ) )
+#else
+		if ( !LockRelease ( mutex, "UpdateDevices" ) )
+#endif
+        {
 			if ( device ) {
 				device->baseSP = 0;
 				device = 0;
@@ -3074,7 +3197,6 @@ namespace environs
 		}
 
 	Finish:
-
 #ifdef MEDIATORDAEMON
 		if ( appDevices )
             __sync_sub_and_fetch ( &appDevices->access, 1 );

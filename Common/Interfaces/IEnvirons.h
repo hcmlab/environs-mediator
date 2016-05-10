@@ -374,6 +374,17 @@ namespace environs
 		*/
 		virtual bool SetPorts ( int tcpPort, int udpPort ) = 0;
 
+
+        /**
+         * Set the base port that the local instance of Environs shall use for communication with other instances.
+         * This option enables spanning of multiple multi surface environsments separated by the network stacks.
+         *
+         * @param	port The base port.
+         * @return success
+         */
+        virtual bool SetBasePort ( int port ) = 0;
+        
+
 		virtual unsigned int GetIPAddress () = 0;
 		virtual unsigned int GetSubnetMask () = 0;
 

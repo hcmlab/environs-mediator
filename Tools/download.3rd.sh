@@ -14,6 +14,8 @@ if [[ -z "${TOOLSDIR}" ]]; then
     popd > /dev/null
 fi
 
+source "${TOOLSDIR}/check.build.is.ci.sh"
+
 tDir=
 dryrun=0
 

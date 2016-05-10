@@ -199,7 +199,26 @@ namespace environs
 
 			CLI_INC LIBEXPORT void CallConv			SetDeviceDimsN ( int width, int height, int width_mm, int height_mm, int leftpos, int toppos );
 
+
+            /**
+             * Set the ports that the local instance of Environs shall use for listening on connections.
+             *
+             * @param	tcpPort The tcp port.
+             * @param	udpPort The udp port.
+             * @return success
+             */
 			CLI_INC LIBEXPORT EBOOL CallConv		SetPortsN ( int hInst, int tcpPort, int udpPort );
+
+
+            /**
+             * Set the base port that the local instance of Environs shall use for communication with other instances.
+             * This option enables spanning of multiple multi surface environsments separated by the network stacks.
+             *
+             * @param	port The base port.
+             * @return success
+             */
+            CLI_INC LIBEXPORT EBOOL CallConv		SetBasePortN ( int hInst, int port );
+            
 
 			//CLI_INC LIBEXPORT void CallConv			SetDeviceTypeN ( char type );
 

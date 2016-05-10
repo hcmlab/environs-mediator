@@ -485,6 +485,17 @@ namespace environs
 			 */
 			ENVIRONS_LIB_API bool SetPorts ( int tcpPort, int udpPort );
 
+
+            /**
+             * Set the base port that the local instance of Environs shall use for communication with other instances.
+             * This option enables spanning of multiple multi surface environsments separated by the network stacks.
+             *
+             * @param	port The base port.
+             * @return success
+             */
+            ENVIRONS_LIB_API bool SetBasePort ( int port );
+
+
 			ENVIRONS_LIB_API unsigned int GetIPAddress ();
 			ENVIRONS_LIB_API unsigned int GetSubnetMask ();
 

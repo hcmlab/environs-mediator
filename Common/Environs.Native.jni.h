@@ -41,6 +41,14 @@ JNIEXPORT jboolean JNICALL Java_environs_Environs_LoadSettingsN
 
 /*
  * Class:     environs_Environs
+ * Method:    ClearStorageN
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_environs_Environs_ClearStorageN
+  (JNIEnv *, jclass);
+
+/*
+ * Class:     environs_Environs
  * Method:    GetUseMediatorLoginDialogN
  * Signature: (I)Z
  */
@@ -522,10 +530,10 @@ JNIEXPORT jint JNICALL Java_environs_Environs_GetConnectAllowFromAllN
 /*
  * Class:     environs_Environs
  * Method:    AllowConnectN
- * Signature: (II)I
+ * Signature: (III)I
  */
 JNIEXPORT jint JNICALL Java_environs_Environs_AllowConnectN
-  (JNIEnv *, jclass, jint, jint);
+  (JNIEnv *, jclass, jint, jint, jint);
 
 /*
  * Class:     environs_Environs
@@ -606,6 +614,14 @@ JNIEXPORT jint JNICALL Java_environs_Environs_GetStatusN
  */
 JNIEXPORT jboolean JNICALL Java_environs_Environs_SetPortsN
   (JNIEnv *, jclass, jint, jint, jint);
+
+/*
+ * Class:     environs_Environs
+ * Method:    SetBasePortN
+ * Signature: (II)Z
+ */
+JNIEXPORT jboolean JNICALL Java_environs_Environs_SetBasePortN
+  (JNIEnv *, jclass, jint, jint);
 
 /*
  * Class:     environs_Environs
@@ -1359,6 +1375,17 @@ JNIEXPORT jobject JNICALL Java_environs_Environs_GetDeviceDisplayPropsN
 JNIEXPORT jint JNICALL Java_environs_Environs_GetNetworkStatusN
   (JNIEnv *, jclass);
 
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class environs_Environs_ListContext */
+
+#ifndef _Included_environs_Environs_ListContext
+#define _Included_environs_Environs_ListContext
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifdef __cplusplus
 }
 #endif

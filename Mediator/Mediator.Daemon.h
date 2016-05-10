@@ -67,18 +67,6 @@ using namespace std;
 
 namespace environs
 {
-	class ILock1
-	{
-		pthread_mutex_t lock1;
-		bool			init1;
-
-	public:
-		bool Init1 ();
-		bool Lock1 ( const char * func );
-		bool Unlock1 ( const char * func );
-		ILock1 ();
-		~ILock1 ();
-	};
 
 
 	typedef struct _ValuePack
@@ -96,24 +84,35 @@ namespace environs
 	};
 
 
-	class AppsList : public ILock
+    class AppsList : public ILock
 	{
 	public:
 		msp ( string, ListValues ) apps;
 	};
 
 
-	class AreaApps : public ILock, public ILock1
+    class AreaApps : public ILock2,
+#ifdef USE_WRITE_LOCKS2
+    public IRWLock
+#else
+    public INoRWLock
+#endif
 	{
 	public:
 		unsigned int						id;
 		string                              name;
-		msp ( string, ApplicationDevices )	apps;
+        msp ( string, ApplicationDevices )	apps;
+        size_t                              notifyTargetsSize;
 		msp ( long long, ThreadInstance )   notifyTargets;
 	};
 
 
-	class AreasList : public ILock
+	class AreasList :
+#ifdef USE_WRITE_LOCKS3
+    public IRWLock
+#else
+    public INoRWLock
+#endif
 	{
 	public:
 		msp ( string, AreaApps ) list;
@@ -343,6 +342,7 @@ namespace environs
 
 		sp ( ThreadInstance ) 					GetSessionClient ( long long sessionID );
 
+        size_t                                  notifyTargetsSize;
 		msp ( long long, ThreadInstance )       notifyTargets;
 		void                                    UpdateNotifyTargets ( const sp ( ThreadInstance ) &client, int filterMode );
 
@@ -400,6 +400,8 @@ namespace environs
 #ifdef __cplusplus
 		void									UpdateDeviceInstance ( const sp ( DeviceInstanceNode ) & device, bool added, bool changed );
 #endif
+
+		unsigned int                            bannedIPLast;
 		unsigned int                            bannAfterTries;
 		pthread_mutex_t							bannedIPsLock;
         std::map<unsigned int, std::time_t>		bannedIPs;
@@ -492,7 +494,7 @@ namespace environs
         LONGSYNCNV                          *   sessionsChanged;
 
 #ifdef ENABLE_WINSOCK_SEND_THREADS
-		HANDLE									sendEvents [2];
+		HANDLE									sendEvent;
 #else
 		EnvSignal                               sendEvent;
 #endif

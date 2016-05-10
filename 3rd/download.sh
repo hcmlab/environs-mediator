@@ -40,6 +40,8 @@ fi
 
 TOOLSDIR="${SCRIPTDIR}/../Tools"
 
+source "${TOOLSDIR}/check.build.is.ci.sh"
+
 if [[ -e "${TOOLSDIR}/../Android" ]]; then
     . "${TOOLSDIR}"/download.android.projects.sh $cleanCmd
 fi

@@ -22,6 +22,18 @@
 #define INCLUDE_HCM_ENVIRONS_DYNAMIC_OPENSSL_H
 
 #include "Interop/Export.h"
+/*
+ * OpenSSL includes. If your compile happens to break here, then you need to provide those headers.
+ *
+ * We provide a tool to do this in the Tools folder:
+ * $ cd environs-root-folder
+ * $ ./Tools/download.3rd.sh
+ *
+ * If you want to download all headers to build all components of Environs, then there is a collector download script:
+ * $ cd environs-root-folder
+ * $ ./3rd/download.sh
+ *
+ */
 #include <openssl/evp.h>
 #include <openssl/rsa.h>
 #include <openssl/x509.h>

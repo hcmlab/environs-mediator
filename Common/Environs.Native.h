@@ -119,6 +119,13 @@ namespace environs {
 #define		OBJECTSTATE_DELETEABLE_2			2
 #define		OBJECTSTATE_DELETED					0
 
+//#define     OSX_USE_MANUAL_REF_COUNT
+
+#ifdef OSX_USE_MANUAL_REF_COUNT
+#   define IOSX_SUPER_DEALLOC()                 [super dealloc]
+#else
+#   define IOSX_SUPER_DEALLOC()
+#endif
 
 #ifdef NDEBUG
 #	define _EnvDebugBreak()
@@ -159,8 +166,20 @@ namespace environs {
 #define		UDP_MSG_PROTOCOL_VERSION			3
 #define		UDP_MSG_EXT_PROTOCOL_VERSION		4
 
-#define     NATIVE_DEFAULT_TCP_PORT				5901
-#define     NATIVE_DEFAULT_UDP_PORT				5901
+//#define     NATIVE_DEFAULT_TCP_PORT				5901
+//#define     NATIVE_DEFAULT_UDP_PORT				5901
+
+//#define     NATIVE_DEFAULT_TCP_PORT				5656
+//#define     NATIVE_DEFAULT_UDP_PORT				5656
+
+#define     NATIVE_DEFAULT_DEVICE_PORT			5959
+#define     NATIVE_DEFAULT_BASE_PORT			5899
+
+#ifdef MEDIATORDAEMON
+#   define  GET_MEDIATOR_BASE_PORT              NATIVE_DEFAULT_BASE_PORT
+#else
+#   define  GET_MEDIATOR_BASE_PORT              env->basePort
+#endif
 
 #define     ENVIRONS_DEBUG_TAGID				0xDD
 

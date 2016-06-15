@@ -21,6 +21,7 @@
 #include "Environs.Release.h"
 #include "Mediator.Daemon.h"
 #include "Environs.Native.h"
+#include "Tracer.h"
 
 #ifndef _WIN32
 #	include <sys/types.h>
@@ -47,12 +48,6 @@
 
 int main(int argc, char* argv[])
 {
-#ifdef TRACE_MEDIATOR_OBJECTS
-	LockInitA ( sendContextsMapLock );
-	LockInitA ( deviceInstancesMapLock );
-	LockInitA ( clientsMapLock );
-#endif
-
 	WSAData wsaData;
 	if ( WSAStartup ( MAKEWORD ( 2, 2 ), &wsaData ) ) {
 		printf ( "Init: Failed to initialize WinSock API!!!" );
@@ -61,9 +56,8 @@ int main(int argc, char* argv[])
 
 	printf ( "Environs Mediator v. %s\n", ENVIRONS_VERSION_STRING );
     printf ( "------------------------\n" );
-    
-    if ( !TraceSocketInit ( ) )
-        return false;
+
+	InitTracer ();
 
     if ( !Mediator::InitClass() ) {
         printf ( "ERROR: Failed to initialize class Mediator!\n" );
@@ -133,7 +127,7 @@ int main(int argc, char* argv[])
 
     Mediator::DisposeClass ();
     
-    TraceSocketDispose ();
+    DisposeTracerAll ();
     
 #ifdef _WIN32
 	WSACancelBlockingCall ();

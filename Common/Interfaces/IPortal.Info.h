@@ -29,15 +29,6 @@
 /* Namespace: environs -> */
 namespace environs
 {
-#if (!defined(ENVIRONS_IOS) && !defined(ENVIRONS_OSX))
-	class PortalInstance;
-
-	namespace lib
-	{
-		class PortalInstance;
-	}
-#endif
-
 	/**
 	*	A PortalInfo object serves as container for portal information.
     *   Environs makes use of such objects to get/set portal details.
@@ -51,16 +42,10 @@ namespace environs
 	{
         public:
 		PortalInfoBase  base;
-        
-        IPortalInfo () : portal ( 0 ) {};
+
+        IPortalInfo () : base ( PortalInfoBase () ) {};
         virtual ~IPortalInfo ( ) {};
-        
-        
-#if (defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX))
-        void *  portal;
-#else
-		sp ( lib::PortalInstance ) portal;
-#endif
+
         virtual std::string toString ( ) = 0;
         
         virtual void NotifyObservers ( environs::Notify::Portale_t notification ) = 0;

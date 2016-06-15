@@ -29,19 +29,60 @@
 #endif
 
 #ifndef NDEBUG
-#ifndef MEDIATORDAEMON
-#	define DEBUGSocketLog
-#	define DEBUG_TRACK_SOCKET
-#else
-//#	define DEBUGSocketLog
-//#	define DEBUG_TRACK_SOCKET
+#	ifndef MEDIATORDAEMON
+//#		define TRACE_TCP_ACCEPTOR_CONTEXTS
+//#		define TRACE_ALIVE_THREAD_LOCK
+
+#		define TRACE_CORE_OBJECTS
+#		define DEBUG_TRACK_SOCKET
+#		define DEBUG_TRACK_DEVICEBASE
+
+#       ifndef CLI_CPP
+//#           define DEBUG_TRACK_DEVICE_INSTANCE
+//#           define DEBUG_TRACK_DEVICE_INSTANCE1
+
+//#           define DEBUG_TRACK_MESSAGE_INSTANCE
+//#           define DEBUG_TRACK_MESSAGE_INSTANCE1
+
+//#           define DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT
+//#           define DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT1
+
+//#           define DEBUG_TRACK_LIST_NOTIFIER_CONTEXT
+//#           define DEBUG_TRACK_LIST_NOTIFIER_CONTEXT1
+
+#           ifdef __APPLE__
+//#               define DEBUG_TRACK_PLATFORM_MESSAGE_INSTANCE
+//#               define DEBUG_TRACK_ARC_MESSAGE_INSTANCE
+//#               define DEBUG_TRACK_ARC_MESSAGE_INSTANCE1
+#           endif
+#       endif
+//#		define TRACE_MEDIATOR_DEVICE_INSTANCE_NODES
+//#		define TRACE_MEDIATOR_SEND_CONTEXTS
+//#		define TRACE_MEDIATOR_THREAD_INSTANCES
+#	else
+//#		define DEBUG_TRACK_SOCKET
+//#		define TRACE_MEDIATOR_DEVICE_INSTANCE_NODES
+//#		define TRACE_MEDIATOR_SEND_CONTEXTS
+//#		define TRACE_MEDIATOR_THREAD_INSTANCES
+#	endif
 #endif
+
+#ifdef DEBUG_TRACK_SOCKET
+#   define CLOSE_SOCKET_ARG(exp)        , exp
+#else
+#   define CLOSE_SOCKET_ARG(exp)
 #endif
 
 //#define DEBUGSocketCreateLog
+//#define USE_INPUT_PACK_STDINT_CPP
+//#define USE_MEDIATOR_CLIENT_INSTANCE_BUFFER_UP
 
 #if defined(__APPLE__) && !defined(NDEBUG)
 //#   define XCODE_ANALYZER_BUG
+#endif
+
+#if (!defined(CLI_CPP) && !defined(NDEBUG))
+//#   define ENABLE_DISPOSER_DEVICEINSTANCE_CONSISTENCY_CHECK
 #endif
 
 #define ENABLE_IOS_HEALTHKIT_SUPPORT
@@ -85,9 +126,17 @@
 
 #define MAX_BULK_SEND_SIZE					2000000000
 
+#define MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
+
 #define USE_ADDR_REUSE_ONLY_FOR_CONNECT
 
+//#define USE_MEDIATOR_DELAYED_STUNT_SOCKET_CLOSER
+
 //#define USE_THREAD_NAME_ASSIGN_INSTRUCTION
+
+#ifdef _WIN32
+#   define USE_WIN32_CLIENT_CACHED_PRIVKEY
+#endif
 
 #define USE_MEDIATOR_OPT_KEY_MAPS_COMP
 
@@ -122,6 +171,8 @@
 #else
 #   define MED_WP
 #endif
+
+//#define DEBUG_DISPOSER_WSP
 
 //#define USE_NSLOG
 //#define USE_PORTAL_THREADS_FOR_IOSX_CAM

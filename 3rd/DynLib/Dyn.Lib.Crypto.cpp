@@ -126,7 +126,10 @@ namespace environs
     pEVP_DecryptFinal_ex                 dEVP_DecryptFinal_ex = 0;
     pEVP_EncryptUpdate                   dEVP_EncryptUpdate = 0;
     pEVP_EncryptFinal_ex                 dEVP_EncryptFinal_ex = 0;
+    pEVP_CIPHER_CTX_ctrl                 dEVP_CIPHER_CTX_ctrl = 0;
+
     pEVP_aes_256_cbc                     dEVP_aes_256_cbc = 0;
+    pEVP_aes_256_gcm                     dEVP_aes_256_gcm = 0;
 
     pSHA256_Init                         dSHA256_Init = 0;
     pSHA256_Update                       dSHA256_Update = 0;
@@ -155,6 +158,10 @@ namespace environs
             || !dCRYPTO_set_locking_callback || !dCRYPTO_num_locks || !dCRYPTO_set_id_callback || !dCRYPTO_set_dynlock_create_callback || !dCRYPTO_set_dynlock_lock_callback
 #ifdef MEDIATORDAEMON
             || !dEVP_PKEY_set1_RSA || !dd2i_RSA_PUBKEY || !dPEM_read_X509 || !dPEM_read_RSAPrivateKey
+#endif
+
+#ifdef ENABLE_AES_GCM
+            || !dEVP_aes_256_gcm || !dEVP_CIPHER_CTX_ctrl
 #endif
 			) {
 			CWarn ( "VerifyLibOpenSSLAccess: One of the openssl functions could not be loaded!" );
@@ -354,9 +361,12 @@ namespace environs
 
 		dEVP_DecryptFinal_ex                = ( pEVP_DecryptFinal_ex ) dlsym ( hLib, "EVP_DecryptFinal_ex" );
 		dEVP_EncryptUpdate                  = ( pEVP_EncryptUpdate ) dlsym ( hLib, "EVP_EncryptUpdate" );
-		dEVP_EncryptFinal_ex                = ( pEVP_EncryptFinal_ex ) dlsym ( hLib, "EVP_EncryptFinal_ex" );
+        dEVP_EncryptFinal_ex                = ( pEVP_EncryptFinal_ex ) dlsym ( hLib, "EVP_EncryptFinal_ex" );
+        dEVP_CIPHER_CTX_ctrl                = ( pEVP_CIPHER_CTX_ctrl ) dlsym ( hLib, "EVP_CIPHER_CTX_ctrl" );
 
-		dEVP_aes_256_cbc                    = ( pEVP_aes_256_cbc ) dlsym ( hLib, "EVP_aes_256_cbc" );
+        dEVP_aes_256_cbc                    = ( pEVP_aes_256_cbc ) dlsym ( hLib, "EVP_aes_256_cbc" );
+
+        dEVP_aes_256_gcm                    = ( pEVP_aes_256_gcm ) dlsym ( hLib, "EVP_aes_256_gcm" );
 
 		dSHA256_Init                        = ( pSHA256_Init ) dlsym ( hLib, "SHA256_Init" );
 		dSHA256_Update                      = ( pSHA256_Update ) dlsym ( hLib, "SHA256_Update" );

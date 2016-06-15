@@ -173,15 +173,15 @@ namespace environs
 		virtual void NotifyAppContextChanged ( int customFlags ) = 0;
         
         /** A descriptive string with the most important details. */
-		virtual const char * toString () = 0;
+		virtual std::string toString () = 0;
         
         /** IP from device. The IP address reported by the device which it has read from network configuration. */
-        virtual const char * ips () = 0;
+        virtual std::string ips () = 0;
         
         /** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
          * This address could be different from IP due to NAT, Router, Gateways behind the device.
          */
-		virtual const char * ipes () = 0;
+		virtual std::string ipes () = 0;
 
 		virtual bool EqualsAppEnv ( environs::DeviceInfo * equalTo ) = 0;
 		virtual bool EqualsAppEnv ( const char * areaName, const char * appName ) = 0;

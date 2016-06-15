@@ -52,7 +52,11 @@ namespace environs
             
         public:
             /** Constructor */
-			IIEnvironsObserver () : OnEnvironsStatus_ ( true ), OnEnvironsNotify_ ( true ), OnEnvironsNotifyExt_ ( true ), OnEnvironsPortalRequestOrProvided_ ( true ), OnEnvironsPortalRequestOrProvidedInterface_ ( true ) {};
+            IIEnvironsObserver () : OnEnvironsStatus_ ( true ), OnEnvironsNotify_ ( true ), OnEnvironsNotifyExt_ ( true )
+#ifndef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
+            , OnEnvironsPortalRequestOrProvided_ ( true ), OnEnvironsPortalRequestOrProvidedInterface_ ( true )
+#endif
+            {};
             
 			virtual ~IIEnvironsObserver () {};
 
@@ -83,7 +87,8 @@ namespace environs
 			*/
 			virtual void OnNotifyExt ( environs::ObserverNotifyContext * context ) = 0;
             
-            
+
+#ifndef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
             /**
              * OnPortalRequestOrProvided is called when a portal request from another devices came in, or when a portal has been provided by another device.
              *
@@ -105,23 +110,27 @@ namespace environs
              * @param portal 		The PortalInstance object.
              */
             virtual void OnPortalRequestOrProvidedBase ( environs::PortalInstance * portal ) { ENVIRONS_I_SP1 ( environs::PortalInstance, OnPortalRequestOrProvided, portal ); };
-            
+#endif
             
         protected:
             bool OnEnvironsStatus_;
             bool OnEnvironsNotify_;
             bool OnEnvironsNotifyExt_;
+            
+#ifndef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
             bool OnEnvironsPortalRequestOrProvided_;
             bool OnEnvironsPortalRequestOrProvidedInterface_;
+#endif
 		};
 
 
-		/**
-		* IIListObserver: Attachable to **IDeviceList** objects in order to receive list changes of a particular IDeviceList.
-		*/
+        /**
+         * IIListObserver: Attachable to **IDeviceList** objects in order to receive list changes of a particular IDeviceList.
+         * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
+         */
 		class IIListObserver
 		{
-			friend class DeviceList;
+            friend class DeviceList;
 
 		public:
 			/** Constructor */
@@ -129,16 +138,18 @@ namespace environs
 
 			virtual ~IIListObserver () {};
 
-			/**
-			* OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
-			*
-			* @param vanished     A collection containing the devices vanished and removed from the list. This argument can be null.
-			* @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
-			*/
+            /**
+             * OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
+             * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
+             *
+             * @param vanished     A collection containing the devices vanished and removed from the list. This argument can be null.
+             * @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
+             */
             virtual void OnListChanged ( const sp ( DeviceInstanceList ) &vanished, const sp ( DeviceInstanceList ) &appeared ) = 0;
             
             /**
              * OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
+             * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
              *
              * @param vanished     A collection containing the devices vanished and removed from the list. This argument can be null.
              * @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
@@ -161,11 +172,16 @@ namespace environs
 		*/
 		class IIDeviceObserver
 		{
-			friend class DeviceInstance;
+            friend class DeviceInstance;
+            friend class PortalInstance;
 
 		public:
 			/** Constructor */
-			IIDeviceObserver () : OnDeviceChanged_ ( true ), OnDeviceChangedInterface_ ( true ), OnDeviceChangedInternal_ ( false ) {};
+            IIDeviceObserver () : OnDeviceChanged_ ( true ), OnDeviceChangedInterface_ ( true ), OnDeviceChangedInternal_ ( false )
+#ifdef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
+            , OnEnvironsPortalRequestOrProvided_ ( true ), OnEnvironsPortalRequestOrProvidedInterface_ ( true )
+#endif
+            {};
 
 			virtual ~IIDeviceObserver () {};
 
@@ -191,12 +207,42 @@ namespace environs
             
             virtual void OnDeviceChangedBase ( environs::DeviceInstance * device, environs::DeviceInfoFlag_t flags ) { ENVIRONS_I_SP1_1 ( environs::DeviceInstance, OnDeviceChanged, device, flags ); }
 
-			virtual void OnDeviceChangedInternal ( environs::DeviceInfoFlag_t flags ) { OnDeviceChangedInternal_ = false; };
+            virtual void OnDeviceChangedInternal ( environs::DeviceInfoFlag_t flags ) { OnDeviceChangedInternal_ = false; };
+
+
+#ifdef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
+            /**
+             * OnPortalRequestOrProvided is called when a portal request from another devices came in, or when a portal has been provided by another device.
+             *
+             * @param portal 		The PortalInstance object.
+             */
+            virtual void OnPortalRequestOrProvided ( const sp ( environs::PortalInstance ) &portal ) = 0;
+
+
+            /**
+             * OnPortalRequestOrProvided is called when a portal request from another devices came in, or when a portal has been provided by another device.
+             *
+             * @param portal 		The PortalInstance object.
+             */
+            virtual void OnPortalRequestOrProvidedInterface ( environs::PortalInstance * portal ) = 0;
+
+            /**
+             * OnPortalRequestOrProvidedBase is called when a portal request from another devices came in, or when a portal has been provided by another device.
+             *
+             * @param portal 		The PortalInstance object.
+             */
+            virtual void OnPortalRequestOrProvidedBase ( environs::PortalInstance * portal ) { ENVIRONS_I_SP1 ( environs::PortalInstance, OnPortalRequestOrProvided, portal ); };
+#endif
 
 		protected:
             bool OnDeviceChanged_;
             bool OnDeviceChangedInterface_;
-			bool OnDeviceChangedInternal_;
+            bool OnDeviceChangedInternal_;
+
+#ifdef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
+            bool OnEnvironsPortalRequestOrProvided_;
+            bool OnEnvironsPortalRequestOrProvidedInterface_;
+#endif
 		};
         
         

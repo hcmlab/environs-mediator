@@ -45,19 +45,7 @@
 #   endif
 
 #ifndef NDEBUG
-//#	define DEBUG_TRACK_MESSAGE_INSTANCE
-//#   define DEBUG_TRACK_MESSAGE_INSTANCE1
 
-//#	define DEBUG_TRACK_ARC_MESSAGE_INSTANCE
-//#	define DEBUG_TRACK_ARC_MESSAGE_INSTANCE1
-
-//#   define DEBUG_TRACK_DEVICE_INSTANCE
-//#   define DEBUG_TRACK_DEVICE_INSTANCE1
-
-//#	define DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT
-//#	define DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT1
-//#	define DEBUG_TRACK_LIST_NOTIFIER_CONTEXT
-//#	define DEBUG_TRACK_LIST_NOTIFIER_CONTEXT1
 #endif
 
 #endif
@@ -99,10 +87,6 @@ namespace environs
 		};        
         
         
-#ifdef DEBUG_TRACK_DEVICE_NOTIFIER_CONTEXT
-        void CheckNotifierContextContexts ( DeviceNotifierContext * inst, bool remove );
-#endif
-        
 		PUBLIC_CLASS UdpDataPack
 		{
 		public:
@@ -132,6 +116,7 @@ namespace environs
             MAKE_FRIEND_CLASS ( MessageInstance );
             MAKE_FRIEND_CLASS ( FileInstance );
             MAKE_FRIEND_CLASS ( DeviceInstanceProxy );
+            MAKE_FRIEND_CLASS ( DeviceListProxy );
             MAKE_FRIEND_CLASS ( DLObserver );
 
 		public:
@@ -214,16 +199,16 @@ namespace environs
 			environs::DeviceInfo OBJ_ptr info ();
         
             /** A descriptive string with the most important details. */
-			ENVIRONS_LIB_API CString_ptr toString ();
+			ENVIRONS_LIB_API STRING_T toString ();
         
             /** IP from device. The IP address reported by the device which it has read from network configuration. */
-			ENVIRONS_LIB_API CString_ptr ips ();
+			ENVIRONS_LIB_API STRING_T ips ();
 
         
             /** IP external. The IP address which was recorded by external sources (such as the Mediator) during socket connections.
              * This address could be different from IP due to NAT, Router, Gateways behind the device.
              */
-			ENVIRONS_LIB_API CString_ptr ipes ();
+			ENVIRONS_LIB_API STRING_T ipes ();
 
 			ENVIRONS_LIB_API bool EqualsAppEnv ( environs::DeviceInfoPtr equalTo );
 			ENVIRONS_LIB_API bool EqualsAppEnv ( CString_ptr areaName, CString_ptr appName );
@@ -651,10 +636,10 @@ namespace environs
             bool disposalNotified;
             size_t lastObserversSize;
 			int gotInserts;
-        int gotInserts1;
-        int gotInserts2;
-        int gotInserts3;
-        int gotInserts4;
+            int gotInserts1;
+            int gotInserts2;
+            int gotInserts3;
+            int gotInserts4;
 			int gotUpdates;
 			int gotUpdates1;
 			int gotRemoves;
@@ -665,6 +650,12 @@ namespace environs
 			int gotRemoves42;
 			int gotRemoves5;
 			int gotDisposes;
+#endif
+
+#ifdef ENABLE_DISPOSER_DEVICEINSTANCE_CONSISTENCY_CHECK
+			LONGSYNC	atLists;
+			void CheckSPConsistency ();	
+			void CheckSPConsistency1 ( long listsAlive );
 #endif
 			/**
 			* Release ownership on this interface and mark it disposable.
@@ -683,11 +674,19 @@ namespace environs
 			static void                 GlobalsDispose ();
 
 			int                         hEnvirons;
-
+		
 #ifndef CLI_CPP
 			Instance                *   env;
+
+            DeviceInstanceESP           clearMessagesSP;
+            DeviceInstanceESP           clearStorageSP;
+#else
+			static String ^ appContext0String = "appContext0";
+			static String ^ appContext1String = "appContext1";
+			static String ^ appContext2String = "appContext2";
+			static String ^ appContext3String = "appContext3";
 #endif
-        
+
 #ifdef DEBUG_TRACK_DEVICE_INSTANCE
     public:
         EnvironsPtr                 envObj;
@@ -697,7 +696,7 @@ namespace environs
 #else
         EnvironsPtr                 envObj;
 #endif
-        
+
 			pthread_mutex_t				devicePortalsLock;
 
 			/** A collection of PortalInstances that this device has established or is managing. */
@@ -743,6 +742,7 @@ namespace environs
 			unsigned int            enableSensorSender;
 
 			STRING_T	            toString_;
+
 			STRING_T	            ips_;
 			STRING_T	            ipes_;
 			STRING_T	            filePath;
@@ -832,11 +832,11 @@ namespace environs
         
             void            NotifyUdpData ( UdpDataContext OBJ_ptr ctx );
 
-			void			ClearMessagesThread ();
-			static void c_OBJ_ptr	ClearMessagesThreader ( pthread_param_t arg );
+			void			ClearMessagesDo ();
+			static void c_OBJ_ptr	ClearMessagesThread ( pthread_param_t arg );
 
-			void			ClearStorageThread ();
-			static void c_OBJ_ptr	ClearStorageThreader ( pthread_param_t arg );
+			void			ClearStorageDo ();
+			static void c_OBJ_ptr	ClearStorageThread ( pthread_param_t arg );
 
 			void			VerifyStoragePath ();
 

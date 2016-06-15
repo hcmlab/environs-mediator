@@ -26,6 +26,8 @@
 
 #if (defined(_WIN32) && !defined(USE_OPENSSL))
 #   include <Wincrypt.h>
+
+//#	define USE_WIN32_CNG_CRYPT
 #endif
 
 #define ENVIRONS_MAX_KEYBUFFER_SIZE		(ENVIRONS_MAX_KEYSIZE + 1024)
@@ -40,22 +42,28 @@
 #define ENABLE_CRYPT_PRIVKEY_LOCKED_ACCESS
 
 
-#if ( defined(ANDROID) || defined(LINUX) || defined(WINDOWS_PHONE) )
+#if defined(ENVIRONS_IOS) || defined(_WIN32)
+
+#   define IGNORE_OPENSSL_AS_DEFAULT
+#   define IGNORE_OPENSSL_AS_PLATFORM
+
+#else
+#   if defined(ANDROID) || defined(ENVIRONS_OSX)
+#       define IGNORE_OPENSSL_AS_PLATFORM
+#   endif
+
 #   define USE_OPENSSL
 #   define USE_OPENSSL_AES
-#else
-//#if ( defined(MEDIATORDAEMON) )
-    #if ( defined(MEDIATORDAEMON) || defined(ENVIRONS_OSX) )
 
-        #if ( !defined(ENVIRONS_IOS) && !defined(_WIN32) )
-        /// Use openssl for macos and mediatordaemon
-            #define USE_OPENSSL
-            #define USE_OPENSSL_AES
-        #endif
+#endif
 
-
-    #endif
-
+#ifdef ENVIRONS_OSX1
+#   ifdef USE_OPENSSL
+#       undef USE_OPENSSL
+#   endif
+#   ifdef USE_OPENSSL_AES
+#       undef USE_OPENSSL_AES
+#   endif
 #endif
 
 #ifndef OPENSSL1
@@ -70,30 +78,58 @@
 #   endif
 #endif
 
+#ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+#   define  CRYPT_AES_LOCK_EXP(exp)       exp
+#else
+#   define  CRYPT_AES_LOCK_EXP(exp)
+#endif
+
+#if ( defined(ENVIRONS_IOS) )
+//#   define	ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_ACCESS
+#endif
+
+#ifdef USE_WIN32_CLIENT_CACHED_PRIVKEY
+//#   define	ENABLE_CRYPT_EXCLUSIVE_PRIVKEY_CLIENT_ACCESS
+#endif
+
+
+//#define ENABLE_AES_GCM
 
 namespace environs
 {
+#define ENVIRONS_AES_CBC    0
+#define ENVIRONS_AES_GCM    1
+
 	typedef struct AESContext {
 		char		*	keyCtx;
 		char		*	encCtx;
         char		*	decCtx;
         
 #ifdef ENABLE_CRYPT_AES_LOCKED_ACCESS
+		bool			lockAllocated;
 		pthread_mutex_t	encLock;
 		pthread_mutex_t	decLock;
-#endif
-        
+#endif        
 		unsigned int	size;
         unsigned int    version;
 		int				deviceID;
+        int             nounce;
 	}
 	AESContext;
 
 	extern const char		*	hashSalt;
 	extern pthread_mutex_t		privKeyMutex;
 
+	typedef bool ( CallConv * pInitEnvironsCrypt )( void );
+	typedef void ( CallConv * pReleaseEnvironsCrypt )( void );
+
     extern bool InitEnvironsCrypt ();
+	extern pInitEnvironsCrypt InitEnvironsCryptPlatform;
+	extern pInitEnvironsCrypt InitEnvironsCryptLocksPlatform;
+
     extern void ReleaseEnvironsCrypt ();
+	extern pReleaseEnvironsCrypt ReleaseEnvironsCryptPlatform;
+	extern pReleaseEnvironsCrypt ReleaseEnvironsCryptLocksPlatform;
 
 	/// <summary>
 	/// The certificate file format is as follows: 
@@ -122,6 +158,11 @@ namespace environs
     extern pDisposePrivateKey DisposePrivateKey;
 	extern void dDisposePrivateKey ( void ** key );
 
+    typedef bool (CallConv * pUpdateKeyAndCert)(char * priv, char * cert);
+    extern pUpdateKeyAndCert UpdateKeyAndCert;
+
+    extern bool dUpdateKeyAndCert ( char * priv, char * cert );
+
     extern bool SignCertificate ( char * key, unsigned int keySize, char * pub, char ** cert );
     
     typedef bool (CallConv * pGenerateCertificate)(char ** priv, char ** pub);
@@ -134,9 +175,6 @@ namespace environs
     extern pPreparePrivateKey PreparePrivateKey;
     extern bool dPreparePrivateKey ( char ** privKey );
     
-    extern bool UpdateKeyAndCert ( char * priv, char * cert );
-
-    
     typedef bool (CallConv * pEncryptMessage)(int deviceID, char * cert, char * msg, unsigned int * msgLen);
     
     extern pEncryptMessage EncryptMessage;
@@ -148,10 +186,10 @@ namespace environs
 	extern bool dDecryptMessage ( char * key, unsigned int keySize, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize );
     
 #ifdef _WIN32    
-	typedef bool (CallConv * pDecryptMessageWithKeyHandles )( HCRYPTPROV hCSP, HCRYPTKEY hKey, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize);
+	typedef bool (CallConv * pDecryptMessageWithKeyHandles )( HCRYPTKEY hKey, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize);
 
 	extern pDecryptMessageWithKeyHandles DecryptMessageWithKeyHandles;
-	extern bool dDecryptMessageWithKeyHandles ( HCRYPTPROV hCSP, HCRYPTKEY hKey, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize );
+	extern bool dDecryptMessageWithKeyHandles ( HCRYPTKEY hKey, char * msg, unsigned int msgLen, char ** decrypted, unsigned int * decryptedSize );
 #endif
 
     typedef void (CallConv * pReleaseCert)(int deviceID);

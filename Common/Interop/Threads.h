@@ -533,55 +533,55 @@ namespace environs
 #else
 
 #ifdef NDEBUG
-#	define LockInit(m)				LockInitBool(m)
-#	define LockInitA(m)				LockInitBool(&m)
+#	define LockInit(m)				environs::LockInitBool(m)
+#	define LockInitA(m)				environs::LockInitBool(&m)
 	extern bool LockInitBool ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define LockDispose(m)			LockDisposeBool(m)
-#	define LockDisposeA(m)			LockDisposeBool(&m)
+#	define LockDispose(m)			environs::LockDisposeBool(m)
+#	define LockDisposeA(m)			environs::LockDisposeBool(&m)
 	extern bool LockDisposeBool ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define LockAcquireV(m,f)		LockAcquireVoid(m)
-#	define LockAcquireVA(m,f)		LockAcquireVoid(&m)
+#	define LockAcquireV(m,f)		environs::LockAcquireVoid(m)
+#	define LockAcquireVA(m,f)		environs::LockAcquireVoid(&m)
 	extern void LockAcquireVoid ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define LockReleaseV(m,f)		LockReleaseVoid(m)
-#	define LockReleaseVA(m,f)		LockReleaseVoid(&m)
+#	define LockReleaseV(m,f)		environs::LockReleaseVoid(m)
+#	define LockReleaseVA(m,f)		environs::LockReleaseVoid(&m)
 	extern void LockReleaseVoid ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define LockAcquire(m,f)			LockAcquireBool(m)
-#	define LockAcquireA(m,f)		LockAcquireBool(&m)
+#	define LockAcquire(m,f)			environs::LockAcquireBool(m)
+#	define LockAcquireA(m,f)		environs::LockAcquireBool(&m)
 	extern bool LockAcquireBool ( pthread_mutex_t OBJ_ptr mtx );
 
-#	define LockRelease(m,f)			LockReleaseBool(m)
-#	define LockReleaseA(m,f)		LockReleaseBool(&m)
+#	define LockRelease(m,f)			environs::LockReleaseBool(m)
+#	define LockReleaseA(m,f)		environs::LockReleaseBool(&m)
 	extern bool LockReleaseBool ( pthread_mutex_t OBJ_ptr mtx );
 
 
-#	define CondInit(m)				CondInitBool(m)
-#	define CondInitA(m)				CondInitBool(&m)
+#	define CondInit(m)				environs::CondInitBool(m)
+#	define CondInitA(m)				environs::CondInitBool(&m)
 	extern bool CondInitBool ( pthread_cond_t * mtx );
 
-#	define CondDispose(m)			CondDisposeBool(m)
-#	define CondDisposeA(m)			CondDisposeBool(&m)
+#	define CondDispose(m)			environs::CondDisposeBool(m)
+#	define CondDisposeA(m)			environs::CondDisposeBool(&m)
 	extern bool CondDisposeBool ( pthread_cond_t * mtx );
 
 #	else
-#	define LockInit(m)				LockInitBool(m,#m)
-#	define LockInitA(m)				LockInitBool(&m,#m)
+#	define LockInit(m)				environs::LockInitBool(m,#m)
+#	define LockInitA(m)				environs::LockInitBool(&m,#m)
 	extern bool LockInitBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
 
-#	define LockDispose(m)			LockDisposeBool(m,#m)
-#	define LockDisposeA(m)			LockDisposeBool(&m,#m)
+#	define LockDispose(m)			environs::LockDisposeBool(m,#m)
+#	define LockDisposeA(m)			environs::LockDisposeBool(&m,#m)
 	extern bool LockDisposeBool ( pthread_mutex_t OBJ_ptr mtx, const char * name );
 
 #ifdef USE_TRACE_ALL_LOCK_CALLS
-#	define LockAcquireV(m,f)		LockAcquireVoid(m,#m,CLASS_NAME,f)
-#	define LockAcquireVA(m,f)		LockAcquireVoid(&m,#m,CLASS_NAME,f)
+#	define LockAcquireV(m,f)		environs::LockAcquireVoid(m,#m,CLASS_NAME,f)
+#	define LockAcquireVA(m,f)		environs::LockAcquireVoid(&m,#m,CLASS_NAME,f)
 	extern void LockAcquireVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
-#	define LockReleaseV(m,f)		LockReleaseVoid(m,#m,CLASS_NAME,f)
-#	define LockReleaseVA(m,f)		LockReleaseVoid(&m,#m,CLASS_NAME,f)
+#	define LockReleaseV(m,f)		environs::LockReleaseVoid(m,#m,CLASS_NAME,f)
+#	define LockReleaseVA(m,f)		environs::LockReleaseVoid(&m,#m,CLASS_NAME,f)
 	extern void LockReleaseVoid ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 #else
 #	define LockAcquireV(m,f)		pthread_mutex_lock_n(m)
@@ -591,21 +591,21 @@ namespace environs
 #	define LockReleaseVA(m,f)		pthread_mutex_unlock_n(&m)
 #endif
 
-#	define LockAcquire(m,f)			LockAcquireBool(m,#m,CLASS_NAME,f)
-#	define LockAcquireA(m,f)		LockAcquireBool(&m,#m,CLASS_NAME,f)
+#	define LockAcquire(m,f)			environs::LockAcquireBool(m,#m,CLASS_NAME,f)
+#	define LockAcquireA(m,f)		environs::LockAcquireBool(&m,#m,CLASS_NAME,f)
 	extern bool LockAcquireBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
-#	define LockRelease(m,f)			LockReleaseBool(m,#m,CLASS_NAME,f)
-#	define LockReleaseA(m,f)		LockReleaseBool(&m,#m,CLASS_NAME,f)
+#	define LockRelease(m,f)			environs::LockReleaseBool(m,#m,CLASS_NAME,f)
+#	define LockReleaseA(m,f)		environs::LockReleaseBool(&m,#m,CLASS_NAME,f)
 	extern bool LockReleaseBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
 
-#	define CondInit(m)				CondInitBool(m,#m)
-#	define CondInitA(m)				CondInitBool(&m,#m)
+#	define CondInit(m)				environs::CondInitBool(m,#m)
+#	define CondInitA(m)				environs::CondInitBool(&m,#m)
 	extern bool CondInitBool ( pthread_cond_t * mtx, const char * name );
 
-#	define CondDispose(m)			CondDisposeBool(m,#m)
-#	define CondDisposeA(m)			CondDisposeBool(&m,#m)
+#	define CondDispose(m)			environs::CondDisposeBool(m,#m)
+#	define CondDisposeA(m)			environs::CondDisposeBool(&m,#m)
 	extern bool CondDisposeBool ( pthread_cond_t * mtx, const char * name );
 #	endif
 

@@ -93,12 +93,8 @@ namespace environs
 		PUBLIC_CLASS DeviceListUpdatePack
 		{
 		public:
-            DeviceListUpdatePack () {
-                api         = nill;
-                devices     = nill;
-                lock        = nill;
-                updates     = nill;
-            }
+			DeviceListUpdatePack ( ) : lock ( nill ), updates ( nill ), api ( nill ), listType ( 0 ), devices ( nill ), devicesCount ( 0 ) 
+			{ }
             
 			pthread_mutex_t_ptr											lock;
             
@@ -138,7 +134,14 @@ namespace environs
             ENVIRONS_LIB_API void	SetListType ( environs::DeviceClass_t MEDIATOR_DEVICE_CLASS_ );
         
             ENVIRONS_LIB_API void	SetIsUIAdapter ( bool enable );
-        
+
+            /**
+             * Enable caching of the list returned by GetDevices() and update on call of GetDevices() for single threaded usagge.
+             *
+             * @param enable        true = enable, false = disable (default).
+             * Note for C++/Obj-C API: The cached list returned by GetDevices() is intended for single thread applications.
+             *          A call to GetDevices() while the cached list is still held by a thread is not allowed and might end up in invalid memory access.
+         */
             ENVIRONS_LIB_API void   SetEnableListCache ( bool enable );
 
 			DeviceInstanceESP		GetItem ( int position );
@@ -382,8 +385,6 @@ namespace environs
 
 		INTERNAL:
 
-			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( DeviceList );
-
 			int                             hEnvirons;
             bool                            isUIAdapter;
 
@@ -409,20 +410,23 @@ namespace environs
 #endif
 			void                            PlatformDispose ();
 
+			void		GetItem ( DeviceInstanceESP OBJ_ref device, int position );
+
 			c_const devList ( DeviceInstanceEP ) c_ref GetDevices ( environs::DeviceClass_t type );
 
-			static DeviceInstanceESP GetDevice ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr lock, int deviceID, CString_ptr areaName, CString_ptr appName, int * pos );
+			static void GetDevice ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr lock, DeviceInstanceESP OBJ_ref device, int deviceID, CString_ptr areaName, CString_ptr appName, int * pos );
 
-			static DeviceInstanceESP GetDevice ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr lock, OBJIDType objID, int * pos );
+			static void GetDevice ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr lock, DeviceInstanceESP OBJ_ref device, OBJIDType objID, int * pos );
 
-			static DeviceInstanceESP GetDeviceByNativeID ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr lock, int nativeID );
+			static void GetDeviceByNativeID ( c_const devList ( DeviceInstanceEP ) c_ref deviceList, pthread_mutex_t_ptr lock, DeviceInstanceESP OBJ_ref device, int nativeID );
 
-			DeviceInstanceESP GetDevice ( OBJIDType objOrDeviceID, bool isObjID );
+			void GetDevice ( DeviceInstanceESP OBJ_ref device, OBJIDType objOrDeviceID, bool isObjID );
 
-			DeviceInstanceESP GetDeviceAll ( OBJIDType objOrDeviceID, bool isObjID );
+			void GetDeviceAll ( DeviceInstanceESP OBJ_ref device, OBJIDType objOrDeviceID, bool isObjID );
 
-			static DeviceInstanceESP GetDeviceSeeker ( c_const devList ( DeviceInstanceEP ) c_ref list, pthread_mutex_t_ptr lock, OBJIDType objOrDeviceID, bool isObjID );
+			static void GetDeviceSeeker ( c_const devList ( DeviceInstanceEP ) c_ref list, pthread_mutex_t_ptr lock, DeviceInstanceESP OBJ_ref device, OBJIDType objOrDeviceID, bool isObjID );
 
+			void GetDeviceBestMatchNative ( DeviceInstanceESP OBJ_ref device, int deviceID );
 
 			/**
 			 * Release the ArrayList that holds the available devices.
@@ -431,7 +435,7 @@ namespace environs
 
 			void DisposeLists ();
 
-			static void DisposeList ( bool isUIAdapter, c_const devList ( DeviceInstanceEP ) c_ref list, pthread_mutex_t OBJ_ptr lock );
+			static void DisposeList ( bool isUIAdapter, c_const devList ( DeviceInstanceEP ) list, pthread_mutex_t OBJ_ptr lock );
 
 			static void DisposeListDo ( c_const devList ( DeviceInstanceEP ) c_ref list );
 

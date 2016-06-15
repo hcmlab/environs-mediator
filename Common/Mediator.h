@@ -70,6 +70,7 @@
 #include "Environs.Crypt.h"
 #include "Interop/Smart.Pointer.h"
 #include "Queue.Vector.h"
+#include "Tracer.h"
 
 #ifdef MEDIATORDAEMON
 #   include <string>
@@ -186,40 +187,12 @@ namespace environs	/// Namespace: environs ->
     
     extern bool FakeConnect ( int sock, unsigned int port );
 
-#ifdef DEBUG_TRACK_SOCKET
-    extern bool TraceSocketInit ( );
-	extern void TraceCheckStatus ( bool withKernel );
-    extern void TraceSocketDispose ( );
-    extern void TraceSocket ( int sock, const char * src );
-    extern void TraceSocketUpdate ( int sock, const char * src );
-    extern void TraceSocketRemove ( int sock, const char * src, const char * src1 );
-    
-    extern LONGSYNC    debugKernelCount;
-    extern LONGSYNC    debugMediatorCount;
-    extern LONGSYNC    debugDeviceBaseCount;
-    extern LONGSYNC    debugDeviceInstanceNodeCount;
-    
-    extern void ShutdownCloseSocketI ( int sock, bool doClose, const char * msg );
-    
-#define ShutdownCloseSocket(s,c,m)      ShutdownCloseSocketI ( s, c, m )
-#else
-#   define TraceSocketInit()            true
-#   define TraceCheckStatus(a)
-#   define TraceSocketDispose()
-    
-    extern void ShutdownCloseSocketI ( int sock, bool doClose );
-    
-#define ShutdownCloseSocket(s,c,m)      ShutdownCloseSocketI ( s, c )
-#endif
+    extern void ShutdownCloseSocketI ( int sock, bool doClose CLOSE_SOCKET_ARG (const char * msg) );
 
-//#define TRACE_ALIVE_THREAD_LOCK
-    
-#ifdef TRACE_ALIVE_THREAD_LOCK
-    extern void TraceAliveLocker ( const char * src );
-    extern void TraceAliveUnlocker ( const char * src );
+#ifdef DEBUG_TRACK_SOCKET
+#   define ShutdownCloseSocket(s,c,m)      ShutdownCloseSocketI ( s, c, m )
 #else
-#   define TraceAliveLocker(a)
-#   define TraceAliveUnlocker(a)
+#   define ShutdownCloseSocket(s,c,m)      ShutdownCloseSocketI ( s, c )
 #endif
 
     typedef struct NetPack
@@ -381,24 +354,8 @@ namespace environs	/// Namespace: environs ->
 	}
 	AppAreaKey;
 #endif
-    
-#	if defined(TRACE_MEDIATOR_OBJECTS) && defined(MEDIATORDAEMON)
-#		ifndef CLASS_NAME
-#			define CLASS_NAME		"Daemon"
-#		endif
-    class SendContext;
-    
-    extern pthread_mutex_t			sendContextsMapLock;
-    extern std::map<SendContext *, SendContext *> sendContextsMap;
 
-    extern pthread_mutex_t			clientsMapLock;
 
-	struct DeviceInstanceNode;
-
-	extern pthread_mutex_t			 deviceInstancesMapLock;
-	extern std::map<DeviceInstanceNode *, DeviceInstanceNode *> deviceInstancesMap;
-#	endif
-    
     class SendLoad
     {
     public:
@@ -416,17 +373,17 @@ namespace environs	/// Namespace: environs ->
     class SendContext
     {
     public:
+		// size ( 0 ),  Init of size not necessary, since it is guaranteed to be initialized by enqueue
         SendContext () : buffer ( 0 ), seqNr ( 0 ),
 #   if defined(MEDIATORDAEMON)
         done ( false ),
 #   endif
         freeSendBuffer ( false ), sendBuffer ( 0 ), sendCurrent ( 0 ), sendSize ( 0 )
-        {
-#	ifdef TRACE_MEDIATOR_OBJECTS
-            LockAcquireA ( sendContextsMapLock, "SendContext" );
-            sendContextsMap [ this ] = this;
-            LockReleaseA ( sendContextsMapLock, "SendContext" );
+#	if !defined(MEDIATORDAEMON)
+		//, addr ( EmptyStructValue( sockaddr_in ) ), sock ( 0 ),  Init of addr not necessary, since it is guaranteed to be initialized by enqueue
 #	endif
+        {
+            TraceSendContextAdd ( this );
         }
         
         ~SendContext ()
@@ -436,16 +393,10 @@ namespace environs	/// Namespace: environs ->
             
             if ( buffer )
                 free ( buffer );
-            
-#	ifdef TRACE_MEDIATOR_OBJECTS
-            LockAcquireA ( sendContextsMapLock, "" );
-            const std::map<SendContext *, SendContext *>::iterator it = sendContextsMap.find ( this );
-            if ( it != sendContextsMap.end () ) {
-                sendContextsMap.erase ( it );
-            }
-            LockReleaseA ( sendContextsMapLock, "" );
-#	endif
+
+            TraceSendContextRemove ( this );
         }
+
         
 #   ifdef MEDIATORDAEMON
         sp ( SendLoad )         dataSP;
@@ -466,7 +417,7 @@ namespace environs	/// Namespace: environs ->
         
 #if !defined(MEDIATORDAEMON)
         struct 	sockaddr_in		addr;
-        int                     sock;
+        //int                     sock; // obsolete
 #endif
     };
     
@@ -514,6 +465,24 @@ namespace environs	/// Namespace: environs ->
     StuntRegisterContext;
     
 
+#ifdef USE_MEDIATOR_CLIENT_INSTANCE_BUFFER_UP
+	typedef struct AssignableBufferUP
+	{
+		up ( char[] )             bufferUP;
+
+		AssignableBufferUP& operator=( AssignableBufferUP& other )
+		{
+			if ( &other == this )
+				return *this;
+
+			bufferUP = std::move ( other.bufferUP );
+			return *this;
+		}
+	}
+	AssignableBufferUP;
+#endif
+
+
     typedef struct ThreadInstance DAEMONEXP ( : public ILock )
 	{
 		void				*	daemon;
@@ -526,8 +495,8 @@ namespace environs	/// Namespace: environs ->
 		INTEROPTIMEVAL			aliveLast;
 		INTEROPTIMEVAL			connectTime;
         
-        SOCKETSYNC				socket;        
-        DAEMONEXP ( SOCKETSYNC socketToClose; )
+        int                     socket;
+        DAEMONEXP ( int         socketToClose; )
         
 		unsigned short			port;
 		unsigned short			portUdp;
@@ -537,8 +506,7 @@ namespace environs	/// Namespace: environs ->
         std::map < std::string, sp ( StuntRegisterContext ) > stuntSocketsLog;
 
         pthread_mutex_t         stuntSocketLock;
-        
-		unsigned short			stuntPort;
+
 		short                   filterMode;
 		
 		int						encrypt;
@@ -551,12 +519,7 @@ namespace environs	/// Namespace: environs ->
         char                    ips [ 20 ];
         
         unsigned int			seqNr;
-        
-		int						stuntSocketsFront;
-        int						stuntSocketsLast;
-        int						stuntSockets [ MAX_STUNT_SOCKETS_IN_QUEUE ];
-        INTEROPTIMEVAL          stuntSocketTime;
-        
+       
         DAEMONEXP ( bool subscribedToNotifications );
         DAEMONEXP ( bool subscribedToMessages );
         
@@ -584,10 +547,12 @@ namespace environs	/// Namespace: environs ->
 #endif
 		bool						inAcceptorList;
         short                       sendFails;
-        
-        volatile ThreadInstance  *	stuntTarget;
-        
-        up ( char [ ] )             bufferUP;
+
+#ifdef USE_MEDIATOR_CLIENT_INSTANCE_BUFFER_UP
+		AssignableBufferUP          bufferUP;
+#else
+		char *						bufferPtr;
+#endif
         ClientProcContext           ctx;
 #endif        
         bool                        allocated;
@@ -598,14 +563,10 @@ namespace environs	/// Namespace: environs ->
         void                        Reset ();
         bool                        Init ();
         void                        Dispose ();
-        void                        CloseStuntSockets ();
-        bool                        GetStuntSockets ( std::vector<int> &socks );
 #endif
 	}
 	ThreadInstance;
 
-    extern void AddStuntSocket ( ThreadInstance * inst, int sock );
-    
     void DisposeSendContexts ( ThreadInstance * client );
     
 
@@ -643,8 +604,12 @@ namespace environs	/// Namespace: environs ->
 
     
     // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
-#define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 9)
-    
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+#   define MAX_DEVICE_INSTANCE_KEY_LENGTH      sizeof(AppAreaKey)
+#else
+#   define MAX_DEVICE_INSTANCE_KEY_LENGTH      (11 + MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 9)
+#endif
+
     CLIENTEXP ( class DeviceController; )
     
     
@@ -654,10 +619,13 @@ namespace environs	/// Namespace: environs ->
         
         DAEMONEXP ( sp ( ApplicationDevices ) rootSP; )
         DAEMONEXP ( sp ( ThreadInstance )     clientSP; )
-        
-        // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
-        CLIENTEXP ( char				key [MAX_DEVICE_INSTANCE_KEY_LENGTH]; );
 
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+        CLIENTEXP ( AppAreaKey			key; );
+#else
+        // "int11 1s areaNameMAX_PROP 1s appNameMAX_PROP 1e"
+        CLIENTEXP ( char				key [ MAX_DEVICE_INSTANCE_KEY_LENGTH ]; );
+#endif
 		//char							userName	[ MAX_NAMEPROPERTY + MAX_NAMEPROPERTY + 1 ]; // 31
 
         // Links used by Mediator base layer
@@ -759,9 +727,6 @@ namespace environs	/// Namespace: environs ->
         
         std::map < int, MediatorResponseBuffer * > responseBuffers;
         
-        LONGSYNC                renewerAccess;
-        LONGSYNC                renewerQueue;
-        
         Instance            *   env;
         
         MediatorConnection ();
@@ -826,7 +791,7 @@ namespace environs	/// Namespace: environs ->
 		void					StopMediators ();
 
 		virtual void			BuildBroadcastMessage ( bool withStatus = true ) = 0;
-		bool					SendBroadcast ( bool enforce = false, bool sendStatus = false, bool sendToAny = false );
+		bool					SendBroadcast ( bool enforce = false, bool sendStatus = false, bool sendToAny = false, bool enforceEnqueue = false );
 		bool					SendBroadcastWithSocket ( bool enforce = false, bool sendStatus = false, bool sendToAny = false, int sock = -1 );
 
 		bool					AddMediator ( unsigned int ip, unsigned short port );
@@ -901,7 +866,7 @@ namespace environs	/// Namespace: environs ->
 		bool					IsLocalIP ( unsigned int ip );
         static void				VerifySockets ( ThreadInstance * inst, bool waitThread );
         
-        static bool				IsSocketAlive ( SOCKETSYNC &sock );
+        static bool				IsSocketAlive ( int &sock );
         
 		virtual void			OnStarted ( );
 

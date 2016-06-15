@@ -79,6 +79,44 @@ namespace environs {
 #define		OBJ_RELEASE(obj)					if(obj) { obj->Release(); obj = 0; }
 
 #define		Zero(mem)							memset(&mem,0,sizeof(mem))
+
+//
+// Attention when using EmptyStructValue(), ZeroStruct() and ZeroStructArray():
+//
+// VS <= 2013 (VS 2015 is fine) does not comply to the standard,
+// and will not initialize member variables, if "type" has an explicitly defined destructor,
+// but no explicitly defined default constructor.
+// http://stackoverflow.com/questions/3931312/value-initialization-and-non-pod-types
+//
+// When using these macros:
+// explicit default constructor +  explicit destructor: OK
+// explicit default constructor +  implicit destructor: OK
+// implicit default constructor +  explicit destructor: NOT_OK !! -> add explicit default constructor
+// implicit default constructor +  implicit destructor: OK
+//
+// Simple rule: When "type" has an user-defined destructor or has non-POD members add a default constructor,
+// that initializes all member variables.
+
+#ifdef VS2010
+#	define	EmptyStructValue(type)				type()
+#else
+#	define	EmptyStructValue(type)				type{}
+#endif
+
+#ifdef VS2010
+#	define	ZeroStruct(var, type)				var = type()
+#else
+#	define	ZeroStruct(var, type)				var = type{}
+#endif
+
+#ifdef VS2010
+#	define	ZeroStructArray(var, type)			std::fill(std::begin(var), std::end(var), type())
+#else
+#	define	ZeroStructArray(var, type)			std::fill(std::begin(var), std::end(var), type{})
+#endif
+
+#define		StackObject(type,obj)				type obj; memset(&obj,0,sizeof(obj))
+
 #ifdef _WIN32
 #	define	Zeroh(mem)							mem = nill
 #else
@@ -132,12 +170,16 @@ namespace environs {
 #else
 #   if defined(_WIN32)
 
-#       define _EnvDebugBreak()         ::_CrtDbgBreak ()
+//#       define _EnvDebugBreak()         ::_CrtDbgBreak ()
+#       define _EnvDebugBreak()         abort ()
 
 #   elif defined(__APPLE__)
 
 #       ifdef ENVIRONS_OSX
-#           define _EnvDebugBreak()     Debugger ()
+#           define _EnvDebugBreak()     abort()
+//__asm__("int $3\n" : : )
+// abort()
+//Debugger ()
 #       else
 #           define _EnvDebugBreak()     
 //__asm__("int $3\n" : : )
@@ -255,11 +297,11 @@ namespace environs
 
 #       ifdef USE_ENVIRONS_LOG_POINTERS
 #           ifdef ANDROID
-#               define ENVIRONS_LOG_RCMD(tag,expression)            if (COutLog) COutLog ( expression, 0, true )
-#               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     if (COutArgLog) COutArgLog ( expression, __VA_ARGS__ )
+#               define ENVIRONS_LOG_RCMD(tag,expression)            { if (COutLog) COutLog ( expression, 0, true ); }
+#               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     { if (COutArgLog) COutArgLog ( expression, __VA_ARGS__ ); }
 #           else
-#               define ENVIRONS_LOG_RCMD(tag,expression)            if (COutLog) COutLog ( expression, 0, true )
-#               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     if (COutArgLog) COutArgLog ( expression, __VA_ARGS__ )
+#               define ENVIRONS_LOG_RCMD(tag,expression)            { if (COutLog) COutLog ( expression, 0, true ); }
+#               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     { if (COutArgLog) COutArgLog ( expression, __VA_ARGS__ ); }
 #           endif
 #       else
 #           ifdef USE_STATIC_ENVIRONS_LOG
@@ -267,11 +309,11 @@ namespace environs
 #               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     environs::COutArgLog ( expression, __VA_ARGS__ )
 #           else
 #               ifdef ANDROID
-#                   define ENVIRONS_LOG_RCMD(tag,expression)        ((environs::Instance *) pEnvirons)->cOutLog ( tag, expression, 0, true )
-#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) ((environs::Instance *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ )
+#                   define ENVIRONS_LOG_RCMD(tag,expression)        { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutLog ( tag, expression, 0, true ); }
+#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ ); }
 #               else
-#                   define ENVIRONS_LOG_RCMD(tag,expression)        ((environs::Instance *) pEnvirons)->cOutLog ( expression, 0, true )
-#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) ((environs::Instance *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ )
+#                   define ENVIRONS_LOG_RCMD(tag,expression)        { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutLog ( expression, 0, true ); }
+#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ ); }
 #               endif
 #           endif
 #       endif
@@ -623,12 +665,13 @@ namespace environs
 #	define  CVerbUnLockPortalRecRes(msg)
 #endif
 
-#if ( !defined(DEBUGSocketLog) || defined(NDEBUG) )
+#if ( !defined(DEBUG_TRACK_SOCKET) || defined(NDEBUG) )
 #	undef	CSocketLog
 #	define  CSocketLog(msg)
 #	undef	CSocketTraceAdd
 #	define  CSocketTraceAdd(s,msg)
 #	define  CSocketTraceUpdate(s,msg)
+#	define  CSocketTraceUpdateCheck(s,msg)
 #	define  CSocketTraceVerbUpdate(s,msg)   
 #	define  CSocketTraceRemove(s,msg,src)
 #else
@@ -636,6 +679,7 @@ namespace environs
 #		define	CSocketLog(msg)						
 #		define  CSocketTraceAdd(s,msg)              TraceSocket ( s, msg )
 #		define  CSocketTraceUpdate(s,msg)           TraceSocketUpdate ( s, msg )
+#		define  CSocketTraceUpdateCheck(s,msg)      if (msg) TraceSocketUpdate ( s, msg )
 #		ifdef DEBUGVERB
 #			define  CSocketTraceVerbUpdate(s,msg)   
 #		else
@@ -646,6 +690,7 @@ namespace environs
 #		define	CSocketLog(msg)						CLog ( msg )
 #		define  CSocketTraceAdd(s,msg)
 #		define  CSocketTraceUpdate(s,msg)
+#		define  CSocketTraceUpdateCheck(s,msg)
 #		define  CSocketTraceVerbUpdate(s,msg)   
 #		define  CSocketTraceRemove(s,msg,src)
 #	endif

@@ -458,13 +458,9 @@ namespace environs
 		bool									HandleDeviceRegistrationV4 ( const sp ( ThreadInstance ) &clientSP, unsigned int ip, char * msg );
 		bool									SecureChannelAuth ( ThreadInstance * client );
 
-		void									HandleStuntSocketRegistration ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
-		void									HandleStuntSocketRegistrationV6 ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
+        void									HandleStuntSocketRegistration ( ThreadInstance * stuntClient, sp ( ThreadInstance ) orgClient, char * msg, unsigned int msgLen );
 
         bool									HandleSTUNTRequest ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV8 * msg );
-		bool									HandleSTUNTRequestV6 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV6 * msg );
-        bool									HandleSTUNTRequestV5 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacket * msg );
-		bool									HandleSTUNTRequestV4 ( const sp ( ThreadInstance ) &clientSP, STUNTReqPacketV4 * msg );
 
 		bool									NotifySTUNTRegRequest ( ThreadInstance * client );
 

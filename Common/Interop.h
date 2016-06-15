@@ -126,17 +126,19 @@
 #		define WNDHANDLE           			HWND
 #	endif /// <- WINDOWS_PHONE
 
-#	define LONGSYNC           				unsigned long volatile
-#	define LONGSYNCNV          				unsigned long
+#	define LONGSYNC           				LONG volatile
+#	define LONGSYNCNV          				LONG
 
+/*
 #	ifdef MEDIATORDAEMON
-#		define SOCKETSYNC           		long volatile
-#		define SOCKETSYNCNV           		long
+#		define SOCKETSYNC           		LONG volatile
+#		define SOCKETSYNCNV           		LONG
 #	else
 #		define SOCKETSYNC           		int 
 #		define SOCKETSYNCNV           		int
 #	endif
-#	define LONGSYNCNV          				unsigned long
+ */
+#	define LONGSYNCNV          				LONG
 
 /// Note: EBOOL represents platform specific boolean type. 
 /// Since Objective-C BOOL conflicts with win32 BOOL, we introduce EBOOL to resolve name conflicts
@@ -179,13 +181,14 @@
 #	define LONGSYNCNV          				long
 #	define LONGSYNC           				long
 
-#	ifdef MEDIATORDAEMON
+/*#	ifdef MEDIATORDAEMON
 #		define SOCKETSYNC           		long volatile
 #		define SOCKETSYNCNV           		long
 #	else
 #		define SOCKETSYNC           		int 
 #		define SOCKETSYNCNV           		int
 #	endif
+ */
 
 #	define WNDHANDLE           				void *
 #endif
@@ -307,8 +310,10 @@
 #	define EPSPACE                          environs::
 #	define CLIBSPACE						
 
-#	define StringToCChar(s)					( const char* ) ( Marshal::StringToHGlobalAnsi ( s ) ).ToPointer ()
-#	define DisposePlatCChar(v)				Marshal::FreeHGlobal ( IntPtr ( (void *) v ) )
+#	define PlatformIntPtr					IntPtr
+#	define StringToPlatformIntPtr(s)		Marshal::StringToHGlobalAnsi ( s )		
+//#	define StringToCChar(s)					( const char* ) ( Marshal::StringToHGlobalAnsi ( s ) ).ToPointer ()
+//#	define DisposePlatCChar(v)				Marshal::FreeHGlobal ( IntPtr ( (void *) v ) )
 #	define CCharToString(s)					Marshal::PtrToStringAnsi ( IntPtr ( (void *) (s) ) )
 
 #	define STRING_T							System::String ^
@@ -317,8 +322,11 @@
 #	define STRING_empty(s)					System::String::IsNullOrEmpty(s)
 #	define STRING_get_cstr(s)				StringToCChar ( s )
 
-#	define ToPlatPointer(v)					Marshal::StringToHGlobalAnsi ( v ).ToPointer ()
-#	define DisposePlatPointer(v)			Marshal::FreeHGlobal ( IntPtr ( v ) )
+	// Returns an IntPtr (of which we call ToPointer())
+#	define ToPlatformType(v)				Marshal::StringToHGlobalAnsi ( v )
+#	define DisposePlatPointer(iptr)			Marshal::FreeHGlobal ( iptr )
+#	define ToPlatAddr(v)					v.ToPointer ()
+
 #	define Addr_ptr							System::IntPtr ^
 #	define Addr_obj							System::IntPtr
 #	define Addr_pvalue(v)					v->ToPointer()
@@ -415,8 +423,11 @@
 #	define STRING_get(s)					s.c_str ()	
 #	define STRING_get_cstr(s)				s.c_str ()	
 
-#	define ToPlatPointer(v)					( (void *) v )
+#	define PlatformIntPtr					void *
+#	define StringToPlatformIntPtr(s)		s
+#	define ToPlatformType(v)				( (void *) v )
 #	define DisposePlatPointer(v)			
+#	define ToPlatAddr(v)					v
 #	define Addr_ptr							void *
 #	define Addr_obj							void *
 #	define Addr_pvalue(v)					v
@@ -485,5 +496,23 @@
 #   define NET_PACK_POP					        
 #   define NET_PACK_ALIGN               __attribute__ ((packed))
 #endif
+
+// always map to IEEE 754
+#define float32_t						float
+#define double64_t						double
+
+
+#if defined(_M_IX86) || defined(__i386) || defined(_X86_)|| defined(_M_X64) || defined(__x86_64__)
+#define UNALIGNED_MEMORY_ACCESS
+#else
+#undef UNALIGNED_MEMORY_ACCESS
+#endif
+
+#ifdef UNALIGNED_MEMORY_ACCESS
+#define GetStructPointerFromBuffer(type, var, buf)		type* var = reinterpret_cast< type* > ( buf );
+#else
+#define GetStructPointerFromBuffer(type, var, buf)		type _##var; memcpy ( &_##var, buf, sizeof ( type ) ); type* var = &_##var;
+#endif
+
 
 #endif // INCLUDE_HCM_ENVIRONS_INTEROP_H

@@ -61,7 +61,8 @@ ifeq ($(UNAME_S),Linux)
    CFLAGS += -Wno-unused-but-set-variable
 endif
 
-SRC	= main.cpp Mediator.Daemon.cpp stdafx.cpp $(INCS)Mediator.cpp $(INCS)Interop/Threads.cpp $(INCS)Environs.Types.cpp $(INCS)Environs.Utils.cpp 
+SRC	= main.cpp Mediator.Daemon.cpp stdafx.cpp $(INCS)Mediator.cpp $(INCS)Interop/Threads.cpp 
+SRC	+= $(INCS)Environs.Types.cpp $(INCS)Environs.Utils.cpp $(INCS)Environs.Crypt.Lib.cpp $(INCS)Tracer.cpp
 SRC	+= $(INCS)Environs.Crypt.cpp $(INCS)Queue.Vector.cpp $(INCS)Interop/Export.cpp $(3RD)DynLib/Dyn.Lib.Crypto.cpp
 
 OBJ = $(SRC:%.cpp=%.o)

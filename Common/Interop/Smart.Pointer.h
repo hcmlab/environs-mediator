@@ -21,7 +21,6 @@
 #ifndef INCLUDE_HCM_ENVIRONS_SMART_POINTER_H
 #define INCLUDE_HCM_ENVIRONS_SMART_POINTER_H
 
-
 #ifdef __cplusplus
 
 #if !defined(CLI_CPP)
@@ -207,8 +206,16 @@ using System::Collections::Generic::List;
 #	define deviceListCopy(type,src,dst)			
 //#	define deviceListCopy(type,src,dst)			for each ( type device in src ) { dst->Add ( device ); }
 #else
-#	define devListNew(UIControl,type)			( UIControl ? gcnew ObservableCollection<type ^> () : gcnew Collection<type ^> () )
-#	define devListNewArg(UIControl,type,arg)	( UIControl ? gcnew ObservableCollection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) : gcnew Collection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) )
+	// Disabled as it is not working correctly. After enabling notifications, the list is not reloaded by clients
+//#	define USE_CLI_CUSTOM_OBSERVABLE_COLLECTION_CLASS
+
+#	ifdef USE_CLI_CUSTOM_OBSERVABLE_COLLECTION_CLASS
+#		define devListNew(UIControl,type)		( UIControl ? gcnew EnvObservableCollection<type ^> () : gcnew Collection<type ^> () )
+#		define devListNewArg(UIControl,type,arg) ( UIControl ? gcnew EnvObservableCollection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) : gcnew Collection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) )
+#	else
+#		define devListNew(UIControl,type)		( UIControl ? gcnew ObservableCollection<type ^> () : gcnew Collection<type ^> () )
+#		define devListNewArg(UIControl,type,arg) ( UIControl ? gcnew ObservableCollection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) : gcnew Collection<type ^> (System::Linq::Enumerable::ToList<DeviceInstanceEPtr> ( arg )) )
+#	endif
 #	define deviceListCopy(type,src,dst)
 #endif
 

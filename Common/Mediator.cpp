@@ -29,6 +29,7 @@
 #include "Mediator.h"
 #include "Environs.Native.h"
 #include "Environs.Utils.h"
+#include "Tracer.h"
 
 #if !defined(MEDIATORDAEMON)
 #   include "Environs.Obj.h"
@@ -61,17 +62,16 @@ int g_Debug = 0;
 #include <map>
 #include <string>
 
-#ifdef LINUX // for socket tracer
-#   include <sys/types.h>
-#   include <sys/syscall.h>
-#endif
-
 #define	CLASS_NAME 	"Mediator . . . . . . . ."
 
+//#define ENABLE_LINGER_OPTIONS
 
+#ifndef MEDIATORDAEMON
+#   define ENABLE_SOCKET_CLOSE_DRAIN
+#endif
 
 #ifdef MEDIATORDAEMON
-bool CloseThreadSocket ( SOCKETSYNC * psock );
+bool CloseThreadSocket ( int * psock );
 #endif
 
 
@@ -87,21 +87,24 @@ namespace environs
     
     DeviceInstanceNode::DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
     {
-#	ifdef TRACE_MEDIATOR_OBJECTS
-		LockAcquireA ( deviceInstancesMapLock, "SendContext" );
-		deviceInstancesMap [ this ] = this;
-		LockReleaseA ( deviceInstancesMapLock, "SendContext" );
-#	endif
+        TraceDeviceInstanceNodesAdd ( this );
 
         Zero ( info );
-        
-#ifdef DEBUG_TRACK_SOCKET
-        __sync_add_and_fetch ( &debugDeviceInstanceNodeCount, 1 );
-#endif
-        CLIENTEXP ( info.objID = __sync_add_and_fetch ( &deviceInstanceObjIDs, 1 ); )
-        
-        CLIENTEXP ( hEnvirons = 0; )
+
+        TraceDeviceInstanceNodeAdd ();
+
+		CLIENTEXP ( info.objID = __sync_add_and_fetch ( &deviceInstanceObjIDs, 1 ); )
+
+		CLIENTEXP ( hEnvirons = 0; )
+
+		CLIENTEXP ( allowConnect = false; )
+
+#ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
+		//CLIENTEXP ( ZeroStruct ( key, AppAreaKey );  *key.appArea = 0; )
+		CLIENTEXP ( *key.appArea = 0; )
+#else
         CLIENTEXP ( *key = 0; )
+#endif
     }
     
 
@@ -179,52 +182,7 @@ namespace environs
         if ( init1 )
             LockDisposeA ( lock1 );
     }
-    
-    
-    void AddStuntSocket ( ThreadInstance * inst, int sock )
-    {
-        if ( IsInvalidFD ( sock ) )
-            return;
-        
-        int sockToClose = INVALID_FD;
-        
-        if ( LockAcquireA ( inst->stuntSocketLock, "AddStuntSocket" ) )
-        {
-            CVerbArg ( "AddStuntSocket: Adding socket [ %i ] to keepalive stuntSockets", sock );
-            
-            int front   = inst->stuntSocketsFront;
-            int end     = inst->stuntSocketsLast;
-            
-            front++;
-            
-            if ( front >= MAX_STUNT_SOCKETS_IN_QUEUE )
-                front = 0;
-            
-            if ( front == end ) {
-                sockToClose = inst->stuntSockets [ end ];
-                
-                end++;
-                if ( end >= MAX_STUNT_SOCKETS_IN_QUEUE )
-                    end = 0;
-            }
-            
-            inst->stuntSockets [ front ]    = sock;
-            
-            inst->stuntSocketsFront         = front;
-            inst->stuntSocketsLast          = end;
-            
-            LockReleaseA ( inst->stuntSocketLock, "AddStuntSocket" );
-            
-            if ( IsValidFD ( sockToClose ) )
-                ShutdownCloseSocket ( sockToClose, true, "AddStuntSocket" );
-            return;
-        }
-        
-        if ( IsInvalidFD ( sock ) ) {
-            ShutdownCloseSocket ( sock, true, "AddStuntSocket" );
-        }
-    }
-    
+
     
     bool SetNonBlockSocket ( int &sock, bool set, const char * name )
 	{
@@ -242,6 +200,10 @@ namespace environs
 			if ( ioctlsocket ( sock, FIONBIO, &flags ) != NO_ERROR )
 #else
 			flags = fcntl ( sock, F_GETFL, 0 );
+
+            if ( flags & O_NONBLOCK )
+                return true;
+
 			if ( fcntl ( sock, F_SETFL, flags | O_NONBLOCK ) < 0 )
 #endif
 			{
@@ -256,8 +218,11 @@ namespace environs
 		if ( ioctlsocket ( sock, FIONBIO, &flags ) != NO_ERROR )
 #else
 		flags = fcntl ( sock, F_GETFL, NULL );
+
+        if ( ( flags & O_NONBLOCK ) == 0 )
+            return true;
+
 		flags &= ( ~O_NONBLOCK );
-		//	flags = (~O_NONBLOCK);
 
 		if ( fcntl ( sock, F_SETFL, flags ) < 0 )
 #endif
@@ -345,20 +310,15 @@ namespace environs
         
         return true;
     }
-    
-    
-    void ShutdownCloseSocketI ( int sock, bool doClose
-#ifdef DEBUG_TRACK_SOCKET
-    , const char * msg
-#endif
-     )
+
+
+    void ShutdownCloseSocketI ( int sock, bool doClose CLOSE_SOCKET_ARG (const char * msg) )
     {
         if ( IsInvalidFD ( sock ) )
             return;
-        
-#ifdef MEDIATORDAEMON
-        //ling.l_linger   = 10;
-#else
+
+#ifdef ENABLE_LINGER_OPTIONS
+#   ifndef MEDIATORDAEMON
 		linger ling;
 		//ling.l_onoff	= 1;
         //ling.l_linger   = 1;
@@ -369,24 +329,40 @@ namespace environs
 			CVerbArg ( "ShutdownCloseSocket: Failed to set SO_LINGER on socket [ %i ]", sock );
 			VerbLogSocketError ();
 		}
+#   endif
+#endif
+
+#ifdef ENABLE_SOCKET_CLOSE_DRAIN
+		int rc;
+		static char tmp [ 1024 ];
+
+		CSocketTraceUpdate ( sock, "ShutdownCloseSocket: Shutdown 11" );
+		shutdown ( sock, 1 );  //SD_SEND
 #endif
         // Make subsequent calls to this socket return immediately
         SetNonBlockSocket ( sock, true, "ShutdownCloseSocket" );
 
-        if ( !doClose ) {            
-#ifdef DEBUG_TRACK_SOCKET 
-            if ( msg )
-                CSocketTraceUpdate ( sock, msg );
+#ifdef ENABLE_SOCKET_CLOSE_DRAIN
+        do
+        {
+            rc = ( int ) recv ( sock, tmp, sizeof ( tmp ), 0 );
+            if ( rc <= 0 )
+                break;
+        }
+        while ( true );
 #endif
+        if ( !doClose ) {
+            CSocketTraceUpdateCheck ( sock, msg );
+
+#ifndef ENABLE_SOCKET_CLOSE_DRAIN
             CSocketTraceUpdate ( sock, "ShutdownCloseSocket: Shutdown 1" );
             shutdown ( sock, 1 );  //SD_SEND
+#endif
             return;
         }        
-        
-#ifdef DEBUG_TRACK_SOCKET
-        if ( msg )
-            CSocketTraceUpdate ( sock, msg );
-#endif
+
+        CSocketTraceUpdateCheck ( sock, msg );
+
 		CSocketTraceUpdate ( sock, "ShutdownCloseSocket: Shutdown 2" );
         shutdown ( sock, 2 );  //SD_SEND
 
@@ -492,12 +468,6 @@ namespace environs
     }
     
     
-#ifdef TRACE_MEDIATOR_OBJECTS
-	extern pthread_mutex_t			sendContextsMapLock;
-	extern std::map<ThreadInstance *, ThreadInstance *> clientsMap;
-#endif
-    
-    
     void DisposeSendContexts ( ThreadInstance * client )
     {
 		if ( !client )
@@ -525,20 +495,23 @@ namespace environs
     
     ThreadInstance::ThreadInstance ()
     {
-#	ifdef TRACE_MEDIATOR_OBJECTS
-		LockAcquireA ( clientsMapLock, "ThreadInstance" );
+        TraceThreadInstanceAdd ( this );
 
-		clientsMap [ this ] = this;
-
-		LockReleaseA ( clientsMapLock, "ThreadInstance" );
-#	endif
         allocated       = false;
+
+		ZeroStruct ( aes, AESContext );
 
 #ifdef MEDIATORDAEMON
 #   ifdef USE_NOTIFY_TARGET_INDEX
         inNotifierList  = -1;
 #   endif
         inAcceptorList  = false;
+
+		ZeroStruct ( ctx, ClientProcContext );
+
+#ifndef USE_MEDIATOR_CLIENT_INSTANCE_BUFFER_UP
+		bufferPtr		= 0;
+#endif
 #endif
         
 #ifdef USE_MEDIATOR_CLIENT_WINSOCK_SOCKETS
@@ -560,7 +533,6 @@ namespace environs
         port            = 0;
         portUdp         = 0;
         connectTime     = 0;
-		stuntPort       = 0;
         filterMode      = 0;
         
         encrypt         = 0;
@@ -578,13 +550,8 @@ namespace environs
         
         sendFails           = 0;
         socketToClose       = INVALID_FD;
-        stuntTarget         = 0;
-        
         sendBusy1            = 0;
 #endif
-		stuntSocketsLast	= 0;
-		stuntSocketsFront	= 0;
-        stuntSocketTime		= 0;
     }
     
     
@@ -592,10 +559,12 @@ namespace environs
     {
         Dispose ();
 
-		if ( aes.encCtx ) {
+        if ( aes.encCtx CRYPT_AES_LOCK_EXP ( || aes.lockAllocated ) ) {
 			CVerbVerb ( "Destruct: Disposing AES key context." );
 			AESDisposeKeyContext ( &aes );
 		}
+
+		DisposeSendContexts ( this );
 
         if ( allocated ) {
             allocated = false;
@@ -609,16 +578,11 @@ namespace environs
 		CloseWSAHandle_n ( receiveEvent );
 #endif
 
-#	ifdef TRACE_MEDIATOR_OBJECTS
-		LockAcquireA ( clientsMapLock, "" );
-
-		const std::map<ThreadInstance *, ThreadInstance *>::iterator it = clientsMap.find ( this );
-		if ( it != clientsMap.end () ) {
-			clientsMap.erase ( it );
-		}
-
-		LockReleaseA ( clientsMapLock, "" );
-#	endif
+#if defined(MEDIATORDAEMON) && !defined(USE_MEDIATOR_CLIENT_INSTANCE_BUFFER_UP)
+		if ( bufferPtr )
+			delete ( bufferPtr );
+#endif
+        TraceThreadInstanceRemove ( this );
     }
     
     
@@ -638,12 +602,7 @@ namespace environs
 #endif
             if ( !LockInitA ( stuntSocketLock ) )
                 return false;
-            
-            for ( int i = 0; i < MAX_STUNT_SOCKETS_IN_QUEUE; ++i )
-            {
-                stuntSockets [ i ] = INVALID_FD;
-            }
-            
+
             Zero ( aes );
             Zero ( addr );
             
@@ -653,73 +612,6 @@ namespace environs
         thread.autoreset = true;
         
         return thread.Init ();
-    }
-
-
-    bool ThreadInstance::GetStuntSockets ( std::vector<int> &socks )
-    {
-        if ( stuntSocketsFront == stuntSocketsLast )
-            return false;
-
-        int sock = ( int ) stuntSockets [ stuntSocketsFront ];
-        if ( IsValidFD ( sock ) )
-        {
-            stuntSockets [ stuntSocketsFront ] = INVALID_FD;
-
-            socks.push_back ( sock );
-        }
-
-        while ( stuntSocketsFront != stuntSocketsLast )
-        {
-            sock = ( int ) stuntSockets [ stuntSocketsLast ];
-            if ( IsValidFD ( sock ) )
-            {
-                stuntSockets [ stuntSocketsLast ] = INVALID_FD;
-
-                socks.push_back ( sock );
-            }
-
-            stuntSocketsLast++;
-            if ( stuntSocketsLast >= MAX_STUNT_SOCKETS_IN_QUEUE )
-                stuntSocketsLast = 0;
-        }
-
-        stuntSocketsFront   = 0;
-        stuntSocketsLast    = 0;
-        return true;
-    }
-
-
-    void ThreadInstance::CloseStuntSockets ()
-    {
-        if ( stuntSocketsFront == stuntSocketsLast )
-            return;
-        
-        int sock = ( int ) stuntSockets [ stuntSocketsFront ];
-        if ( IsValidFD ( sock ) )
-        {
-            stuntSockets [ stuntSocketsFront ] = INVALID_FD;
-            
-            ShutdownCloseSocket ( sock, true, "CloseStuntSockets" );
-        }
-        
-        while ( stuntSocketsFront != stuntSocketsLast )
-        {
-            sock = ( int ) stuntSockets [ stuntSocketsLast ];
-            if ( IsValidFD ( sock ) )
-            {
-                stuntSockets [ stuntSocketsLast ] = INVALID_FD;
-                
-                ShutdownCloseSocket ( sock, true, "CloseStuntSockets" );
-            }
-            
-            stuntSocketsLast++;
-            if ( stuntSocketsLast >= MAX_STUNT_SOCKETS_IN_QUEUE )
-                stuntSocketsLast = 0;
-        }
-        
-        stuntSocketsFront   = 0;
-        stuntSocketsLast    = 0;
     }
     
     
@@ -801,7 +693,7 @@ namespace environs
             }
         }
 
-		DisposeSendContexts ( this );
+		//DisposeSendContexts ( this );
         
         // Wait for the listening thread to shut down
         thread.Join ( "Dispose" );
@@ -871,7 +763,6 @@ namespace environs
         if ( IsValidFD ( sock )  )
             goto ShutdownThread;
 #endif
-        CloseStuntSockets ();
 
 #ifndef MEDIATORDAEMON
         LockAcquireA ( stuntSocketLock, "Dispose" );
@@ -904,9 +795,6 @@ namespace environs
     void MediatorConnection::Reset ()
     {
         longReceive     = false;
-        
-        renewerAccess   = 0;
-        renewerQueue    = 0;
         
         env             = 0;
     }
@@ -1014,6 +902,9 @@ namespace environs
 
 	ApplicationDevices::ApplicationDevices ()
 	{
+		id					= 0;
+		areaId				= 0;
+
 		count				= 0;
 		latestAssignedID	= 0;
 		devices				= 0;
@@ -1058,6 +949,13 @@ namespace environs
         broadcastReceives       = 0;
         broadcastThreadRestarts = 0;
 
+		udpStatusMessageOffset	= 0;
+		udpStatusMessageLen		= 0;
+
+#if (!defined(MEDIATORDAEMON) && defined(__cplusplus))
+		env						= nill;
+#endif  
+
         certificate				= 0;
 
 		srand ( GetEnvironsTickCount32 () );
@@ -1082,7 +980,8 @@ namespace environs
 	{
 		CVerb ( "Destructor" );
 
-		//Dispose ();
+		//Dispose ();        
+		free_m ( certificate );
 
 		if ( allocated )
         {
@@ -1208,7 +1107,7 @@ namespace environs
 	}
 
     
-    bool Mediator::IsSocketAlive ( SOCKETSYNC &sock )
+    bool Mediator::IsSocketAlive ( int &sock )
 	{
 		CVerb ( "IsSocketAlive" );
 
@@ -1604,7 +1503,7 @@ namespace environs
 #ifdef _WIN32
 
 #ifndef WINDOWS_PHONE
-		bool adaptersFound = 0;
+		int adaptersFound = 0;
 
 		IP_ADAPTER_INFO tmpAdapter;
 		Zero ( tmpAdapter );
@@ -2088,7 +1987,7 @@ namespace environs
 
     
 #ifdef MEDIATORDAEMON
-    bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny )
+    bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny, bool enforceEnqueue )
     {
         CVerbVerb ( "SendBroadcast" );
         
@@ -2245,7 +2144,7 @@ namespace environs
     }
     
 #else
-    bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny )
+    bool Mediator::SendBroadcast ( bool enforce, bool sendStatus, bool sendToAny, bool enforceEnqueue )
     {
         CVerbVerb ( "SendBroadcast" );
         
@@ -2271,10 +2170,13 @@ namespace environs
         }
         
         CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+
+        if ( enforceEnqueue )
+            success = PushSendBC ( true, msg, sendLen, INADDR_BROADCAST, GET_MEDIATOR_BASE_PORT );
+        else
+            SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, GET_MEDIATOR_BASE_PORT );
         
-        SendBufferOrEnqueueBC ( true, msg, sendLen, INADDR_BROADCAST, GET_MEDIATOR_BASE_PORT );
-        
-        /// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only on one (most likely the main or internet) network interface
+        /// We need to broadcast to each interface, because (at least with win32): the default 255.255.... broadcasts only to one (most likely the main) network interface
         NetPack * net = 0;
         
 #ifdef NDEBUG
@@ -2290,7 +2192,10 @@ namespace environs
         
         net = &localNets;
         while ( net ) {
-            SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, GET_MEDIATOR_BASE_PORT );
+            if ( enforceEnqueue )
+                PushSendBC ( true, msg, sendLen, net->bcast, GET_MEDIATOR_BASE_PORT );
+            else
+                SendBufferOrEnqueueBC ( true, msg, sendLen, net->bcast, GET_MEDIATOR_BASE_PORT );
             net = net->next;
         }
         
@@ -2722,9 +2627,9 @@ namespace environs
 
 			// Build the key
 #ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
-			*( ( int * ) dev->key ) = value;
+            dev->key.deviceID = value;
 
-			int copied = snprintf ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
+            int copied = snprintf ( dev->key.appArea, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
 #else
 			int copied = snprintf ( dev->key, sizeof ( dev->key ), MEDIATOR_APP_AREA_KEY_FORMAT, value, areaName, appName );
 #endif
@@ -3055,9 +2960,9 @@ namespace environs
 
 			// Build the key
 #ifdef USE_MEDIATOR_OPT_KEY_MAPS_COMP
-			*( ( int * ) dev->key ) = value;
+            dev->key.deviceID = value;
 
-			int copied = snprintf ( dev->key + 4, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
+			int copied = snprintf ( dev->key.appArea, sizeof ( dev->key ) - 4, "%s %s", areaName, appName );
 #else
             int copied = snprintf ( dev->key, sizeof ( dev->key ), MEDIATOR_APP_AREA_KEY_FORMAT, value, areaName, appName );
 #endif
@@ -3489,13 +3394,21 @@ namespace environs
 			if ( t == &mediator ) {
 				if ( src ) {
 					// There is a next instance
-					memcpy ( t, src, sizeof ( MediatorInstance ) );
+					*t = *src;
 					ReleaseMediator ( src );
 				}
 				else {
 					// No more instances
 					ReleaseMediator ( src );
-					memset ( t, 0, sizeof ( MediatorInstance ) );
+
+                    ZeroStruct ( *t, MediatorInstance );
+
+					/*MediatorInstance *tmp = new MediatorInstance ( );
+					if ( tmp ) {
+						*t = *tmp;
+						delete tmp;
+					}
+                    */
 				}
 			}
 			else {
@@ -3721,355 +3634,7 @@ namespace environs
         addr.sin_family = AF_UNSPEC;
         
         ::connect ( sock, ( struct sockaddr * ) &addr, sizeof ( addr ) );
-    }
-
-    
-#ifdef DEBUG_TRACK_SOCKET
-
-#ifndef ANDROID
-#ifdef LINUX
-#	define ADD_TIMESTRING
-#endif
-#endif
-
-    std::map<int, std::string>  *   socketsLog        = 0;
-    std::map<int, std::string>  *   socketsHistory    = 0;
-	std::vector<int>			*	socketIDHistory	  = 0;
-    pthread_mutex_t                 tracerLock;
-#ifdef TRACE_ALIVE_THREAD_LOCK
-    std::string                     lastAliveLocker;
-    std::string                     lastAliveUnlocker;
-#endif
-
-	extern LONGSYNC					stuntCount;
-	extern LONGSYNC					stunCount;
-    LONGSYNC                        debugKernelCount = 0;
-    LONGSYNC                        debugMediatorCount = 0;
-    LONGSYNC                        debugDeviceBaseCount = 0;
-    LONGSYNC                        debugDeviceInstanceNodeCount = 0;
-    
-    
-#ifdef TRACE_ALIVE_THREAD_LOCK
-    void TraceAliveLocker ( const char * name )
-    {
-        LockAcquireA ( tracerLock, "TraceAliveLocker" );
-        
-        lastAliveLocker = name;
-        
-        LockReleaseA ( tracerLock, "TraceAliveLocker" );
-    }
-    
-    void TraceAliveUnlocker ( const char * name )
-    {
-        LockAcquireA ( tracerLock, "TraceAliveUnlocker" );
-        
-        lastAliveUnlocker = name;
-        
-        LockReleaseA ( tracerLock, "TraceAliveUnlocker" );
-    }
-#endif
-    
-    
-    bool TraceSocketInit ( )
-    {
-        if ( socketsHistory )
-            return true;
-        
-        if ( !LockInitA ( tracerLock ) )
-            return false;
-        
-        socketsLog = new std::map<int, std::string> ();
-        if ( !socketsLog )
-            return false;
-        
-        socketsHistory = new std::map<int, std::string> ();
-        if ( !socketsHistory )
-            return false;
-        
-		socketIDHistory = new std::vector<int> ();
-		if ( !socketIDHistory )
-			return false;        
-        return true;
-    }
-    
-
-	void TraceCheckStatus ( bool withKernel )
-	{
-		if ( withKernel || socketsLog ->size () > 3 )
-		{
-			std::map<int, std::string>::iterator iter = socketsLog->begin ();
-
-			while ( iter != socketsLog->end () )
-			{
-				CErrArg ( "\n~TraceSocketDispose: Socket [ %i ] leaked\n------------------------------------------------\n%s\n------------------------------------------------\n", iter->first, iter->second.c_str () );
-
-#ifdef MEDIATORDAEMON
-				printf ( "\n~TraceSocketDispose: Socket [ %i ] leaked\n------------------------------------------------\n%s\n------------------------------------------------\n", iter->first, iter->second.c_str () );
-#endif
-				++iter;
-			}
-		}
-
-#ifndef MEDIATORDAEMON
-		if ( debugDeviceBaseCount > 0 ) {
-            CErrArg ( "~TraceSocketDispose: DeviceBase objects still alive [ %i ] ", debugDeviceBaseCount );
-
-			// Wait a second before we break into the debugger
-			int count = 5;
-			while ( count > 0 ) {
-				Sleep ( 200 );
-				if ( debugDeviceBaseCount <= 0 )
-					break;
-				count--;
-			}
-			if ( debugDeviceBaseCount > 0 ) {
-				_EnvDebugBreak ();
-			}
-		}
-
-		if ( debugDeviceInstanceNodeCount > 0 ) {
-			CErrArg ( "~TraceSocketDispose: DeviceInstanceNode objects still alive [ %i ] ", debugDeviceInstanceNodeCount );
-		}
-
-		if ( stuntCount > 0 ) {
-			CErrArg ( "~TraceSocketDispose: Stunt objects still alive [ %i ] ", stuntCount );
-		}
-
-		if ( stunCount > 0 ) {
-			CErrArg ( "~TraceSocketDispose: Stun objects still alive [ %i ] ", stunCount );
-		}
-
-		if ( debugMediatorCount > 0 ) {
-			CErrArg ( "~TraceSocketDispose: Mediator objects still alive [ %i ] ", debugMediatorCount );
-		}
-
-		if ( withKernel ) {
-			if ( debugKernelCount > 0 ) {
-				CErrArg ( "~TraceSocketDispose: Kernel objects still alive [ %i ] ", debugKernelCount );
-			}
-		}
-#endif
-	}
-
-    
-    void TraceSocketDispose ( )
-    {
-		TraceCheckStatus ( true );
-
-        if ( !socketsHistory )
-            return;
-        
-        if ( socketsLog ) {
-            delete socketsLog;
-            socketsLog = 0;
-        }
-        
-        if ( socketsHistory ) {
-            delete socketsHistory;
-            socketsHistory = 0;
-        }
-        
-        if ( socketIDHistory ) {
-            delete socketIDHistory;
-            socketIDHistory = 0;
-        }
-        
-        LockDisposeA ( tracerLock );
-    }
-
-
-#ifdef ADD_TIMESTRING
-	size_t GetTimeString ( char * timeBuffer, unsigned int bufferSize );
-#endif
-
-
-	void TracePrefixBuild ( std::string &log )
-	{
-		static char timeString [ 256 ];
-
-#ifdef ADD_TIMESTRING
-		size_t timeLen = GetTimeString ( timeString, sizeof ( timeString ) );
-
-		if ( timeLen ) {
-			log += std::string ( timeString );
-		}
-#endif
-		*timeString = 0;
-
-#ifdef LINUX
-		sprintf ( timeString, " | %16llX |", ( long long ) syscall ( __NR_gettid ) );
-#else
-		sprintf ( timeString, " | %16llX | ", ( long long ) GetCurrentThreadId () );
-#endif
-		log.append ( timeString );
-
-		unsigned int t = GetEnvironsTickCount32 ();
-
-		char tb [ 64 ];
-		*tb = 0;
-		sprintf ( tb, "%u", t );
-
-		log.append ( tb );
-	}
-
-
-	void TraceSocket ( int sock, const char * msg )
-	{
-		LockAcquireA ( tracerLock, "TraceSocket" );
-
-		if ( IsValidFD ( sock ) )
-		{
-#ifdef ADD_TIMESTRING
-			std::string log;
-
-			TracePrefixBuild ( log );
-
-			log.append ( "> " ).append ( msg ? msg : "Unknown" );
-
-			( *socketsLog ) [ sock ] = log;
-#else
-			std::string log = std::string ( "> " ).append ( msg ? msg : "Unknown" );
-
-			( *socketsLog ) [ sock ] = log;
-#endif
-		}
-		else {
-			CErr ( "TraceSocket: Invalid socket!" );
-		}
-
-		LockReleaseA ( tracerLock, "TraceSocket" );
-	}
-
-
-	void TraceSocketUpdate ( int sock, const char * msg )
-	{
-		if ( IsInvalidFD ( sock ) )
-			return;
-
-		LockAcquireA ( tracerLock, "TraceSocketUpdate" );
-
-		std::map<int, std::string>::iterator iter = socketsLog->find ( sock );
-
-		if ( iter != socketsLog->end () ) {
-#ifdef ADD_TIMESTRING
-			std::string log;
-
-			TracePrefixBuild ( log );
-
-			iter->second.append ( "\n" ).append (log.c_str ()).append ( "> " ).append ( msg );
-#else
-			iter->second.append ( "\n> " ).append ( msg );
-#endif
-		}
-		else {
-#ifdef ADD_TIMESTRING
-			std::string log ( "" );
-
-			TracePrefixBuild ( log );
-#endif
-			const char * src = "NOT FOUND";
-
-			std::map<int, std::string>::iterator iterHistory = socketsHistory->find ( sock );
-
-			if ( iterHistory != socketsHistory->end () ) {
-				src = iterHistory->second.c_str ();
-			}
-
-#ifdef ADD_TIMESTRING
-			CErrArg ( "TraceSocketUpdate:\n%s> Socket to update [ %i ] not found!\nSource [ %s ]\nHistory [ %s ]", log.c_str (), sock, msg, src );
-#else
-			CErrArg ( "TraceSocketUpdate:\n> Socket to update [ %i ] not found!\nSource [ %s ]\nHistory [ %s ]", sock, msg, src );
-#endif
-		}
-
-		LockReleaseA ( tracerLock, "TraceSocketUpdate" );
-	}
-    
-    
-    void TraceSocketRemove ( int sock, const char * msg, const char * msg1 )
-    {
-        LockAcquireA ( tracerLock, "TraceSocketRemove" );
-        
-        if ( IsValidFD ( sock ) )
-        {
-            std::map<int, std::string>::iterator iter = socketsLog->find ( sock );
-            
-            if ( iter != socketsLog->end () ) {
-
-				std::string & tmp = iter->second;
-
-#ifdef ADD_TIMESTRING
-				std::string log ( "" );
-
-				TracePrefixBuild ( log );
-
-				if ( msg1 )
-					tmp.append ( "\n" ).append ( log.c_str () ).append ( "> " ).append ( msg1 );
-
-				tmp.append ( "\n" ).append ( log.c_str () ).append ( "> Closed in " ).append ( msg );
-
-				( *socketsHistory ) [ sock ] = tmp;
-#else
-				if ( msg1 )
-					tmp.append ( "\n> " ).append ( msg1 );
-
-				tmp.append ( "\n> Closed in " ).append ( msg );
-#endif
-				( *socketsHistory ) [ sock ] = tmp;
-
-				socketIDHistory->push_back ( sock );
-
-				socketsLog->erase ( iter );
-
-                if ( socketIDHistory->size () >= 130 )
-                {
-                    while ( socketIDHistory->size () > 100 )
-                    {
-                        sock = socketIDHistory->at ( 0 );
-                        
-                        std::map<int, std::string>::iterator iterHistory = socketsHistory->find ( sock );
-                        
-                        if ( iterHistory != socketsHistory->end () ) {
-                            socketsHistory->erase ( iterHistory );
-                        }
-                        
-                        socketIDHistory->erase ( socketIDHistory->begin () );
-                    }
-                }
-            }
-            else {
-#ifdef ADD_TIMESTRING
-				std::string log ( "" );
-
-				TracePrefixBuild ( log );
-#endif
-                const char * src = "NOT FOUND";
-                
-                std::map<int, std::string>::iterator iterHistory = socketsHistory->find ( sock );
-                
-                if ( iterHistory != socketsHistory->end () ) {
-                    src = iterHistory->second.c_str ();
-                }
-
-#ifdef ADD_TIMESTRING
-                CErrArg ( "TraceSocketRemove:\n%s> Socket to close [ %i ] not found!%s%s\nSource [ %s ]\nHistory [ %s ]", log.c_str (), sock, msg1 ? "\nOrigin: " : "", msg1 ? msg1 : "", msg, src );
-#else
-				CErrArg ( "TraceSocketRemove:\n> Socket to close [ %i ] not found!%s%s\nSource [ %s ]\nHistory [ %s ]", sock, msg1 ? "\nOrigin: " : "", msg1 ? msg1 : "", msg, src );
-#endif
-                //_EnvDebugBreak ();
-                
-                CErr ( "TraceSocketRemove: ErrorBreak" );
-            }
-        }
-        else {
-            CErr ( "TraceSocketRemove: Invalid socket!" );
-        }
-        
-        LockReleaseA ( tracerLock, "TraceSocketRemove" );
-    }
-#endif
-    
-    
+    }   
     
     
 } /* namepace environs */

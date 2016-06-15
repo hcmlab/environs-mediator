@@ -70,6 +70,13 @@ namespace environs
         
         virtual void					SetIsUIAdapter ( bool enable ) = 0;
         
+        /**
+         * Enable caching of the list returned by GetDevices() and update on call of GetDevices() for single threaded usagge.
+         *
+         * @param enable        true = enable, false = disable (default).
+         * Note for C++/Obj-C API: The cached list returned by GetDevices() is intended for single thread applications.
+         *          A call to GetDevices() while the cached list is still held by a thread is not allowed and might end up in invalid memory access.
+         */
         virtual void					SetEnableListCache ( bool enable ) = 0;
 
 		virtual void					AddObserver ( ListObserver * observer ) = 0;

@@ -141,10 +141,13 @@ namespace environs
 			if ( !LockInit ( &environsLogMutex ) )
 				return;
 
-			alive = true; push = false;
+			alive = true; 
+			push = false;
 			*buffer = 0;
+			length = 0;
+
 #ifdef ENABLE_BUFFERING
-			length = 0; lastPrint = 0;
+			lastPrint = 0;
 #endif
 		}
 

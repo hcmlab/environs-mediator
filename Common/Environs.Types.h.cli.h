@@ -349,12 +349,16 @@ namespace environs
 			BGRA                	=	PORTAL_BUFFERTYPE_BGRA,
 			/** RGB 24bit. */
 			RGB                 	=	PORTAL_BUFFERTYPE_RGB,
+			/** BGR 24bit. */
+			BGR                 	=	PORTAL_BUFFERTYPE_BGR,
 			/** I420. */
 			YUV420              	=	PORTAL_BUFFERTYPE_YUV420,
 			/** YV12. */
 			YV12                	=	PORTAL_BUFFERTYPE_YV12,
 			/** YUY2. */
 			YUY2                	=	PORTAL_BUFFERTYPE_YUV2,
+			/** NV12. */
+			NV12                	=	PORTAL_BUFFERTYPE_NV12,
 			/** GDIBitmap. */
 			GDIBitmap           	=	PORTAL_BUFFERTYPE_GDI_BITMAP,
 			/** The data follows either D3D or OpenGL texture format. */
@@ -1704,42 +1708,47 @@ namespace Notify {
 #		define	MSG_TYPE_STREAM                                   		(2)
 		// 0x20
 
-#		ifdef DATA_STREAM_H264                                  
-#			undef DATA_STREAM_H264                                  
+#		ifdef DATA_STREAM_VIDEO                                 
+#			undef DATA_STREAM_VIDEO                                 
 #		endif
 
-		literal int DATA_STREAM_H264                                  =	(MSG_TYPE_STREAM << 4);
-#		define	DATA_STREAM_H264                                  		(MSG_TYPE_STREAM << 4)
+		literal int DATA_STREAM_VIDEO                                 =	(MSG_TYPE_STREAM << 4);
+#		define	DATA_STREAM_VIDEO                                 		(MSG_TYPE_STREAM << 4)
 		// Initialization protocol version 1 packet with width and height
 
-#		ifdef DATA_STREAM_H264_INIT                             
-#			undef DATA_STREAM_H264_INIT                             
+#		ifdef DATA_STREAM_VIDEO_INIT                            
+#			undef DATA_STREAM_VIDEO_INIT                            
 #		endif
 
-		literal int DATA_STREAM_H264_INIT                             =	(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT);
-#		define	DATA_STREAM_H264_INIT                             		(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT)
-		// Header packets of h264
+		literal int DATA_STREAM_VIDEO_INIT                            =	(DATA_STREAM | DATA_STREAM_VIDEO | DATA_STREAM_INIT);
+#		define	DATA_STREAM_VIDEO_INIT                            		(DATA_STREAM | DATA_STREAM_VIDEO | DATA_STREAM_INIT)
+		// Header packets
 
-#		ifdef DATA_STREAM_H264_HDR                              
-#			undef DATA_STREAM_H264_HDR                              
+#		ifdef DATA_STREAM_VIDEO_HDR                             
+#			undef DATA_STREAM_VIDEO_HDR                             
 #		endif
 
-		literal int DATA_STREAM_H264_HDR                              =	(DATA_STREAM | DATA_STREAM_H264 | 2);
-#		define	DATA_STREAM_H264_HDR                              		(DATA_STREAM | DATA_STREAM_H264 | 2)
+		literal int DATA_STREAM_VIDEO_HDR                             =	(DATA_STREAM | DATA_STREAM_VIDEO | 2);
+#		define	DATA_STREAM_VIDEO_HDR                             		(DATA_STREAM | DATA_STREAM_VIDEO | 2)
 
-#		ifdef DATA_STREAM_H264_NAL                              
-#			undef DATA_STREAM_H264_NAL                              
+#		ifdef DATA_STREAM_H265_NALUS                            
+#			undef DATA_STREAM_H265_NALUS                            
 #		endif
 
-		literal int DATA_STREAM_H264_NAL                              =	(DATA_STREAM | DATA_STREAM_H264 | 4);
-#		define	DATA_STREAM_H264_NAL                              		(DATA_STREAM | DATA_STREAM_H264 | 4)
+		literal int DATA_STREAM_H265_NALUS                            =	(DATA_STREAM | DATA_STREAM_VIDEO | 4);
+#		define	DATA_STREAM_H265_NALUS                            		(DATA_STREAM | DATA_STREAM_VIDEO | 4)
 
 #		ifdef DATA_STREAM_H264_NALUS                            
 #			undef DATA_STREAM_H264_NALUS                            
 #		endif
 
-		literal int DATA_STREAM_H264_NALUS                            =	(DATA_STREAM | DATA_STREAM_H264 | 8);
-#		define	DATA_STREAM_H264_NALUS                            		(DATA_STREAM | DATA_STREAM_H264 | 8)
+		literal int DATA_STREAM_H264_NALUS                            =	(DATA_STREAM | DATA_STREAM_VIDEO | 8);
+#		define	DATA_STREAM_H264_NALUS                            		(DATA_STREAM | DATA_STREAM_VIDEO | 8)
+		
+		/*
+		public static final int DATA_STREAM_H264_NAL 			= DATA_STREAM | DATA_STREAM_VIDEO | 4;
+		public static final int DATA_STREAM_H264_NAL 			= DATA_STREAM | DATA_STREAM_VIDEO | 4;
+		 */
 		
 		
 		/** Class: Portal constants */
@@ -4448,6 +4457,14 @@ namespace Notify {
 
 		literal int PORTAL_BUFFERTYPE_RGB                             =	(0x4);
 #		define	PORTAL_BUFFERTYPE_RGB                             		(0x4)
+		/** BGR 24bit. */
+
+#		ifdef PORTAL_BUFFERTYPE_BGR                             
+#			undef PORTAL_BUFFERTYPE_BGR                             
+#		endif
+
+		literal int PORTAL_BUFFERTYPE_BGR                             =	(0x5);
+#		define	PORTAL_BUFFERTYPE_BGR                             		(0x5)
 		/** I420. */
 
 #		ifdef PORTAL_BUFFERTYPE_YUV420                          
@@ -4472,6 +4489,14 @@ namespace Notify {
 
 		literal int PORTAL_BUFFERTYPE_YUV2                            =	(0x14);
 #		define	PORTAL_BUFFERTYPE_YUV2                            		(0x14)
+		/** NV12. */
+
+#		ifdef PORTAL_BUFFERTYPE_NV12                            
+#			undef PORTAL_BUFFERTYPE_NV12                            
+#		endif
+
+		literal int PORTAL_BUFFERTYPE_NV12                            =	(0x16);
+#		define	PORTAL_BUFFERTYPE_NV12                            		(0x16)
 		/** GDIBitmap. */
 
 #		ifdef PORTAL_BUFFERTYPE_GDI_BITMAP                      

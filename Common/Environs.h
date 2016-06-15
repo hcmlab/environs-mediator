@@ -131,10 +131,6 @@ namespace environs
             NLayerVecType ( DeviceInstanceEP )  appeared;
         };
         
-        
-#ifdef DEBUG_TRACK_LIST_NOTIFIER_CONTEXT
-        void CheckListCommandContexts ( ListCommandContext * inst, bool remove );
-#endif
 
 		PUBLIC_CLASS Environs DERIVE_c_only ( environs::Environs ) DERIVE_DISPOSABLE DERIVE_TYPES
 		{
@@ -1225,9 +1221,6 @@ namespace environs
 			ENVIRONS_OUTPUT_DE_ALLOC_DECL ();
 
 		INTERNAL:
-
-			ENVIRONS_OUTPUT_ALLOC_RESOURCE ( Environs );
-
 			bool                                            allocated;
 
 #ifndef CLI_CPP
@@ -1440,11 +1433,11 @@ namespace environs
 
 			devList ( DeviceInstanceEP ) c_ref GetDevicesBest ( pthread_mutex_t OBJ_ptr OBJ_ref lock );
 
-			DeviceInstanceESP GetDeviceByObjectID ( OBJIDType objID );
+			void GetDeviceByObjectID ( DeviceInstanceESP OBJ_ref device, OBJIDType objID );
 
-			DeviceInstanceESP GetDeviceByDeviceID ( int deviceID );
+			void GetDeviceByDeviceID ( DeviceInstanceESP OBJ_ref device, int deviceID );
 
-			DeviceInstanceESP GetDeviceByNativeID ( int nativeID );
+			void GetDeviceByNativeID ( DeviceInstanceESP OBJ_ref device, int nativeID );
 
 
 			/**
@@ -1453,9 +1446,9 @@ namespace environs
 			 * @param objID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			DeviceInstanceESP GetDeviceAll ( OBJIDType objID );
+			void GetDeviceAll ( DeviceInstanceESP OBJ_ref device, OBJIDType objID );
 
-			DeviceInstanceESP GetDeviceAll ( OBJIDType nativeOrDeviceID, bool isNativeID );
+			void GetDeviceAll ( DeviceInstanceESP OBJ_ref device, OBJIDType nativeOrDeviceID, bool isNativeID );
 
 
 			/**
@@ -1464,7 +1457,7 @@ namespace environs
 			 * @param objID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			DeviceInstanceESP GetDeviceNearby ( OBJIDType objID );
+			void GetDeviceNearby ( DeviceInstanceESP OBJ_ref device, OBJIDType objID );
 
 
 			/**
@@ -1481,7 +1474,7 @@ namespace environs
 			 * @param objID      The device id of the target device.
 			 * @return DeviceInstance-object
 			 */
-			DeviceInstanceESP GetDeviceFromMediator ( OBJIDType objID );
+			void GetDeviceFromMediator ( DeviceInstanceESP OBJ_ref device, OBJIDType objID );
 
 
 			/**
@@ -1498,6 +1491,8 @@ namespace environs
 			static void c_OBJ_ptr DeviceListUpdateThreadStarter ( pthread_param_t pack );
 
 			void * DeviceListUpdateThread ( pthread_param_t pack );
+
+            EnvSignal deviceListUpdateSignal;
 
 			void OnDeviceListUpdate ();
 			void DeviceListUpdate ( int listType );

@@ -32,7 +32,10 @@
 
 #ifndef CLI_CPP
 #   include <memory>
-//#   include "Message.Instance.h"
+#	ifndef MEDIATORDAEMON
+#		include "Device.Instance.h"
+#		include "Message.Instance.h"
+#	endif
 #endif
 
 #define CLASS_NAME	"Queue.Vector . . . . . ."
@@ -47,8 +50,6 @@ namespace environs
 {
 	namespace lib
 	{
-        class MessageInstance;
-
 		QueueVector::QueueVector ()
 		{
 			CVerb ( "Construct" );
@@ -449,12 +450,12 @@ namespace environs
 			items = tmp;
 
 			return true;
-		}
+        }
         
-        
+#ifndef MEDIATORDAEMON
+        class MessageInstance;
         template class QueueVectorSP < std::shared_ptr < environs::lib::MessageInstance > >;
-        
-        
+#endif
 	}
 }
 

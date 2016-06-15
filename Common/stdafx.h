@@ -19,8 +19,12 @@
 */
 #pragma once
 
-#if (!defined(CLI_CPP) && !defined(WINDOWS_PHONE))
-#	include <stdio.h>
-#else
-#	include "pch.h"
+#if !defined(CLI_CPP)
+#	if !defined(WINDOWS_PHONE)
+#		include <stdio.h>
+#	else
+#		if defined(WINDOWS_PHONE)
+#			include "pch.h"
+#		endif
+#	endif
 #endif

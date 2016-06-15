@@ -54,6 +54,9 @@
     <ClInclude Include="..\Common\Environs.Build.Opts.h">
       <Filter>Headerdateien</Filter>
     </ClInclude>
+    <ClInclude Include="..\Common\Tracer.h">
+      <Filter>Headerdateien</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -78,6 +81,15 @@
       <Filter>Quelldateien</Filter>
     </ClCompile>
     <ClCompile Include="Mediator.Daemon.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Queue.Vector.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Environs.Crypt.Win32.cpp">
+      <Filter>Quelldateien</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Tracer.cpp">
       <Filter>Quelldateien</Filter>
     </ClCompile>
   </ItemGroup>

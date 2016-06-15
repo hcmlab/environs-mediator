@@ -73,6 +73,7 @@ namespace environs
 		virtual void OnNotifyExt ( environs::ObserverNotifyContext * context ) { OnEnvironsNotifyExt_ = false; };
 
 
+#ifndef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
 		/**
 		* OnPortalRequestOrProvided is called when a portal request from another devices came in, or when a portal has been provided by another device.
 		*
@@ -87,12 +88,14 @@ namespace environs
 		* @param portal 		The PortalInstance object.
 		*/
 		virtual void OnPortalRequestOrProvidedInterface ( PortalInstance * portal ) { OnEnvironsPortalRequestOrProvidedInterface_ = false; };
+#endif
 	};
 
 
-	/**
-	* ListObserver: Attachable to **IDeviceList** objects in order to receive list changes of a particular IDeviceList.
-	*/
+    /**
+     * ListObserver: Attachable to **IDeviceList** objects in order to receive list changes of a particular IDeviceList.
+     * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
+     */
 	class ListObserver : lib::IIListObserver
 	{
 	public:
@@ -100,20 +103,22 @@ namespace environs
 		ListObserver () { };
 		virtual ~ListObserver () { };
 
-		/**
-		* OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
-		*
-		* @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
-		* @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
-		*/
+        /**
+         * OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
+         * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
+         *
+         * @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
+         * @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
+         */
 		virtual void OnListChanged ( const sp ( DeviceInstanceList ) &vanished, const sp ( DeviceInstanceList ) &appeared ) { OnListChanged_ = false; };
 
-		/**
-		* OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
-		*
-		* @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
-		* @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
-		*/
+        /**
+         * OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
+         * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
+         *
+         * @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
+         * @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
+         */
 		virtual void OnListChangedInterface ( DeviceInstanceList * vanished, DeviceInstanceList * appeared ) { OnListChangedInterface_ = false; };
 	};
 
@@ -145,7 +150,25 @@ namespace environs
 		* @param device     The DeviceInstance object that sends this notification.
 		* @param flags      The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
 		*/
-		virtual void OnDeviceChangedInterface ( DeviceInstance * device, environs::DeviceInfoFlag_t flags ) { OnDeviceChangedInterface_ = false; };
+        virtual void OnDeviceChangedInterface ( DeviceInstance * device, environs::DeviceInfoFlag_t flags ) { OnDeviceChangedInterface_ = false; };
+
+
+#ifdef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
+        /**
+         * OnPortalRequestOrProvided is called when a portal request from another devices came in, or when a portal has been provided by another device.
+         *
+         * @param portal 		The PortalInstance object.
+         */
+        virtual void OnPortalRequestOrProvided ( const sp ( PortalInstance ) &portal ) { OnEnvironsPortalRequestOrProvided_ = false; };
+
+
+        /**
+         * OnPortalRequestOrProvided is called when a portal request from another devices came in, or when a portal has been provided by another device.
+         *
+         * @param portal 		The PortalInstance object.
+         */
+        virtual void OnPortalRequestOrProvidedInterface ( PortalInstance * portal ) { OnEnvironsPortalRequestOrProvidedInterface_ = false; };
+#endif
 	};
 
 

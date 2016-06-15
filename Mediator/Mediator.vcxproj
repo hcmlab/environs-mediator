@@ -168,17 +168,20 @@
     <ClInclude Include="..\Common\Interop.h" />
     <ClInclude Include="..\Common\Interop\Threads.h" />
     <ClInclude Include="..\Common\Mediator.h" />
+    <ClInclude Include="..\Common\Tracer.h" />
     <ClInclude Include="Mediator.Daemon.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\Environs.Crypt.cpp" />
+    <ClCompile Include="..\Common\Environs.Crypt.Win32.cpp" />
     <ClCompile Include="..\Common\Environs.Types.cpp" />
     <ClCompile Include="..\Common\Environs.Utils.cpp" />
     <ClCompile Include="..\Common\Interop\Threads.cpp" />
     <ClCompile Include="..\Common\Mediator.cpp" />
     <ClCompile Include="..\Common\Queue.Vector.cpp" />
+    <ClCompile Include="..\Common\Tracer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Mediator.Daemon.cpp" />
     <ClCompile Include="stdafx.cpp">

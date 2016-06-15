@@ -368,7 +368,7 @@ namespace environs
 #ifdef WINDOWS_PHONE
 		static char buffer [ 48 ];
 
-		int lenA = sprintf ( buffer, "sem-%s%u-%i-%u", name, name1, name2, name3 );
+		int lenA = sprintf ( buffer, "sem-%s%u-%i-%i", name, name1, name2, name3 );
 		if ( lenA <= 0 )
 			return false;
 
@@ -389,7 +389,7 @@ namespace environs
 #ifdef __APPLE__
 		static char buffer [ 48 ];
 
-		sprintf ( buffer, "sem-%s%u-%i-%u", name, name1, name2, name3 );
+		sprintf ( buffer, "sem-%s%u-%i-%i", name, name1, name2, name3 );
 		sem_unlink ( buffer );
 
 		sem_t * tsem = sem_open ( buffer, O_CREAT | O_EXCL, 0644, iniVal );
@@ -839,6 +839,9 @@ namespace environs
 	{
 		Zeroh ( thread );
 
+#ifndef CLI_CPP
+        //Zero ( threadLock );
+#endif
 		Win32_Only ( threadID = 0; )
 
         allocated   = false;
@@ -1203,6 +1206,11 @@ namespace environs
 	}
 
 
+    /**
+     * Wait for a given amount of time (or infinite if not given).
+     *
+     * @return 1 - success, 0 - error, -1 - timeout
+     */
 	int EnvSignal::WaitOne ( CString_ptr func, int ms, bool useLock, bool keepLocked )
 	{
 #ifndef _WIN32
@@ -1227,7 +1235,12 @@ namespace environs
 	}
 
 
-	int EnvSignal::WaitLocked ( CString_ptr func, int ms )
+    /**
+     * Wait for a given amount of time (or infinite if not given).
+     *
+     * @return 1 - success, 0 - error, -1 - timeout
+     */
+    int EnvSignal::WaitLocked ( CString_ptr func, int ms )
 	{
 #ifdef _WIN32
 #	ifdef CLI_CPP

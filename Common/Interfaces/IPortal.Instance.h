@@ -50,7 +50,7 @@ namespace environs
 	class ENVIRONS_LIB_API PortalInstance : public lib::IEnvironsDispose
 	{
 	public:
-		PortalInstance () : appContext0 ( 0 ), appContext1 ( 0 ), appContext2 ( 0 ), appContext3 ( 0 ) { };
+		PortalInstance () : startIfPossible ( false ), appContext0 ( 0 ), appContext1 ( 0 ), appContext2 ( 0 ), appContext3 ( 0 ) { };
 		virtual ~PortalInstance () { };
 
 

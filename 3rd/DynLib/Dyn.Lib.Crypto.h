@@ -168,7 +168,12 @@ namespace environs
     typedef int (CallConv * pEVP_DecryptFinal_ex)(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl);
     
     typedef const EVP_CIPHER * (CallConv * pEVP_aes_256_cbc)(void);
-    
+
+    typedef const EVP_CIPHER * (CallConv * pEVP_aes_256_gcm)(void);
+
+    typedef int (CallConv * pEVP_CIPHER_CTX_ctrl)(EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr);
+
+
     typedef int (CallConv * pSHA256_Init)(SHA256_CTX *c);
     
     typedef int (CallConv * pSHA256_Update)(SHA256_CTX *c, const void *data, size_t len);
@@ -268,8 +273,10 @@ namespace environs
     extern pEVP_DecryptFinal_ex                 dEVP_DecryptFinal_ex;
     extern pEVP_EncryptUpdate                   dEVP_EncryptUpdate;
     extern pEVP_EncryptFinal_ex                 dEVP_EncryptFinal_ex;
+    extern pEVP_CIPHER_CTX_ctrl                 dEVP_CIPHER_CTX_ctrl;
     extern pEVP_aes_256_cbc                     dEVP_aes_256_cbc;
-    
+    extern pEVP_aes_256_gcm                     dEVP_aes_256_gcm;
+
     extern pSHA256_Init                         dSHA256_Init;
     extern pSHA256_Update                       dSHA256_Update;
     extern pSHA256_Final                        dSHA256_Final;

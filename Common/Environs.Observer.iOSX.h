@@ -64,27 +64,31 @@
 - (void) OnNotifyExt:(ObserverNotifyContext *) context;
 
 
+#ifndef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
 /**
  * OnPortal is called when a portal request from another devices came in, or when a portal has been provided by another device.
  *
  * @param portal 		The PortalInstance object.
  */
 - (void) OnPortalRequestOrProvided:(id) portal;
+#endif
 
 @end
 
 
 /**
-* ListObserver: Attachable to **DeviceList** objects in order to receive list changes of a particular IDeviceList.
-*/
+ * ListObserver: Attachable to **DeviceList** objects in order to receive list changes of a particular IDeviceList.
+ * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
+ */
 @protocol ListObserver <NSObject>
 
 /**
-* OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
-*
-* @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
-* @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
-*/
+ * OnListChanged is called whenever the connected DeviceList has changed, e.g. new devices appeared or devices vanished from the list.
+ * Important: You must not call methods of DeviceList objects within the context of the observer callback. Otherwise deadlocks might occur.
+ *
+ * @param vanished     A collection containing the devices vansihed and removed from the list. This argument can be null.
+ * @param appeared     A collection containing the devices appeared and added to the list. This argument can be null.
+ */
 - (void) OnListChanged:(NSArray *) vanished appeared:(NSArray *) appeared;
 
 @end
@@ -105,6 +109,16 @@
 * @param changedFlags   The notification depends on the source object. If the sender is a DeviceItem, then the notification are flags.
 */
 - (void) OnDeviceChanged:(id) device Flags:(environs::DeviceInfoFlag_t) changedFlags;
+
+
+#ifdef MOVE_PORTALOBSERVER_TO_DEVICEINSTANCE
+/**
+ * OnPortal is called when a portal request from another devices came in, or when a portal has been provided by another device.
+ *
+ * @param portal 		The PortalInstance object.
+ */
+- (void) OnPortalRequestOrProvided:(id) portal;
+#endif
 
 #endif
 

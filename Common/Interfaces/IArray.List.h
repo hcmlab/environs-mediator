@@ -64,8 +64,18 @@ namespace environs
 		*
 		* @ return The object at given position
 		*/
-		virtual void * item ( size_t pos ) = 0;
-	};
+        virtual void * item ( size_t pos ) = 0;
+
+
+        /**
+         * Get the item at the given position and increase reference count by one.
+         *
+         * @param position
+         *
+         * @ return The object at given position
+         */
+        virtual void * itemRetained ( size_t pos ) = 0;
+    };
 }
             
 

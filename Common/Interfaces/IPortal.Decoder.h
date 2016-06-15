@@ -53,7 +53,7 @@ namespace environs
             width ( 0 ), stride ( 0), height ( 0 ),
 			avContext ( 0 ), avContextTemp ( 0 ),
             avContextType ( DECODER_AVCONTEXT_TYPE_PIXELS ), avContextSubType ( ENVIRONS_AVCONTEXT_SUBTYPE_RGB ), avContextSize ( 0 ),
-            decodeImage ( true ), outputRGBA ( true)
+            decodeImage ( true ), frameType ( 0 ), outputRGBA ( true)
     
 		{};
 

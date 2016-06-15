@@ -247,16 +247,16 @@ namespace environs
 
 		switch ( constToResolve ) {
 			case ( MSG_TYPE_STREAM << 4 ):
-				return "DATA_STREAM_H264";
+				return "DATA_STREAM_VIDEO";
 		// Initialization protocol version 1 packet with width and height
-			case ( DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT ):
-				return "DATA_STREAM_H264_INIT";
-		// Header packets of h264
-			case ( DATA_STREAM | DATA_STREAM_H264 | 2 ):
-				return "DATA_STREAM_H264_HDR";
-			case ( DATA_STREAM | DATA_STREAM_H264 | 4 ):
-				return "DATA_STREAM_H264_NAL";
-			case ( DATA_STREAM | DATA_STREAM_H264 | 8 ):
+			case ( DATA_STREAM | DATA_STREAM_VIDEO | DATA_STREAM_INIT ):
+				return "DATA_STREAM_VIDEO_INIT";
+		// Header packets
+			case ( DATA_STREAM | DATA_STREAM_VIDEO | 2 ):
+				return "DATA_STREAM_VIDEO_HDR";
+			case ( DATA_STREAM | DATA_STREAM_VIDEO | 4 ):
+				return "DATA_STREAM_H265_NALUS";
+			case ( DATA_STREAM | DATA_STREAM_VIDEO | 8 ):
 				return "DATA_STREAM_H264_NALUS";
 		} /// -> switch
 		if ( constToResolve == ( 30000 ) )
@@ -747,10 +747,14 @@ namespace environs
 		switch ( constToResolve ) {
 			case ( 0x3 ):
 				return "PORTAL_BUFFERTYPE_BGRA";
+			case ( 0x5 ):
+				return "PORTAL_BUFFERTYPE_BGR";
 			case ( 0x12 ):
 				return "PORTAL_BUFFERTYPE_YV12";
 			case ( 0x14 ):
 				return "PORTAL_BUFFERTYPE_YUV2";
+			case ( 0x16 ):
+				return "PORTAL_BUFFERTYPE_NV12";
 			case ( 0x3000 ):
 				return "PORTAL_BUFFERTYPE_CVPIXELBUFFER_IOSX";
 		} /// -> switch

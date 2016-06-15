@@ -64,7 +64,7 @@ namespace environs
 
 		/** Interface initializer. Do not override this method. Init () is called at the end of the Interface initializer */
 		int										PreInit ( int deviceIDa, void * appWindow, PortalStreamOptions * opts ) {
-													deviceID	= deviceID;
+													deviceID	= deviceIDa;
 													hAppWindow  = appWindow;
 													width = opts->streamWidth;
 													height = opts->streamHeight;

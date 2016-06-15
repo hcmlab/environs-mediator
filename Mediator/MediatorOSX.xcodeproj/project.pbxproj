@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		7E0028231B725AB900AB783F /* Dyn.Lib.Crypto.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E0028211B725AB900AB783F /* Dyn.Lib.Crypto.cpp */; };
 		7E0028261B725C5500AB783F /* Export.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E0028241B725C5500AB783F /* Export.cpp */; };
+		7E33A77E1CEF890F0018AA0E /* Environs.Crypt.Lib.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E33A77D1CEF890F0018AA0E /* Environs.Crypt.Lib.cpp */; };
+		7E33A78A1CF8710F0018AA0E /* Tracer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E33A7891CF8710F0018AA0E /* Tracer.cpp */; };
 		7E3A885118DDAB2D0063BAED /* main.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A884C18DDAB2D0063BAED /* main.cpp */; };
 		7E3A885318DDAB2D0063BAED /* stdafx.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A884F18DDAB2D0063BAED /* stdafx.cpp */; };
 		7E3A885D18DDAB640063BAED /* Environs.Crypt.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7E3A885518DDAB640063BAED /* Environs.Crypt.cpp */; };
@@ -39,6 +41,10 @@
 		7E0028241B725C5500AB783F /* Export.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Export.cpp; path = ../../Common/Interop/Export.cpp; sourceTree = "<group>"; };
 		7E0028251B725C5500AB783F /* Export.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Export.h; path = ../../Common/Interop/Export.h; sourceTree = "<group>"; };
 		7E2220BB1B517D66003E2D9C /* Log.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Log.h; path = ../../Common/Log.h; sourceTree = "<group>"; };
+		7E33A77D1CEF890F0018AA0E /* Environs.Crypt.Lib.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Environs.Crypt.Lib.cpp; path = ../../Common/Environs.Crypt.Lib.cpp; sourceTree = "<group>"; };
+		7E33A7881CF8710F0018AA0E /* Tracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Tracer.h; path = ../../Common/Tracer.h; sourceTree = "<group>"; };
+		7E33A7891CF8710F0018AA0E /* Tracer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Tracer.cpp; path = ../../Common/Tracer.cpp; sourceTree = "<group>"; };
+		7E33A78B1CF8C7890018AA0E /* Environs.Build.Opts.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Environs.Build.Opts.h; path = ../../Common/Environs.Build.Opts.h; sourceTree = "<group>"; };
 		7E3A884018DDAAB60063BAED /* MediatorOSX */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = MediatorOSX; sourceTree = BUILT_PRODUCTS_DIR; };
 		7E3A884C18DDAB2D0063BAED /* main.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = main.cpp; sourceTree = SOURCE_ROOT; };
 		7E3A884F18DDAB2D0063BAED /* stdafx.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = stdafx.cpp; sourceTree = SOURCE_ROOT; };
@@ -99,11 +105,13 @@
 			isa = PBXGroup;
 			children = (
 				7E68A0001C2B539E000C6916 /* CHANGELOG.md */,
+				7E33A78B1CF8C7890018AA0E /* Environs.Build.Opts.h */,
 				7ED0D37B1AFDAEBA00342B64 /* Device.Instance.h */,
 				7E0028211B725AB900AB783F /* Dyn.Lib.Crypto.cpp */,
 				7E0028221B725AB900AB783F /* Dyn.Lib.Crypto.h */,
 				7E3A885518DDAB640063BAED /* Environs.Crypt.cpp */,
 				7E3A885618DDAB640063BAED /* Environs.Crypt.h */,
+				7E33A77D1CEF890F0018AA0E /* Environs.Crypt.Lib.cpp */,
 				7E3A885718DDAB640063BAED /* Environs.Native.h */,
 				7E4846111AEC04AC00758163 /* Environs.Release.h */,
 				7E4846121AEC04AC00758163 /* Environs.Revision.h */,
@@ -126,6 +134,8 @@
 				7E3A885018DDAB2D0063BAED /* stdafx.h */,
 				7E3A886018DDAEB50063BAED /* Threads.cpp */,
 				7E3A886118DDAEB60063BAED /* Threads.h */,
+				7E33A7891CF8710F0018AA0E /* Tracer.cpp */,
+				7E33A7881CF8710F0018AA0E /* Tracer.h */,
 			);
 			path = MediatorOSX;
 			sourceTree = "<group>";
@@ -181,6 +191,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7E33A77E1CEF890F0018AA0E /* Environs.Crypt.Lib.cpp in Sources */,
 				7E3A885F18DDAB640063BAED /* Mediator.cpp in Sources */,
 				7E3A885E18DDAB640063BAED /* Environs.Utils.cpp in Sources */,
 				7E6100541CB6DEC30000076B /* Queue.Vector.cpp in Sources */,
@@ -191,6 +202,7 @@
 				7E3A886218DDAEB60063BAED /* Threads.cpp in Sources */,
 				7E0028231B725AB900AB783F /* Dyn.Lib.Crypto.cpp in Sources */,
 				7E3A885118DDAB2D0063BAED /* main.cpp in Sources */,
+				7E33A78A1CF8710F0018AA0E /* Tracer.cpp in Sources */,
 				7E3A885D18DDAB640063BAED /* Environs.Crypt.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

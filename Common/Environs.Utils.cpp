@@ -330,9 +330,18 @@ namespace environs
     // return milliseconds
     INTEROPTIMEVAL GetEnvironsTickCount ()
     {
-        if ( !environs_time_base_info.denom )
+        //static double environs_time_base_factor = 0.000063999999999999997;
+
+        if ( !environs_time_base_info.denom ) {
             mach_timebase_info ( &environs_time_base_info );
-        
+
+            if ( !environs_time_base_info.denom )
+                return 0;
+
+            //environs_time_base_factor = (double) environs_time_base_info.numer / ( (double) ( 15625 * environs_time_base_info.denom) );
+        }
+
+        //return ((mach_absolute_time() >> 6) * environs_time_base_factor);
         return ((mach_absolute_time() / 1000000) * environs_time_base_info.numer) / environs_time_base_info.denom;
     }
 #endif

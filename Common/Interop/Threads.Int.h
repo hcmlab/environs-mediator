@@ -36,12 +36,20 @@
 #	ifdef CVerb
 #		undef CVerb
 #	endif
-#	define CVerb(msg) printf(msg)
+#   ifdef DEBUGVERB
+#       define CVerb(msg) printf(msg)
+#   else
+#       define CVerb(msg)
+#   endif
 
 #	ifdef CVerbArg
 #		undef CVerbArg
 #	endif
-#	define CVerbArg(msg,...) printf(msg,__VA_ARGS__)
+#   ifdef DEBUGVERB
+#       define CVerbArg(msg,...) printf(msg,__VA_ARGS__)
+#   else
+#       define CVerbArg(msg,...)
+#	endif
 
 #	ifdef CLogArg
 #		undef CLogArg
@@ -121,6 +129,7 @@
 #	define CErrArg(m,f)
 #	undef CErrN
 #	define CErrN(m)
+#	undef CVerbVerbArg
 #	define CVerbVerbArg(m,f)
 #endif
 

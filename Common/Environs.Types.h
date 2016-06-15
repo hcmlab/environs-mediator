@@ -341,13 +341,17 @@ namespace environs {
 /** Class: Video type */
 #define	MSG_TYPE_STREAM                                   		(2)
 // 0x20
-#define	DATA_STREAM_H264                                  		(MSG_TYPE_STREAM << 4)
+#define	DATA_STREAM_VIDEO                                 		(MSG_TYPE_STREAM << 4)
 // Initialization protocol version 1 packet with width and height
-#define	DATA_STREAM_H264_INIT                             		(DATA_STREAM | DATA_STREAM_H264 | DATA_STREAM_INIT)
-// Header packets of h264
-#define	DATA_STREAM_H264_HDR                              		(DATA_STREAM | DATA_STREAM_H264 | 2)
-#define	DATA_STREAM_H264_NAL                              		(DATA_STREAM | DATA_STREAM_H264 | 4)
-#define	DATA_STREAM_H264_NALUS                            		(DATA_STREAM | DATA_STREAM_H264 | 8)
+#define	DATA_STREAM_VIDEO_INIT                            		(DATA_STREAM | DATA_STREAM_VIDEO | DATA_STREAM_INIT)
+// Header packets
+#define	DATA_STREAM_VIDEO_HDR                             		(DATA_STREAM | DATA_STREAM_VIDEO | 2)
+#define	DATA_STREAM_H265_NALUS                            		(DATA_STREAM | DATA_STREAM_VIDEO | 4)
+#define	DATA_STREAM_H264_NALUS                            		(DATA_STREAM | DATA_STREAM_VIDEO | 8)
+
+/*
+public static final int DATA_STREAM_H264_NAL 			= DATA_STREAM | DATA_STREAM_VIDEO | 4;
+ */
 
 
 /** Class: Portal constants */
@@ -1359,12 +1363,16 @@ namespace environs {
 #define	PORTAL_BUFFERTYPE_BGRA                            		(0x3)
 /** RGB 24bit. */
 #define	PORTAL_BUFFERTYPE_RGB                             		(0x4)
+/** BGR 24bit. */
+#define	PORTAL_BUFFERTYPE_BGR                             		(0x5)
 /** I420. */
 #define	PORTAL_BUFFERTYPE_YUV420                          		(0x10)
 /** YV12. */
 #define	PORTAL_BUFFERTYPE_YV12                            		(0x12)
 /** YUY2. */
 #define	PORTAL_BUFFERTYPE_YUV2                            		(0x14)
+/** NV12. */
+#define	PORTAL_BUFFERTYPE_NV12                            		(0x16)
 /** GDIBitmap. */
 #define	PORTAL_BUFFERTYPE_GDI_BITMAP                      		(0x100)
 /** The data follows either D3D or OpenGL texture format. */
@@ -1388,12 +1396,16 @@ namespace environs {
 			PortalBufferType_BGRA                	=	PORTAL_BUFFERTYPE_BGRA,
 			/** RGB 24bit. */
 			PortalBufferType_RGB                 	=	PORTAL_BUFFERTYPE_RGB,
+			/** BGR 24bit. */
+			PortalBufferType_BGR                 	=	PORTAL_BUFFERTYPE_BGR,
 			/** I420. */
 			PortalBufferType_YUV420              	=	PORTAL_BUFFERTYPE_YUV420,
 			/** YV12. */
 			PortalBufferType_YV12                	=	PORTAL_BUFFERTYPE_YV12,
 			/** YUY2. */
 			PortalBufferType_YUY2                	=	PORTAL_BUFFERTYPE_YUV2,
+			/** NV12. */
+			PortalBufferType_NV12                	=	PORTAL_BUFFERTYPE_NV12,
 			/** GDIBitmap. */
 			PortalBufferType_GDIBitmap           	=	PORTAL_BUFFERTYPE_GDI_BITMAP,
 			/** The data follows either D3D or OpenGL texture format. */
@@ -1411,9 +1423,11 @@ namespace environs {
 			const PortalBufferType_t ARGBHandle          	=	PortalBufferType_ARGBHandle          ;
 			const PortalBufferType_t BGRA                	=	PortalBufferType_BGRA                ;
 			const PortalBufferType_t RGB                 	=	PortalBufferType_RGB                 ;
+			const PortalBufferType_t BGR                 	=	PortalBufferType_BGR                 ;
 			const PortalBufferType_t YUV420              	=	PortalBufferType_YUV420              ;
 			const PortalBufferType_t YV12                	=	PortalBufferType_YV12                ;
 			const PortalBufferType_t YUY2                	=	PortalBufferType_YUY2                ;
+			const PortalBufferType_t NV12                	=	PortalBufferType_NV12                ;
 			const PortalBufferType_t GDIBitmap           	=	PortalBufferType_GDIBitmap           ;
 			const PortalBufferType_t Texture3D           	=	PortalBufferType_Texture3D           ;
 			const PortalBufferType_t PixelBuffer3D       	=	PortalBufferType_PixelBuffer3D       ;

@@ -29,6 +29,9 @@
 #endif
 
 #ifndef NDEBUG
+#   if !defined(LINUX) && !defined(ANDROID)
+#	    define	ENABLE_EXCEPTION_REDIRECT
+#   endif
 #	ifndef MEDIATORDAEMON
 //#		define TRACE_TCP_ACCEPTOR_CONTEXTS
 //#		define TRACE_ALIVE_THREAD_LOCK
@@ -40,6 +43,7 @@
 #       ifndef CLI_CPP
 //#           define DEBUG_TRACK_DEVICE_INSTANCE
 //#           define DEBUG_TRACK_DEVICE_INSTANCE1
+//#           define DEBUG_TRACK_DEVICE_INSTANCE2
 
 //#           define DEBUG_TRACK_MESSAGE_INSTANCE
 //#           define DEBUG_TRACK_MESSAGE_INSTANCE1
@@ -91,6 +95,20 @@
 
 #ifdef ENABLE_MESSAGE_EXT_DISPATCH
 #   define ENABLE_MESSAGE_EXT_HANDLER
+#endif
+
+#if !defined ( ENVIRONS_IOS )
+#   define NATIVE_WIFI_OBSERVER
+#endif
+
+#if defined ( NATIVE_WIFI_OBSERVER ) && !defined ( ANDROID )
+#	define NATIVE_WIFI_OBSERVER_THREAD
+#endif
+
+#define NATIVE_BT_OBSERVER
+
+#if defined ( NATIVE_BT_OBSERVER ) && !defined ( ANDROID )
+#	define NATIVE_BT_OBSERVER_THREAD
 #endif
 
 #ifdef DISPLAYDEVICE
@@ -269,8 +287,8 @@
 #			include <crtdbg.h>
 #		endif
 
-//		The following header will be created by buildOpts.bat 
-//		Its aim is to disable vld if it is not available on the system 
+//		The following header will be created by buildOpts.bat
+//		Its aim is to disable vld if it is not available on the system
 #		include "Environs.Build.Opts.VLD.h"
 
 #		ifdef _USE_VLD

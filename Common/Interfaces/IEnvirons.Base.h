@@ -25,6 +25,9 @@
 #define DeclareEnvironsInterface(interfacename) EnvironsInterface interfacename : implements IEnvironsBase { \
 	public:
 
+#define DeclareEnvironsIdentInterface(interfacename) EnvironsInterface interfacename : implements IEnvironsIdent { \
+	public:
+
 
 #ifdef __cplusplus
 

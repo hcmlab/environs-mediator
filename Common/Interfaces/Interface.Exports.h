@@ -34,9 +34,9 @@
 extern "C"
 {
 #endif
-
+	
 	/**
-	* getINames
+	* GetINames
 	*
 	*	@param	size	on success, this argument is filled with the count of names available in the returned array.
 	*
@@ -44,7 +44,7 @@ extern "C"
 	*
 	*/
 	#define	MODULE_EXPORT_GETINAMES		"GetINames"
-	typedef const char ** ( *pGetINames )( int * size );
+	typedef const char ** ( CallConv *pGetINames )( int * size );
 
 	LIBEXPORT const char **	CallConv	GetINames ( int * size );
 
@@ -55,7 +55,7 @@ extern "C"
 		}
 
 	/**
-	* getITypes
+	* GetITypes
 	*
 	*	@param	size	on success, this argument is filled with the count of types available in the returned array.
 	*
@@ -63,7 +63,7 @@ extern "C"
 	*
 	*/
 	#define	MODULE_EXPORT_GETITYPES				"GetITypes"
-	typedef const unsigned int * ( *pGetITypes )( int * size );
+	typedef const unsigned int * ( CallConv *pGetITypes )( int * size );
 
 	LIBEXPORT const	unsigned int * CallConv		GetITypes ( int * size );
 
@@ -83,7 +83,7 @@ extern "C"
 	*
 	*/
 	#define	MODULE_EXPORT_CREATE	"CreateInstance"
-	typedef void * ( *pCreateInstance )( int index, int deviceID );
+	typedef void * ( CallConv *pCreateInstance )( int index, int deviceID );
 
 #ifndef ENVIRONS_CORE_LIB
 	LIBEXPORT void *	CallConv	CreateInstance ( int index, int deviceID );
@@ -112,18 +112,23 @@ extern "C"
      *
      */
 #define	MODULE_EXPORT_ENVIRONSOBJ	"SetEnvironsObject"
-    typedef void * ( *pSetEnvironsObject )( void * envObj );
+    typedef void ( CallConv *pSetEnvironsObject )( void * envObj, void * natObj );
     
-    LIBEXPORT void 	CallConv	SetEnvironsObject ( void * envObj );
-    
-    
+	LIBEXPORT void 	CallConv	SetEnvironsObject ( void * envObj, void * natObj );
+
+
 #define BUILD_INT_SETENVIRONSOBJECT()                  \
 namespace environs {                                    \
-    void   *   pEnvirons           = 0;    \
+    void	*   pEnvirons			= 0;				\
+	void	*	pNative				= 0;				\
 }                                                       \
-    extern "C" void CallConv SetEnvironsObject ( void * envObj ) { \
+    extern "C" void CallConv SetEnvironsObject ( void * envObj, void * natObj ) { \
         environs::pEnvirons             = envObj;	\
-    }
+        environs::pNative				= natObj;	\
+    }                                               \
+	void * GetEnvironsNative () { return environs::pNative; }	\
+	void * GetEnvironsInstance () { return environs::pEnvirons; }
+
     //CVerbVerb ( "SetEnvironsObject: Set ByteBuffer methods" );		
 
 #ifdef __cplusplus

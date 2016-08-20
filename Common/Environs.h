@@ -1027,22 +1027,22 @@ namespace environs
 			 * Please note: This observer reports sensor data of all devices that are connected and send to us.
 			 * It's highly recommend to attach an SensorObserver to a DeviceInstance to process device filtered sensor data.
 			 *
-			 * @param   observer Your implementation of EnvironsDataObserver.
+			 * @param   observer Your implementation of EnvironsSensorObserver.
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool AddObserverForSensorData ( environs::EnvironsSensorDataObserver * observer );
+			ENVIRONS_LIB_API bool AddObserverForSensorData ( environs::EnvironsSensorObserver * observer );
 
 			/**
 			 * Remove an observer for receiving data buffers and files.
 			 * Please note: This observer reports sensor data of all devices that are connected and send to us.
 			 * It's highly recommend to attach an SensorObserver to a DeviceInstance to process device filtered sensor data.
 			 *
-			 * @param   observer Your implementation of EnvironsDataObserver.
+			 * @param   observer Your implementation of EnvironsSensorObserver.
 			 *
 			 * @return	success
 			 */
-			ENVIRONS_LIB_API bool RemoveObserverForSensorData ( environs::EnvironsSensorDataObserver * observer );                        
+			ENVIRONS_LIB_API bool RemoveObserverForSensorData ( environs::EnvironsSensorObserver * observer );
 #endif
 
 			/**
@@ -1182,8 +1182,83 @@ namespace environs
              *
              * @param enable
              */
-			ENVIRONS_LIB_API void SetUseOpenCL ( bool enable );
+            ENVIRONS_LIB_API void SetUseOpenCL ( bool enable );
 
+
+            /**
+             * Option for whether to observe wifi networks to help location based services.
+             *
+             * @param	enable  A boolean that determines the target state.
+             */
+            ENVIRONS_LIB_API void SetUseWifiObserver ( bool enable );
+
+
+            /**
+             * Query option for whether to observe wifi networks to help location based services.
+             *
+             * @return enabled.
+             */
+            ENVIRONS_LIB_API bool GetUseWifiObserver ();
+
+			/**
+			* Determines the interval for scanning of wifi networks.
+			*
+			* @param	interval  A millisecond value for scan intervals.
+			*/
+            ENVIRONS_LIB_API void SetUseWifiInterval ( int interval );
+
+            /**
+             * Get the interval for scanning of wifi networks.
+             *
+             * @return	interval  A millisecond value for scan intervals.
+             */
+            ENVIRONS_LIB_API int GetUseWifiInterval ();
+            
+#ifndef CLI_CPP
+            /**
+             * Get a collection that holds all available wifi APs. This list is NOT updated dynamically.
+             *
+             * @return WifiList with WifiItem objects
+             */
+            ENVIRONS_LIB_API WifiList * GetWifisRetained ();
+
+			/**
+			* Get a collection that holds all available Bluetooth devices. This list is NOT updated dynamically.
+			*
+			* @return BtList with BtItem objects
+			*/
+			ENVIRONS_LIB_API BtList * GetBtsRetained ();
+#endif
+            /**
+             * Option for whether to observe blueooth to help location based services.
+             *
+             * @param	enable  A boolean that determines the target state.
+             */
+            ENVIRONS_LIB_API void SetUseBtObserver ( bool enable );
+            
+            
+            /**
+             * Query option for whether to observe blueooth to help location based services.
+             *
+             * @return enabled.
+             */
+            ENVIRONS_LIB_API bool GetUseBtObserver ();
+
+			/**
+			* Determines the interval for scanning of bluetooth devices.
+			*
+			* @param	interval  A millisecond value for scan intervals.
+			*/
+            ENVIRONS_LIB_API void SetUseBtInterval ( int interval );
+
+            /**
+             * Get the interval for scanning of bluetooth devices.
+             *
+             * @return	interval  A millisecond value for scan intervals.
+             */
+            ENVIRONS_LIB_API int GetUseBtInterval ();
+            
+            
             
 			ENVIRONS_LIB_API CString_ptr GetFilePathNative ( int nativeID, int fileID );
             
@@ -1211,9 +1286,70 @@ namespace environs
 #ifndef CLI_CPP
 			ENVIRONS_LIB_API void * LoadPicture ( const char * filePath );
 #endif
+            /**
+             * Enable dispatching of sensor events from ourself.
+             * Events are send if Environs instance is started stopped if the Environs instance has stopped.
+             *
+             * @param sensorType            A value of type environs.SensorType.
+             * @param enable 				true = enable, false = disable.
+             *
+             * @return success true = enabled, false = failed.
+             */
+            bool SetSensorEvent ( environs::SensorType_t sensorType, bool enable );
 
-			/**
-			 * Release ownership on this interface and mark it disposable.
+
+            /**
+             * Determine whether the given sensorType is available.
+             *
+             * @param sensorType A value of type environs::SensorType_t.
+             *
+             * @return success true = available, false = not available.
+             */
+            bool IsSensorAvailable ( environs::SensorType_t sensorType );
+
+
+            /**
+             * Set use of Tcp transport channel of the given sensorType.
+             *
+             * @param sensorType    A value of type environs::SensorType_t.
+             * @param enable        true = TCP, false = UDP.
+             *
+             */
+            void SetUseSensorChannelTcp ( environs::SensorType_t sensorType, bool enable );
+
+
+            /**
+             * Get use of Tcp transport channel of the given sensorType.
+             *
+             * @param sensorType    A value of type environs::SensorType_t.
+             * @return success      1 = TCP, 0 = UDP, -1 = error.
+             *
+             */
+            int GetUseSensorChannelTcp ( environs::SensorType_t sensorType );
+
+
+            /**
+             * Set sample rate of the given sensorType in microseconds.
+             *
+             * @param sensorType        A value of type environs::SensorType_t.
+             * @param microseconds      The sensor sample rate in microseconds.
+             *
+             */
+            void SetUseSensorRate ( environs::SensorType_t sensorType, int microseconds );
+
+
+            /**
+             * Get sample rate of the given sensorType in microseconds.
+             *
+             * @param sensorType        A value of type environs::SensorType_t.
+             *
+             * @return microseconds     The sensor sample rate in microseconds. -1 means error.
+             */
+            int GetUseSensorRate ( environs::SensorType_t sensorType );
+
+
+            /**
+             * Release ownership on this interface and mark it disposable.
 			 * Release must be called once for each Interface that the Environs framework returns to client code.
 			 * Environs will dispose the underlying object if no more ownership is hold by anyone.
 			 *
@@ -1247,7 +1383,7 @@ namespace environs
 
 			spv ( lib::IIEnvironsDataObserver * )         environsObserversForData;
 
-			spv ( lib::IIEnvironsSensorDataObserver * )   environsObserversForSensorData;
+			spv ( lib::IIEnvironsSensorObserver * )       environsObserversForSensor;
 #endif
 			/**
 			* BridgeForNotify static method to be called by Environs in order to notify about events,<br\>
@@ -1522,9 +1658,9 @@ namespace environs
              *
              * @return success true = enabled, false = failed.
              */
-            bool SetSensorEventSender ( int nativeID, int objID, environs::SensorType_t sensorType, bool enable );
+            //bool SetSensorEventSender ( int nativeID, int objID, environs::SensorType_t sensorType, bool enable );
             
-            void SetSensorEventSenderFlags ( int nativeID, int objID, int flags, bool enable );
+            //void SetSensorEventSenderFlags ( int nativeID, int objID, int flags, bool enable );
 		};
 	}
 }

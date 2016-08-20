@@ -27,6 +27,8 @@
 #include "Environs.Observer.h"
 #include "Device.Display.Decl.h"
 #include "Location.Decl.h"
+#include "IWifi.List.h"
+#include "IBt.List.h"
 
 #include <string>
 
@@ -342,26 +344,6 @@ namespace environs
 		* @return	true = Release build, false = Debug build.
 		*/
 		virtual bool GetIsReleaseBuild () = 0;
-
-
-		/**
-		* Set the device type that the local instance of Environs shall use for identification within the environment.&nbsp;
-		* Valid type are enumerated in Environs.DEVICE_TYPE_*
-		* --> Deprecated <--
-		*
-		* @param	type	Environs.DEVICE_TYPE_*
-		*/
-		//virtual void SetDeviceType ( char value ) = 0;
-
-
-		/**
-		* Get the device type that the local instance of Environs use for identification within the environment.&nbsp;
-		* Valid type are enumerated in Types.DEVICE_TYPE_*
-		* --> Deprecated <--
-		*
-		* @return	type	Environs.DEVICE_TYPE_*
-		*/
-		//virtual char GetDeviceType () = 0;
 
 
 		/**
@@ -921,22 +903,22 @@ namespace environs
 		* Please note: This observer reports sensor data of all devices that are connected and send to us.
 		* It's highly recommend to attach an SensorObserver to a DeviceInstance to process device filtered sensor data.
 		*
-		* @param   observer Your implementation of EnvironsDataObserver.
+		* @param   observer Your implementation of EnvironsSensorObserver.
 		*
 		* @return	success
 		*/
-		virtual bool AddObserverForSensorData ( EnvironsSensorDataObserver * observer ) = 0;
+		virtual bool AddObserverForSensorData ( EnvironsSensorObserver * observer ) = 0;
 
 		/**
 		* Remove an observer for receiving data buffers and files.
 		* Please note: This observer reports sensor data of all devices that are connected and send to us.
 		* It's highly recommend to attach an SensorObserver to a DeviceInstance to process device filtered sensor data.
 		*
-		* @param   observer Your implementation of EnvironsDataObserver.
+		* @param   observer Your implementation of EnvironsSensorObserver.
 		*
 		* @return	success
 		*/
-		virtual bool RemoveObserverForSensorData ( EnvironsSensorDataObserver * observer ) = 0;
+		virtual bool RemoveObserverForSensorData ( EnvironsSensorObserver * observer ) = 0;
 
         
         virtual Location GetLocation () = 0;
@@ -1092,8 +1074,95 @@ namespace environs
         
 
 		virtual void * LoadPicture ( const char * filePath ) { return 0; };
-        
-	};
+
+
+        /**
+         * Enable dispatching of sensor events from ourself.
+         * Events are send if Environs instance is started stopped if the Environs instance has stopped.
+         *
+         * @param sensorType            A value of type environs.SensorType.
+         * @param enable 				true = enable, false = disable.
+         *
+         * @return success true = enabled, false = failed.
+         */
+        virtual bool SetSensorEvent ( environs::SensorType_t sensorType, bool enable ) = 0;
+
+
+        /**
+         * Determine whether the given sensorType is available.
+         *
+         * @param sensorType A value of type environs::SensorType_t.
+         *
+         * @return success true = available, false = not available.
+         */
+        virtual bool IsSensorAvailable ( environs::SensorType_t sensorType ) = 0;
+
+
+        /**
+         * Set use of Tcp transport channel of the given sensorType.
+         *
+         * @param sensorType    A value of type environs::SensorType_t.
+         * @param enable        true = TCP, false = UDP.
+         *
+         */
+        virtual void SetUseSensorChannelTcp ( environs::SensorType_t sensorType, bool enable ) = 0;
+
+
+        /**
+         * Get use of Tcp transport channel of the given sensorType.
+         *
+         * @param sensorType    A value of type environs::SensorType_t.
+         * @return success      1 = TCP, 0 = UDP, -1 = error.
+         *
+         */
+        virtual int GetUseSensorChannelTcp ( environs::SensorType_t sensorType ) = 0;
+
+
+        /**
+         * Set sample rate of the given sensorType in microseconds.
+         *
+         * @param sensorType        A value of type environs::SensorType_t.
+         * @param microseconds      The sensor sample rate in microseconds.
+         *
+         */
+        virtual void SetUseSensorRate ( environs::SensorType_t sensorType, int microseconds ) = 0;
+
+
+        /**
+         * Get sample rate of the given sensorType in microseconds.
+         *
+         * @param sensorType        A value of type environs::SensorType_t.
+         *
+         * @return microseconds     The sensor sample rate in microseconds. -1 means error.
+         */
+        virtual int GetUseSensorRate ( environs::SensorType_t sensorType ) = 0;
+
+
+        /**
+         * Get a collection that holds all available wifi APs. This list is NOT updated dynamically.
+         *
+         * @return WifiList with WifiItem objects
+         */
+        sp ( WifiList )       GetWifis ()
+        {
+            ENVIRONS_IR_SP1_RETURN ( WifiList, GetWifisRetained () );
+        }
+
+        virtual WifiList *    GetWifisRetained () = 0;
+
+
+		/**
+		* Get a collection that holds all available Bluetooth devices. This list is NOT updated dynamically.
+		*
+		* @return BtList with BtItem objects
+		*/
+		sp ( BtList )       GetBts ()
+		{
+			ENVIRONS_IR_SP1_RETURN ( BtList, GetBtsRetained () );
+		}
+
+		virtual BtList *    GetBtsRetained () = 0;
+    };
 }
 
 

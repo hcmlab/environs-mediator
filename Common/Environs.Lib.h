@@ -729,6 +729,7 @@ namespace environs
 
 			CLI_INC
 				LIBEXPORT void * CallConv		GetDevicesN ( int hInst, int listType );
+
 			CLI_INC
                 LIBEXPORT void * CallConv		GetDeviceN ( int hInst, int deviceID, CString_ptr areaName, CString_ptr appName, int fromType );
             CLI_INC
@@ -966,6 +967,87 @@ namespace environs
 				LIBEXPORT EBOOL CallConv		GetPortalAutoStartN ( int hInst );
 			CLI_INC
 				LIBEXPORT void CallConv			SetPortalAutoStartN ( int hInst, EBOOL enable );
+
+
+			/**
+			* Option for whether to observe wifi networks to help location based services.
+			*
+			* @param	enable  A boolean that determines the target state.
+			*/
+			CLI_INC
+				LIBEXPORT void CallConv         SetUseWifiObserverN ( EBOOL enable );
+
+			/**
+			* Query option for whether to observe wifi networks to help location based services.
+			*
+			* @return enabled.
+			*/
+			CLI_INC
+				LIBEXPORT EBOOL CallConv        GetUseWifiObserverN ();
+
+			/**
+			* Determines the interval for scanning of wifi networks.
+			*
+			* @param	interval  A millisecond value for scan intervals.
+			*/
+			CLI_INC
+				LIBEXPORT void CallConv			SetUseWifiIntervalN ( int interval );
+
+			/**
+			* Query interval for scanning of wifi networks.
+			*
+			* @return interval in milliseconds.
+			*/
+			CLI_INC
+				LIBEXPORT int CallConv			GetUseWifiIntervalN ();
+
+			/**
+			* Query array of WifiItems.
+			*
+			* @return array of WifiItems.
+			*/
+			CLI_INC
+				LIBEXPORT void * CallConv		GetWifisN ();
+
+			/**
+			* Query array of BtItems.
+			*
+			* @return array of BtItems.
+			*/
+			CLI_INC
+				LIBEXPORT void * CallConv		GetBtsN ();
+
+			/**
+			* Option for whether to observe blueooth to help location based services.
+			*
+			* @param	enable  A boolean that determines the target state.
+			*/
+			CLI_INC
+				LIBEXPORT void CallConv         SetUseBtObserverN ( EBOOL enable );
+
+			/**
+			* Query option for whether to observe blueooth to help location based services.
+			*
+			* @return enabled.
+			*/
+			CLI_INC
+				LIBEXPORT EBOOL CallConv        GetUseBtObserverN ();
+
+			/**
+			* Determines the interval for scanning of bluetooth devices.
+			*
+			* @param	interval  A millisecond value for scan intervals.
+			*/
+			CLI_INC
+				LIBEXPORT void CallConv			SetUseBtIntervalN ( int interval );
+
+			/**
+			* Query interval for scanning of bluetooth devices.
+			*
+			* @return interval in milliseconds.
+			*/
+			CLI_INC
+				LIBEXPORT int CallConv			GetUseBtIntervalN ();
 
 #ifdef __cplusplus
 		}

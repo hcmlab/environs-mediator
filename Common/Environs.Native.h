@@ -29,6 +29,7 @@
 //#define DEBUGCIPHERS
 //#define DEBUGVERBList
 //#define DEBUGVERBListener
+//#define DEBUGVERBVerbCrypt
 
 #include "Environs.Platforms.h"
 #include "Environs.Build.Opts.h"
@@ -68,6 +69,7 @@
 
 namespace environs {
     extern void   *   pEnvirons;
+	extern void   *   pNative;
 }
 
 #endif
@@ -79,6 +81,19 @@ namespace environs {
 #define		OBJ_RELEASE(obj)					if(obj) { obj->Release(); obj = 0; }
 
 #define		Zero(mem)							memset(&mem,0,sizeof(mem))
+#define		ZeroT(mem,type)						memset(mem,0,sizeof(type))
+
+#ifdef _WIN32
+#	define	Zeroh(mem)							mem = nill
+#else
+#	define	Zeroh(mem)							Zero(mem)
+#endif
+
+#ifdef CLI_CPP
+#	define	Zeros(mem)							mem = nill
+#else
+#	define	Zeros(mem)							Zero(mem)
+#endif
 
 //
 // Attention when using EmptyStructValue(), ZeroStruct() and ZeroStructArray():
@@ -99,35 +114,29 @@ namespace environs {
 
 #ifdef VS2010
 #	define	EmptyStructValue(type)				type()
+#	define	EmptyStructZero(type)				type()
 #else
 #	define	EmptyStructValue(type)				type{}
+#	define	EmptyStructZero(type)				{ }
 #endif
 
 #ifdef VS2010
-#	define	ZeroStruct(var, type)				var = type()
+// On VS2010 we know that floats can be memset and since the alternative is to call the default constructor
+// we can also call memset (which is likely to be optimized by the compiler)
+#	define	ZeroStruct(var,type)				Zero ( var )
+#	define	ZeroStructStd(var,type)				var = type()
 #else
-#	define	ZeroStruct(var, type)				var = type{}
+#	define	ZeroStruct(var,type)				var = { }
+#	define	ZeroStructStd(var,type)				type{}
 #endif
 
 #ifdef VS2010
-#	define	ZeroStructArray(var, type)			std::fill(std::begin(var), std::end(var), type())
+#	define	ZeroStructArray(var,type)			std::fill(std::begin(var), std::end(var), type())
 #else
-#	define	ZeroStructArray(var, type)			std::fill(std::begin(var), std::end(var), type{})
+#	define	ZeroStructArray(var,type)			std::fill(std::begin(var), std::end(var), type{})
 #endif
 
 #define		StackObject(type,obj)				type obj; memset(&obj,0,sizeof(obj))
-
-#ifdef _WIN32
-#	define	Zeroh(mem)							mem = nill
-#else
-#	define	Zeroh(mem)							Zero(mem)
-#endif
-
-#ifdef CLI_CPP
-#	define	Zeros(mem)							mem = nill
-#else
-#	define	Zeros(mem)							Zero(mem)
-#endif
 
 #define		GetPortalIndex(p)					(p & 0xFF)
 #define		RemovePortalIndex(p)				(p & 0xFFFFFF00)
@@ -166,30 +175,13 @@ namespace environs {
 #endif
 
 #ifdef NDEBUG
-#	define _EnvDebugBreak()
-#else
-#   if defined(_WIN32)
-
-//#       define _EnvDebugBreak()         ::_CrtDbgBreak ()
-#       define _EnvDebugBreak()         abort ()
-
-#   elif defined(__APPLE__)
-
-#       ifdef ENVIRONS_OSX
-#           define _EnvDebugBreak()     abort()
-//__asm__("int $3\n" : : )
-// abort()
-//Debugger ()
-#       else
-#           define _EnvDebugBreak()     
-//__asm__("int $3\n" : : )
-#       endif
-
-#   else
-#       include <signal.h>
-
-#       define _EnvDebugBreak()         raise(SIGTRAP)
+#   ifndef _EnvDebugBreak
+#       define _EnvDebugBreak(msg)
 #   endif
+#else
+    namespace environs {
+        extern void _EnvDebugBreak ( const char * msg );
+    }
 #endif
 
 
@@ -309,11 +301,11 @@ namespace environs
 #               define ENVIRONS_LOGARG_RCMD(tag,expression,...)     environs::COutArgLog ( expression, __VA_ARGS__ )
 #           else
 #               ifdef ANDROID
-#                   define ENVIRONS_LOG_RCMD(tag,expression)        { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutLog ( tag, expression, 0, true ); }
-#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutArgLog ( tag, expression, __VA_ARGS__ ); }
+#                   define ENVIRONS_LOG_RCMD(tag,expression)        { if (pNative) ((environs::EnvironsNative *) pNative)->cOutLog ( tag, expression, 0, true ); }
+#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) { if (pNative) ((environs::EnvironsNative *) pNative)->cOutArgLog ( tag, expression, __VA_ARGS__ ); }
 #               else
-#                   define ENVIRONS_LOG_RCMD(tag,expression)        { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutLog ( expression, 0, true ); }
-#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) { if (pEnvirons) ((environs::Instance *) pEnvirons)->cOutArgLog ( expression, __VA_ARGS__ ); }
+#                   define ENVIRONS_LOG_RCMD(tag,expression)        { if (pNative) ((environs::EnvironsNative *) pNative)->cOutLog ( expression, 0, true ); }
+#                   define ENVIRONS_LOGARG_RCMD(tag,expression,...) { if (pNative) ((environs::EnvironsNative *) pNative)->cOutArgLog ( expression, __VA_ARGS__ ); }
 #               endif
 #           endif
 #       endif

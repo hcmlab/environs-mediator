@@ -1,5 +1,5 @@
 /**
- *	Platform interop definitions
+ *	Platform Interop Definitions
  * ------------------------------------------------------------------
  * Copyright (c) Chi-Tai Dang
  *
@@ -118,17 +118,17 @@ namespace environs
 
 	extern bool InitInteropThread ();
 	extern void DisposeInteropThread ();
-	
+
 #ifdef _WIN32  // _WIN32
 	/*
 	* Windows specific definintions
 	*/
 #	ifdef USE_ENVIRONS_POSIX_THREADS
-    
+
 #		define get_platform_thread_id()			GetCurrentThreadId()
-    
+
 #		define pthread_reset(thread)			memset(&thread,0,sizeof(pthread_t))
-#		define pthread_close(threadID)			
+#		define pthread_close(threadID)
 #		define pthread_wait_fail(val)			(val != 0)
 
 #	else
@@ -149,8 +149,8 @@ namespace environs
 #			define pthread_t						Thread ^
 #			define pthread_t_id						Thread ^
 #			define pthread_param_t					System::Object ^
-#			define pthread_close(threadID)			
-#			define pthread_detach_handle(threadID)	
+#			define pthread_close(threadID)
+#			define pthread_detach_handle(threadID)
 #		else
 #			define pthread_mvalid(m)				(true)
 #			define pthread_t						HANDLE
@@ -184,7 +184,7 @@ namespace environs
 				((*threadID = (HANDLE)_beginthread ( (void (__cdecl *) (void *))startRoutine, 64000, arg )) == 0)
 
 #			define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
-    
+
 #			define pthread_create_tid(threadID,s0,startRoutine,arg,tid) \
                 ((*threadID = (HANDLE)_beginthread ( (void (__cdecl *) (void *))startRoutine, 64000, arg, 0, &tid )) == 0)
 #		elif CLI_CPP
@@ -197,24 +197,24 @@ namespace environs
 
 #			define pthread_create(threadID,s0,startRoutine,arg) \
 				pthread_create_cli ( threadID, s0, gcnew ParameterizedThreadStart ( startRoutine ), arg )
-    
+
 #			define pthread_create_tid(threadID,s0,startRoutine,arg,tid) \
                 pthread_create_cli ( threadID, s0, startRoutine, arg )
 #		else
 #			define pthread_start_routine_t			LPTHREAD_START_ROUTINE
 #			define pthread_make_routine(r)			((LPTHREAD_START_ROUTINE) r)
-			
+
 #			define pthread_create(threadID,s0,startRoutine,arg) \
 				((*(threadID) = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, 0 )) == 0)
 
 #			define pthread_create_cli(threadID,s0,startRoutine,arg) pthread_create(threadID,s0,startRoutine,arg)
-    
+
 #			define pthread_create_tid(threadID,s0,startRoutine,arg,tid) \
                 ((*(threadID) = CreateThread ( 0, 0, (LPTHREAD_START_ROUTINE) startRoutine, (LPVOID) arg, 0, &tid )) == 0)
 #		endif
 
 #		define pthread_cond_mutex_init(e,d)			false
-		//#define pthread_cond_mutex_valid(m)		false	
+		//#define pthread_cond_mutex_valid(m)		false
 
 #		define pthread_cond_mutex_destroy(m)		false
 
@@ -226,10 +226,10 @@ namespace environs
 		*/
 #		ifdef CLI_CPP
 #			define	pthread_cond_t					System::Threading::AutoResetEvent ^
-#			define	pthread_cond_manual_t			System::Threading::ManualResetEvent ^	
+#			define	pthread_cond_manual_t			System::Threading::ManualResetEvent ^
 #		else
-#			define	pthread_cond_t					HANDLE	
-#			define	pthread_cond_manual_t			HANDLE	
+#			define	pthread_cond_t					HANDLE
+#			define	pthread_cond_manual_t			HANDLE
 #		endif
 #		define	pthread_cond_mutex_t				void *
 
@@ -267,7 +267,7 @@ namespace environs
 #		define pthread_cond_signal_checked(e)		if (*e) SetEvent ( *e )
 #		define pthread_cond_prepare_checked(e)		if (*e) ResetEvent ( *e )
 #		define pthread_cond_destroy(e)				(!CloseHandle ( *e ) || ((*e = 0) != 0))
-#		define pthread_cond_valid(e)				(e)    
+#		define pthread_cond_valid(e)				(e)
 
 #		ifdef CLI_CPP
 #			define pthread_cond_signal(e)			!e->Set()
@@ -319,22 +319,19 @@ namespace environs
 #				define pthread_cond_wait(e,m)		LeaveCriticalSection(m); WaitForSingleObject ( *e, INFINITE ); EnterCriticalSection (m);
 #			endif
 
-#if _MSC_VER >= 1800
-			_When_(return == 0, _Acquires_lock_(lock))
-#endif
+			_When_ ( return == 0, _Acquires_nonreentrant_lock_ ( *lock ) )
+				_Requires_lock_not_held_ ( *lock )
 			extern INLINEFUNC int pthread_mutex_lock (		pthread_mutex_t OBJ_ptr lock );
 
 #	define	pthread_mutex_lock_n(m)			EnterCriticalSection (m);
 #	define	pthread_mutex_unlock_n(m)		LeaveCriticalSection (m);
-			
-#if _MSC_VER >= 1800
-			_When_(return == 0, _Acquires_lock_(*lock))
-#endif
+
+			_When_ ( return == 0, _Acquires_nonreentrant_lock_ ( *lock ) )
+				_Requires_lock_not_held_ ( *lock )
 			extern INLINEFUNC int pthread_mutex_trylock (	pthread_mutex_t OBJ_ptr lock );
-			
-#if _MSC_VER >= 1800
-			_When_(return == 0, _Releases_lock_(*lock))
-#endif
+
+			_When_ ( return == 0, _Releases_nonreentrant_lock_ ( *lock ) )
+				_Requires_lock_held_ ( *lock )
 			extern INLINEFUNC int pthread_mutex_unlock (	pthread_mutex_t OBJ_ptr lock );
 
 #		endif
@@ -371,7 +368,7 @@ namespace environs
 #	define pthread_csec_lock(m)				EnterCriticalSection (m)
 #	define pthread_csec_trylock(m)			TryEnterCriticalSection (m)
 #	define pthread_csec_unlock(m)			LeaveCriticalSection(m)
-		
+
 #	endif // USE_ENVIRONS_POSIX_THREADS
 
 #else 	 // _WIN32 - Section for __APPLE__, ANDROID, _GNUC_
@@ -383,18 +380,18 @@ namespace environs
 
 #	define	pthread_mutex_lock_n(m)			pthread_mutex_lock (m);
 #	define	pthread_mutex_unlock_n(m)		pthread_mutex_unlock (m);
-    
+
 #   define pthread_create_cli(threadID,s0,startRoutine,arg)         pthread_create(threadID,s0,startRoutine,arg)
-    
+
 #   define pthread_create_tid(threadID,s0,startRoutine,arg,tid)     pthread_create(threadID,s0,startRoutine,arg)
-        
+
 	/*
 	* Android/iOS/MacOS/Linux specific definintions
      */
     typedef void *(*pthread_start_routine_t)(void *);
-    
+
 #	define pthread_make_routine(r)              r
-    
+
 #	define pthread_param_t						void *
 #	define pthread_cond_manual_t				pthread_cond_t
 
@@ -407,7 +404,7 @@ namespace environs
 #           define pthread_setname_current_envthread(name)	pthread_setname_np ( pthread_self (), name )
 #       endif
 #   endif
-    
+
 #	ifdef _OPEN_THREADS
 #		define pthread_detach_handle(threadID)	pthread_detach ( &threadID )
 #	else
@@ -430,12 +427,12 @@ namespace environs
 #define pthread_cond_mutex_lock(m)		pthread_mutex_lock(m)
 #define pthread_cond_mutex_unlock(m)	pthread_mutex_unlock(m)
 #define pthread_cond_prepare(e)			false
-#define pthread_cond_preparev(e)		
+#define pthread_cond_preparev(e)
 #define pthread_cond_manual_init(e,d)	pthread_cond_init(e,d)
 #define pthread_cond_manual_wait(e,m)	pthread_cond_wait(e,m)
 #define pthread_cond_wait_time(e,m,t)	pthread_cond_wait (e,m)
 #define pthread_cond_mutex_init(m,d)	pthread_mutex_init(m,d)
-#define pthread_cond_mutex_valid(m)		pthread_mutex_valid(m)	
+#define pthread_cond_mutex_valid(m)		pthread_mutex_valid(m)
 #define pthread_cond_mutex_destroy(m)	pthread_mutex_destroy(m)
 #define pthread_cond_signal_checked(e)	if (pthread_cond_valid(*e)) pthread_cond_signal(e)
 #define pthread_cond_prepare_checked(e)
@@ -497,9 +494,9 @@ namespace environs
 	extern bool env_sem_create ( sem_tp * sem, int iniVal, const char * name, unsigned int name1, int name2, int name3 );
 
     extern void JoinThread ( pthread_mutex_t * lock, LONGSYNC * threadState, pthread_t &thread, pthread_t_id handleID, const char * threadName );
-    
+
     extern void DisposeThread ( LONGSYNC * threadState, pthread_t &thread, pthread_t_id threadID, const char * threadName, pthread_cond_t &threadEvent );
-    
+
     extern void DetachThread ( pthread_mutex_t * lock, LONGSYNC * threadState, pthread_t &thread, const char * threadName );
 #	endif
 
@@ -593,10 +590,18 @@ namespace environs
 
 #	define LockAcquire(m,f)			environs::LockAcquireBool(m,#m,CLASS_NAME,f)
 #	define LockAcquireA(m,f)		environs::LockAcquireBool(&m,#m,CLASS_NAME,f)
+
+	_When_ ( return == true, _Acquires_nonreentrant_lock_ ( *mtx ) )
+		_Requires_lock_not_held_ ( *mtx )
+
 	extern bool LockAcquireBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
 #	define LockRelease(m,f)			environs::LockReleaseBool(m,#m,CLASS_NAME,f)
 #	define LockReleaseA(m,f)		environs::LockReleaseBool(&m,#m,CLASS_NAME,f)
+
+	_When_ ( return == true, _Releases_nonreentrant_lock_ ( *mtx ) )
+		_Requires_lock_held_ ( *mtx )
+
 	extern bool LockReleaseBool ( pthread_mutex_t OBJ_ptr mtx, const char * mutexName, const char * className, const char * funcName );
 
 
@@ -624,7 +629,7 @@ namespace environs
 #ifndef _WIN32
 #    define	GetCurrentThreadId()	pthread_self ( )
 #endif
-    
+
 #ifdef __cplusplus
 
 	PUBLIC_CLASS EnvThread
@@ -645,7 +650,7 @@ namespace environs
 
         EnvThread ();
         ~EnvThread ();
-        
+
         bool Init ();
 
 		/*
@@ -664,32 +669,32 @@ namespace environs
 	};
 
     typedef EnvThread OBJ_ptr  EnvThreadPtr;
-    
-    
+
+
     PUBLIC_CLASS EnvLock Cli_Only ( : public EnvThread )
     {
         bool					allocated;
-        
+
     protected:
         pthread_mutex_t			lockObj;
-        
+
     public:
 #ifdef USE_THREADSYNC_OWNER_NAME
         const char          *   owner;
 #endif
         EnvLock ();
         ~EnvLock ();
-        
+
         bool Init ();
         void DisposeInstance ();
-        
+
         /**
          * Lock actually acquires the lock on all platforms
          *
          * @param success
          */
         bool Lock ( CString_ptr func );
-        
+
         /**
          * Unlock actually releases the lock on all platforms
          *
@@ -702,28 +707,28 @@ namespace environs
         bool unlock ();
 #endif
     };
-    
+
     typedef EnvLock OBJ_ptr  EnvLockPtr;
-    
-    
+
+
     PUBLIC_CLASS EnvSignal : public EnvLock
     {
         bool					allocated;
         pthread_cond_manual_t	signal;
-        
+
 #ifndef _WIN32
         bool                    signalState;
 #endif
-        
+
     public:
         bool                    autoreset;
-      
+
         EnvSignal ();
         ~EnvSignal ();
-        
+
         bool Init ();
         void DisposeInstance ();
-        
+
         /**
          * LockCond acquires the lock on all platforms but Windows
          * On Windows platforms, the underlying event will be a ManualReleaseEvent.
@@ -731,7 +736,7 @@ namespace environs
          * @param success
          */
         bool LockCond ( CString_ptr func );
-        
+
         /**
          * UnlockCond releases the lock on all platforms but Windows
          * On Windows platforms, the underlying event will be a ManualReleaseEvent.
@@ -739,7 +744,7 @@ namespace environs
          * @param success
          */
         bool UnlockCond ( CString_ptr func );
-        
+
         bool ResetSync ( CString_ptr func, bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
 
 		bool IsSetDoReset ();
@@ -750,11 +755,14 @@ namespace environs
 		* @return 1 - success, 0 - error, -1 - timeout
 		*/
         int WaitLocked ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ) );
-        int WaitOne ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
-        
-        bool Notify ( CString_ptr func, bool useLock C_Only ( = true ) );
+
+		//virtualNoCLI 
+		int WaitOne ( CString_ptr func, int ms C_Only ( = ENV_INFINITE_MS ), bool useLock C_Only ( = true ), bool keepLocked C_Only ( = false ) );
+
+		//virtualNoCLI 
+		bool Notify ( CString_ptr func, bool useLock C_Only ( = true ) );
     };
-    
+
     typedef EnvSignal OBJ_ptr  EnvSignalPtr;
 
 
@@ -773,9 +781,9 @@ namespace environs
 		*			-1	failed, thread was started and is probably running (soon). However, wait for thread start failed.
 		*/
 		int Run ( pthread_start_routine_t, pthread_param_t arg, CString_ptr func, bool waitForStart C_Only ( = false ) );
-        
+
 	};
-    
+
     typedef ThreadSync OBJ_ptr  ThreadSyncPtr;
 }
 #endif

@@ -51,6 +51,14 @@ int g_Debug = 0;
 #ifndef _WIN32
 #   include <signal.h>
 #   include <unistd.h>
+
+#   ifndef ANDROID
+#       include <ifaddrs.h>
+#   endif
+
+#   ifdef __APPLE__
+#       include <net/if_dl.h>
+#   endif
 #else
 #	ifndef WINDOWS_PHONE
 #		include <iphlpapi.h>
@@ -83,17 +91,21 @@ namespace environs
     int                     Mediator::localNetsSize = 0;
 	pthread_mutex_t         Mediator::localNetsLock;
 
+	unsigned long long		 Mediator::wifiMAC		= 0;
+	unsigned long long		 Mediator::btMAC		= 0;
+
+
     CLIENTEXP ( OBJIDTypeV  deviceInstanceObjIDs    = 1; )
     
     DeviceInstanceNode::DeviceInstanceNode ( ) : next ( 0 ), prev ( 0 )
     {
-        TraceDeviceInstanceNodesAdd ( this );
-
         Zero ( info );
 
-        TraceDeviceInstanceNodeAdd ();
+        CLIENTEXP ( info.objID = __sync_add_and_fetch ( &deviceInstanceObjIDs, 1 ); )
 
-		CLIENTEXP ( info.objID = __sync_add_and_fetch ( &deviceInstanceObjIDs, 1 ); )
+        TraceDeviceInstanceNodesAdd ( this );
+
+        TraceDeviceInstanceNodeAdd ();
 
 		CLIENTEXP ( hEnvirons = 0; )
 
@@ -183,7 +195,7 @@ namespace environs
             LockDisposeA ( lock1 );
     }
 
-    
+
     bool SetNonBlockSocket ( int &sock, bool set, const char * name )
 	{
 #ifdef _WIN32
@@ -1483,10 +1495,7 @@ namespace environs
     }
 #   endif
 #endif
-    
-    
- 
-    
+
 
 #define USE_WIN_GETADAPTERSINFO
 
@@ -1538,6 +1547,25 @@ namespace environs
 			while ( adapter )
 			{
 				i++;
+				if ( adapter->AddressLength == 6 )
+				{
+					if ( adapter->Type == IF_TYPE_IEEE80211 ) { // 71
+						wifiMAC = 0;
+
+						for ( int m = 0; m < 6; ++m ) {
+							wifiMAC <<= 8;
+							wifiMAC |= adapter->Address [ m ];
+						}
+					}
+					else if ( adapter->Type == 6 ) {
+						btMAC = 0;
+
+						for ( int m = 0; m < 6; ++m ) {
+							btMAC <<= 8;
+							btMAC |= adapter->Address [ m ];
+						}
+					}
+				}
 
 				inet_pton ( AF_INET, adapter->IpAddressList.IpAddress.String, &( addr.sin_addr ) );
 				ip = ( unsigned int ) addr.sin_addr.s_addr;
@@ -1755,11 +1783,10 @@ namespace environs
 
 #else // LINUX or MAC or IOS
 
-		struct ifaddrs  * ifList  = 0;
-		struct ifaddrs  * ifa           = 0;
-        void            * tmp    = 0;
-        char   gw [ 1024 ];
-        *gw = 0;
+		struct ifaddrs  *   ifList  = 0;
+		struct ifaddrs  *   ifa     = 0;
+        void            *   tmp     = 0;
+        char                gw [ 1024 ]; *gw = 0;
         
 #	ifndef LINUX
         GetDefaultGateway ( gw, sizeof(gw) );
@@ -1771,12 +1798,41 @@ namespace environs
 		}
 
 		for ( ifa = ifList; ifa != NULL; ifa = ifa->ifa_next )
-		{
-			if ( ifa->ifa_addr->sa_family == PF_INET ) {
+        {
+            if ( ! ( ifa->ifa_flags & IFF_UP ) ) {
+                CVerbArg ( "LoadNetworks: Interface not up [ %s ].", ifa->ifa_name );
+                continue;
+            }
+
+            if ( ifa->ifa_flags & IFF_LOOPBACK ) {
+                CVerb ( "LoadNetworks: Omiting loopback interface." );
+                continue;
+            }
+
+#if ( defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX) )
+            // Skip any connection but ethernet en...
+            if ( !strstr ( ifa->ifa_name, "en") ) {
+                CVerbArg ( "LoadNetworks: Not an ethernet interface. Ommiting [ %s ]", ifa->ifa_name ? ifa->ifa_name : "---" );
+                continue;
+            }
+
+            if ( ifa->ifa_addr->sa_family == AF_LINK ) {
+                unsigned char * ptr = (unsigned char *) LLADDR ( (struct sockaddr_dl *) ifa->ifa_addr );
+
+                for ( int m = 0; m < 6; ++m ) {
+                    wifiMAC <<= 8;
+                    wifiMAC |= *ptr; ptr++;
+                }
+
+                CLogArg ( "LoadNetworks: [ %s ] => \tMAC: [ %llX ]", ifa->ifa_name, wifiMAC );
+            }
+            else
+#endif
+            if ( ifa->ifa_addr->sa_family == PF_INET ) {
 				// IPv4
 				ip = ( ( struct sockaddr_in * ) ifa->ifa_addr )->sin_addr.s_addr;
 
-				CLogArg ( "LoadNetworks: [%s] => \tIP: [ %s ]", ifa->ifa_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
+				CLogArg ( "LoadNetworks: [ %s ] => \tIP: [ %s ]", ifa->ifa_name, inet_ntoa ( *( ( struct in_addr * ) &ip ) ) );
 
 				if ( !ip ) {
 					CVerb ( "LoadNetworks: Omiting invalid interface." );
@@ -1784,18 +1840,11 @@ namespace environs
 				}
 
 				// Skip loopback
-				if ( ip == 0x0100007F ) {
+				/*if ( ip == 0x0100007F ) {
 					CVerb ( "LoadNetworks: Omiting loopback interface." );
 					continue;
-				}
+				}*/
 
-#if ( defined(ENVIRONS_IOS) || defined(ENVIRONS_OSX) )
-				// Skip any connection but ethernet en...
-				if ( !strstr ( ifa->ifa_name, "en") ) {
-					CVerbArg ( "LoadNetworks: Not an ethernet interface. Ommiting [%s]", ifa->ifa_name ? ifa->ifa_name : "---" );
-					continue;
-				}
-#endif
                 unsigned int isGW = 0;
                 
                 if ( *gw && !strncmp ( gw, ifa->ifa_name, sizeof(gw) ) ) {
@@ -2008,7 +2057,7 @@ namespace environs
             sendLen = ( int ) broadcastMessageLen;
         }
         
-        CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        CVerbVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
         
         struct 	sockaddr_in		broadcastAddr;
         Zero ( broadcastAddr );
@@ -2057,6 +2106,7 @@ namespace environs
         return success;
     }
     
+
     bool Mediator::SendBroadcastWithSocket ( bool enforce, bool sendStatus, bool sendToAny, int sock )
     {
         CVerbVerb ( "SendBroadcastWithSocket" );
@@ -2087,7 +2137,7 @@ namespace environs
             sendLen = ( int ) broadcastMessageLen;
         }
         
-        CVerbArg ( "SendBroadcastWithSocket: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        CVerbVerbArg ( "SendBroadcastWithSocket: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
         
         struct 	sockaddr_in		broadcastAddr;
         Zero ( broadcastAddr );
@@ -2169,7 +2219,7 @@ namespace environs
             sendLen = ( int ) broadcastMessageLen;
         }
         
-        CVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        CVerbVerbArg ( "SendBroadcast: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
 
         if ( enforceEnqueue )
             success = PushSendBC ( true, msg, sendLen, INADDR_BROADCAST, GET_MEDIATOR_BASE_PORT );
@@ -2233,7 +2283,7 @@ namespace environs
             sendLen = ( int ) broadcastMessageLen;
         }
         
-        CVerbArg ( "SendBroadcastWithSocket: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
+        CVerbVerbArg ( "SendBroadcastWithSocket: Broadcasting %smessage [ %s ] ( %d )...", sendStatus ? "device status " : "", msg + 4, sendLen );
         
         struct 	sockaddr_in		broadcastAddr;
         
@@ -2307,7 +2357,7 @@ namespace environs
 	{
 		bool ret = false;
 
-		CVerb ( "IsLocalIP" );
+		CVerbVerbArg ( "IsLocalIP" );
 
 		if ( !LockAcquireA ( localNetsLock, "IsLocalIP" ) )
 			return false;
@@ -2414,6 +2464,7 @@ namespace environs
 #ifndef MEDIATORDAEMON
                 // Is it connected?
                 sp ( DeviceController) deviceSP = device->deviceSP.lock ();
+
                 if ( deviceSP && deviceSP->deviceStatus == DeviceStatus::Connected )
                 {
                     device = device->next;
@@ -2436,9 +2487,19 @@ namespace environs
 
                 // Remove device and relink the list
                 CLogArg ( "VanishedDeviceWatcher: Removing [ 0x%X ] Area [ %s ] App [ %s ]", device->info.deviceID, device->info.areaName, device->info.appName );
-				RemoveDevice ( vanished, false );
 
-				device = *listRoot;
+                // Note: RemoveDevice will unlock devicesLock in order to prevent acquiring subsequent locks from creating deadlocks
+                // This behavior is only required for MediatorClient (for now)
+                RemoveDevice ( vanished, false, true );
+
+#ifdef USE_WRITE_LOCKS1
+                //if ( !appDevices->LockWrite ( "VanishedDeviceWatcher" ) )
+                //    return;
+#else
+                if ( !LockAcquire ( mutex, "VanishedDeviceWatcher" ) )
+                    return;
+#endif
+                device = *listRoot;
 				continue;
 			}
             
@@ -2896,7 +2957,9 @@ namespace environs
 
 		while ( device )
 		{
-			CVerbVerbArg ( "UpdateDevices: Comparing [0x%X / 0x%X] Area [%s / %s] App [%s / %s]", device->info.deviceID, value, device->info.areaName, areaName, device->info.appName, appName );
+			CVerbVerbArg ( "UpdateDevices: Comparing [ 0x%X / 0x%X ] Area [ %s / %s ] App [ %s / %s ]", device->info.deviceID, value, 
+				device->info.areaName, areaName ? areaName : "Invalid", 
+				device->info.appName, appName ? appName : "Invalid" );
 
 			if ( device->info.deviceID == value
 #ifndef MEDIATORDAEMON
@@ -2942,7 +3005,9 @@ namespace environs
 				CErr ( "UpdateDevices: Failed to allocate memory for new device!" );
 				device = 0;
 				break;
-			}
+            }
+
+            CVerbVerbArg ( "UpdateDevices: Assigning [ 0x%X ] Area [ %s ] App [ %s ]", dev->info.deviceID, dev->info.areaName, dev->info.appName );
             dev->baseSP = deviceSP;
 
 			dev->info.deviceID = value;
@@ -3071,17 +3136,17 @@ namespace environs
 			//}
 
 			if ( changed ) {
-				CVerbArg ( "UpdateDevices: Device      = [0x%X / %s / %s]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
+				CVerbArg ( "UpdateDevices: Device          = [ 0x%X / %s / %s ]", device->info.deviceID, device->info.deviceName, device->info.broadcastFound ? "on same network" : "by mediator" );
 				if ( device->info.ip != device->info.ipe ) {
-					CVerbArg ( "UpdateDevices: Device IPe != IP  [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ip ) ) );
-					CVerbArg ( "UpdateDevices: Device IP  != IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+					CVerbArg ( "UpdateDevices: Device IPe != IP  [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ip ) ) );
+					CVerbArg ( "UpdateDevices: Device IP  != IPe [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
 				}
 				else {
-					CListLogArg ( "UpdateDevices: Device IPe [%s]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
+					CListLogArg ( "UpdateDevices: Device IPe   = [ %s ]", inet_ntoa ( *( ( struct in_addr * ) &device->info.ipe ) ) );
 				}
 
-				CListLogArg ( "UpdateDevices: Area/App = [%s / %s]", device->info.areaName, device->info.appName );
-				CListLogArg ( "UpdateDevices: Device  IPe = [%s (from socket), tcp [%d], udp [%d]]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), device->info.tcpPort, device->info.udpPort );
+				CListLogArg ( "UpdateDevices: Area/App     = [ %s / %s ]", device->info.areaName, device->info.appName );
+				CListLogArg ( "UpdateDevices: Device  IPe  = [ %s (from socket), tcp [%d], udp [%d] ]", inet_ntoa ( *( ( struct in_addr * ) &ip ) ), device->info.tcpPort, device->info.udpPort );
 			}
 		}
 
@@ -3401,7 +3466,7 @@ namespace environs
 					// No more instances
 					ReleaseMediator ( src );
 
-                    ZeroStruct ( *t, MediatorInstance );
+					ZeroStructStd ( *t, MediatorInstance );
 
 					/*MediatorInstance *tmp = new MediatorInstance ( );
 					if ( tmp ) {

@@ -210,14 +210,14 @@
 
 
 /**
- * EnvironsSensorDataObserver: Attachable to **Environs** objects in order to receive all sensor data that the Environs instance received.
+ * EnvironsSensorObserver: Attachable to **Environs** objects in order to receive all sensor data that the Environs instance received.
  */
-@protocol EnvironsSensorDataObserver <NSObject>
+@protocol EnvironsSensorObserver <NSObject>
 /**
  * OnSensorData is called whenever new binary data (files, buffers) has been received.
  * Pass deviceID/fileID to Environs.GetFile() in order to retrieve a byte array with the content received.
  *
- * @param nativeID      The native identifier that targets the device.
+ * @param nativeID      The native identifier that targets the device. If nativeID is zero, then sensor source is ourself
  * @param sensorFrame   The frame containing the sensor data
  */
 #ifdef __cplusplus

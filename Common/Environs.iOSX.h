@@ -28,13 +28,16 @@
 #   if __has_feature(modules)
         @import Foundation;
         @import CoreLocation;
-
+        @import CoreBluetooth;
+#       if ( defined(ENVIRONS_OSX) )
+            @import IOBluetooth;
+            @import IOBluetoothUI;
+#       endif
 #       if ( defined(ENVIRONS_IOS) )
             @import CoreMotion;
             @import VideoToolbox;
             @import AVFoundation;
             @import SystemConfiguration;
-
 #           ifdef ENABLE_IOS_HEALTHKIT_SUPPORT
                 @import HealthKit;
 #           endif
@@ -500,16 +503,16 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 /**
  * Add an observer for receiving data buffers and files.
  *
- * @param observer Your implementation of EnvironsDataObserver.
+ * @param observer Your implementation of EnvironsSensorObserver.
  */
-- (void) AddObserverForSensorData:(id<EnvironsSensorDataObserver>) observer;
+- (void) AddObserverForSensorData:(id<EnvironsSensorObserver>) observer;
 
 /**
  * Remove an observer for receiving data buffers and files.
  *
- * @param observer Your implementation of EnvironsDataObserver.
+ * @param observer Your implementation of EnvironsSensorObserver.
  */
-- (void) RemoveObserverForSensorData:(id<EnvironsSensorDataObserver>) observer;
+- (void) RemoveObserverForSensorData:(id<EnvironsSensorObserver>) observer;
 
 
 /**
@@ -572,6 +575,8 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
 
 - (NSString *) GetSSID;
 - (NSString *) GetSSIDDesc;
+- (unsigned long long) GetBSSID;
+- (int) GetRSSI;
 
 
 /**
@@ -1104,8 +1109,33 @@ bool CreateAppID ( char * buffer, unsigned int bufSize );
  */
 - (DeviceList *) CreateDeviceList : (environs::DeviceClass_t) MEDIATOR_DEVICE_CLASS_;
 
-#endif
 
+/**
+ * Enable dispatching of sensor events from ourself.
+ * Events are send if Environs instance is started stopped if the Environs instance has stopped.
+ *
+ * Note: If you request GPS locations, then you must add the following keys to your plist
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Reason as text</string>
+ *
+ * @param sensorType            A value of type environs.SensorType.
+ * @param enable 				true = enable, false = disable.
+ *
+ * @return success true = enabled, false = failed.
+ */
+- (bool) SetSensorEvent: (environs::SensorType_t) sensorType enable:(bool) enable;
+
+
+/**
+ * Determine whether the given sensorType is available.
+ *
+ * @param sensorType A value of type environs::SensorType_t.
+ *
+ * @return success true = available, false = not available.
+ */
+- (bool) IsSensorAvailable: (environs::SensorType_t) sensorType;
+
+#endif
 
 @end
 

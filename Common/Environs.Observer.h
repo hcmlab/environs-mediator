@@ -300,12 +300,12 @@ namespace environs
 	/**
 	* EnvironsSensorDataObserver: Attachable to **IEnvirons** objects in order to receive all sensor data that the Environs instance received.
 	*/
-	class EnvironsSensorDataObserver : lib::IIEnvironsSensorDataObserver
+	class EnvironsSensorObserver : lib::IIEnvironsSensorObserver
 	{
 	public:
 		/** Constructor */
-		EnvironsSensorDataObserver () { };
-		virtual ~EnvironsSensorDataObserver () { };
+		EnvironsSensorObserver () { };
+		virtual ~EnvironsSensorObserver () { };
 
 		/**
 		* OnSensorData is called whenever new binary data (files, buffers) has been received.

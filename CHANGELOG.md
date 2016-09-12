@@ -1,3 +1,12 @@
+### v 0.9.9.3
+
+---------------------------
+
+* Updated: Debug exception handling
+* Added: Limit Mediator max sendqueue items to 6000
+* Added: string class to Tracer for debugging
+
+
 ### v 0.9.9.2
 
 ---------------------------
